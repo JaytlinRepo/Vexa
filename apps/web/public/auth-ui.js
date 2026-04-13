@@ -28,7 +28,7 @@
   style.textContent = `
     #vx-auth{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
     #vx-auth.active{display:flex}
-    #vx-auth .vx-card{width:100%;max-width:440px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:32px;color:var(--t1)}
+    #vx-auth .vx-card{position:relative;width:100%;max-width:440px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:32px 32px 28px;color:var(--t1)}
     #vx-auth h3{font-family:'Syne',sans-serif;font-size:26px;font-weight:600;margin:0 0 4px}
     #vx-auth .vx-sub{color:var(--t2);font-size:13px;margin-bottom:22px}
     #vx-auth label{display:block;font-size:11px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin:14px 0 6px}
@@ -39,7 +39,10 @@
     #vx-auth .vx-btn{padding:11px 22px;background:var(--t1);color:var(--bg);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
     #vx-auth .vx-btn[disabled]{opacity:.5;cursor:not-allowed}
     #vx-auth .vx-switch{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit}
-    #vx-auth .vx-close{position:absolute;top:18px;right:22px;background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer}
+    #vx-auth .vx-close{position:absolute;top:14px;right:16px;background:transparent;border:1px solid var(--b2);color:var(--t2);width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s}
+    #vx-auth .vx-close:hover{color:var(--t1);border-color:var(--t2)}
+    #vx-auth .vx-back{display:block;margin:14px auto 0;background:none;border:none;color:var(--t3);font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;padding:6px 10px}
+    #vx-auth .vx-back:hover{color:var(--t1)}
 
     .ob-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     .ob-tag{padding:9px 14px;background:transparent;border:1px solid var(--b2);border-radius:18px;color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s}
@@ -65,7 +68,7 @@
   // ───────────────────────────────────────────────────────────────────────────
   const authHtml = `
     <div class="vx-card" role="dialog" aria-modal="true">
-      <button class="vx-close" onclick="window.closeAuth()">×</button>
+      <button class="vx-close" onclick="window.closeAuth()" aria-label="Close">×</button>
       <h3 id="vx-auth-title">Create your account</h3>
       <p class="vx-sub" id="vx-auth-sub">Start your 7-day free trial. No credit card.</p>
       <div id="vx-auth-signup">
@@ -83,11 +86,21 @@
         <button class="vx-switch" id="vx-auth-switch" onclick="window.toggleAuthMode()">Already have an account? Log in</button>
         <button class="vx-btn" id="vx-auth-submit" onclick="window.submitAuth()">Create account</button>
       </div>
+      <button class="vx-back" onclick="window.closeAuth()">← Back to site</button>
     </div>`
   const authModal = document.createElement('div')
   authModal.id = 'vx-auth'
   authModal.innerHTML = authHtml
   document.body.appendChild(authModal)
+
+  // Click the backdrop (outside the card) to close
+  authModal.addEventListener('click', (e) => {
+    if (e.target === authModal) window.closeAuth()
+  })
+  // Escape key closes the modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && authModal.classList.contains('active')) window.closeAuth()
+  })
 
   let authMode = 'signup'  // 'signup' | 'login'
 
