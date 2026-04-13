@@ -2,44 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --bg: #080808;
-  --bg-2: #0f0f0f;
-  --bg-3: #141414;
-  --card: #141414;
-  --border: #222222;
-  --border-2: #2a2a2a;
-  --text: #f0ede8;
-  --text-2: #b8b5af;
-  --text-3: #666666;
-  --text-inv: #080808;
-  --accent: #c8f060;
-  --gold: #e8c87a;
-  --maya: #6ab4ff;
-  --jordan: #c8f060;
-  --alex: #e8c87a;
-  --riley: #b482ff;
-  --reject: #ff6b6b;
-  --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-html,
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-h1,
-h2,
-h3,
-h4 {
-  font-family: var(--font-syne), system-ui, sans-serif;
-  letter-spacing: -0.02em;
-}
-
 * {
   box-sizing: border-box;
 }
