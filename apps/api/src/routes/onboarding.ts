@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient, EmployeeRole } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { seedStarterTasks } from '../lib/seedStarterTasks'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -44,6 +45,8 @@ router.post('/company', requireAuth, async (req, res, next) => {
       },
       include: { employees: true },
     })
+
+    await seedStarterTasks(prisma, { companyId: company.id, niche: company.niche })
 
     res.status(201).json({ company })
   } catch (err) {

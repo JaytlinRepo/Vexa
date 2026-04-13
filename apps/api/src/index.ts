@@ -14,6 +14,7 @@ import authRouter from './routes/auth'
 import onboardingRouter from './routes/onboarding'
 import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
+import tasksRouter from './routes/tasks'
 
 if (!process.env.SESSION_SECRET) {
   console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
@@ -40,6 +41,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/onboarding', onboardingRouter)
 app.use('/api/instagram', instagramRouter)
 app.use('/api/meeting', meetingRouter)
+app.use('/api/tasks', tasksRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
