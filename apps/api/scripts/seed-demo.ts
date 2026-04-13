@@ -19,6 +19,7 @@ import { PrismaClient, EmployeeRole, OutputType, TaskStatus } from '@prisma/clie
 import bcrypt from 'bcryptjs'
 import { trialEnd } from '../src/lib/plans'
 import { seedStarterTasks } from '../src/lib/seedStarterTasks'
+import { buildStub } from '../src/lib/instagramStub'
 
 const prisma = new PrismaClient()
 
@@ -159,20 +160,28 @@ async function main() {
     })
   }
 
-  // Fake Instagram connection.
+  // Fake Instagram connection (richer stub — same shape as Graph API).
+  const igStub = buildStub('marcusfitness')
   await prisma.instagramConnection.create({
     data: {
       companyId: company.id,
-      handle: 'marcusfitness',
-      profileUrl: 'https://instagram.com/marcusfitness',
-      followerCount: 24_300,
-      followingCount: 412,
-      postCount: 186,
-      engagementRate: 4.12,
-      topPosts: [
-        { id: 'demo_1', caption: 'The 12-minute home workout', likes: 3200, comments: 180, permalink: '#', thumbnail: null },
-        { id: 'demo_2', caption: 'Stop doing cardio for fat loss', likes: 2980, comments: 240, permalink: '#', thumbnail: null },
-      ],
+      handle: igStub.username,
+      profileUrl: igStub.profileUrl,
+      accountType: igStub.accountType,
+      bio: igStub.bio,
+      followerCount: igStub.followerCount,
+      followingCount: igStub.followingCount,
+      postCount: igStub.postCount,
+      engagementRate: igStub.engagementRate,
+      avgReach: igStub.avgReach,
+      avgImpressions: igStub.avgImpressions,
+      topPosts: igStub.topPosts as never,
+      recentMedia: igStub.recentMedia as never,
+      followerSeries: igStub.followerSeries as never,
+      audienceAge: igStub.audienceAge as never,
+      audienceGender: igStub.audienceGender as never,
+      audienceTop: igStub.audienceTopCountries as never,
+      igUserId: igStub.igUserId,
       source: 'stub',
     },
   })

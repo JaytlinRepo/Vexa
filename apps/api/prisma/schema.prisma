@@ -205,13 +205,26 @@ model InstagramConnection {
   companyId      String   @unique @map("company_id")
   handle         String
   profileUrl     String?  @map("profile_url")
+  accountType    String   @default("CREATOR") @map("account_type")
+  bio            String?
   followerCount  Int      @default(0) @map("follower_count")
   followingCount Int      @default(0) @map("following_count")
   postCount      Int      @default(0) @map("post_count")
   engagementRate Float    @default(0) @map("engagement_rate")
+  avgReach       Int      @default(0) @map("avg_reach")
+  avgImpressions Int      @default(0) @map("avg_impressions")
   topPosts       Json     @default("[]") @map("top_posts")
+  recentMedia    Json     @default("[]") @map("recent_media")
+  followerSeries Json     @default("[]") @map("follower_series")
+  audienceAge    Json     @default("{}") @map("audience_age")
+  audienceGender Json     @default("{}") @map("audience_gender")
+  audienceTop    Json     @default("[]") @map("audience_top_countries")
+  accessToken    String?  @map("access_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  igUserId       String?  @map("ig_user_id")
   source         String   @default("stub")
   connectedAt    DateTime @default(now()) @map("connected_at")
+  lastSyncedAt   DateTime @default(now()) @map("last_synced_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { buildStub, jitterStub, IgStub } from '../lib/instagramStub'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -11,41 +12,50 @@ const connectSchema = z.object({
   handle: z.string().min(1).max(60).regex(/^@?[A-Za-z0-9._]+$/, 'invalid_handle'),
 })
 
-// Deterministic pseudo-random from a string so the same handle yields stable
-// mock numbers across refreshes.
-function hashString(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
-  return Math.abs(h)
+function stubToDb(stub: IgStub) {
+  return {
+    handle: stub.username,
+    profileUrl: stub.profileUrl,
+    accountType: stub.accountType,
+    bio: stub.bio,
+    followerCount: stub.followerCount,
+    followingCount: stub.followingCount,
+    postCount: stub.postCount,
+    engagementRate: stub.engagementRate,
+    avgReach: stub.avgReach,
+    avgImpressions: stub.avgImpressions,
+    topPosts: stub.topPosts as unknown as object,
+    recentMedia: stub.recentMedia as unknown as object,
+    followerSeries: stub.followerSeries as unknown as object,
+    audienceAge: stub.audienceAge as unknown as object,
+    audienceGender: stub.audienceGender as unknown as object,
+    audienceTop: stub.audienceTopCountries as unknown as object,
+    igUserId: stub.igUserId,
+    source: 'stub',
+    lastSyncedAt: new Date(),
+  }
 }
 
-function stubInsightsForHandle(handle: string) {
-  const h = hashString(handle.toLowerCase())
-  const followerCount = 2_000 + (h % 78_000)
-  const followingCount = 120 + (h % 900)
-  const postCount = 40 + (h % 260)
-  const engagementRate = Math.round(((h % 420) / 100 + 1.2) * 100) / 100 // 1.20% – 5.40%
-  const sampleTopics = [
-    'morning routine',
-    'behind the scenes',
-    'client result',
-    'myth busting',
-    '30-sec tutorial',
-  ]
-  const topPosts = Array.from({ length: 3 }).map((_, i) => {
-    const topic = sampleTopics[(h + i) % sampleTopics.length]!
-    const likes = 800 + ((h + i * 977) % 6_200)
-    const comments = 30 + ((h + i * 197) % 180)
-    return {
-      id: `ig_${handle}_${i}`,
-      caption: `${topic} — post ${i + 1}`,
-      likes,
-      comments,
-      permalink: `https://instagram.com/${handle.replace(/^@/, '')}/p/${i + 1}`,
-      thumbnail: null,
-    }
-  })
-  return { followerCount, followingCount, postCount, engagementRate, topPosts }
+function dbToStub(row: { [k: string]: unknown }): IgStub {
+  return {
+    username: row.handle as string,
+    igUserId: (row.igUserId as string) || '',
+    accountType: (row.accountType as IgStub['accountType']) || 'CREATOR',
+    bio: (row.bio as string) || '',
+    profileUrl: (row.profileUrl as string) || `https://instagram.com/${row.handle}`,
+    followerCount: row.followerCount as number,
+    followingCount: row.followingCount as number,
+    postCount: row.postCount as number,
+    engagementRate: row.engagementRate as number,
+    avgReach: row.avgReach as number,
+    avgImpressions: row.avgImpressions as number,
+    topPosts: (row.topPosts as IgStub['topPosts']) || [],
+    recentMedia: (row.recentMedia as IgStub['recentMedia']) || [],
+    followerSeries: (row.followerSeries as IgStub['followerSeries']) || [],
+    audienceAge: (row.audienceAge as IgStub['audienceAge']) || [],
+    audienceGender: (row.audienceGender as IgStub['audienceGender']) || [],
+    audienceTopCountries: (row.audienceTop as IgStub['audienceTopCountries']) || [],
+  }
 }
 
 router.post('/connect', requireAuth, async (req, res, next) => {
@@ -60,24 +70,13 @@ router.post('/connect', requireAuth, async (req, res, next) => {
     }
 
     const handle = data.handle.replace(/^@/, '')
-    const insights = stubInsightsForHandle(handle)
+    const stub = buildStub(handle)
+    const payload = stubToDb(stub)
 
     const connection = await prisma.instagramConnection.upsert({
       where: { companyId: company.id },
-      update: {
-        handle,
-        profileUrl: `https://instagram.com/${handle}`,
-        ...insights,
-        source: 'stub',
-        connectedAt: new Date(),
-      },
-      create: {
-        companyId: company.id,
-        handle,
-        profileUrl: `https://instagram.com/${handle}`,
-        ...insights,
-        source: 'stub',
-      },
+      update: { ...payload, connectedAt: new Date() },
+      create: { companyId: company.id, ...payload },
     })
 
     res.status(201).json({ connection })
@@ -103,6 +102,51 @@ router.get('/insights', requireAuth, async (req, res, next) => {
       return
     }
     res.json({ connection: company.instagram })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Dev-only: lightly perturb the stub so testers can see numbers change.
+ * Intended for local / test-mode use.
+ */
+router.post('/simulate', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      include: { instagram: true },
+    })
+    if (!company?.instagram) {
+      res.status(404).json({ error: 'no_instagram_connection' })
+      return
+    }
+    const current = dbToStub(company.instagram as unknown as { [k: string]: unknown })
+    const next = jitterStub(current)
+    const updated = await prisma.instagramConnection.update({
+      where: { companyId: company.id },
+      data: { ...stubToDb(next) },
+    })
+    res.json({ connection: updated })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.delete('/', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      include: { instagram: true },
+    })
+    if (!company?.instagram) {
+      res.status(404).json({ error: 'no_instagram_connection' })
+      return
+    }
+    await prisma.instagramConnection.delete({ where: { companyId: company.id } })
+    res.json({ ok: true })
   } catch (err) {
     next(err)
   }
