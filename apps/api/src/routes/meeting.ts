@@ -1,8 +1,12 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { requireAuth } from '../middleware/auth'
+import { PrismaClient } from '@prisma/client'
+import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { isTestMode } from '../lib/mode'
+import { readTopMemories, formatMemoryForPrompt } from '../lib/brandMemory'
+import { PLAN_LIMITS } from '../lib/plans'
 
+const prisma = new PrismaClient()
 const router = Router()
 
 const roleSchema = z.enum(['analyst', 'strategist', 'copywriter', 'creative_director'])
@@ -82,11 +86,12 @@ async function streamBedrock(
   role: z.infer<typeof roleSchema>,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   message: string,
+  memoryBlock: string,
 ): Promise<void> {
   // Lazy-load bedrock so missing creds at boot don't crash the API.
   const { invokeAgentStream } = await import('../services/bedrock/bedrock.service')
   const p = PERSONA[role]
-  const systemPrompt = `You are ${p.name}, the ${role.replace('_', ' ')}. Style: ${p.style}. Keep replies under 5 sentences unless asked to go deeper. You are in a one-on-one meeting with the CEO of an AI content company called Vexa.`
+  const systemPrompt = `You are ${p.name}, the ${role.replace('_', ' ')}. Style: ${p.style}. Keep replies under 5 sentences unless asked to go deeper. You are in a one-on-one meeting with the CEO of an AI content company called Vexa.${memoryBlock}`
   try {
     await invokeAgentStream({
       systemPrompt,
@@ -114,15 +119,32 @@ async function streamBedrock(
 router.post('/reply', requireAuth, async (req, res, next) => {
   try {
     const data = replySchema.parse(req.body)
+    const { userId } = (req as AuthedRequest).session
+
+    // Plan gate: starter doesn't include the Meeting feature.
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+    if (user && !PLAN_LIMITS[user.plan].meetingFeature) {
+      res.status(402).json({ error: 'meeting_not_in_plan', plan: user.plan })
+      return
+    }
+
+    // Pull this user's company + most relevant memories for the system prompt.
+    const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    let memoryBlock = ''
+    if (company) {
+      const memories = await readTopMemories(prisma, company.id, 10)
+      memoryBlock = formatMemoryForPrompt(memories)
+    }
+
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
-    res.write(`data: ${JSON.stringify({ source: hasBedrockCreds() ? 'bedrock' : 'mock' })}\n\n`)
+    res.write(`data: ${JSON.stringify({ source: hasBedrockCreds() ? 'bedrock' : 'mock', memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0 })}\n\n`)
 
     if (hasBedrockCreds()) {
-      await streamBedrock(res, data.employeeRole, data.history, data.message)
+      await streamBedrock(res, data.employeeRole, data.history, data.message, memoryBlock)
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
     }

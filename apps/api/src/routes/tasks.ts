@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { createNotification } from '../services/notifications/notification.service'
 import { assertTaskQuota, computeUsage } from '../lib/usage'
+import { recordTaskApproved, recordTaskRejected } from '../lib/brandMemory'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -157,6 +158,13 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
           body: `You approved "${updated.title}". The next step auto-kicks off.`,
           metadata: { taskId: updated.id },
         })
+        await recordTaskApproved(prisma, {
+          companyId: updated.companyId,
+          taskId: updated.id,
+          taskTitle: updated.title,
+          taskType: updated.type,
+          employeeName,
+        })
       } else if (data.action === 'reject') {
         await createNotification({
           userId,
@@ -167,10 +175,18 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
           body: 'Feedback noted. A revised version will be ready shortly.',
           metadata: { taskId: updated.id },
         })
+        await recordTaskRejected(prisma, {
+          companyId: updated.companyId,
+          taskId: updated.id,
+          taskTitle: updated.title,
+          taskType: updated.type,
+          employeeName,
+          feedback: data.feedback,
+        })
       }
     } catch (e) {
-      // Don't fail the action if notification emission errors out.
-      console.warn('[tasks] notification emit failed', e)
+      // Don't fail the action if notification or memory emission errors out.
+      console.warn('[tasks] notification/memory emit failed', e)
     }
 
     res.json({ task: updated })
