@@ -1,0 +1,56 @@
+# dependencies
+node_modules/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# builds
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# os
+.DS_Store
+Thumbs.db
+
+# prisma
+apps/api/prisma/migrations/dev.db*
+
+# cdk
+cdk.out/
+cdk.context.json
+
+# packaged source / old artifacts (contains secrets)
+vexa-complete/
+vexa-complete.zip
+
+# coverage
+coverage/
+.nyc_output/

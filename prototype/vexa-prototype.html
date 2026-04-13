@@ -1,0 +1,3289 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vexa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ══ TOKENS ══════════════════════════════════════════════ */
+:root {
+  --bg:      #080808;
+  --s1:      #0d0d0d;
+  --s2:      #131313;
+  --s3:      #191919;
+  --b1:      #1e1e1e;
+  --b2:      #2a2a2a;
+  --t1:      #edebe6;
+  --t2:      #7a776f;
+  --t3:      #3a3835;
+  --inv:     #080808;
+  --nav:     rgba(8,8,8,.94);
+  --sh:      rgba(0,0,0,.7);
+  --grain:   .03;
+  --r:       12px;
+}
+[data-theme="light"] {
+  --bg:      #f3f0eb;
+  --s1:      #ece9e3;
+  --s2:      #e5e2db;
+  --s3:      #dedad2;
+  --b1:      #d5d1c8;
+  --b2:      #c4c0b7;
+  --t1:      #111110;
+  --t2:      #7a776f;
+  --t3:      #b0ada6;
+  --inv:     #f3f0eb;
+  --nav:     rgba(243,240,235,.94);
+  --sh:      rgba(0,0,0,.1);
+  --grain:   .02;
+}
+/* ══ RESET ══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;font-weight:300;cursor:none;transition:background .4s,color .4s}
+button,a{cursor:none;font-family:inherit;color:inherit;text-decoration:none}
+::selection{background:var(--t1);color:var(--inv)}
+
+/* ══ GRAIN ══════════════════════════════════════════════ */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  opacity:var(--grain);
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px;
+  animation:grain 9s steps(10) infinite;
+}
+@keyframes grain{0%,100%{transform:translate(0,0)}10%{transform:translate(-2%,-3%)}20%{transform:translate(3%,1%)}30%{transform:translate(-1%,4%)}40%{transform:translate(4%,-2%)}50%{transform:translate(-3%,3%)}60%{transform:translate(2%,-4%)}70%{transform:translate(-4%,2%)}80%{transform:translate(3%,-1%)}90%{transform:translate(-2%,4%)}
+}
+
+/* ══ CURSOR ══════════════════════════════════════════════ */
+#cd{position:fixed;top:0;left:0;width:5px;height:5px;background:var(--t1);border-radius:50%;pointer-events:none;z-index:10000;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width .18s,height .18s}
+#cr{position:fixed;top:0;left:0;width:32px;height:32px;border:1px solid rgba(237,235,230,.22);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .3s cubic-bezier(.25,.46,.45,.94),height .3s cubic-bezier(.25,.46,.45,.94),border-color .2s}
+body.ch #cd{width:8px;height:8px}
+body.ch #cr{width:50px;height:50px;border-color:rgba(237,235,230,.45)}
+body.cp #cd{opacity:.5;width:3px;height:3px}
+
+/* ══ APP SHELL ══════════════════════════════════════════ */
+#app{width:100%;height:100%;display:flex;overflow:hidden}
+
+/* ══ SIDE NAV ════════════════════════════════════════════ */
+#sidenav{
+  width:220px;flex-shrink:0;height:100%;
+  background:var(--s1);border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;
+  padding:32px 0;
+  transition:width .4s cubic-bezier(.16,1,.3,1),opacity .3s;
+  z-index:100;
+  position:relative;
+}
+#sidenav.collapsed{width:64px}
+.nav-logo-wrap{padding:0 24px 28px;border-bottom:1px solid var(--b1);margin-bottom:16px;overflow:hidden;white-space:nowrap}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:22px;letter-spacing:.06em;color:var(--t1);transition:opacity .2s}
+.nav-logo:hover{opacity:.6}
+.nav-logo-mark{display:none;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:var(--t1)}
+#sidenav.collapsed .nav-logo{display:none}
+#sidenav.collapsed .nav-logo-mark{display:block}
+#sidenav.collapsed .nav-logo-wrap{padding:0 20px 24px;text-align:center}
+
+.nav-section{padding:8px 0;flex:1}
+.nav-label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--t3);padding:6px 24px 4px;white-space:nowrap;overflow:hidden}
+#sidenav.collapsed .nav-label{opacity:0}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 24px;font-size:13px;letter-spacing:.02em;color:var(--t2);
+  transition:all .2s;white-space:nowrap;overflow:hidden;
+  border-right:2px solid transparent;
+}
+#sidenav.collapsed .nav-item{padding:10px 20px;justify-content:center;gap:0}
+#sidenav.collapsed .nav-item-label{display:none}
+.nav-item:hover{color:var(--t1);background:var(--s2)}
+.nav-item.active{color:var(--t1);background:var(--s2);border-right-color:var(--t1)}
+.nav-item-icon{
+  width:20px;height:20px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;border:1px solid var(--b1);border-radius:5px;
+  background:var(--s3);
+  font-family:'Cormorant Garamond',serif;font-weight:400;color:var(--t2);
+  transition:all .2s;
+}
+.nav-item.active .nav-item-icon{border-color:var(--b2);color:var(--t1)}
+.nav-item:hover .nav-item-icon{border-color:var(--b2);color:var(--t1)}
+
+.nav-bottom{padding:16px 0 0;border-top:1px solid var(--b1);margin-top:auto}
+.nav-user{display:flex;align-items:center;gap:10px;padding:10px 24px;overflow:hidden;white-space:nowrap}
+#sidenav.collapsed .nav-user{padding:10px 20px;justify-content:center}
+#sidenav.collapsed .nav-user-info{display:none}
+.nav-user-avatar{width:26px;height:26px;border-radius:50%;background:var(--s3);border:1px solid var(--b1);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--t2)}
+.nav-user-name{font-size:12px;color:var(--t2);letter-spacing:.02em}
+.nav-user-plan{font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase}
+.nav-collapse-btn{position:absolute;top:50%;right:-12px;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t2);transition:all .2s;z-index:10}
+.nav-collapse-btn:hover{color:var(--t1);border-color:var(--b2)}
+
+/* ══ MAIN CONTENT AREA ══════════════════════════════════ */
+#main{
+  flex:1;height:100%;overflow:hidden;position:relative;
+}
+
+/* ══ TOP BAR ════════════════════════════════════════════ */
+#topbar{
+  position:absolute;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 40px;
+  background:var(--nav);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--b1);
+  transition:background .4s;
+}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-section{font-size:13px;color:var(--t2);letter-spacing:.04em}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-btn{padding:7px 16px;border-radius:100px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.topbar-btn.ghost{border:1px solid var(--b2);background:transparent;color:var(--t2)}
+.topbar-btn.ghost:hover{color:var(--t1);border-color:var(--t2)}
+.topbar-btn.solid{border:none;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700}
+.topbar-btn.solid:hover{opacity:.84}
+.theme-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s}
+.theme-btn:hover{color:var(--t1);border-color:var(--t2)}
+.notif-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:11px;position:relative;transition:all .2s}
+.notif-btn:hover{color:var(--t1)}
+.notif-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--t1);border:1.5px solid var(--bg)}
+
+/* ══ VIEWS ══════════════════════════════════════════════ */
+.view{
+  position:absolute;inset:0;overflow-y:auto;
+  padding:88px 0 0;
+  opacity:0;pointer-events:none;
+  transition:opacity .4s ease;
+}
+.view.active{opacity:1;pointer-events:all}
+.view-inner{padding:48px 56px 80px}
+#view-db-dashboard { overflow: hidden; }
+#view-db-dashboard > .db-layout { height: 100%; }
+
+/* ══ PAGE TRANSITION ═════════════════════════════════════ */
+#page-trans{
+  position:fixed;inset:0;background:var(--bg);z-index:5000;
+  transform:translateY(100%);pointer-events:none;
+  transition:transform .55s cubic-bezier(.76,0,.24,1);
+}
+#page-trans.in{transform:translateY(0)}
+#page-trans.out{transform:translateY(-100%)}
+
+/* ══ MARKETING VIEWS ═════════════════════════════════════ */
+/* Marketing uses full viewport, no topbar padding */
+.view.marketing{padding-top:0;background:var(--bg)}
+.view.marketing .view-inner{padding:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+
+/* ══ HERO ═══════════════════════════════════════════════ */
+.hero-bg-grid{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--b1) 1px,transparent 1px),linear-gradient(90deg,var(--b1) 1px,transparent 1px);
+  background-size:80px 80px;opacity:.3;
+  mask-image:radial-gradient(ellipse 70% 70% at 50% 40%,black 20%,transparent 100%);
+}
+.hero-light{position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(237,235,230,.03) 0%,transparent 66%);pointer-events:none}
+.hero-content{position:relative;z-index:2;text-align:center;padding:0 40px}
+.hero-overline{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:48px;display:flex;align-items:center;justify-content:center;gap:14px;opacity:0;animation:up .8s .2s ease forwards}
+.hero-overline-line{width:24px;height:1px;background:var(--t3)}
+.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(72px,9.5vw,132px);font-weight:300;line-height:.97;letter-spacing:-.025em;margin-bottom:36px}
+.word{display:inline-block;overflow:hidden;vertical-align:top;margin:0 .1em}
+.wi{display:block;transform:translateY(108%);opacity:0;animation:wup .95s cubic-bezier(.16,1,.3,1) forwards}
+.hero-sub{font-size:clamp(15px,1.6vw,18px);color:var(--t2);max-width:480px;line-height:1.82;margin:0 auto 52px;opacity:0;animation:up .8s 1.2s ease forwards}
+.hero-ctas{display:flex;gap:14px;justify-content:center;opacity:0;animation:up .8s 1.4s ease forwards}
+.btn-fill{padding:15px 40px;border:none;border-radius:100px;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .28s;display:inline-block}
+.btn-fill:hover{opacity:.84;transform:translateY(-2px);box-shadow:0 18px 44px var(--sh)}
+.btn-outline{padding:15px 40px;border:1px solid var(--b2);border-radius:100px;background:transparent;color:var(--t1);font-size:13px;letter-spacing:.06em;transition:all .28s;display:inline-block}
+.btn-outline:hover{border-color:var(--t2)}
+.hero-meta{margin-top:60px;display:flex;align-items:center;gap:24px;justify-content:center;opacity:0;animation:up .8s 1.65s ease forwards;font-size:12px;color:var(--t3);letter-spacing:.06em}
+.hero-meta-div{width:1px;height:12px;background:var(--b2)}
+.scroll-hint{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;opacity:0;animation:up .8s 2s ease forwards}
+.scroll-hint-label{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3)}
+.scroll-hint-line{width:1px;height:40px;background:linear-gradient(var(--t3),transparent);animation:linefall 2.2s 2.2s ease infinite}
+@keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes wup{from{transform:translateY(108%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes linefall{0%{transform:scaleY(0);transform-origin:top;opacity:0}40%{transform:scaleY(1);transform-origin:top;opacity:1}60%{transform:scaleY(1);transform-origin:bottom;opacity:1}100%{transform:scaleY(0);transform-origin:bottom;opacity:0}}
+
+/* ══ MARKETING SECTIONS ══════════════════════════════════ */
+.mkt-view{padding:100px 56px 80px;overflow-y:auto;height:100%;position:relative}
+.mkt-head{margin-bottom:64px}
+.eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:18px}
+.serif{font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:-.02em;line-height:1.04}
+.body{font-size:15px;color:var(--t2);line-height:1.82;max-width:460px}
+
+/* Team page — horizontal employee list */
+.team-grid{display:flex;flex-direction:column;gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
+.team-row{
+  background:var(--bg);
+  display:grid;grid-template-columns:180px 1fr auto;
+  gap:0;transition:background .25s;
+}
+.team-row:hover{background:var(--s1)}
+.team-row-num{padding:40px 36px;border-right:1px solid var(--b1);display:flex;align-items:flex-start}
+.team-num-txt{font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:300;color:var(--b2);line-height:1;letter-spacing:-.02em;transition:color .25s}
+.team-row:hover .team-num-txt{color:var(--t3)}
+.team-row-main{padding:40px 44px}
+.team-role{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.team-name{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;letter-spacing:-.01em;margin-bottom:14px}
+.team-desc{font-size:14px;color:var(--t2);line-height:1.75;max-width:500px;margin-bottom:18px}
+.team-tags{display:flex;flex-wrap:wrap;gap:6px}
+.team-tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);padding:4px 12px;border:1px solid var(--b1);border-radius:100px}
+.team-row-meta{padding:40px 36px;border-left:1px solid var(--b1);display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between}
+.team-schedule{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:right}
+
+/* How it works */
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
+.how-cell{background:var(--s1);padding:40px 32px;transition:background .25s}
+.how-cell:hover{background:var(--s2)}
+.how-n{font-family:'Cormorant Garamond',serif;font-size:72px;font-weight:300;color:var(--b2);line-height:1;margin-bottom:20px;transition:color .25s}
+.how-cell:hover .how-n{color:var(--t3)}
+.how-cell h3{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin-bottom:10px}
+.how-cell p{font-size:13px;color:var(--t2);line-height:1.72}
+.how-time{display:inline-block;margin-top:14px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);border:1px solid var(--b1);border-radius:100px;padding:3px 12px}
+
+/* Meeting preview block */
+.meeting-block{background:var(--s1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
+.mtg-top{padding:18px 28px;border-bottom:1px solid var(--b1);background:var(--s2);display:flex;align-items:center;justify-content:space-between}
+.mtg-who{display:flex;flex-direction:column}
+.mtg-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;letter-spacing:-.01em}
+.mtg-role{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)}
+.mtg-live{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)}
+.mtg-dot{width:5px;height:5px;border-radius:50%;background:var(--t2);animation:blink 2.5s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.mtg-msgs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1)}
+.mtg-col{background:var(--s1);padding:28px}
+.mtg-col.right{background:var(--bg)}
+.mtg-bubble{font-size:13px;color:var(--t2);line-height:1.75;font-style:italic;padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;margin-bottom:12px}
+.mtg-bubble:last-child{margin-bottom:0}
+.mtg-bubble.user{font-style:normal;color:var(--t1);background:var(--s3)}
+.mtg-foot{padding:14px 28px;display:flex;gap:10px;border-top:1px solid var(--b1)}
+.mtg-input{flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:100px;padding:10px 18px;font-size:13px;color:var(--t3);font-style:italic;letter-spacing:.02em}
+.mtg-end{padding:10px 20px;border-radius:100px;border:1px solid var(--b2);background:transparent;color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;transition:all .2s;white-space:nowrap}
+.mtg-end:hover{color:var(--t2);border-color:var(--t2)}
+.mtg-note{padding:10px 28px;font-size:11px;color:var(--t3);letter-spacing:.04em;text-align:center;background:var(--bg);border-top:1px solid var(--b1)}
+
+/* Outputs */
+.out-nav{display:flex;gap:2px;background:var(--s2);border:1px solid var(--b1);border-radius:100px;padding:3px;width:fit-content;margin-bottom:24px}
+.out-btn{padding:8px 20px;border-radius:100px;border:none;background:transparent;color:var(--t3);font-size:12px;letter-spacing:.08em;text-transform:uppercase;transition:all .2s}
+.out-btn.active{background:var(--s1);color:var(--t1)}
+.out-btn:hover:not(.active){color:var(--t2)}
+.out-card{background:var(--s1);border:1px solid var(--b1);border-radius:16px;overflow:hidden}
+.out-head{padding:16px 24px;border-bottom:1px solid var(--b1);background:var(--s2);display:flex;justify-content:space-between;align-items:center}
+.out-from{font-size:12px;color:var(--t2);letter-spacing:.04em}
+.out-when{font-size:11px;color:var(--t3);letter-spacing:.04em}
+.out-body{padding:24px}
+.out-foot{padding:14px 24px;border-top:1px solid var(--b1);display:flex;gap:8px;align-items:center}
+.out-note{font-size:11px;color:var(--t3);margin-left:auto;letter-spacing:.04em}
+.trend-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.tc{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:16px;transition:border-color .2s}
+.tc:hover{border-color:var(--b2)}
+.tc-top{display:flex;justify-content:space-between;margin-bottom:8px}
+.tc-name{font-size:13px;font-weight:500}
+.tc-pct{font-size:12px;color:var(--t2)}
+.tc-desc{font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px}
+.tc-hook{font-size:11px;color:var(--t3);font-style:italic;padding-top:8px;border-top:1px solid var(--b1)}
+.out-aside{font-size:13px;color:var(--t3);font-style:italic;line-height:1.7;margin-top:12px}
+.hook-list{display:flex;flex-direction:column;gap:7px}
+.hook-row{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:13px 16px;display:flex;gap:12px;align-items:flex-start;transition:border-color .2s}
+.hook-row:hover{border-color:var(--b2)}
+.h-n{font-size:11px;color:var(--t3);font-weight:500;flex-shrink:0;margin-top:2px;width:18px}
+.h-t{font-size:13px;color:var(--t1);line-height:1.5;flex:1}
+.h-l{font-size:10px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;flex-shrink:0;margin-top:3px}
+.h-s{background:var(--t1);color:var(--inv);border-radius:4px;padding:2px 6px;font-size:9px;font-weight:700;font-family:'Syne',sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-h{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px}
+.cal-c{background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:9px 7px;min-height:72px;transition:border-color .2s}
+.cal-c:hover{border-color:var(--b2)}
+.cal-d{font-size:10px;color:var(--t3);margin-bottom:5px}
+.cal-f{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;background:var(--bg);color:var(--t2);border-radius:4px;margin-bottom:5px}
+.cal-t{font-size:11px;color:var(--t2);line-height:1.4}
+
+/* Action buttons */
+.ab{padding:9px 20px;border-radius:100px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;font-family:'DM Sans',sans-serif}
+.ab.approve{border:none;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700}
+.ab.approve:hover{opacity:.84}
+.ab.recon{border:1px solid var(--b2);background:transparent;color:var(--t2)}
+.ab.recon:hover{border-color:var(--t2);color:var(--t1)}
+.ab.rej{border:1px solid var(--b1);background:transparent;color:var(--t3)}
+.ab.rej:hover{border-color:var(--b2);color:var(--t2)}
+
+/* Knowledge feed */
+.feed-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:16px}
+.feed-tabs{display:flex;gap:2px;background:var(--s2);border:1px solid var(--b1);border-radius:100px;padding:3px}
+.feed-tab{padding:7px 16px;border-radius:100px;border:none;background:transparent;color:var(--t3);font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.feed-tab.active{background:var(--s1);color:var(--t1)}
+.feed-tab:hover:not(.active){color:var(--t2)}
+.feed-bar{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 20px;margin-bottom:16px}
+.feed-bar-left{display:flex;flex-direction:column;gap:2px}
+.feed-bar-name{font-size:13px;font-weight:500;color:var(--t1);letter-spacing:.02em}
+.feed-bar-desc{font-size:11px;color:var(--t3);letter-spacing:.04em}
+.feed-bar-right{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:7px}
+.feed-pulse{width:4px;height:4px;border-radius:50%;background:var(--t2);animation:blink 2.5s infinite}
+.feed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.feed-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color .3s,transform .3s}
+.feed-card:hover{border-color:var(--b2);transform:translateY(-2px)}
+.feed-card.tall{grid-row:span 2}
+.feed-top{display:flex;justify-content:space-between;align-items:center}
+.feed-src{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)}
+.feed-dt{font-size:11px;color:var(--t3)}
+.feed-title{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;line-height:1.35;color:var(--t1);display:block;transition:color .15s}
+.feed-title:hover{color:var(--t2)}
+.feed-sum{font-size:12px;color:var(--t2);line-height:1.65;flex:1}
+.feed-insight{background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--t2);line-height:1.55;font-style:italic}
+.feed-insight strong{font-style:normal;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:4px}
+.feed-score{margin-top:auto}
+.feed-score-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.feed-score-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.feed-score-val{font-size:11px;font-weight:500;color:var(--t2)}
+.feed-bar-s{height:1px;background:var(--b2);border-radius:1px;overflow:hidden}
+.feed-bar-fill{height:100%;background:var(--t2);transition:width .8s ease}
+.feed-actions{display:flex;gap:7px}
+.feed-act{padding:8px 14px;border-radius:100px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s;font-family:'DM Sans',sans-serif}
+.feed-act.main{flex:1;border:none;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700;text-align:center}
+.feed-act.main:hover{opacity:.84}
+.feed-act.read{border:1px solid var(--b2);background:transparent;color:var(--t3)}
+.feed-act.read:hover{color:var(--t2);border-color:var(--t2)}
+
+/* Pricing */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.pc{background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:36px 30px;position:relative;transition:all .3s}
+.pc:hover{transform:translateY(-3px);box-shadow:0 24px 60px var(--sh)}
+.pc.featured{border-color:var(--b2)}
+.pc-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:4px 14px;border-radius:100px;white-space:nowrap}
+.pc-tier{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.pc-price{font-family:'Cormorant Garamond',serif;font-size:60px;font-weight:300;letter-spacing:-.03em;line-height:1;margin-bottom:4px}
+.pc-price sup{font-size:24px;vertical-align:super}
+.pc-price .mo{font-size:16px;color:var(--t2);font-family:'DM Sans',sans-serif;font-weight:300}
+.pc-desc{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--b1)}
+.pc-feats{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
+.pc-feats li{font-size:13px;display:flex;gap:9px;line-height:1.5}
+.pc-feats li::before{content:'—';color:var(--t3);flex-shrink:0;margin-top:2px}
+.pc-feats li.y::before{content:'\2713';color:var(--t1)}
+.pc-feats li.dim{color:var(--t3)}
+.pc-feats li.dim::before{content:'—'}
+.pc-btn{width:100%;padding:13px;border-radius:100px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .25s}
+.pc-btn.fill{border:none;background:var(--t1);color:var(--inv)}
+.pc-btn.fill:hover{opacity:.84}
+.pc-btn.ghost{border:1px solid var(--b2);background:transparent;color:var(--t1)}
+.pc-btn.ghost:hover{border-color:var(--t2)}
+.price-toggle{display:flex;align-items:center;gap:12px;margin-top:24px}
+.tog{width:40px;height:22px;background:var(--b2);border-radius:100px;position:relative;transition:background .2s}
+.tog.on{background:var(--t1)}
+.tog::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:var(--bg);top:3px;left:3px;transition:transform .2s}
+.tog.on::after{transform:translateX(18px)}
+.tog-lbl{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2)}
+.save-tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);background:var(--s2);border:1px solid var(--b1);padding:3px 10px;border-radius:100px}
+.trial-row{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px 28px;margin-top:18px}
+.trial-row h4{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;margin-bottom:6px}
+.trial-row p{font-size:13px;color:var(--t2);line-height:1.7}
+.trial-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.trial-check{font-size:12px;color:var(--t2);display:flex;gap:8px;letter-spacing:.02em}
+.trial-check::before{content:'\2713';color:var(--t1);font-size:11px;flex-shrink:0}
+
+/* FAQ */
+.faq-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:14px;overflow:hidden;margin-top:28px}
+.faq-item{background:var(--s1)}
+.faq-q{padding:18px 24px;font-size:14px;letter-spacing:.01em;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:background .15s;color:var(--t1)}
+.faq-q:hover{background:var(--s2)}
+.faq-arr{color:var(--t3);transition:transform .3s;flex-shrink:0;font-size:12px}
+.faq-item.open .faq-arr{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.faq-item.open .faq-a{max-height:200px}
+.faq-a-inner{padding:0 24px 18px;font-size:13px;color:var(--t2);line-height:1.78}
+
+/* ══ ONBOARDING ══════════════════════════════════════════ */
+#onboarding{
+  position:fixed;inset:0;background:var(--bg);z-index:3000;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .4s ease;
+}
+#onboarding.active{opacity:1;pointer-events:all}
+.ob-wrap{width:100%;max-width:560px;padding:40px}
+.ob-progress{height:1px;background:var(--b1);border-radius:1px;margin-bottom:48px;overflow:hidden}
+.ob-progress-fill{height:100%;background:var(--t1);transition:width .5s cubic-bezier(.16,1,.3,1)}
+.ob-step{display:none}
+.ob-step.active{display:block}
+.ob-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:20px;display:block}
+.ob-title{font-family:'Cormorant Garamond',serif;font-size:clamp(36px,5vw,52px);font-weight:300;letter-spacing:-.02em;line-height:1.1;margin-bottom:12px}
+.ob-sub{font-size:14px;color:var(--t2);line-height:1.78;margin-bottom:36px}
+.ob-input{width:100%;background:var(--s1);border:1px solid var(--b2);border-radius:10px;padding:15px 18px;font-size:16px;color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;margin-bottom:8px}
+.ob-input:focus{border-color:var(--t2)}
+.ob-hint{font-size:12px;color:var(--t3);letter-spacing:.02em;margin-bottom:32px}
+.ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:32px}
+.ob-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:22px 20px;transition:all .2s}
+.ob-card:hover{border-color:var(--b2);background:var(--s2)}
+.ob-card.selected{border-color:var(--t2);background:var(--s2)}
+.ob-card-lbl{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.ob-card-name{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;letter-spacing:-.01em;margin-bottom:6px}
+.ob-card-desc{font-size:12px;color:var(--t2);line-height:1.6}
+.ob-actions{display:flex;align-items:center;gap:14px}
+.ob-back{background:none;border:none;color:var(--t3);font-size:13px;letter-spacing:.04em;padding:0;transition:color .2s}
+.ob-back:hover{color:var(--t2)}
+.ob-skip{background:none;border:none;color:var(--t3);font-size:13px;letter-spacing:.04em;padding:0;margin-left:auto;transition:color .2s}
+.ob-skip:hover{color:var(--t2)}
+
+/* Team reveal step */
+.ob-reveal-list{display:flex;flex-direction:column;gap:10px;margin-bottom:36px}
+.ob-emp-card{
+  background:var(--s1);border:1px solid var(--b1);border-radius:12px;
+  padding:20px;display:flex;gap:16px;align-items:flex-start;
+  opacity:0;transform:translateY(12px);
+  transition:opacity .5s ease,transform .5s ease,border-color .2s;
+}
+.ob-emp-card.revealed{opacity:1;transform:translateY(0)}
+.ob-emp-card:hover{border-color:var(--b2)}
+.ob-emp-init{width:40px;height:40px;border-radius:10px;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--t2);flex-shrink:0}
+.ob-emp-name{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;letter-spacing:-.01em;margin-bottom:3px}
+.ob-emp-role{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.ob-emp-msg{font-size:13px;color:var(--t2);line-height:1.65;font-style:italic}
+.ob-emp-status{width:7px;height:7px;border-radius:50%;background:var(--t1);flex-shrink:0;margin-top:6px;animation:blink 2s infinite}
+
+/* ══ DASHBOARD ═══════════════════════════════════════════ */
+.db-section-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;letter-spacing:-.01em;margin-bottom:6px}
+.db-section-sub{font-size:13px;color:var(--t2);margin-bottom:28px;letter-spacing:.02em}
+
+/* Morning briefing */
+.briefing-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+.brief-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;transition:border-color .2s}
+.brief-card:hover{border-color:var(--b2)}
+.brief-from{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.brief-status{display:flex;align-items:center;gap:5px}
+.brief-dot{width:5px;height:5px;border-radius:50%;background:var(--t1);animation:blink 2s infinite}
+.brief-body{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:14px;font-style:italic}
+.brief-actions{display:flex;gap:7px}
+
+/* Team cards */
+.emp-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.emp-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;transition:all .25s;position:relative;overflow:hidden}
+.emp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--t2);transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.emp-card:hover::before{transform:scaleX(1)}
+.emp-card:hover{border-color:var(--b2)}
+.emp-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.emp-card-who{display:flex;align-items:center;gap:10px}
+.emp-card-init{width:36px;height:36px;border-radius:9px;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--t2)}
+.emp-card-name{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;letter-spacing:-.01em}
+.emp-card-role{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3)}
+.emp-card-status-tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);background:var(--s2);border:1px solid var(--b1);padding:4px 10px;border-radius:100px}
+.emp-card-status{font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.6}
+.emp-card-status strong{color:var(--t1);font-weight:500}
+.emp-card-actions{display:flex;gap:7px}
+.emp-card-btn{padding:8px 14px;border-radius:100px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.emp-card-btn.view{border:1px solid var(--b2);background:transparent;color:var(--t2)}
+.emp-card-btn.view:hover{color:var(--t1);border-color:var(--t2)}
+.emp-card-btn.meeting{border:none;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700}
+.emp-card-btn.meeting:hover{opacity:.84}
+
+/* Task list */
+.task-list{display:flex;flex-direction:column;gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:12px;overflow:hidden}
+.task-row{background:var(--s1);padding:16px 20px;display:grid;grid-template-columns:28px 1fr auto auto;gap:14px;align-items:center;transition:background .2s}
+.task-row:hover{background:var(--s2)}
+.task-init{width:28px;height:28px;border-radius:7px;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--t2)}
+.task-title{font-size:13px;color:var(--t1);letter-spacing:.01em}
+.task-sub{font-size:11px;color:var(--t3);letter-spacing:.03em;margin-top:2px}
+.task-status{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:100px}
+.task-status.delivered{color:var(--t1);background:var(--s3);border:1px solid var(--b2)}
+.task-status.working{color:var(--t2);background:transparent;border:1px solid var(--b1)}
+.task-status.approved{color:var(--t3);background:transparent;border:1px solid var(--b1)}
+.task-btn{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-radius:100px;border:1px solid var(--b2);background:transparent;color:var(--t2);transition:all .2s;white-space:nowrap}
+.task-btn:hover{color:var(--t1);border-color:var(--t2)}
+
+/* Outputs library */
+.outputs-filter{display:flex;gap:6px;margin-bottom:20px}
+.filter-btn{padding:7px 16px;border-radius:100px;border:1px solid var(--b1);background:transparent;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);transition:all .2s}
+.filter-btn.active{background:var(--s2);color:var(--t1);border-color:var(--b2)}
+.filter-btn:hover:not(.active){color:var(--t2)}
+.output-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.output-item{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:18px;transition:border-color .2s}
+.output-item:hover{border-color:var(--b2)}
+.output-item-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.output-item-type{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3)}
+.output-item-badge{font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:100px;background:var(--s2);border:1px solid var(--b1);color:var(--t2)}
+.output-item-title{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;margin-bottom:6px;letter-spacing:-.01em;line-height:1.3}
+.output-item-meta{font-size:11px;color:var(--t3);letter-spacing:.04em;margin-bottom:12px}
+.output-item-actions{display:flex;gap:6px}
+
+/* Settings */
+.settings-grid{display:grid;grid-template-columns:220px 1fr;gap:32px}
+.settings-nav{display:flex;flex-direction:column;gap:2px}
+.settings-nav-item{padding:10px 14px;border-radius:8px;font-size:13px;color:var(--t2);letter-spacing:.02em;transition:all .15s}
+.settings-nav-item.active{background:var(--s2);color:var(--t1)}
+.settings-nav-item:hover:not(.active){background:var(--s2);color:var(--t1)}
+.settings-panel{display:none}
+.settings-panel.active{display:block}
+.settings-section{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:28px;margin-bottom:14px}
+.settings-section h3{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;letter-spacing:-.01em;margin-bottom:6px}
+.settings-section p{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:20px}
+.settings-field{margin-bottom:16px}
+.settings-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block}
+.settings-input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:11px 14px;font-size:14px;color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.settings-input:focus{border-color:var(--t2)}
+.settings-save{padding:10px 24px;border:none;border-radius:100px;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;margin-top:4px}
+.settings-save:hover{opacity:.84}
+
+/* Meeting Room overlay */
+#meeting-room{
+  position:fixed;inset:0;background:rgba(4,4,4,.97);z-index:4000;
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transition:opacity .4s ease;
+}
+#meeting-room.active{opacity:1;pointer-events:all}
+.mr-top{padding:24px 40px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mr-emp{display:flex;align-items:center;gap:14px}
+.mr-emp-init{width:44px;height:44px;border-radius:12px;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--t2)}
+.mr-emp-name{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;letter-spacing:-.01em}
+.mr-emp-role{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)}
+.mr-live{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--t2)}
+.mr-close{padding:9px 20px;border-radius:100px;border:1px solid var(--b2);background:transparent;color:var(--t3);font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
+.mr-close:hover{color:var(--t2);border-color:var(--t2)}
+.mr-msgs{flex:1;overflow-y:auto;padding:40px;display:flex;flex-direction:column;gap:20px;max-width:800px;width:100%;margin:0 auto}
+.mr-msg{display:flex;gap:14px;align-items:flex-start}
+.mr-msg.user{flex-direction:row-reverse}
+.mr-bubble{font-size:14px;color:var(--t2);line-height:1.78;font-style:italic;padding:16px 20px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;max-width:72%}
+.mr-msg.user .mr-bubble{font-style:normal;color:var(--t1);background:var(--s2)}
+.mr-foot{padding:20px 40px;border-top:1px solid var(--b1);flex-shrink:0;max-width:800px;width:100%;margin:0 auto;padding:20px 40px}
+.mr-input-wrap{display:flex;gap:12px;align-items:center;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:12px 16px}
+.mr-input{flex:1;background:transparent;border:none;font-size:14px;color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;letter-spacing:.01em}
+.mr-input::placeholder{color:var(--t3)}
+.mr-send{padding:9px 20px;border:none;border-radius:100px;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;flex-shrink:0}
+.mr-send:hover{opacity:.84}
+.mr-note{text-align:center;font-size:11px;color:var(--t3);letter-spacing:.06em;margin-top:10px}
+
+/* ══ FULL CALENDAR ══════════════════════════════════════ */
+
+/* Agent color accents — muted, monochromatic */
+:root {
+  --c-jordan: rgba(237,235,230,.18);
+  --c-maya:   rgba(237,235,230,.10);
+  --c-alex:   rgba(237,235,230,.14);
+  --c-riley:  rgba(237,235,230,.08);
+  --c-jordan-b: rgba(237,235,230,.32);
+  --c-maya-b:   rgba(237,235,230,.22);
+  --c-alex-b:   rgba(237,235,230,.26);
+  --c-riley-b:  rgba(237,235,230,.18);
+}
+[data-theme="light"] {
+  --c-jordan: rgba(17,17,16,.09);
+  --c-maya:   rgba(17,17,16,.05);
+  --c-alex:   rgba(17,17,16,.07);
+  --c-riley:  rgba(17,17,16,.04);
+  --c-jordan-b: rgba(17,17,16,.18);
+  --c-maya-b:   rgba(17,17,16,.12);
+  --c-alex-b:   rgba(17,17,16,.14);
+  --c-riley-b:  rgba(17,17,16,.09);
+}
+
+.cal-toolbar {
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;gap:16px;flex-wrap:wrap;
+}
+.cal-toolbar-left { display:flex;align-items:center;gap:12px; }
+.cal-toolbar-right { display:flex;align-items:center;gap:8px; }
+
+.cal-nav-btn {
+  width:30px;height:30px;border-radius:7px;
+  border:1px solid var(--b2);background:transparent;
+  color:var(--t2);font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.cal-nav-btn:hover{color:var(--t1);border-color:var(--t2)}
+
+.cal-month-label {
+  font-family:'Cormorant Garamond',serif;
+  font-size:20px;font-weight:400;letter-spacing:-.01em;
+}
+
+.cal-view-toggle {
+  display:flex;gap:2px;background:var(--s2);
+  border:1px solid var(--b1);border-radius:8px;padding:3px;
+}
+.cal-view-btn {
+  padding:6px 14px;border-radius:6px;border:none;
+  background:transparent;color:var(--t3);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  transition:all .2s;
+}
+.cal-view-btn.active{background:var(--s1);color:var(--t1)}
+.cal-view-btn:hover:not(.active){color:var(--t2)}
+
+/* Agent legend */
+.cal-legend {
+  display:flex;align-items:center;gap:16px;
+  padding:10px 16px;background:var(--s1);
+  border:1px solid var(--b1);border-radius:8px;margin-bottom:16px;
+}
+.cal-legend-item {
+  display:flex;align-items:center;gap:7px;
+  font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);
+}
+.cal-legend-swatch {
+  width:10px;height:10px;border-radius:2px;flex-shrink:0;
+}
+
+/* Month grid */
+.cal-month-grid {
+  display:grid;grid-template-columns:repeat(7,1fr);
+  border:1px solid var(--b1);border-radius:14px;overflow:hidden;
+}
+.cal-month-header {
+  background:var(--s2);padding:10px;text-align:center;
+  font-size:10px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--t3);
+  border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);
+}
+.cal-month-header:last-child{border-right:none}
+
+.cal-day {
+  background:var(--bg);border-right:1px solid var(--b1);
+  border-bottom:1px solid var(--b1);
+  min-height:110px;padding:8px;
+  transition:background .2s;position:relative;
+}
+.cal-day:nth-child(7n){border-right:none}
+.cal-day:hover{background:var(--s1)}
+.cal-day.today { background:var(--s2); }
+.cal-day.other-month .cal-day-num{color:var(--t3)}
+.cal-day.other-month{background:transparent}
+.cal-day-num {
+  font-size:12px;font-weight:500;color:var(--t2);
+  margin-bottom:6px;display:flex;align-items:center;
+  justify-content:space-between;
+}
+.cal-day-num .today-dot {
+  width:5px;height:5px;border-radius:50%;
+  background:var(--t1);
+}
+
+.cal-entry {
+  border-radius:5px;padding:4px 7px;margin-bottom:4px;
+  font-size:11px;line-height:1.4;
+  border-left:2px solid transparent;
+  transition:opacity .2s,transform .2s;
+  position:relative;
+}
+.cal-entry:hover{opacity:.85;transform:translateX(1px)}
+.cal-entry.jordan{background:var(--c-jordan);border-left-color:var(--c-jordan-b)}
+.cal-entry.maya  {background:var(--c-maya);border-left-color:var(--c-maya-b)}
+.cal-entry.alex  {background:var(--c-alex);border-left-color:var(--c-alex-b)}
+.cal-entry.riley {background:var(--c-riley);border-left-color:var(--c-riley-b)}
+.cal-entry-type {
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--t3);margin-bottom:2px;display:block;
+}
+.cal-entry-title{color:var(--t1);font-weight:400}
+.cal-entry-who  {font-size:9px;color:var(--t3);margin-top:2px;display:block}
+
+.cal-entry-status {
+  display:inline-block;width:5px;height:5px;border-radius:50%;
+  margin-left:5px;vertical-align:middle;flex-shrink:0;
+}
+.status-planned  {background:var(--t3)}
+.status-scripted {background:var(--t2)}
+.status-production{background:rgba(237,235,230,.5)}
+.status-approved {background:var(--t1)}
+.status-published{background:var(--t1);box-shadow:0 0 4px var(--t1)}
+
+/* Entry tooltip on hover */
+.cal-entry-actions {
+  display:none;position:absolute;
+  bottom:calc(100% + 4px);left:0;z-index:10;
+  background:var(--s2);border:1px solid var(--b2);
+  border-radius:8px;padding:8px;
+  white-space:nowrap;box-shadow:0 8px 24px var(--sh);
+  gap:5px;
+}
+.cal-entry:hover .cal-entry-actions{display:flex}
+.cal-entry-action-btn {
+  padding:5px 10px;border-radius:6px;border:none;
+  font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--s3);color:var(--t2);transition:all .15s;
+}
+.cal-entry-action-btn:hover{color:var(--t1);background:var(--b1)}
+.cal-entry-action-btn.approve{background:var(--t1);color:var(--inv)}
+
+/* Week grid */
+.cal-week-grid {
+  display:grid;grid-template-columns:60px repeat(7,1fr);
+  border:1px solid var(--b1);border-radius:14px;overflow:hidden;
+}
+.cal-week-time-col{
+  background:var(--s2);border-right:1px solid var(--b1);
+}
+.cal-week-day-header{
+  background:var(--s2);padding:10px 8px;text-align:center;
+  border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);
+}
+.cal-week-day-header:last-child{border-right:none}
+.cal-week-day-name{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3)}
+.cal-week-day-num{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--t2);line-height:1}
+.cal-week-day-num.today{color:var(--t1)}
+.cal-week-time-label{
+  padding:8px 8px;font-size:10px;color:var(--t3);
+  text-align:right;letter-spacing:.04em;border-bottom:1px solid var(--b1);
+  height:64px;display:flex;align-items:flex-start;justify-content:flex-end;
+  background:var(--s2);border-right:1px solid var(--b1);
+}
+.cal-week-slot{
+  border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);
+  height:64px;padding:4px;background:var(--bg);
+  transition:background .15s;position:relative;
+}
+.cal-week-slot:last-child{border-right:none}
+.cal-week-slot:hover{background:var(--s1)}
+.cal-week-entry{
+  border-radius:5px;padding:5px 8px;height:calc(100% - 2px);
+  font-size:11px;border-left:2px solid transparent;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.cal-week-entry.jordan{background:var(--c-jordan);border-left-color:var(--c-jordan-b)}
+.cal-week-entry.alex  {background:var(--c-alex);border-left-color:var(--c-alex-b)}
+.cal-week-entry.maya  {background:var(--c-maya);border-left-color:var(--c-maya-b)}
+.cal-week-entry.riley {background:var(--c-riley);border-left-color:var(--c-riley-b)}
+
+/* Agent update toast */
+.cal-toast {
+  position:fixed;bottom:28px;right:28px;z-index:6000;
+  background:var(--s2);border:1px solid var(--b2);border-radius:12px;
+  padding:14px 18px;display:flex;align-items:flex-start;gap:12px;
+  box-shadow:0 16px 40px var(--sh);
+  transform:translateY(80px);opacity:0;
+  transition:transform .4s cubic-bezier(.16,1,.3,1),opacity .4s ease;
+  max-width:320px;
+}
+.cal-toast.show{transform:translateY(0);opacity:1}
+.cal-toast-init{
+  width:28px;height:28px;border-radius:7px;
+  background:var(--s3);border:1px solid var(--b1);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--t2);
+  flex-shrink:0;
+}
+.cal-toast-body{flex:1}
+.cal-toast-name{font-size:12px;font-weight:500;color:var(--t1);margin-bottom:3px}
+.cal-toast-msg{font-size:12px;color:var(--t2);line-height:1.5;font-style:italic}
+.cal-toast-actions{display:flex;gap:6px;margin-top:9px}
+.cal-toast-btn{
+  padding:5px 12px;border-radius:6px;border:none;
+  font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  transition:all .2s;
+}
+.cal-toast-btn.approve{background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700}
+.cal-toast-btn.approve:hover{opacity:.84}
+.cal-toast-btn.view{background:var(--s3);color:var(--t2);border:1px solid var(--b1)}
+.cal-toast-btn.view:hover{color:var(--t1)}
+
+/* Tasks list tab (alongside calendar) */
+.tasks-view-toggle{
+  display:flex;gap:2px;background:var(--s2);
+  border:1px solid var(--b1);border-radius:8px;padding:3px;
+  width:fit-content;margin-bottom:20px;
+}
+.tasks-view-btn{
+  padding:7px 18px;border-radius:6px;border:none;
+  background:transparent;color:var(--t3);
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  transition:all .2s;
+}
+.tasks-view-btn.active{background:var(--s1);color:var(--t1)}
+.tasks-view-btn:hover:not(.active){color:var(--t2)}
+
+/* ══ DASHBOARD FEED STRIP ════════════════════════════════ */
+.db-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.db-main-col {
+  overflow-y: auto;
+  padding: 48px 40px 80px;
+  border-right: 1px solid var(--b1);
+}
+.db-feed-strip {
+  display: flex;
+  flex-direction: column;
+  background: var(--s1);
+  overflow: hidden;
+}
+.db-feed-strip-head {
+  padding: 18px 16px 12px;
+  border-bottom: 1px solid var(--b1);
+  flex-shrink: 0;
+}
+.db-feed-strip-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.db-feed-strip-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+.db-feed-strip-meta {
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+.db-feed-strip-live {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.db-feed-strip-pulse {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--t2);
+  animation: blink 2.5s infinite;
+}
+.db-feed-strip-items {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.db-feed-strip-items::-webkit-scrollbar { display: none; }
+
+.db-feed-item {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--b1);
+  transition: background .2s;
+  position: relative;
+}
+.db-feed-item:hover { background: var(--s2); }
+.db-feed-item:last-child { border-bottom: none; }
+
+.db-feed-item-src {
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.db-feed-item-age { color: var(--t3); font-size: 9px; }
+
+.db-feed-item-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--t1);
+  margin-bottom: 6px;
+  letter-spacing: -.01em;
+  display: block;
+}
+.db-feed-item-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.db-feed-item-score-bar {
+  flex: 1;
+  height: 1px;
+  background: var(--b2);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.db-feed-item-score-fill {
+  height: 100%;
+  background: var(--t2);
+}
+.db-feed-item-score-num {
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+  flex-shrink: 0;
+}
+
+/* Hover reveal CTA */
+.db-feed-item-cta {
+  display: none;
+  gap: 5px;
+}
+.db-feed-item:hover .db-feed-item-cta { display: flex; }
+.db-feed-cta-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.db-feed-cta-btn.main {
+  flex: 1;
+  border: none;
+  background: var(--t1);
+  color: var(--inv);
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+.db-feed-cta-btn.main:hover { opacity: .84; }
+.db-feed-cta-btn.read {
+  border: 1px solid var(--b2);
+  background: transparent;
+  color: var(--t3);
+}
+.db-feed-cta-btn.read:hover { color: var(--t2); border-color: var(--t2); }
+
+/* Urgent flag */
+.db-feed-item.urgent .db-feed-item-title { color: var(--t1); }
+.db-feed-item.urgent::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--t2);
+  border-radius: 0 1px 1px 0;
+}
+
+.db-feed-strip-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--b1);
+  flex-shrink: 0;
+}
+.db-feed-strip-footer-btn {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--b2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--t3);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  transition: all .2s;
+}
+.db-feed-strip-footer-btn:hover {
+  color: var(--t2);
+  border-color: var(--t2);
+}
+
+/* ══ INSIGHTS CHARTS ════════════════════════════════════ */
+.insights-section {
+  margin-top: 32px;
+}
+.insights-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.insights-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--t2);
+  letter-spacing: -.01em;
+}
+.insights-period {
+  display: flex;
+  gap: 2px;
+  background: var(--s2);
+  border: 1px solid var(--b1);
+  border-radius: 7px;
+  padding: 3px;
+}
+.ins-period-btn {
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--t3);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: all .2s;
+}
+.ins-period-btn.active {
+  background: var(--s1);
+  color: var(--t1);
+}
+.ins-period-btn:hover:not(.active) { color: var(--t2); }
+
+/* KPI stat row */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.kpi-card {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  padding: 16px 18px;
+  transition: border-color .2s;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card:hover { border-color: var(--b2); }
+.kpi-label {
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 8px;
+}
+.kpi-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -.02em;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.kpi-delta {
+  font-size: 11px;
+  letter-spacing: .04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.kpi-delta.up { color: var(--t2); }
+.kpi-delta.down { color: var(--t3); }
+.kpi-delta-arrow { font-size: 10px; }
+.kpi-spark {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 80px; height: 32px;
+  opacity: .5;
+}
+
+/* Chart cards */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.charts-row.triple {
+  grid-template-columns: 2fr 1fr;
+}
+.chart-card {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  padding: 18px;
+  transition: border-color .2s;
+}
+.chart-card:hover { border-color: var(--b2); }
+.chart-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.chart-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+.chart-card-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: -.01em;
+  color: var(--t1);
+}
+.chart-card-sub {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: .04em;
+  margin-top: 2px;
+}
+
+/* SVG chart base */
+.chart-svg { width: 100%; display: block; }
+.chart-axis-label {
+  font-size: 9px;
+  fill: var(--t3);
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Agent insight callout */
+.insight-callout {
+  background: var(--s2);
+  border: 1px solid var(--b1);
+  border-left: 2px solid var(--t3);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.6;
+  font-style: italic;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.insight-callout-who {
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t3);
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-style: normal;
+}
+
+/* Bar chart manual */
+.bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+.bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--b2);
+  transition: background .2s, height .6s cubic-bezier(.16,1,.3,1);
+  min-height: 2px;
+  position: relative;
+}
+.bar.highlight { background: var(--t2); }
+.bar.top       { background: var(--t1); }
+.bar-lbl {
+  font-size: 9px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+/* Donut chart */
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.donut-svg { width: 90px; height: 90px; flex-shrink: 0; }
+.donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--t2);
+}
+.donut-swatch {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="cd"></div>
+<div id="cr"></div>
+
+<!-- PAGE TRANSITION -->
+<div id="page-trans"></div>
+
+<!-- ONBOARDING OVERLAY -->
+<div id="onboarding">
+  <div class="ob-wrap">
+    <div class="ob-progress"><div class="ob-progress-fill" id="ob-prog" style="width:20%"></div></div>
+
+    <!-- Step 1: Company name -->
+    <div class="ob-step active" id="ob-1">
+      <span class="ob-eyebrow">Step 1 of 4</span>
+      <h2 class="ob-title">Name your company.</h2>
+      <p class="ob-sub">This is the brand Vexa will build content for. Your team will refer to this as they work.</p>
+      <input class="ob-input" id="ob-name-input" placeholder="e.g. Marcus Fitness, The Wealth Lab" autocomplete="off">
+      <p class="ob-hint">You can change this anytime in Settings.</p>
+      <div class="ob-actions">
+        <button class="btn-fill" onclick="obNext(1)" style="padding:13px 32px;font-size:12px">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Niche -->
+    <div class="ob-step" id="ob-2">
+      <span class="ob-eyebrow">Step 2 of 4</span>
+      <h2 class="ob-title">What do you create?</h2>
+      <p class="ob-sub">Your team will specialize in this niche. The language, trends, and strategy all adapt to match.</p>
+      <div class="ob-grid" id="ob-niche-grid">
+        <button class="ob-card" onclick="selectNiche(this,'fitness')"><div class="ob-card-lbl">01</div><div class="ob-card-name">Fitness &amp; Wellness</div><div class="ob-card-desc">Workouts, nutrition, transformation</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'finance')"><div class="ob-card-lbl">02</div><div class="ob-card-name">Finance &amp; Investing</div><div class="ob-card-desc">Wealth, markets, personal finance</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'food')"><div class="ob-card-lbl">03</div><div class="ob-card-name">Food &amp; Cooking</div><div class="ob-card-desc">Recipes, technique, food culture</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'coaching')"><div class="ob-card-lbl">04</div><div class="ob-card-name">Coaching &amp; Education</div><div class="ob-card-desc">Teaching, courses, authority building</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'lifestyle')"><div class="ob-card-lbl">05</div><div class="ob-card-name">Lifestyle</div><div class="ob-card-desc">Aesthetic, story, personal brand</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'personal_dev')"><div class="ob-card-lbl">06</div><div class="ob-card-name">Personal Development</div><div class="ob-card-desc">Mindset, habits, growth</div></button>
+      </div>
+      <div class="ob-actions">
+        <button class="btn-fill" id="ob-niche-btn" onclick="obNext(2)" style="padding:13px 32px;font-size:12px;opacity:.4" disabled>Continue</button>
+        <button class="ob-back" onclick="obPrev(2)">Back</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Sub-niche -->
+    <div class="ob-step" id="ob-3">
+      <span class="ob-eyebrow">Step 3 of 4</span>
+      <h2 class="ob-title">Get more specific.</h2>
+      <p class="ob-sub">Optional but powerful. The more specific you are, the better your team performs.</p>
+      <input class="ob-input" id="ob-subniche-input" placeholder="e.g. Women's strength training, no gym required" autocomplete="off">
+      <p class="ob-hint">Leave blank to keep it broad. You can refine this anytime.</p>
+      <div class="ob-actions">
+        <button class="btn-fill" onclick="obNext(3)" style="padding:13px 32px;font-size:12px">Continue</button>
+        <button class="ob-back" onclick="obPrev(3)">Back</button>
+        <button class="ob-skip" onclick="obNext(3)">Skip</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Team reveal -->
+    <div class="ob-step" id="ob-4">
+      <span class="ob-eyebrow">Your team is ready</span>
+      <h2 class="ob-title" id="ob-reveal-title">Welcome to Vexa.</h2>
+      <p class="ob-sub" id="ob-reveal-sub">Your team has specialized and they are already at work.</p>
+      <div class="ob-reveal-list" id="ob-team-list">
+        <div class="ob-emp-card" id="ob-emp-0">
+          <div class="ob-emp-init">M</div>
+          <div style="flex:1">
+            <div class="ob-emp-name">Maya</div>
+            <div class="ob-emp-role">Trend &amp; Insights Analyst</div>
+            <div class="ob-emp-msg">"I have already started scanning your niche for this week's trends. I will have a report ready by Monday morning."</div>
+          </div>
+          <div class="ob-emp-status"></div>
+        </div>
+        <div class="ob-emp-card" id="ob-emp-1">
+          <div class="ob-emp-init">J</div>
+          <div style="flex:1">
+            <div class="ob-emp-name">Jordan</div>
+            <div class="ob-emp-role">Content Strategist</div>
+            <div class="ob-emp-msg">"I am reviewing your goals and audience. Your first content plan will be ready within the hour."</div>
+          </div>
+          <div class="ob-emp-status"></div>
+        </div>
+        <div class="ob-emp-card" id="ob-emp-2">
+          <div class="ob-emp-init">A</div>
+          <div style="flex:1">
+            <div class="ob-emp-name">Alex</div>
+            <div class="ob-emp-role">Copywriter &amp; Script Writer</div>
+            <div class="ob-emp-msg">"Once Jordan's plan is approved I will start writing hooks and scripts. Fair warning — I have strong opinions."</div>
+          </div>
+          <div class="ob-emp-status"></div>
+        </div>
+        <div class="ob-emp-card" id="ob-emp-3">
+          <div class="ob-emp-init">R</div>
+          <div style="flex:1">
+            <div class="ob-emp-name">Riley</div>
+            <div class="ob-emp-role">Creative Director</div>
+            <div class="ob-emp-msg">"I will turn everything into production-ready direction. Your first shot list comes after Alex delivers the script."</div>
+          </div>
+          <div class="ob-emp-status"></div>
+        </div>
+      </div>
+      <div class="ob-actions" id="ob-enter-btn" style="opacity:0;transition:opacity .4s ease">
+        <button class="btn-fill" onclick="enterDashboard()" style="padding:13px 32px;font-size:12px">Go to my dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MEETING ROOM -->
+<div id="meeting-room">
+  <div class="mr-top">
+    <div class="mr-emp">
+      <div class="mr-emp-init" id="mr-init">A</div>
+      <div>
+        <div class="mr-emp-name" id="mr-name">Alex</div>
+        <div class="mr-emp-role" id="mr-role">Copywriter &amp; Script Writer</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="mr-live"><div class="mtg-dot"></div>Meeting in progress</div>
+      <button class="mr-close" onclick="closeMeeting()">End Meeting</button>
+    </div>
+  </div>
+  <div class="mr-msgs" id="mr-msgs">
+    <div class="mr-msg">
+      <div class="mr-bubble">"Before we start — I pulled up the hooks you approved last month and compared them to the ones you rejected. I am noticing a pattern: you tend to approve hooks that lead with a specific number or timeframe. I will keep that in mind going forward. What did you want to talk through?"</div>
+    </div>
+    <div class="mr-msg user">
+      <div class="mr-bubble">The weighted walking hook feels a bit safe. Can we go more edgy?</div>
+    </div>
+    <div class="mr-msg">
+      <div class="mr-bubble">"I hear you — and I agree hook 02 plays it safer than what you usually go for. The risk with going too edgy right now is the algorithm is deprioritizing rage-bait. But there is a middle ground: what if we lead with the identity challenge instead of the benefit? Something like: 'You have been doing cardio wrong and nobody profits from telling you that.' Want me to write three in that direction?"</div>
+    </div>
+  </div>
+  <div style="padding:0 40px 24px;max-width:800px;width:100%;margin:0 auto">
+    <div class="mr-input-wrap">
+      <input class="mr-input" placeholder="Reply to Alex..." id="mr-input-field" onkeydown="mrSend(event)">
+      <button class="mr-send" onclick="mrSendBtn()">Send</button>
+    </div>
+    <p class="mr-note">This is the only place in Vexa where you type freely. Everything else is structured.</p>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app">
+
+  <!-- SIDE NAV -->
+  <nav id="sidenav">
+    <button class="nav-collapse-btn" id="collapseBtn" onclick="toggleNav()">&#8249;</button>
+
+    <div class="nav-logo-wrap">
+      <a href="#" class="nav-logo" onclick="navigate('home');return false">Vexa</a>
+      <span class="nav-logo-mark">V</span>
+    </div>
+
+    <!-- Marketing nav (shown when not logged in) -->
+    <div class="nav-section" id="nav-marketing">
+      <div class="nav-label">Explore</div>
+      <a class="nav-item active" id="nav-home" onclick="navigate('home')">
+        <span class="nav-item-icon">H</span><span class="nav-item-label">Home</span>
+      </a>
+      <a class="nav-item" id="nav-team" onclick="navigate('team')">
+        <span class="nav-item-icon">T</span><span class="nav-item-label">The Team</span>
+      </a>
+      <a class="nav-item" id="nav-how" onclick="navigate('how')">
+        <span class="nav-item-icon">P</span><span class="nav-item-label">How It Works</span>
+      </a>
+      <a class="nav-item" id="nav-outputs" onclick="navigate('outputs')">
+        <span class="nav-item-icon">O</span><span class="nav-item-label">See Outputs</span>
+      </a>
+      <a class="nav-item" id="nav-knowledge" onclick="navigate('knowledge')">
+        <span class="nav-item-icon">K</span><span class="nav-item-label">Knowledge Feed</span>
+      </a>
+      <a class="nav-item" id="nav-pricing" onclick="navigate('pricing')">
+        <span class="nav-item-icon">$</span><span class="nav-item-label">Pricing</span>
+      </a>
+      <a class="nav-item" id="nav-faq" onclick="navigate('faq')">
+        <span class="nav-item-icon">?</span><span class="nav-item-label">FAQ</span>
+      </a>
+    </div>
+
+    <!-- App nav (shown when logged in) -->
+    <div class="nav-section" id="nav-app" style="display:none">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" id="nav-db-dashboard" onclick="navigate('db-dashboard')">
+        <span class="nav-item-icon">D</span><span class="nav-item-label">Dashboard</span>
+      </a>
+      <a class="nav-item" id="nav-db-team" onclick="navigate('db-team')">
+        <span class="nav-item-icon">T</span><span class="nav-item-label">My Team</span>
+      </a>
+      <a class="nav-item" id="nav-db-tasks" onclick="goToTasks()">
+        <span class="nav-item-icon">W</span><span class="nav-item-label">Tasks</span>
+      </a>
+      <a class="nav-item" id="nav-db-outputs" onclick="navigate('db-outputs')">
+        <span class="nav-item-icon">O</span><span class="nav-item-label">Outputs</span>
+      </a>
+      <a class="nav-item" id="nav-db-knowledge" onclick="navigate('db-knowledge')">
+        <span class="nav-item-icon">K</span><span class="nav-item-label">Knowledge Feed</span>
+      </a>
+      <a class="nav-item" id="nav-db-settings" onclick="navigate('db-settings')">
+        <span class="nav-item-icon">S</span><span class="nav-item-label">Settings</span>
+      </a>
+    </div>
+
+    <div class="nav-bottom">
+      <div class="nav-user" id="nav-user-area">
+        <div class="nav-user-avatar" id="nav-avatar">V</div>
+        <div class="nav-user-info">
+          <div class="nav-user-name" id="nav-username">Guest</div>
+          <div class="nav-user-plan" id="nav-userplan">Marketing</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- TOP BAR -->
+    <div id="topbar">
+      <div class="topbar-left">
+        <span class="topbar-section" id="topbar-section">Home</span>
+      </div>
+      <div class="topbar-right">
+        <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9679;</button>
+        <div class="notif-btn" id="notif-btn" style="display:none"><span>&#9679;</span><span class="notif-dot"></span></div>
+        <button class="topbar-btn ghost" id="topbar-login" onclick="showLogin()">Log in</button>
+        <button class="topbar-btn solid" id="topbar-cta" onclick="startOnboarding()">Start free</button>
+      </div>
+    </div>
+
+    <!-- ══ MARKETING VIEWS ══════════════════════════════ -->
+
+    <!-- HOME -->
+    <div class="view marketing active" id="view-home">
+      <div class="view-inner">
+        <div class="hero-bg-grid"></div>
+        <div class="hero-light"></div>
+        <div class="hero-content">
+          <p class="hero-overline">
+            <span class="hero-overline-line"></span>
+            Early access &mdash; 1,200 creators
+            <span class="hero-overline-line"></span>
+          </p>
+          <h1 class="hero-h1">
+            <span class="word"><span class="wi" style="animation-delay:.36s">Your</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.50s">content.</span></span>
+            <br>
+            <span class="word"><span class="wi" style="animation-delay:.66s;font-style:italic;color:var(--t2)">Run</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.80s;font-style:italic;color:var(--t2)">by</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.94s;font-style:italic;color:var(--t2)">a</span></span>
+            <span class="word"><span class="wi" style="animation-delay:1.08s;font-style:italic;color:var(--t2)">team.</span></span>
+          </h1>
+          <p class="hero-sub">Vexa gives every creator a full AI content team — strategist, trend analyst, copywriter, and creative director — that specializes in their niche and delivers real work, every day.</p>
+          <div class="hero-ctas">
+            <button class="btn-fill" onclick="startOnboarding()">Start free &mdash; 7 days</button>
+            <button class="btn-outline" onclick="navigate('outputs')">See real outputs</button>
+          </div>
+          <div class="hero-meta">
+            <span>No credit card required</span>
+            <span class="hero-meta-div"></span>
+            <span>First output under 5 minutes</span>
+            <span class="hero-meta-div"></span>
+            <span>Cancel anytime</span>
+          </div>
+        </div>
+        <div class="scroll-hint">
+          <span class="scroll-hint-label">Explore</span>
+          <div class="scroll-hint-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEAM -->
+    <div class="view" id="view-team">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">Your AI team</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Meet your staff.</h2>
+          <p class="body">Four specialized AI employees — each with a distinct role, personality, and expertise. They know your niche, learn your brand, and deliver work without being asked.</p>
+        </div>
+        <div class="team-grid">
+          <div class="team-row">
+            <div class="team-row-num"><span class="team-num-txt">01</span></div>
+            <div class="team-row-main">
+              <div class="team-role">Trend &amp; Insights Analyst</div>
+              <div class="team-name">Maya</div>
+              <div class="team-desc">Monitors your niche daily across Reddit, news, research, and YouTube. Every Monday she delivers a trend report — what is rising, why it matters, what to make this week. She also curates your Knowledge Feed in real time, scoring each item for content potential.</div>
+              <div class="team-tags"><span class="team-tag">Trend reports</span><span class="team-tag">Viral hooks</span><span class="team-tag">Knowledge feed</span><span class="team-tag">Competitor intel</span></div>
+            </div>
+            <div class="team-row-meta"><span class="team-schedule">Delivers Monday 9am</span></div>
+          </div>
+          <div class="team-row">
+            <div class="team-row-num"><span class="team-num-txt">02</span></div>
+            <div class="team-row-main">
+              <div class="team-role">Content Strategist</div>
+              <div class="team-name">Jordan</div>
+              <div class="team-desc">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Adjusts based on what performs. Briefs Alex automatically once you approve the plan — so the pipeline runs itself without you managing it.</div>
+              <div class="team-tags"><span class="team-tag">Content calendar</span><span class="team-tag">Strategy</span><span class="team-tag">Audience analysis</span><span class="team-tag">Pipeline</span></div>
+            </div>
+            <div class="team-row-meta"><span class="team-schedule">Delivers Sunday 7pm</span></div>
+          </div>
+          <div class="team-row">
+            <div class="team-row-num"><span class="team-num-txt">03</span></div>
+            <div class="team-row-main">
+              <div class="team-role">Copywriter &amp; Script Writer</div>
+              <div class="team-name">Alex</div>
+              <div class="team-desc">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Gets sharper with every revision you request. Has strong opinions about which hook is the right one and will tell you directly.</div>
+              <div class="team-tags"><span class="team-tag">Hooks</span><span class="team-tag">Reel scripts</span><span class="team-tag">Captions</span><span class="team-tag">Carousel copy</span></div>
+            </div>
+            <div class="team-row-meta"><span class="team-schedule">After Jordan approves</span></div>
+          </div>
+          <div class="team-row">
+            <div class="team-row-num"><span class="team-num-txt">04</span></div>
+            <div class="team-row-main">
+              <div class="team-role">Creative Director</div>
+              <div class="team-name">Riley</div>
+              <div class="team-desc">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use. Then sends the brief to video generation automatically.</div>
+              <div class="team-tags"><span class="team-tag">Shot lists</span><span class="team-tag">Visual direction</span><span class="team-tag">Pacing</span><span class="team-tag">Video generation</span></div>
+            </div>
+            <div class="team-row-meta"><span class="team-schedule">After Alex delivers</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOW IT WORKS -->
+    <div class="view" id="view-how">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">Process</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">From sign-up to first output <em style="color:var(--t2)">in five minutes.</em></h2>
+          <p class="body">No learning curve. No complex setup. Tell Vexa what you create — your team is ready to work.</p>
+        </div>
+        <div class="how-grid">
+          <div class="how-cell"><div class="how-n">01</div><h3>Set your niche</h3><p>Choose your content category and optionally a sub-niche. Your team specializes instantly — language, hooks, and strategy all shift.</p><span class="how-time">2 minutes</span></div>
+          <div class="how-cell"><div class="how-n">02</div><h3>Define your brand</h3><p>Select your tone, describe your audience, and share your goals. The more context, the more your team sounds exactly like you.</p><span class="how-time">2 minutes</span></div>
+          <div class="how-cell"><div class="how-n">03</div><h3>Your team delivers</h3><p>Maya pulls trends immediately. Jordan drafts your first plan. Real structured outputs — not a blank dashboard — within minutes.</p><span class="how-time">1 minute</span></div>
+          <div class="how-cell"><div class="how-n">04</div><h3>Approve and repeat</h3><p>Review outputs with action buttons. Approve triggers the next step automatically. Every decision trains your team to improve.</p><span class="how-time">Daily habit</span></div>
+        </div>
+        <div class="meeting-block" style="margin-top:48px">
+          <div class="mtg-top">
+            <div class="mtg-who"><div class="mtg-name">Alex</div><div class="mtg-role">Copywriter &amp; Script Writer</div></div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)"><div class="mtg-dot"></div>Meeting in progress</div>
+          </div>
+          <div class="mtg-msgs">
+            <div class="mtg-col">
+              <div class="mtg-bubble">"Before we start — I pulled up your last 12 approved hooks. I'm noticing you consistently approve hooks that open with a specific number or timeframe. I will keep that in mind. What did you want to discuss?"</div>
+            </div>
+            <div class="mtg-col right">
+              <div class="mtg-bubble user">The weighted walking hook feels safe. Can we go more edgy?</div>
+              <div class="mtg-bubble" style="margin-top:10px">"I agree it plays safer than usual. But there is a middle ground — lead with the identity challenge instead of the benefit. 'You have been doing cardio wrong and nobody profits from telling you.' Want three in that direction?"</div>
+            </div>
+          </div>
+          <div class="mtg-foot">
+            <input class="mtg-input" placeholder="Reply to Alex...">
+            <button class="mtg-end">End Meeting</button>
+          </div>
+          <div class="mtg-note">Meetings are the only place in Vexa where you type freely. Decisions are auto-summarized and converted to tasks when you end.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUTS -->
+    <div class="view" id="view-outputs">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">Real outputs</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">What your team <em style="color:var(--t2)">actually delivers.</em></h2>
+          <p class="body">Not suggestions. Finished, structured work — ready to approve, revise, or send to the next step.</p>
+        </div>
+        <div class="out-nav">
+          <button class="out-btn active" onclick="switchOut(this,'trend')">Maya &mdash; Trend Report</button>
+          <button class="out-btn" onclick="switchOut(this,'hooks')">Alex &mdash; Hooks</button>
+          <button class="out-btn" onclick="switchOut(this,'cal')">Jordan &mdash; Content Plan</button>
+        </div>
+        <div id="out-trend">
+          <div class="out-card">
+            <div class="out-head"><span class="out-from">Maya &middot; Weekly Trend Report &middot; Fitness</span><span class="out-when">Monday 8:54am</span></div>
+            <div class="out-body">
+              <div class="trend-row">
+                <div class="tc"><div class="tc-top"><span class="tc-name">Weighted walking</span><span class="tc-pct">+340%</span></div><p class="tc-desc">3 Reels crossed 2M views this week. Low-equipment, high-relatability format dominating feeds.</p><p class="tc-hook">"I walked 20 minutes a day for 30 days with a 20lb vest. Here's what happened."</p></div>
+                <div class="tc"><div class="tc-top"><span class="tc-name">Cycle syncing</span><span class="tc-pct">+210%</span></div><p class="tc-desc">r/xxfitness thread hit 4.1K upvotes. Underserved but highly engaged audience.</p><p class="tc-hook">"Nobody told me I was training wrong for 3 weeks out of every month."</p></div>
+                <div class="tc"><div class="tc-top"><span class="tc-name">3-day vs 5-day splits</span><span class="tc-pct">+180%</span></div><p class="tc-desc">New meta-analysis getting mainstream pickup. Myth-busting angle performing well.</p><p class="tc-hook">"Science just proved the gym bro split is worse."</p></div>
+              </div>
+              <p class="out-aside">"My top pick this week is weighted walking — the data is unusually strong. I'd move before it peaks. I've briefed Jordan to slot it into Tuesday." — Maya</p>
+            </div>
+            <div class="out-foot">
+              <button class="ab approve">Use this trend</button>
+              <button class="ab recon">Show more like this</button>
+              <button class="ab rej">Skip</button>
+              <span class="out-note">Maya remembers your choice</span>
+            </div>
+          </div>
+        </div>
+        <div id="out-hooks" style="display:none">
+          <div class="out-card">
+            <div class="out-head"><span class="out-from">Alex &middot; Hook variations &middot; Weighted walking</span><span class="out-when">Monday 12:11pm</span></div>
+            <div class="out-body">
+              <div class="hook-list">
+                <div class="hook-row"><span class="h-n">01</span><span class="h-t">I walked 20 minutes a day for 30 days with a 20lb vest. Here's what nobody tells you about what happens to your body.</span><span class="h-l">Story opener</span></div>
+                <div class="hook-row"><span class="h-n">02</span><span class="h-t">The laziest cardio you've never tried burns more calories than a 45-minute run. And you can do it in work clothes.</span><span class="h-l h-s">Alex's pick</span></div>
+                <div class="hook-row"><span class="h-n">03</span><span class="h-t">Gym culture will never tell you this because it doesn't require a gym membership.</span><span class="h-l">Controversial</span></div>
+                <div class="hook-row"><span class="h-n">04</span><span class="h-t">If you hate running, this is the thing you've been looking for.</span><span class="h-l">Empathy opener</span></div>
+                <div class="hook-row"><span class="h-n">05</span><span class="h-t">What happens to your body when you add 20lbs to a daily walk? Week-by-week breakdown.</span><span class="h-l">Curiosity loop</span></div>
+              </div>
+              <p class="out-aside">"02 is the one. 'In work clothes' is a detail that makes it feel real. 01 is safe if you want safe." — Alex</p>
+            </div>
+            <div class="out-foot">
+              <button class="ab approve">Use hook 02</button>
+              <button class="ab recon">Too safe — bolder</button>
+              <button class="ab rej">5 more</button>
+              <span class="out-note">No typing required</span>
+            </div>
+          </div>
+        </div>
+        <div id="out-cal" style="display:none">
+          <div class="out-card">
+            <div class="out-head"><span class="out-from">Jordan &middot; Weekly Content Plan &middot; Jan 13</span><span class="out-when">Sunday 7:44pm</span></div>
+            <div class="out-body">
+              <div class="cal">
+                <div class="cal-h">Mon</div><div class="cal-h">Tue</div><div class="cal-h">Wed</div><div class="cal-h">Thu</div><div class="cal-h">Fri</div><div class="cal-h">Sat</div><div class="cal-h">Sun</div>
+                <div class="cal-c"><div class="cal-d">13</div><span class="cal-f">Reel</span><p class="cal-t">Weighted walking — Maya's pick</p></div>
+                <div class="cal-c"><div class="cal-d">14</div><span class="cal-f">Carousel</span><p class="cal-t">3-day vs 5-day myth-bust</p></div>
+                <div class="cal-c"><div class="cal-d">15</div><span class="cal-f">Story</span><p class="cal-t">Behind the scenes</p></div>
+                <div class="cal-c"><div class="cal-d">16</div><span class="cal-f">Reel</span><p class="cal-t">Cycle syncing — women</p></div>
+                <div class="cal-c"><div class="cal-d">17</div><span class="cal-f">Caption</span><p class="cal-t">Friday motivation</p></div>
+                <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span><p class="cal-t">Algo rest day</p></div>
+                <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
+              </div>
+              <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts for Monday and Thursday." — Jordan</p>
+            </div>
+            <div class="out-foot">
+              <button class="ab approve">Approve &mdash; brief Alex</button>
+              <button class="ab recon">Adjust timing</button>
+              <button class="ab rej">Rethink angle</button>
+              <span class="out-note">Approval triggers Alex</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KNOWLEDGE FEED -->
+    <div class="view" id="view-knowledge">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <div class="feed-head">
+            <div>
+              <span class="eyebrow">Knowledge feed</span>
+              <h2 class="serif" style="font-size:clamp(38px,5vw,68px)">Your team reads<br><em style="color:var(--t2)">so you don't have to.</em></h2>
+            </div>
+            <div class="feed-tabs">
+              <button class="feed-tab active" onclick="switchFeed(this,'all')">All</button>
+              <button class="feed-tab" onclick="switchFeed(this,'article')">Articles</button>
+              <button class="feed-tab" onclick="switchFeed(this,'research')">Research</button>
+              <button class="feed-tab" onclick="switchFeed(this,'reddit')">Community</button>
+            </div>
+          </div>
+        </div>
+        <div class="feed-bar">
+          <div class="feed-bar-left"><span class="feed-bar-name">Curated by Maya</span><span class="feed-bar-desc">Trend Analyst &middot; Last scanned 2 hours ago &middot; 14 sources active</span></div>
+          <div class="feed-bar-right"><span class="feed-pulse"></span>Updated daily</div>
+        </div>
+        <div class="feed-grid" id="mkt-feed-grid">
+          <div class="feed-card tall" data-type="article">
+            <div class="feed-top"><span class="feed-src">Men's Health</span><span class="feed-dt">2h ago</span></div>
+            <a href="#" class="feed-title" onclick="return false">New Study: 3-Day Strength Splits Outperform 5-Day Programs for Muscle Growth</a>
+            <p class="feed-sum">Researchers tracked 240 recreational lifters over 16 weeks, finding that lower frequency with higher per-session volume produced superior hypertrophy outcomes.</p>
+            <div class="feed-insight"><strong>Maya's take</strong>This challenges a widely held belief — perfect for a myth-busting Reel that drives saves and comments.</div>
+            <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">94</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:94%"></div></div></div>
+            <div class="feed-actions"><button class="feed-act main" onclick="startOnboarding()">Turn into content</button><button class="feed-act read">Read</button></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="feed-card" data-type="research">
+              <div class="feed-top"><span class="feed-src">PubMed Research</span><span class="feed-dt">6h ago</span></div>
+              <a href="#" class="feed-title" onclick="return false">Protein Timing Window Longer Than Previously Thought</a>
+              <p class="feed-sum">Meta-analysis of 73 studies: anabolic window extends to 4–6 hours post-exercise, not 30 minutes.</p>
+              <div class="feed-insight"><strong>Maya's take</strong>The "30-minute rule" is one of the most shared myths. Debunking it = high authority content.</div>
+              <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">88</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:88%"></div></div></div>
+              <div class="feed-actions"><button class="feed-act main" onclick="startOnboarding()">Turn into content</button><button class="feed-act read">Read</button></div>
+            </div>
+            <div class="feed-card" data-type="reddit">
+              <div class="feed-top"><span class="feed-src">r/fitness</span><span class="feed-dt">1h ago</span></div>
+              <a href="#" class="feed-title" onclick="return false">"What's the one thing nobody told you when you started lifting?" &mdash; 4.2K upvotes</a>
+              <p class="feed-sum">1,800+ comments. Top answers: consistency beats intensity, sleep matters more than supplements.</p>
+              <div class="feed-insight"><strong>Maya's take</strong>This comment section is a goldmine of authentic hooks. Real people's language.</div>
+              <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">91</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:91%"></div></div></div>
+              <div class="feed-actions"><button class="feed-act main" onclick="startOnboarding()">Turn into content</button><button class="feed-act read">Read</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="view" id="view-pricing">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">Pricing</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Hire your team today.</h2>
+          <p class="body">No agencies. No freelancers. One flat subscription — your full AI content team, every month.</p>
+          <div class="price-toggle">
+            <span class="tog-lbl">Monthly</span>
+            <div class="tog" id="priceToggle" onclick="togglePrice()"></div>
+            <span class="tog-lbl">Annual</span>
+            <span class="save-tag">Save 25%</span>
+          </div>
+        </div>
+        <div class="pricing-grid">
+          <div class="pc">
+            <div class="pc-tier">Starter</div>
+            <div class="pc-price" id="ps-starter"><sup>$</sup>14.99<span class="mo">/mo</span></div>
+            <p class="pc-desc">Less than a streaming subscription. Your first two team members ready immediately.</p>
+            <ul class="pc-feats">
+              <li class="y">2 AI employees — Maya + Alex</li>
+              <li class="y">Niche + sub-niche specialization</li>
+              <li class="y">Up to 30 tasks/month</li>
+              <li class="y">Brand voice settings</li>
+              <li class="y">Knowledge feed</li>
+              <li class="y">Outputs library &mdash; 5 revisions</li>
+              <li class="dim">Jordan + Riley</li>
+              <li class="dim">Meeting feature</li>
+              <li class="dim">Brand memory</li>
+              <li class="dim">Video generation</li>
+            </ul>
+            <button class="pc-btn ghost" onclick="startOnboarding()">Start free trial</button>
+          </div>
+          <div class="pc featured">
+            <div class="pc-badge">Most popular</div>
+            <div class="pc-tier">Pro</div>
+            <div class="pc-price" id="ps-pro"><sup>$</sup>49<span class="mo">/mo</span></div>
+            <p class="pc-desc">Your full AI content company. All four employees, unlimited tasks, meetings, memory, and video.</p>
+            <ul class="pc-feats">
+              <li class="y">Full team &mdash; all 4 employees</li>
+              <li class="y">Deep niche specialization</li>
+              <li class="y">Unlimited tasks</li>
+              <li class="y">Advanced brand voice + memory</li>
+              <li class="y">Meeting feature</li>
+              <li class="y">Unlimited revisions</li>
+              <li class="y">Feedback loop &mdash; team improves</li>
+              <li class="y">Knowledge feed + insights</li>
+              <li class="y">Monday trend reports</li>
+              <li class="y">Video generation &mdash; 10/month</li>
+            </ul>
+            <button class="pc-btn fill" onclick="startOnboarding()">Start with Pro</button>
+          </div>
+          <div class="pc">
+            <div class="pc-tier">Agency</div>
+            <div class="pc-price" id="ps-agency"><sup>$</sup>99<span class="mo">/mo</span></div>
+            <p class="pc-desc">For creators managing multiple brands or agency owners running content for clients.</p>
+            <ul class="pc-feats">
+              <li class="y">Up to 5 brand workspaces</li>
+              <li class="y">Independent teams per brand</li>
+              <li class="y">Everything in Pro per workspace</li>
+              <li class="y">Priority AI processing</li>
+              <li class="y">Advanced analytics</li>
+              <li class="y">50 video generations/month</li>
+              <li class="y">White-label exports</li>
+              <li class="y">Custom employee personas</li>
+              <li class="y">Dedicated onboarding</li>
+              <li class="y">Early access to features</li>
+            </ul>
+            <button class="pc-btn ghost">Contact us</button>
+          </div>
+        </div>
+        <div class="trial-row">
+          <div><h4>What's in the free trial?</h4><p>Every plan starts with 7-day full access. No credit card. The complete product — not a limited preview.</p></div>
+          <div class="trial-checks">
+            <div class="trial-check">Full team from day one</div>
+            <div class="trial-check">No credit card required</div>
+            <div class="trial-check">Cancel before day 7 &mdash; pay nothing</div>
+            <div class="trial-check">Outputs stay in your library</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="view" id="view-faq">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">FAQ</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Every question <em style="color:var(--t2)">answered.</em></h2>
+        </div>
+        <div class="faq-cols">
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is this just ChatGPT with a different interface?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">No. ChatGPT requires you to know what to ask and do all the thinking. Vexa's employees proactively deliver structured work without prompts. They have memory of your brand, niche expertise, and improve based on every decision you make.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What is the Meeting feature?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Calling a Meeting opens a focused workspace where you have a real conversation with that employee. They arrive prepared with context. When you end the meeting, key decisions are summarized and converted to tasks automatically.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What happens when I click Turn into content?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Alex is automatically assigned a task to write hooks and a script based on that article. Output delivered in under a minute. You then approve the hooks, request variations, or send them to Riley for production. Full pipeline from one click.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How is this different from Buffer or Jasper?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Buffer is a scheduling tool. Jasper is a writing assistant you prompt. Neither has an autonomous team, a self-running pipeline, a meeting feature, or a memory system. Vexa is a workforce model — the difference is who does the thinking.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What does video generation produce?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Once Riley's shot list is approved, Vexa renders an edited Reel — with text overlays, transitions, and pacing — that you can review, approve, and download. Stored in your Outputs library.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my brand data private?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. Your niche, brand voice, and outputs are private to your workspace. We do not use your data to train models. Encrypted at rest and in transit. Export or delete anytime.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the free trial?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">The full product. No restricted features, no trial mode. Cancel before day 7 and you won't be charged. Your outputs stay in your library regardless.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Can I cancel or change my plan anytime?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. No contracts, no cancellation fees. Upgrade, downgrade, or cancel from your billing dashboard. You keep full access until the end of your current billing period.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DASHBOARD VIEWS ══════════════════════════════ -->
+
+    <!-- DASHBOARD HOME -->
+    <div class="view" id="view-db-dashboard">
+      <div class="db-layout">
+
+        <!-- MAIN COLUMN -->
+        <div class="db-main-col">
+          <div class="db-section-title" id="db-greeting">Good morning, CEO.</div>
+          <div class="db-section-sub" id="db-company">Your team is active and has work ready for your review.</div>
+          <div class="briefing-grid">
+            <div class="brief-card">
+              <div class="brief-from">Jordan <div class="brief-status"><div class="brief-dot"></div>Plan ready</div></div>
+              <div class="brief-body">"Good morning. I reviewed last week's performance — transformation content averaged 3&times; more saves. I've rebuilt this week's plan around that. Alex will have hooks ready by noon once you approve."</div>
+              <div class="brief-actions">
+                <button class="ab approve" style="font-size:10px;padding:7px 14px" onclick="goToTasks()">Review plan</button>
+                <button class="ab recon" style="font-size:10px;padding:7px 14px" onclick="openMeeting('Jordan','Content Strategist','J')">Meeting</button>
+              </div>
+            </div>
+            <div class="brief-card">
+              <div class="brief-from">Maya <div class="brief-status"><div class="brief-dot"></div>Report ready</div></div>
+              <div class="brief-body">"Weighted walking is up 340% in the last 48 hours. 3 accounts in your niche have already posted. You need to move on this before it peaks. Top hook in the report."</div>
+              <div class="brief-actions">
+                <button class="ab approve" style="font-size:10px;padding:7px 14px" onclick="navigate('db-knowledge')">View report</button>
+                <button class="ab recon" style="font-size:10px;padding:7px 14px" onclick="openMeeting('Maya','Trend Analyst','M')">Meeting</button>
+              </div>
+            </div>
+            <div class="brief-card">
+              <div class="brief-from">Alex <div class="brief-status"><div class="brief-dot"></div>Hooks delivered</div></div>
+              <div class="brief-body">"5 hook variations ready for the weighted walking Reel. Hook 02 is the one. I've flagged it. The others are safe options if you want to play it conservative this week."</div>
+              <div class="brief-actions">
+                <button class="ab approve" style="font-size:10px;padding:7px 14px" onclick="goToTasks()">Review hooks</button>
+                <button class="ab recon" style="font-size:10px;padding:7px 14px" onclick="openMeeting('Alex','Copywriter','A')">Meeting</button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:24px">
+            <h3 style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;margin-bottom:14px;color:var(--t2);letter-spacing:-.01em">Recent activity</h3>
+            <div class="task-list">
+              <div class="task-row"><div class="task-init">J</div><div><div class="task-title">Week of Jan 13 — Content Plan</div><div class="task-sub">Jordan &middot; Delivered Sunday 7:44pm</div></div><div class="task-status delivered">Awaiting approval</div><button class="task-btn" onclick="goToTasks()">Review</button></div>
+              <div class="task-row"><div class="task-init">M</div><div><div class="task-title">Weekly Trend Report — Fitness</div><div class="task-sub">Maya &middot; Delivered Monday 8:54am</div></div><div class="task-status delivered">Awaiting approval</div><button class="task-btn" onclick="goToTasks()">Review</button></div>
+              <div class="task-row"><div class="task-init">A</div><div><div class="task-title">Hook variations — Weighted walking</div><div class="task-sub">Alex &middot; Delivered Monday 12:11pm</div></div><div class="task-status delivered">Awaiting approval</div><button class="task-btn" onclick="goToTasks()">Review</button></div>
+              <div class="task-row"><div class="task-init">R</div><div><div class="task-title">Shot list — Transformation Reel</div><div class="task-sub">Riley &middot; In progress</div></div><div class="task-status working">Working</div><button class="task-btn">Watch</button></div>
+            </div>
+          </div>
+
+          <!-- INSIGHTS -->
+          <div class="insights-section">
+            <div class="insights-head">
+              <span class="insights-title">Performance insights</span>
+              <div class="insights-period">
+                <button class="ins-period-btn" onclick="switchPeriod(this,'7d')">7d</button>
+                <button class="ins-period-btn active" onclick="switchPeriod(this,'30d')">30d</button>
+                <button class="ins-period-btn" onclick="switchPeriod(this,'90d')">90d</button>
+              </div>
+            </div>
+
+            <!-- KPI STATS -->
+            <div class="kpi-row">
+              <div class="kpi-card">
+                <div class="kpi-label">Followers</div>
+                <div class="kpi-value" id="kpi-followers">12.4K</div>
+                <div class="kpi-delta up"><span class="kpi-delta-arrow">&#8593;</span><span id="kpi-followers-d">+847 this period</span></div>
+                <svg class="kpi-spark" viewBox="0 0 80 32" preserveAspectRatio="none">
+                  <polyline points="0,28 12,24 24,22 36,18 48,14 60,10 72,6 80,4" fill="none" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Avg Reach</div>
+                <div class="kpi-value" id="kpi-reach">8,320</div>
+                <div class="kpi-delta up"><span class="kpi-delta-arrow">&#8593;</span><span id="kpi-reach-d">+12% vs prior</span></div>
+                <svg class="kpi-spark" viewBox="0 0 80 32" preserveAspectRatio="none">
+                  <polyline points="0,26 12,22 24,24 36,16 48,18 60,10 72,8 80,6" fill="none" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Engagement Rate</div>
+                <div class="kpi-value" id="kpi-eng">4.7%</div>
+                <div class="kpi-delta up"><span class="kpi-delta-arrow">&#8593;</span><span id="kpi-eng-d">+0.8pp vs prior</span></div>
+                <svg class="kpi-spark" viewBox="0 0 80 32" preserveAspectRatio="none">
+                  <polyline points="0,20 12,22 24,18 36,14 48,16 60,10 72,8 80,7" fill="none" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Saves</div>
+                <div class="kpi-value" id="kpi-saves">2,140</div>
+                <div class="kpi-delta up"><span class="kpi-delta-arrow">&#8593;</span><span id="kpi-saves-d">+34% vs prior</span></div>
+                <svg class="kpi-spark" viewBox="0 0 80 32" preserveAspectRatio="none">
+                  <polyline points="0,30 12,26 24,24 36,20 48,14 60,10 72,6 80,3" fill="none" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- CHARTS ROW 1: follower growth line + content format donut -->
+            <div class="charts-row triple">
+
+              <!-- Follower growth line chart -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Follower growth</div>
+                    <div class="chart-card-sub">Last 30 days</div>
+                  </div>
+                  <div>
+                    <div class="chart-card-val">+847</div>
+                    <div class="chart-card-sub" style="text-align:right">new followers</div>
+                  </div>
+                </div>
+                <svg class="chart-svg" viewBox="0 0 340 90" preserveAspectRatio="none" style="height:90px">
+                  <!-- Grid lines -->
+                  <line x1="0" y1="20" x2="340" y2="20" stroke="var(--b1)" stroke-width="1"/>
+                  <line x1="0" y1="45" x2="340" y2="45" stroke="var(--b1)" stroke-width="1"/>
+                  <line x1="0" y1="70" x2="340" y2="70" stroke="var(--b1)" stroke-width="1"/>
+                  <!-- Area fill -->
+                  <defs>
+                    <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--t2)" stop-opacity=".15"/>
+                      <stop offset="100%" stop-color="var(--t2)" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points="0,75 28,72 57,68 85,65 113,60 141,54 170,48 198,44 226,38 255,32 283,24 311,18 340,12 340,90 0,90" fill="url(#lineGrad)"/>
+                  <!-- Line -->
+                  <polyline points="0,75 28,72 57,68 85,65 113,60 141,54 170,48 198,44 226,38 255,32 283,24 311,18 340,12" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Axis labels -->
+                  <text class="chart-axis-label" x="0" y="87">Jan 1</text>
+                  <text class="chart-axis-label" x="155" y="87" text-anchor="middle">Jan 15</text>
+                  <text class="chart-axis-label" x="335" y="87" text-anchor="end">Jan 30</text>
+                </svg>
+                <div class="insight-callout">
+                  <span class="insight-callout-who">Jordan</span>
+                  "Growth accelerated after Jan 14 — that's when the transformation Reel landed. Let's double down on that content pillar this week."
+                </div>
+              </div>
+
+              <!-- Content format donut -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Format breakdown</div>
+                    <div class="chart-card-sub">By post count</div>
+                  </div>
+                </div>
+                <div class="donut-wrap">
+                  <svg class="donut-svg" viewBox="0 0 90 90">
+                    <!-- Donut segments: Reels 52%, Carousel 28%, Static 12%, Story 8% -->
+                    <!-- Total circumference for r=32: 201.06 -->
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="var(--b1)" stroke-width="14"/>
+                    <!-- Reels: 52% = 104.55 of 201 -->
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="var(--t1)" stroke-width="14"
+                      stroke-dasharray="104.55 201.06" stroke-dashoffset="0" transform="rotate(-90 45 45)"/>
+                    <!-- Carousel: 28% = 56.3 -->
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="var(--t2)" stroke-width="14"
+                      stroke-dasharray="56.3 201.06" stroke-dashoffset="-104.55" transform="rotate(-90 45 45)"/>
+                    <!-- Static: 12% = 24.1 -->
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="var(--b2)" stroke-width="14"
+                      stroke-dasharray="24.1 201.06" stroke-dashoffset="-160.85" transform="rotate(-90 45 45)"/>
+                    <!-- Story: 8% = 16.1 -->
+                    <circle cx="45" cy="45" r="32" fill="none" stroke="var(--s3)" stroke-width="14"
+                      stroke-dasharray="16.1 201.06" stroke-dashoffset="-184.95" transform="rotate(-90 45 45)"/>
+                  </svg>
+                  <div class="donut-legend">
+                    <div class="donut-legend-item"><div class="donut-swatch" style="background:var(--t1)"></div>Reels &mdash; 52%</div>
+                    <div class="donut-legend-item"><div class="donut-swatch" style="background:var(--t2)"></div>Carousel &mdash; 28%</div>
+                    <div class="donut-legend-item"><div class="donut-swatch" style="background:var(--b2)"></div>Static &mdash; 12%</div>
+                    <div class="donut-legend-item"><div class="donut-swatch" style="background:var(--s3)"></div>Story &mdash; 8%</div>
+                  </div>
+                </div>
+                <div class="insight-callout">
+                  <span class="insight-callout-who">Alex</span>
+                  "Reels are your top format by far. I'm weighting my scripts toward Reels this week."
+                </div>
+              </div>
+            </div>
+
+            <!-- CHARTS ROW 2: engagement by day + saves by content type -->
+            <div class="charts-row">
+
+              <!-- Engagement by day of week -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Engagement by day</div>
+                    <div class="chart-card-sub">Avg rate per post</div>
+                  </div>
+                  <div>
+                    <div class="chart-card-val">Tue</div>
+                    <div class="chart-card-sub" style="text-align:right">best day</div>
+                  </div>
+                </div>
+                <div class="bar-chart" id="bar-engagement">
+                  <!-- Rendered by JS -->
+                </div>
+                <div class="insight-callout">
+                  <span class="insight-callout-who">Jordan</span>
+                  "Tuesday and Thursday are your peak engagement days. I've front-loaded this week's Reels to those slots."
+                </div>
+              </div>
+
+              <!-- Saves by content type -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Saves by content type</div>
+                    <div class="chart-card-sub">Total this period</div>
+                  </div>
+                  <div>
+                    <div class="chart-card-val">2,140</div>
+                    <div class="chart-card-sub" style="text-align:right">total saves</div>
+                  </div>
+                </div>
+                <div class="bar-chart" id="bar-saves">
+                  <!-- Rendered by JS -->
+                </div>
+                <div class="insight-callout">
+                  <span class="insight-callout-who">Maya</span>
+                  "Transformation content saves are 3× higher than motivation posts. This is the strongest signal I have for your niche right now."
+                </div>
+              </div>
+            </div>
+
+            <!-- CHARTS ROW 3: reach over time + top posts -->
+            <div class="charts-row triple">
+
+              <!-- Top performing posts -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Top posts this period</div>
+                    <div class="chart-card-sub">Ranked by engagement rate</div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1px solid var(--b1)">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--t3);flex-shrink:0">01</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Transformation — 30 day check-in</div>
+                      <div style="font-size:10px;color:var(--t3);letter-spacing:.04em">Reel &middot; Jan 14 &middot; Alex wrote the hook</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                      <div style="font-size:13px;font-weight:500;color:var(--t1)">8.4%</div>
+                      <div style="font-size:10px;color:var(--t3)">eng rate</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1px solid var(--b1)">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--t3);flex-shrink:0">02</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">5 gym mistakes I made for years</div>
+                      <div style="font-size:10px;color:var(--t3);letter-spacing:.04em">Reel &middot; Jan 7 &middot; Riley directed</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                      <div style="font-size:13px;font-weight:500;color:var(--t1)">6.9%</div>
+                      <div style="font-size:10px;color:var(--t3)">eng rate</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1px solid var(--b1)">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--t3);flex-shrink:0">03</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Protein myth you need to stop believing</div>
+                      <div style="font-size:10px;color:var(--t3);letter-spacing:.04em">Carousel &middot; Jan 10 &middot; Maya flagged the study</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                      <div style="font-size:13px;font-weight:500;color:var(--t1)">5.8%</div>
+                      <div style="font-size:10px;color:var(--t3)">eng rate</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:8px;border:1px solid var(--b1);opacity:.55">
+                    <span style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--t3);flex-shrink:0">04</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;color:var(--t1);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Morning routine motivation post</div>
+                      <div style="font-size:10px;color:var(--t3);letter-spacing:.04em">Caption &middot; Jan 11</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                      <div style="font-size:13px;font-weight:500;color:var(--t2)">2.1%</div>
+                      <div style="font-size:10px;color:var(--t3)">eng rate</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Reach trend area chart -->
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <div>
+                    <div class="chart-card-title">Weekly reach</div>
+                    <div class="chart-card-sub">Accounts reached</div>
+                  </div>
+                  <div>
+                    <div class="chart-card-val">+12%</div>
+                    <div class="chart-card-sub" style="text-align:right">vs prior period</div>
+                  </div>
+                </div>
+                <svg class="chart-svg" viewBox="0 0 160 100" preserveAspectRatio="none" style="height:100px">
+                  <defs>
+                    <linearGradient id="reachGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="var(--t2)" stop-opacity=".2"/>
+                      <stop offset="100%" stop-color="var(--t2)" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="25" x2="160" y2="25" stroke="var(--b1)" stroke-width="1"/>
+                  <line x1="0" y1="55" x2="160" y2="55" stroke="var(--b1)" stroke-width="1"/>
+                  <line x1="0" y1="85" x2="160" y2="85" stroke="var(--b1)" stroke-width="1"/>
+                  <polygon points="0,80 32,75 64,68 96,55 128,40 160,28 160,95 0,95" fill="url(#reachGrad)"/>
+                  <polyline points="0,80 32,75 64,68 96,55 128,40 160,28" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Week labels -->
+                  <text class="chart-axis-label" x="0" y="99">W1</text>
+                  <text class="chart-axis-label" x="32" y="99" text-anchor="middle">W2</text>
+                  <text class="chart-axis-label" x="64" y="99" text-anchor="middle">W3</text>
+                  <text class="chart-axis-label" x="96" y="99" text-anchor="middle">W4</text>
+                </svg>
+                <div class="insight-callout" style="margin-top:10px">
+                  <span class="insight-callout-who">Maya</span>
+                  "Reach is climbing steadily. The weighted walking post will likely push W4 significantly — post before Friday."
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- FEED STRIP -->
+        <div class="db-feed-strip">
+          <div class="db-feed-strip-head">
+            <div class="db-feed-strip-title">
+              <span class="db-feed-strip-name">Maya's Feed</span>
+              <div class="db-feed-strip-live">
+                <span class="db-feed-strip-pulse"></span>
+                Live
+              </div>
+            </div>
+            <div class="db-feed-strip-meta">14 sources &middot; Fitness niche &middot; 2h ago</div>
+          </div>
+
+          <div class="db-feed-strip-items">
+
+            <div class="db-feed-item urgent">
+              <div class="db-feed-item-src">
+                <span>Men's Health</span>
+                <span class="db-feed-item-age">2h ago</span>
+              </div>
+              <span class="db-feed-item-title">3-Day Splits Outperform 5-Day Programs, Study Finds</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:94%"></div></div>
+                <span class="db-feed-item-score-num">94</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item urgent">
+              <div class="db-feed-item-src">
+                <span>r/xxfitness</span>
+                <span class="db-feed-item-age">1h ago</span>
+              </div>
+              <span class="db-feed-item-title">"Nobody told me I was training wrong for 3 weeks of every month" — 4.1K upvotes</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:96%"></div></div>
+                <span class="db-feed-item-score-num">96</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>PubMed</span>
+                <span class="db-feed-item-age">6h ago</span>
+              </div>
+              <span class="db-feed-item-title">Protein Timing Window Longer Than Previously Thought</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:88%"></div></div>
+                <span class="db-feed-item-score-num">88</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>Women's Health</span>
+                <span class="db-feed-item-age">8h ago</span>
+              </div>
+              <span class="db-feed-item-title">Why Women Need to Train Differently Each Phase of Their Cycle</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:91%"></div></div>
+                <span class="db-feed-item-score-num">91</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>Breaking Muscle</span>
+                <span class="db-feed-item-age">4h ago</span>
+              </div>
+              <span class="db-feed-item-title">Walking Lunges vs Stationary: Biomechanics Analysis Shows Surprising Results</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:82%"></div></div>
+                <span class="db-feed-item-score-num">82</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>r/bodyweightfitness</span>
+                <span class="db-feed-item-age">3h ago</span>
+              </div>
+              <span class="db-feed-item-title">"Six months calisthenics only — my gym membership feels like a waste" — 3.8K upvotes</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:87%"></div></div>
+                <span class="db-feed-item-score-num">87</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>Examine.com</span>
+                <span class="db-feed-item-age">5h ago</span>
+              </div>
+              <span class="db-feed-item-title">Creatine's Effects on Cognitive Function — What the Research Actually Shows</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:79%"></div></div>
+                <span class="db-feed-item-score-num">79</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+            <div class="db-feed-item">
+              <div class="db-feed-item-src">
+                <span>r/fitness</span>
+                <span class="db-feed-item-age">30m ago</span>
+              </div>
+              <span class="db-feed-item-title">"What's the one thing nobody told you when you started lifting?" — 4.2K upvotes</span>
+              <div class="db-feed-item-score">
+                <div class="db-feed-item-score-bar"><div class="db-feed-item-score-fill" style="width:91%"></div></div>
+                <span class="db-feed-item-score-num">91</span>
+              </div>
+              <div class="db-feed-item-cta">
+                <button class="db-feed-cta-btn main">Use it</button>
+                <button class="db-feed-cta-btn read">Read</button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="db-feed-strip-footer">
+            <button class="db-feed-strip-footer-btn" onclick="navigate('db-knowledge')">View full feed</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MY TEAM -->
+    <div class="view" id="view-db-team">
+      <div class="view-inner">
+        <div class="db-section-title">My Team</div>
+        <div class="db-section-sub">Four specialists working on your brand. Call a meeting anytime.</div>
+        <div class="emp-cards">
+          <div class="emp-card">
+            <div class="emp-card-top">
+              <div class="emp-card-who"><div class="emp-card-init">M</div><div><div class="emp-card-name">Maya</div><div class="emp-card-role">Trend &amp; Insights Analyst</div></div></div>
+              <span class="emp-card-status-tag">Active</span>
+            </div>
+            <div class="emp-card-status">Status: <strong>Weekly trend report delivered &mdash; 3 trends flagged</strong></div>
+            <div class="emp-card-actions">
+              <button class="emp-card-btn view" onclick="navigate('db-knowledge')">View report</button>
+              <button class="emp-card-btn view">Assign task</button>
+              <button class="emp-card-btn meeting" onclick="openMeeting('Maya','Trend Analyst','M')">Call meeting</button>
+            </div>
+          </div>
+          <div class="emp-card">
+            <div class="emp-card-top">
+              <div class="emp-card-who"><div class="emp-card-init">J</div><div><div class="emp-card-name">Jordan</div><div class="emp-card-role">Content Strategist</div></div></div>
+              <span class="emp-card-status-tag">Active</span>
+            </div>
+            <div class="emp-card-status">Status: <strong>Week of Jan 13 content plan awaiting your approval</strong></div>
+            <div class="emp-card-actions">
+              <button class="emp-card-btn view" onclick="goToTasks()">Review plan</button>
+              <button class="emp-card-btn view">Assign task</button>
+              <button class="emp-card-btn meeting" onclick="openMeeting('Jordan','Content Strategist','J')">Call meeting</button>
+            </div>
+          </div>
+          <div class="emp-card">
+            <div class="emp-card-top">
+              <div class="emp-card-who"><div class="emp-card-init">A</div><div><div class="emp-card-name">Alex</div><div class="emp-card-role">Copywriter &amp; Script Writer</div></div></div>
+              <span class="emp-card-status-tag">Active</span>
+            </div>
+            <div class="emp-card-status">Status: <strong>5 hook variations delivered &mdash; hook 02 recommended</strong></div>
+            <div class="emp-card-actions">
+              <button class="emp-card-btn view" onclick="goToTasks()">Review hooks</button>
+              <button class="emp-card-btn view">Assign task</button>
+              <button class="emp-card-btn meeting" onclick="openMeeting('Alex','Copywriter & Script Writer','A')">Call meeting</button>
+            </div>
+          </div>
+          <div class="emp-card">
+            <div class="emp-card-top">
+              <div class="emp-card-who"><div class="emp-card-init">R</div><div><div class="emp-card-name">Riley</div><div class="emp-card-role">Creative Director</div></div></div>
+              <span class="emp-card-status-tag">Working</span>
+            </div>
+            <div class="emp-card-status">Status: <strong>Shot list for transformation Reel in progress</strong></div>
+            <div class="emp-card-actions">
+              <button class="emp-card-btn view">Check progress</button>
+              <button class="emp-card-btn view">Assign task</button>
+              <button class="emp-card-btn meeting" onclick="openMeeting('Riley','Creative Director','R')">Call meeting</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="view" id="view-db-tasks">
+      <div class="view-inner">
+        <div class="db-section-title">Tasks &amp; Calendar</div>
+        <div class="db-section-sub">Your team's work, organized in time. Agents update the calendar automatically when you approve.</div>
+
+        <!-- View toggle: List / Calendar -->
+        <div class="tasks-view-toggle">
+          <button class="tasks-view-btn" id="tasks-list-btn" onclick="switchTasksView('list')">List view</button>
+          <button class="tasks-view-btn active" id="tasks-cal-btn" onclick="switchTasksView('calendar')">Calendar</button>
+        </div>
+
+        <!-- LIST VIEW -->
+        <div id="tasks-list-view" style="display:none">
+          <div class="out-nav" style="margin-bottom:20px">
+            <button class="out-btn active">Awaiting review (3)</button>
+            <button class="out-btn">In progress (1)</button>
+            <button class="out-btn">Completed (12)</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="out-card">
+              <div class="out-head"><span class="out-from">Jordan &middot; Content Plan &middot; Week of Jan 13</span><span class="out-when">Sunday 7:44pm</span></div>
+              <div class="out-body">
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:12px">
+                  <div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Mon</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Tue</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Wed</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Thu</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Fri</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Sat</div><div style="font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:center;padding-bottom:6px">Sun</div>
+                  <div class="cal-c"><div class="cal-d">13</div><span class="cal-f">Reel</span><p class="cal-t">Weighted walking</p></div>
+                  <div class="cal-c"><div class="cal-d">14</div><span class="cal-f">Carousel</span><p class="cal-t">Myth-busting splits</p></div>
+                  <div class="cal-c"><div class="cal-d">15</div><span class="cal-f">Story</span><p class="cal-t">Behind the scenes</p></div>
+                  <div class="cal-c"><div class="cal-d">16</div><span class="cal-f">Reel</span><p class="cal-t">Cycle syncing</p></div>
+                  <div class="cal-c"><div class="cal-d">17</div><span class="cal-f">Caption</span><p class="cal-t">Motivation post</p></div>
+                  <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span></div>
+                  <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
+                </div>
+                <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts." — Jordan</p>
+              </div>
+              <div class="out-foot">
+                <button class="ab approve" onclick="approveCalendarPlan()">Approve &mdash; brief Alex</button>
+                <button class="ab recon">Adjust timing</button>
+                <button class="ab rej">Rethink angle</button>
+                <button class="ab recon" onclick="openMeeting('Jordan','Content Strategist','J')" style="margin-left:auto">Call meeting</button>
+              </div>
+            </div>
+            <div class="out-card">
+              <div class="out-head"><span class="out-from">Alex &middot; Hook variations &middot; Weighted walking</span><span class="out-when">Monday 12:11pm</span></div>
+              <div class="out-body">
+                <div class="hook-list">
+                  <div class="hook-row"><span class="h-n">01</span><span class="h-t">I walked 20 minutes a day for 30 days with a 20lb vest. Here's what nobody tells you.</span><span class="h-l">Story opener</span></div>
+                  <div class="hook-row"><span class="h-n">02</span><span class="h-t">The laziest cardio you've never tried burns more calories than a 45-minute run. In work clothes.</span><span class="h-l h-s">Alex's pick</span></div>
+                  <div class="hook-row"><span class="h-n">03</span><span class="h-t">Gym culture will never tell you this because it doesn't require a membership.</span><span class="h-l">Controversial</span></div>
+                </div>
+              </div>
+              <div class="out-foot">
+                <button class="ab approve">Use hook 02</button>
+                <button class="ab recon">Too safe</button>
+                <button class="ab rej">5 more</button>
+                <button class="ab recon" onclick="openMeeting('Alex','Copywriter & Script Writer','A')" style="margin-left:auto">Call meeting</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CALENDAR VIEW -->
+        <div id="tasks-cal-view">
+
+          <!-- Toolbar -->
+          <div class="cal-toolbar">
+            <div class="cal-toolbar-left">
+              <button class="cal-nav-btn" onclick="calNav(-1)">&#8249;</button>
+              <span class="cal-month-label" id="cal-month-label">January 2025</span>
+              <button class="cal-nav-btn" onclick="calNav(1)">&#8250;</button>
+              <button class="cal-nav-btn" onclick="calGoToday()" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:.1em;text-transform:uppercase">Today</button>
+            </div>
+            <div class="cal-toolbar-right">
+              <div class="cal-view-toggle">
+                <button class="cal-view-btn active" id="cal-month-btn" onclick="switchCalView('month')">Month</button>
+                <button class="cal-view-btn" id="cal-week-btn" onclick="switchCalView('week')">Week</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="cal-legend">
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="background:var(--c-jordan-b)"></div>
+              Jordan — Strategy
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="background:var(--c-maya-b)"></div>
+              Maya — Trends
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="background:var(--c-alex-b)"></div>
+              Alex — Copy
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="background:var(--c-riley-b)"></div>
+              Riley — Production
+            </div>
+            <div class="cal-legend-item" style="margin-left:auto">
+              <div class="cal-legend-swatch" style="border-radius:50%;background:var(--t3)"></div> Planned
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="border-radius:50%;background:var(--t2)"></div> Scripted
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="border-radius:50%;background:var(--t1)"></div> Approved
+            </div>
+          </div>
+
+          <!-- Month grid -->
+          <div id="cal-month-view">
+            <div class="cal-month-grid" id="cal-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Week grid -->
+          <div id="cal-week-view" style="display:none">
+            <div class="cal-week-grid" id="cal-week-grid">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+        </div><!-- /cal view -->
+      </div>
+    </div>
+
+    <!-- AGENT UPDATE TOAST -->
+    <div class="cal-toast" id="cal-toast">
+      <div class="cal-toast-init" id="toast-init">J</div>
+      <div class="cal-toast-body">
+        <div class="cal-toast-name" id="toast-name">Jordan</div>
+        <div class="cal-toast-msg" id="toast-msg">Loading...</div>
+        <div class="cal-toast-actions">
+          <button class="cal-toast-btn approve" onclick="toastApprove()">Approve</button>
+          <button class="cal-toast-btn view" onclick="switchTasksView('list')">Review in list</button>
+          <button class="cal-toast-btn view" onclick="hideToast()">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUTS LIBRARY -->
+    <div class="view" id="view-db-outputs">
+      <div class="view-inner">
+        <div class="db-section-title">Outputs Library</div>
+        <div class="db-section-sub">All approved content, stored and ready to export.</div>
+        <div class="outputs-filter">
+          <button class="filter-btn active">All</button>
+          <button class="filter-btn">Hooks</button>
+          <button class="filter-btn">Scripts</button>
+          <button class="filter-btn">Content plans</button>
+          <button class="filter-btn">Trend reports</button>
+          <button class="filter-btn">Videos</button>
+        </div>
+        <div class="output-grid">
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Trend Report</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Weekly Trends — Fitness Jan 6</div><div class="output-item-meta">Maya &middot; Jan 6, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">View</button><button class="ab recon" style="font-size:10px;padding:6px 12px">Export</button></div></div>
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Content Plan</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Week of Jan 6 — Content Calendar</div><div class="output-item-meta">Jordan &middot; Jan 5, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">View</button><button class="ab recon" style="font-size:10px;padding:6px 12px">Export</button></div></div>
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Hooks</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Hook Set — Morning Routine Reel</div><div class="output-item-meta">Alex &middot; Jan 6, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">View</button><button class="ab recon" style="font-size:10px;padding:6px 12px">Export</button></div></div>
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Script</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Reel Script — 5 Gym Mistakes</div><div class="output-item-meta">Alex &middot; Jan 7, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">View</button><button class="ab recon" style="font-size:10px;padding:6px 12px">Export</button></div></div>
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Shot List</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Production Brief — 5 Gym Mistakes</div><div class="output-item-meta">Riley &middot; Jan 7, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">View</button><button class="ab recon" style="font-size:10px;padding:6px 12px">Export</button></div></div>
+          <div class="output-item"><div class="output-item-top"><span class="output-item-type">Video</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Rendered Reel — 5 Gym Mistakes</div><div class="output-item-meta">Riley &middot; Jan 8, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">Preview</button><button class="ab approve" style="font-size:10px;padding:6px 12px">Download</button></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KNOWLEDGE FEED (dashboard) -->
+    <div class="view" id="view-db-knowledge">
+      <div class="view-inner">
+        <div class="db-section-title">Knowledge Feed</div>
+        <div class="db-section-sub">Maya's daily curation — articles, research, and community discussions in your niche.</div>
+        <div class="feed-head" style="margin-bottom:12px">
+          <div></div>
+          <div class="feed-tabs">
+            <button class="feed-tab active" onclick="switchFeed2(this,'all')">All</button>
+            <button class="feed-tab" onclick="switchFeed2(this,'article')">Articles</button>
+            <button class="feed-tab" onclick="switchFeed2(this,'research')">Research</button>
+            <button class="feed-tab" onclick="switchFeed2(this,'reddit')">Community</button>
+          </div>
+        </div>
+        <div class="feed-bar"><div class="feed-bar-left"><span class="feed-bar-name">Curated by Maya</span><span class="feed-bar-desc">Trend Analyst &middot; Last scanned 2 hours ago &middot; 14 sources active &middot; Fitness niche</span></div><div class="feed-bar-right"><span class="feed-pulse"></span>Updated daily</div></div>
+        <div class="feed-grid" id="db-feed-grid">
+          <div class="feed-card tall" data-type2="article">
+            <div class="feed-top"><span class="feed-src">Men's Health</span><span class="feed-dt">2h ago</span></div>
+            <a href="#" class="feed-title" onclick="return false">New Study: 3-Day Strength Splits Outperform 5-Day Programs</a>
+            <p class="feed-sum">Researchers tracked 240 recreational lifters over 16 weeks, finding lower frequency with higher per-session volume produced superior hypertrophy outcomes.</p>
+            <div class="feed-insight"><strong>Maya's take</strong>This challenges a widely held belief — perfect for a myth-busting Reel that drives saves.</div>
+            <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">94</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:94%"></div></div></div>
+            <div class="feed-actions"><button class="feed-act main">Turn into content</button><button class="feed-act read">Read</button></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="feed-card" data-type2="research">
+              <div class="feed-top"><span class="feed-src">PubMed</span><span class="feed-dt">6h ago</span></div>
+              <a href="#" class="feed-title" onclick="return false">Protein Timing Window Longer Than Previously Thought</a>
+              <p class="feed-sum">Meta-analysis of 73 studies: anabolic window extends to 4–6 hours post-exercise.</p>
+              <div class="feed-insight"><strong>Maya's take</strong>The "30-minute rule" is one of the most shared myths. Debunking it = authority content.</div>
+              <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">88</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:88%"></div></div></div>
+              <div class="feed-actions"><button class="feed-act main">Turn into content</button><button class="feed-act read">Read</button></div>
+            </div>
+            <div class="feed-card" data-type2="reddit">
+              <div class="feed-top"><span class="feed-src">r/fitness</span><span class="feed-dt">1h ago</span></div>
+              <a href="#" class="feed-title" onclick="return false">"What's the one thing nobody told you when you started lifting?"</a>
+              <p class="feed-sum">4.2K upvotes, 1,800+ comments. Consistency beats intensity, sleep matters most.</p>
+              <div class="feed-insight"><strong>Maya's take</strong>Goldmine of authentic hooks. Real people's language = relatable content.</div>
+              <div class="feed-score"><div class="feed-score-row"><span class="feed-score-lbl">Content potential</span><span class="feed-score-val">91</span></div><div class="feed-bar-s"><div class="feed-bar-fill" style="width:91%"></div></div></div>
+              <div class="feed-actions"><button class="feed-act main">Turn into content</button><button class="feed-act read">Read</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-db-settings">
+      <div class="view-inner">
+        <div class="db-section-title">Settings</div>
+        <div class="db-section-sub">Manage your brand, team, and subscription.</div>
+        <div class="settings-grid">
+          <div class="settings-nav">
+            <button class="settings-nav-item active" onclick="switchSettings(this,'profile')">Profile</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'brand')">Brand Voice</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'niche')">Niche</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'billing')">Billing</button>
+          </div>
+          <div>
+            <div class="settings-panel active" id="settings-profile">
+              <div class="settings-section">
+                <h3>Profile</h3>
+                <p>Your account information.</p>
+                <div class="settings-field"><span class="settings-label">Full name</span><input class="settings-input" value="Marcus Thomas"></div>
+                <div class="settings-field"><span class="settings-label">Email</span><input class="settings-input" value="marcus@marcusfitness.com"></div>
+                <button class="settings-save">Save changes</button>
+              </div>
+            </div>
+            <div class="settings-panel" id="settings-brand">
+              <div class="settings-section">
+                <h3>Brand Voice</h3>
+                <p>How your team writes for you. The more specific, the better the outputs.</p>
+                <div class="settings-field"><span class="settings-label">Tone</span><input class="settings-input" value="Motivational, direct, conversational"></div>
+                <div class="settings-field"><span class="settings-label">Avoid</span><input class="settings-input" value="Corporate jargon, overly technical language"></div>
+                <div class="settings-field"><span class="settings-label">Audience</span><input class="settings-input" value="Women aged 25–35, intermediate fitness level, no gym"></div>
+                <button class="settings-save">Save changes</button>
+              </div>
+            </div>
+            <div class="settings-panel" id="settings-niche">
+              <div class="settings-section">
+                <h3>Niche</h3>
+                <p>Your team specializes based on this. Change it anytime — your team adapts immediately.</p>
+                <div class="settings-field"><span class="settings-label">Niche</span><input class="settings-input" value="Fitness &amp; Wellness"></div>
+                <div class="settings-field"><span class="settings-label">Sub-niche</span><input class="settings-input" value="Women's strength training, no gym required"></div>
+                <button class="settings-save">Save changes</button>
+              </div>
+            </div>
+            <div class="settings-panel" id="settings-billing">
+              <div class="settings-section">
+                <h3>Subscription</h3>
+                <p>Currently on the Pro plan — $49/month. Next billing date: February 1, 2025.</p>
+                <div style="display:flex;gap:10px;margin-top:4px">
+                  <button class="settings-save">Manage billing</button>
+                  <button style="padding:10px 20px;border:1px solid var(--b2);border-radius:100px;background:transparent;color:var(--t3);font-size:12px;letter-spacing:.06em;text-transform:uppercase;transition:all .2s" onmouseenter="this.style.color='var(--t2)'" onmouseleave="this.style.color='var(--t3)'">Cancel plan</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* ── CURSOR ─────────────────────────────────────────── */
+const cd=document.getElementById('cd'),cr=document.getElementById('cr')
+let mx=0,my=0,rx=0,ry=0
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cd.style.left=mx+'px';cd.style.top=my+'px'})
+;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
+document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.ob-card,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
+  el.addEventListener('mouseenter',()=>document.body.classList.add('ch'))
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('ch'))
+})
+document.addEventListener('mousedown',()=>document.body.classList.add('cp'))
+document.addEventListener('mouseup',()=>document.body.classList.remove('cp'))
+
+/* ── STATE ──────────────────────────────────────────── */
+let currentView='home'
+let isLoggedIn=false
+let selectedNiche=''
+let companyName=''
+
+/* ── THEME ──────────────────────────────────────────── */
+const html=document.documentElement
+const saved=localStorage.getItem('vx-t')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')
+html.setAttribute('data-theme',saved)
+function toggleTheme(){
+  const n=html.getAttribute('data-theme')==='dark'?'light':'dark'
+  html.setAttribute('data-theme',n);localStorage.setItem('vx-t',n)
+}
+
+/* ── NAVIGATION ─────────────────────────────────────── */
+const sectionNames={
+  home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',
+  knowledge:'Knowledge Feed',pricing:'Pricing',faq:'FAQ',
+  'db-dashboard':'Dashboard','db-team':'My Team','db-tasks':'Tasks',
+  'db-outputs':'Outputs','db-knowledge':'Knowledge Feed','db-settings':'Settings'
+}
+
+function navigate(id){
+  if(currentView===id)return
+  const prev=document.getElementById('view-'+currentView)
+  const next=document.getElementById('view-'+id)
+  if(!next)return
+
+  // Update nav active states
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'))
+  const navEl=document.getElementById('nav-'+id)
+  if(navEl)navEl.classList.add('active')
+
+  // Animate transition
+  const pt=document.getElementById('page-trans')
+  pt.style.transition='transform .45s cubic-bezier(.76,0,.24,1)'
+  pt.classList.remove('out')
+  pt.classList.add('in')
+
+  setTimeout(()=>{
+    if(prev){prev.classList.remove('active')}
+    next.classList.add('active')
+    document.getElementById('topbar-section').textContent=sectionNames[id]||id
+    currentView=id
+    pt.classList.remove('in')
+    pt.classList.add('out')
+    setTimeout(()=>pt.classList.remove('out'),500)
+  },280)
+}
+
+/* ── NAV COLLAPSE ───────────────────────────────────── */
+function toggleNav(){
+  const nav=document.getElementById('sidenav')
+  const btn=document.getElementById('collapseBtn')
+  nav.classList.toggle('collapsed')
+  btn.textContent=nav.classList.contains('collapsed')?'›':'‹'
+}
+
+/* ── SHOW LOGIN ─────────────────────────────────────── */
+function showLogin(){
+  // Simulate quick login → go to dashboard
+  enterDashboard()
+}
+
+/* ── ONBOARDING ─────────────────────────────────────── */
+function startOnboarding(){
+  document.getElementById('onboarding').classList.add('active')
+  document.getElementById('ob-1').classList.add('active')
+}
+
+function obNext(step){
+  if(step===1){
+    companyName=document.getElementById('ob-name-input').value||'My Company'
+    document.getElementById('ob-1').classList.remove('active')
+    document.getElementById('ob-2').classList.add('active')
+    document.getElementById('ob-prog').style.width='40%'
+  } else if(step===2){
+    if(!selectedNiche)return
+    document.getElementById('ob-2').classList.remove('active')
+    document.getElementById('ob-3').classList.add('active')
+    document.getElementById('ob-prog').style.width='60%'
+  } else if(step===3){
+    document.getElementById('ob-3').classList.remove('active')
+    document.getElementById('ob-4').classList.add('active')
+    document.getElementById('ob-prog').style.width='80%'
+    document.getElementById('ob-reveal-title').textContent=companyName+' is open for business.'
+    startReveal()
+  }
+}
+
+function obPrev(step){
+  if(step===2){
+    document.getElementById('ob-2').classList.remove('active')
+    document.getElementById('ob-1').classList.add('active')
+    document.getElementById('ob-prog').style.width='20%'
+  } else if(step===3){
+    document.getElementById('ob-3').classList.remove('active')
+    document.getElementById('ob-2').classList.add('active')
+    document.getElementById('ob-prog').style.width='40%'
+  }
+}
+
+function selectNiche(el,niche){
+  document.querySelectorAll('.ob-card').forEach(c=>c.classList.remove('selected'))
+  el.classList.add('selected')
+  selectedNiche=niche
+  const btn=document.getElementById('ob-niche-btn')
+  btn.disabled=false
+  btn.style.opacity='1'
+}
+
+function startReveal(){
+  const delays=[500,1100,1700,2300]
+  delays.forEach((d,i)=>{
+    setTimeout(()=>{
+      document.getElementById('ob-emp-'+i).classList.add('revealed')
+      if(i===3){
+        setTimeout(()=>{
+          document.getElementById('ob-prog').style.width='100%'
+          document.getElementById('ob-enter-btn').style.opacity='1'
+        },400)
+      }
+    },d)
+  })
+}
+
+function enterDashboard(){
+  isLoggedIn=true
+  document.getElementById('onboarding').classList.remove('active')
+
+  // Switch nav
+  document.getElementById('nav-marketing').style.display='none'
+  document.getElementById('nav-app').style.display='block'
+  document.getElementById('topbar-login').style.display='none'
+  document.getElementById('topbar-cta').style.display='none'
+  document.getElementById('notif-btn').style.display='flex'
+
+  // Update user area
+  document.getElementById('nav-username').textContent=companyName||'My Company'
+  document.getElementById('nav-userplan').textContent='Pro Plan'
+  document.getElementById('nav-avatar').textContent=
+    (companyName||'M')[0].toUpperCase()
+
+  // Update dashboard greeting
+  const h=new Date().getHours()
+  document.getElementById('db-greeting').textContent=
+    (h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', CEO.'
+  document.getElementById('db-company').textContent=
+    (companyName||'Your company')+' — your team is active and has work ready for your review.'
+
+  navigate('db-dashboard')
+  setTimeout(initInsights, 420)
+}
+
+/* ── FAQ TOGGLE ─────────────────────────────────────── */
+function toggleFaq(el){
+  const item=el.parentElement,was=item.classList.contains('open')
+  document.querySelectorAll('.faq-item').forEach(i=>i.classList.remove('open'))
+  if(!was)item.classList.add('open')
+}
+
+/* ── OUTPUTS SWITCH ─────────────────────────────────── */
+function switchOut(btn,id){
+  document.querySelectorAll('.out-btn').forEach(b=>b.classList.remove('active'))
+  btn.classList.add('active')
+  ;['trend','hooks','cal'].forEach(k=>{
+    const el=document.getElementById('out-'+k)
+    if(el)el.style.display=k===id?'block':'none'
+  })
+}
+
+/* ── FEED TABS ──────────────────────────────────────── */
+function switchFeed(btn,type){
+  document.querySelectorAll('#view-knowledge .feed-tab').forEach(t=>t.classList.remove('active'))
+  btn.classList.add('active')
+  filterFeed('#mkt-feed-grid','data-type',type)
+}
+function switchFeed2(btn,type){
+  document.querySelectorAll('#view-db-knowledge .feed-tab').forEach(t=>t.classList.remove('active'))
+  btn.classList.add('active')
+  filterFeed('#db-feed-grid','data-type2',type)
+}
+function filterFeed(gridSel,attr,type){
+  document.querySelectorAll(gridSel+' .feed-card').forEach(c=>{
+    const show=type==='all'||c.getAttribute(attr)===type
+    c.style.opacity='0'
+    c.style.display=show?'flex':'none'
+    if(show)setTimeout(()=>{c.style.transition='opacity .35s ease';c.style.opacity='1'},20)
+  })
+}
+
+/* ── PRICING TOGGLE ─────────────────────────────────── */
+let annual=false
+const pp={starter:[14.99,11],pro:[49,37],agency:[99,74]}
+function togglePrice(){
+  annual=!annual
+  document.getElementById('priceToggle').classList.toggle('on',annual)
+  const fmt=p=>`<sup>$</sup>${Number.isInteger(p)?p:p.toFixed(2)}<span class="mo">/mo</span>`
+  document.getElementById('ps-starter').innerHTML=fmt(annual?pp.starter[1]:pp.starter[0])
+  document.getElementById('ps-pro').innerHTML=fmt(annual?pp.pro[1]:pp.pro[0])
+  document.getElementById('ps-agency').innerHTML=fmt(annual?pp.agency[1]:pp.agency[0])
+}
+
+/* ── MEETING ROOM ───────────────────────────────────── */
+function openMeeting(name,role,init){
+  document.getElementById('mr-name').textContent=name
+  document.getElementById('mr-role').textContent=role
+  document.getElementById('mr-init').textContent=init
+  document.getElementById('meeting-room').classList.add('active')
+  document.getElementById('mr-input-field').focus()
+}
+function closeMeeting(){
+  document.getElementById('meeting-room').classList.remove('active')
+}
+function mrSend(e){if(e.key==='Enter')mrSendBtn()}
+function mrSendBtn(){
+  const inp=document.getElementById('mr-input-field')
+  const val=inp.value.trim()
+  if(!val)return
+  const msgs=document.getElementById('mr-msgs')
+  const div=document.createElement('div')
+  div.className='mr-msg user'
+  div.innerHTML='<div class="mr-bubble">'+val+'</div>'
+  msgs.appendChild(div)
+  inp.value=''
+  msgs.scrollTop=msgs.scrollHeight
+  // Simulated response
+  setTimeout(()=>{
+    const r=document.createElement('div')
+    r.className='mr-msg'
+    r.innerHTML='<div class="mr-bubble">"Noted. Let me think about that angle and come back to you with three variations that hit that direction without going too far. Give me a few minutes."</div>'
+    msgs.appendChild(r)
+    msgs.scrollTop=msgs.scrollHeight
+  },1200)
+}
+
+/* ── SETTINGS ───────────────────────────────────────── */
+function switchSettings(btn,panel){
+  document.querySelectorAll('.settings-nav-item').forEach(b=>b.classList.remove('active'))
+  document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'))
+  btn.classList.add('active')
+  document.getElementById('settings-'+panel).classList.add('active')
+}
+
+/* ── CALENDAR ENGINE ─────────────────────────────────── */
+
+// Calendar state
+let calViewMode = 'month' // 'month' | 'week'
+let calDate = new Date(2025, 0, 13) // Jan 13 2025
+
+// Data model — each entry has: date(YYYY-MM-DD), type, title, who, status
+let calEntries = [
+  // Jordan's week plan (pending)
+  {id:'e1', date:'2025-01-13', type:'Reel',     title:'Weighted walking',    who:'jordan', status:'planned',   label:'Jordan'},
+  {id:'e2', date:'2025-01-14', type:'Carousel', title:'Myth-busting splits', who:'jordan', status:'planned',   label:'Jordan'},
+  {id:'e3', date:'2025-01-15', type:'Story',    title:'Behind the scenes',   who:'jordan', status:'planned',   label:'Jordan'},
+  {id:'e4', date:'2025-01-16', type:'Reel',     title:'Cycle syncing',       who:'jordan', status:'planned',   label:'Jordan'},
+  {id:'e5', date:'2025-01-17', type:'Caption',  title:'Motivation post',     who:'jordan', status:'planned',   label:'Jordan'},
+  {id:'e7', date:'2025-01-19', type:'Reel',     title:'Weekly recap',        who:'jordan', status:'planned',   label:'Jordan'},
+  // Maya's trend flag
+  {id:'e8', date:'2025-01-13', type:'Trend',    title:'Weighted walking — act now', who:'maya', status:'scripted', label:'Maya'},
+  // Previous week approved
+  {id:'e9',  date:'2025-01-07', type:'Reel',    title:'5 Gym Mistakes',      who:'riley',  status:'approved',  label:'Riley'},
+  {id:'e10', date:'2025-01-07', type:'Hooks',   title:'Hook set delivered',  who:'alex',   status:'approved',  label:'Alex'},
+  {id:'e11', date:'2025-01-08', type:'Video',   title:'Reel rendered',       who:'riley',  status:'approved',  label:'Riley'},
+  {id:'e12', date:'2025-01-09', type:'Reel',    title:'Morning Routine',     who:'alex',   status:'approved',  label:'Alex'},
+]
+
+const MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December']
+const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+function fmtDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth()+1).padStart(2,'0')
+  const day = String(d.getDate()).padStart(2,'0')
+  return `${y}-${m}-${day}`
+}
+
+function isToday(dateStr) {
+  return dateStr === fmtDate(new Date())
+}
+
+function renderCalendar() {
+  if (calViewMode === 'month') renderMonth()
+  else renderWeek()
+  document.getElementById('cal-month-label').textContent =
+    MONTH_NAMES[calDate.getMonth()] + ' ' + calDate.getFullYear()
+}
+
+function renderMonth() {
+  const grid = document.getElementById('cal-grid')
+  grid.innerHTML = ''
+
+  // Headers
+  DAY_NAMES.forEach(d => {
+    const h = document.createElement('div')
+    h.className = 'cal-month-header'
+    h.textContent = d
+    grid.appendChild(h)
+  })
+
+  const year = calDate.getFullYear()
+  const month = calDate.getMonth()
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month+1, 0).getDate()
+  const daysInPrev  = new Date(year, month, 0).getDate()
+
+  // Total cells: fill to complete weeks
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div')
+    cell.className = 'cal-day'
+
+    let dateObj, dateStr, isOther = false
+
+    if (i < firstDay) {
+      dateObj = new Date(year, month-1, daysInPrev - firstDay + i + 1)
+      isOther = true
+    } else if (i >= firstDay + daysInMonth) {
+      dateObj = new Date(year, month+1, i - firstDay - daysInMonth + 1)
+      isOther = true
+    } else {
+      dateObj = new Date(year, month, i - firstDay + 1)
+    }
+
+    dateStr = fmtDate(dateObj)
+    if (isOther) cell.classList.add('other-month')
+    if (isToday(dateStr)) cell.classList.add('today')
+
+    // Day number
+    const numDiv = document.createElement('div')
+    numDiv.className = 'cal-day-num'
+    numDiv.innerHTML = dateObj.getDate() +
+      (isToday(dateStr) ? '<span class="today-dot"></span>' : '')
+    cell.appendChild(numDiv)
+
+    // Entries for this date
+    const dayEntries = calEntries.filter(e => e.date === dateStr)
+    dayEntries.forEach(entry => {
+      const el = document.createElement('div')
+      el.className = `cal-entry ${entry.who}`
+      el.innerHTML = `
+        <span class="cal-entry-type">${entry.type}</span>
+        <span class="cal-entry-title">${entry.title}
+          <span class="cal-entry-status ${`status-${entry.status}`}"></span>
+        </span>
+        <span class="cal-entry-who">${entry.label}</span>
+        <div class="cal-entry-actions">
+          ${entry.status==='planned'?`<button class="cal-entry-action-btn approve" onclick="approveEntry('${entry.id}',event)">Approve</button>`:''}
+          <button class="cal-entry-action-btn" onclick="meetingFromEntry('${entry.who}',event)">Meeting</button>
+          <button class="cal-entry-action-btn" onclick="reassignEntry('${entry.id}',event)">Reassign</button>
+        </div>`
+      cell.appendChild(el)
+    })
+
+    grid.appendChild(cell)
+  }
+}
+
+function renderWeek() {
+  const grid = document.getElementById('cal-week-grid')
+  grid.innerHTML = ''
+
+  // Find Monday of current week
+  const d = new Date(calDate)
+  const day = d.getDay()
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - (day===0?6:day-1))
+
+  const weekDays = []
+  for (let i=0;i<7;i++) {
+    const wd = new Date(monday)
+    wd.setDate(monday.getDate()+i)
+    weekDays.push(wd)
+  }
+
+  // Corner empty cell
+  const corner = document.createElement('div')
+  corner.className = 'cal-week-time-col'
+  corner.style.cssText = 'background:var(--s2);border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:10px 8px'
+  grid.appendChild(corner)
+
+  // Day headers
+  weekDays.forEach(wd => {
+    const h = document.createElement('div')
+    h.className = 'cal-week-day-header'
+    const todayClass = isToday(fmtDate(wd)) ? ' today' : ''
+    h.innerHTML = `<div class="cal-week-day-name">${DAY_NAMES[wd.getDay()]}</div>
+                   <div class="cal-week-day-num${todayClass}">${wd.getDate()}</div>`
+    grid.appendChild(h)
+  })
+
+  // Time slots: 8am – 8pm
+  const hours = ['8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM',
+                  '3 PM','4 PM','5 PM','6 PM','7 PM','8 PM']
+
+  hours.forEach((hr, hi) => {
+    // Time label
+    const timeLabel = document.createElement('div')
+    timeLabel.className = 'cal-week-time-label'
+    timeLabel.textContent = hr
+    grid.appendChild(timeLabel)
+
+    // Day slots
+    weekDays.forEach(wd => {
+      const slot = document.createElement('div')
+      slot.className = 'cal-week-slot'
+      const dateStr = fmtDate(wd)
+
+      // Show entries in morning slots (8–12 for planning, 12–4 for production)
+      const slotEntries = calEntries.filter(e => {
+        if (e.date !== dateStr) return false
+        if (e.who === 'jordan' && hi === 0) return true
+        if (e.who === 'maya'   && hi === 1) return true
+        if (e.who === 'alex'   && hi === 3) return true
+        if (e.who === 'riley'  && hi === 5) return true
+        return false
+      })
+
+      slotEntries.forEach(entry => {
+        const el = document.createElement('div')
+        el.className = `cal-week-entry ${entry.who}`
+        el.innerHTML = `<span style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">${entry.type}</span>
+                        <span style="font-size:11px;color:var(--t1);display:block;margin-top:2px">${entry.title}</span>`
+        slot.appendChild(el)
+      })
+
+      grid.appendChild(slot)
+    })
+  })
+}
+
+function calNav(dir) {
+  if (calViewMode === 'month') {
+    calDate = new Date(calDate.getFullYear(), calDate.getMonth()+dir, 1)
+  } else {
+    calDate.setDate(calDate.getDate() + dir*7)
+  }
+  renderCalendar()
+}
+
+function calGoToday() {
+  calDate = new Date()
+  renderCalendar()
+}
+
+function switchCalView(mode) {
+  calViewMode = mode
+  document.getElementById('cal-month-view').style.display = mode==='month'?'block':'none'
+  document.getElementById('cal-week-view').style.display  = mode==='week'?'block':'none'
+  document.getElementById('cal-month-btn').classList.toggle('active', mode==='month')
+  document.getElementById('cal-week-btn').classList.toggle('active', mode==='week')
+  renderCalendar()
+}
+
+function switchTasksView(mode) {
+  document.getElementById('tasks-list-view').style.display = mode==='list'?'block':'none'
+  document.getElementById('tasks-cal-view').style.display  = mode==='calendar'?'block':'none'
+  document.getElementById('tasks-list-btn').classList.toggle('active', mode==='list')
+  document.getElementById('tasks-cal-btn').classList.toggle('active', mode==='calendar')
+  if (mode==='calendar') renderCalendar()
+}
+
+/* ── ENTRY ACTIONS ──────────────────────────────────── */
+function approveEntry(id, e) {
+  if(e){e.stopPropagation()}
+  const entry = calEntries.find(x=>x.id===id)
+  if (!entry) return
+  entry.status = 'approved'
+  renderCalendar()
+
+  // Trigger Alex to add hooks entry on same date
+  if (entry.who === 'jordan' && entry.type === 'Reel') {
+    setTimeout(() => {
+      const alexEntry = {
+        id: 'ae'+Date.now(),
+        date: entry.date,
+        type: 'Hooks',
+        title: 'Hook set — '+entry.title,
+        who: 'alex',
+        status: 'planned',
+        label: 'Alex'
+      }
+      calEntries.push(alexEntry)
+      renderCalendar()
+      showToast('A','Alex','Copywriter',
+        `"Plan approved — I'm writing hooks for the ${entry.title} Reel now. I'll have 5 variations ready shortly."`,
+        alexEntry.id)
+    }, 1800)
+  }
+}
+
+function meetingFromEntry(who, e) {
+  if(e){e.stopPropagation()}
+  const names = {jordan:['Jordan','Content Strategist','J'],
+                 maya:  ['Maya','Trend Analyst','M'],
+                 alex:  ['Alex','Copywriter','A'],
+                 riley: ['Riley','Creative Director','R']}
+  const n = names[who]||['Jordan','Strategist','J']
+  openMeeting(n[0], n[1], n[2])
+}
+
+function reassignEntry(id, e) {
+  if(e){e.stopPropagation()}
+  const entry = calEntries.find(x=>x.id===id)
+  if(entry) {
+    entry.status = 'planned'
+    renderCalendar()
+  }
+}
+
+/* ── PLAN APPROVAL (from list view) ─────────────────── */
+function approveCalendarPlan() {
+  // Update all Jordan planned entries to approved
+  calEntries.forEach(e => {
+    if(e.who==='jordan' && e.status==='planned') e.status='approved'
+  })
+
+  // Alex adds script entries
+  const reel1 = {id:'script1', date:'2025-01-13', type:'Script', title:'Weighted walking script',    who:'alex', status:'planned', label:'Alex'}
+  const reel2 = {id:'script2', date:'2025-01-16', type:'Script', title:'Cycle syncing script',        who:'alex', status:'planned', label:'Alex'}
+  calEntries.push(reel1, reel2)
+
+  // Riley adds production entries  
+  const prod1 = {id:'prod1', date:'2025-01-13', type:'Shoot', title:'Production day — Reel 01', who:'riley', status:'planned', label:'Riley'}
+  calEntries.push(prod1)
+
+  // Switch to calendar to show the update
+  switchTasksView('calendar')
+  setTimeout(()=>{
+    showToast('A','Alex','Copywriter',
+      '"Jordan\'s plan is approved — I\'ve added script slots to Monday and Thursday. Hooks for the weighted walking Reel are in progress now."',
+      'script1')
+  }, 800)
+
+  setTimeout(()=>{
+    showToast('R','Riley','Creative Director',
+      '"I\'ve marked Monday as a production day and I\'m preparing the shot list for the weighted walking Reel. Will have it ready before the shoot."',
+      'prod1')
+  }, 4500)
+}
+
+/* ── AGENT TOAST ────────────────────────────────────── */
+let toastTimer = null
+let toastEntryId = null
+
+function showToast(init, name, role, msg, entryId) {
+  toastEntryId = entryId
+  document.getElementById('toast-init').textContent = init
+  document.getElementById('toast-name').textContent = name + ' — ' + role
+  document.getElementById('toast-msg').textContent  = msg
+
+  const toast = document.getElementById('cal-toast')
+  toast.classList.add('show')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(hideToast, 9000)
+}
+
+function hideToast() {
+  document.getElementById('cal-toast').classList.remove('show')
+}
+
+function toastApprove() {
+  if (toastEntryId) approveEntry(toastEntryId, null)
+  hideToast()
+}
+
+/* ── INIT CALENDAR ON TASKS VIEW ─────────────────────── */
+function goToTasks() {
+  navigate('db-tasks')
+  setTimeout(() => {
+    renderCalendar()
+    setTimeout(() => {
+      showToast('M','Maya','Trend Analyst',
+        '"Weighted walking is still rising — up 340% in 48 hours. I\'ve flagged Jan 13 in the calendar. You should post before competitors catch on."',
+        'e8')
+    }, 2000)
+  }, 320)
+}
+
+
+/* ── INSIGHTS CHARTS ─────────────────────────────────── */
+
+const insightsData = {
+  '7d': {
+    followers:'12.4K', followersDelta:'+210 this period',
+    reach:'6,840', reachDelta:'+8% vs prior',
+    eng:'5.1%', engDelta:'+1.2pp vs prior',
+    saves:'580', savesDelta:'+22% vs prior',
+    engagement:[2.8,3.1,5.4,2.2,4.8,1.4,2.6],
+    saves_by_type:[180,240,90,70],
+  },
+  '30d': {
+    followers:'12.4K', followersDelta:'+847 this period',
+    reach:'8,320', reachDelta:'+12% vs prior',
+    eng:'4.7%', engDelta:'+0.8pp vs prior',
+    saves:'2,140', savesDelta:'+34% vs prior',
+    engagement:[3.2,4.8,5.6,4.1,5.2,2.0,3.4],
+    saves_by_type:[820,680,380,260],
+  },
+  '90d': {
+    followers:'12.4K', followersDelta:'+2,310 this period',
+    reach:'7,100', reachDelta:'+28% vs prior',
+    eng:'4.2%', engDelta:'+1.6pp vs prior',
+    saves:'5,890', savesDelta:'+61% vs prior',
+    engagement:[2.9,4.2,5.0,3.8,4.6,2.4,3.1],
+    saves_by_type:[2200,1840,1080,770],
+  }
+}
+
+const dayLabels  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+const saveLabels = ['Transform.','Education','Motivation','BTS']
+let currentPeriod = '30d'
+
+function switchPeriod(btn, period) {
+  document.querySelectorAll('.ins-period-btn').forEach(b=>b.classList.remove('active'))
+  btn.classList.add('active')
+  currentPeriod = period
+  updateKPIs(period)
+  renderBarCharts(period)
+}
+
+function updateKPIs(period) {
+  const d = insightsData[period]
+  const safe = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val }
+  safe('kpi-followers',   d.followers)
+  safe('kpi-followers-d', d.followersDelta)
+  safe('kpi-reach',       d.reach)
+  safe('kpi-reach-d',     d.reachDelta)
+  safe('kpi-eng',         d.eng)
+  safe('kpi-eng-d',       d.engDelta)
+  safe('kpi-saves',       d.saves)
+  safe('kpi-saves-d',     d.savesDelta)
+}
+
+function renderBarChart(containerId, values, labels, maxVal) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+  container.innerHTML = ''
+  const peak = Math.max(...values)
+  values.forEach((val, i) => {
+    const pct = maxVal > 0 ? val/maxVal : 0
+    const heightPx = Math.max(4, Math.round(pct * 72))
+    const isTop = val === peak
+    const wrap = document.createElement('div')
+    wrap.className = 'bar-wrap'
+    const bar = document.createElement('div')
+    bar.className = 'bar' + (isTop ? ' top' : pct > 0.7 ? ' highlight' : '')
+    bar.style.cssText = `height:${heightPx}px;opacity:0;transform:scaleY(0);transform-origin:bottom;transition:opacity .4s ${i*60}ms ease,transform .5s ${i*60}ms cubic-bezier(.16,1,.3,1)`
+    setTimeout(()=>{ bar.style.opacity='1'; bar.style.transform='scaleY(1)' }, 80)
+    const lbl = document.createElement('div')
+    lbl.className = 'bar-lbl'
+    lbl.textContent = labels[i]
+    wrap.appendChild(bar)
+    wrap.appendChild(lbl)
+    container.appendChild(wrap)
+  })
+}
+
+function renderBarCharts(period) {
+  const d = insightsData[period]
+  renderBarChart('bar-engagement', d.engagement, dayLabels, Math.max(...d.engagement))
+  renderBarChart('bar-saves', d.saves_by_type, saveLabels, Math.max(...d.saves_by_type))
+}
+
+function initInsights() {
+  updateKPIs(currentPeriod)
+  renderBarCharts(currentPeriod)
+}
+
+// Hook into enterDashboard to init charts
+// (called at end of enterDashboard function below)
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    closeMeeting()
+    document.getElementById('onboarding').classList.remove('active')
+  }
+})
+</script>
+</body>
+</html>

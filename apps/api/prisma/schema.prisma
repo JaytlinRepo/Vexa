@@ -1,0 +1,217 @@
+// Vexa — Prisma Schema
+// Database: PostgreSQL on AWS RDS
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum SubscriptionStatus {
+  trial
+  active
+  canceled
+  past_due
+}
+
+enum Plan {
+  starter
+  pro
+  agency
+}
+
+enum Platform {
+  instagram
+}
+
+enum EmployeeRole {
+  analyst
+  strategist
+  copywriter
+  creative_director
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  delivered
+  approved
+  rejected
+  revision
+}
+
+enum OutputType {
+  trend_report
+  content_plan
+  hooks
+  caption
+  script
+  shot_list
+  video
+}
+
+enum OutputStatus {
+  draft
+  approved
+  rejected
+}
+
+enum MemoryType {
+  feedback
+  preference
+  performance
+  voice
+}
+
+// ─── MODELS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id                   String             @id @default(uuid())
+  email                String             @unique
+  cognitoId            String             @unique @map("cognito_id")
+  fullName             String?            @map("full_name")
+  subscriptionStatus   SubscriptionStatus @default(trial) @map("subscription_status")
+  plan                 Plan               @default(starter)
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  stripeSubscriptionId String?            @map("stripe_subscription_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  companies     Company[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Company {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  name       String
+  niche      String
+  subNiche   String?  @map("sub_niche")
+  platform   Platform @default(instagram)
+  brandVoice Json     @default("{}") @map("brand_voice")
+  audience   Json     @default("{}") 
+  goals      Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employees Employee[]
+  tasks     Task[]
+  outputs   Output[]
+  meetings  Meeting[]
+  memory    BrandMemory[]
+
+  @@map("companies")
+}
+
+model Employee {
+  id         String       @id @default(uuid())
+  companyId  String       @map("company_id")
+  role       EmployeeRole
+  name       String
+  isActive   Boolean      @default(true) @map("is_active")
+  lastActive DateTime?    @map("last_active")
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks    Task[]
+  outputs  Output[]
+  meetings Meeting[]
+
+  @@unique([companyId, role])
+  @@map("employees")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  employeeId  String     @map("employee_id")
+  title       String
+  description String?
+  type        String
+  status      TaskStatus @default(pending)
+  userAction  Json?      @map("user_action")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  completedAt DateTime?  @map("completed_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+  outputs  Output[]
+
+  @@map("tasks")
+}
+
+model Output {
+  id         String       @id @default(uuid())
+  taskId     String       @map("task_id")
+  companyId  String       @map("company_id")
+  employeeId String       @map("employee_id")
+  type       OutputType
+  content    Json
+  status     OutputStatus @default(draft)
+  feedback   Json?
+  version    Int          @default(1)
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("outputs")
+}
+
+model Meeting {
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  employeeId String    @map("employee_id")
+  messages   Json      @default("[]")
+  summary    String?
+  decisions  Json?
+  tasksCreated Json?   @map("tasks_created")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("meetings")
+}
+
+model BrandMemory {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  memoryType  MemoryType @map("memory_type")
+  content     Json
+  weight      Float      @default(1.0)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("brand_memory")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  companyId   String?  @map("company_id")
+  type        String
+  title       String
+  body        String
+  emoji       String
+  actionUrl   String?  @map("action_url")
+  actionLabel String?  @map("action_label")
+  isRead      Boolean  @default(false) @map("is_read")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
