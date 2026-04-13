@@ -23,6 +23,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src="/outputs-wire.js" strategy="afterInteractive" />
       <Script src="/dashboard-enhance.js" strategy="afterInteractive" />
       <Script src="/billing-wire.js" strategy="afterInteractive" />
+      <Script src="/test-mode-banner.js" strategy="afterInteractive" />
     </>
   )
 }

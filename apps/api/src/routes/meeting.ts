@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { requireAuth } from '../middleware/auth'
+import { isTestMode } from '../lib/mode'
 
 const router = Router()
 
@@ -55,6 +56,7 @@ const PERSONA: Record<z.infer<typeof roleSchema>, { name: string; style: string;
 }
 
 function hasBedrockCreds(): boolean {
+  if (isTestMode()) return false
   return Boolean(process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
 }
 

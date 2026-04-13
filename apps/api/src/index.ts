@@ -15,6 +15,7 @@ import onboardingRouter from './routes/onboarding'
 import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
 import tasksRouter from './routes/tasks'
+import { getMode } from './lib/mode'
 import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
@@ -38,7 +39,11 @@ app.use(express.json({ limit: '2mb' }))
 app.use(cookieParser())
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vexa-api', ts: new Date().toISOString() })
+  res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
+})
+
+app.get('/api/mode', (_req, res) => {
+  res.json({ mode: getMode() })
 })
 
 app.use('/api/auth', authRouter)
