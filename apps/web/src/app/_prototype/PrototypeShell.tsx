@@ -15,6 +15,9 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src="/dashboard-wire.js" strategy="afterInteractive" />
       <Script src="/meeting-wire.js" strategy="afterInteractive" />
       <Script src="/tasks-wire.js" strategy="afterInteractive" />
+      <Script src="/notifications-wire.js" strategy="afterInteractive" />
+      <Script src="/feed-wire.js" strategy="afterInteractive" />
+      <Script src="/settings-wire.js" strategy="afterInteractive" />
     </>
   )
 }

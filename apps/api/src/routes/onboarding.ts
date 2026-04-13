@@ -3,6 +3,7 @@ import { PrismaClient, EmployeeRole } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { seedStarterTasks } from '../lib/seedStarterTasks'
+import { createNotification } from '../services/notifications/notification.service'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -47,6 +48,20 @@ router.post('/company', requireAuth, async (req, res, next) => {
     })
 
     await seedStarterTasks(prisma, { companyId: company.id, niche: company.niche })
+
+    // Seed a welcome notification so the bell shows something on first login.
+    try {
+      await createNotification({
+        userId,
+        companyId: company.id,
+        type: 'team_update',
+        emoji: '👋',
+        title: `${company.name} — your team is assembled`,
+        body: 'Jordan, Maya, Alex, and Riley are active. Three deliveries are already waiting on you.',
+      })
+    } catch (e) {
+      console.warn('[onboarding] welcome notification failed', e)
+    }
 
     res.status(201).json({ company })
   } catch (err) {

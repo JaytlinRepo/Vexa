@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient, TaskStatus } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { createNotification } from '../services/notifications/notification.service'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -75,6 +76,42 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
       },
       include: { employee: true, outputs: true },
     })
+
+    // Fire a notification so the bell + SSE stream picks it up.
+    try {
+      const emojiByRole: Record<string, string> = {
+        analyst: '📊',
+        strategist: '🗺️',
+        copywriter: '✍️',
+        creative_director: '🎬',
+      }
+      const employeeName = updated.employee.name
+      const emoji = emojiByRole[updated.employee.role] ?? '✅'
+      if (data.action === 'approve') {
+        await createNotification({
+          userId,
+          companyId: updated.companyId,
+          type: 'task_approved',
+          emoji,
+          title: `${employeeName}'s work approved`,
+          body: `You approved "${updated.title}". The next step auto-kicks off.`,
+          metadata: { taskId: updated.id },
+        })
+      } else if (data.action === 'reject') {
+        await createNotification({
+          userId,
+          companyId: updated.companyId,
+          type: 'team_update',
+          emoji: '↩️',
+          title: `${employeeName} will rework "${updated.title}"`,
+          body: 'Feedback noted. A revised version will be ready shortly.',
+          metadata: { taskId: updated.id },
+        })
+      }
+    } catch (e) {
+      // Don't fail the action if notification emission errors out.
+      console.warn('[tasks] notification emit failed', e)
+    }
 
     res.json({ task: updated })
   } catch (err) {
