@@ -79,6 +79,7 @@ model User {
   fullName             String?            @map("full_name")
   subscriptionStatus   SubscriptionStatus @default(trial) @map("subscription_status")
   plan                 Plan               @default(starter)
+  trialEndsAt          DateTime?          @map("trial_ends_at")
   stripeCustomerId     String?            @map("stripe_customer_id")
   stripeSubscriptionId String?            @map("stripe_subscription_id")
   createdAt            DateTime           @default(now()) @map("created_at")

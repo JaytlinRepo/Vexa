@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { createSession, clearSession, readSession } from '../middleware/auth'
+import { trialEnd } from '../lib/plans'
+import { rolloverTrialIfDue } from '../lib/usage'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -36,6 +38,7 @@ router.post('/signup', async (req, res, next) => {
         username: data.username,
         passwordHash,
         fullName: data.fullName,
+        trialEndsAt: trialEnd(),
       },
       select: { id: true, email: true, username: true, fullName: true },
     })
@@ -90,6 +93,8 @@ router.get('/me', async (req, res, next) => {
       res.status(401).json({ error: 'unauthorized' })
       return
     }
+    // Auto-transition expired trials to active before reading the user row.
+    await rolloverTrialIfDue(prisma, session.userId)
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
       include: {
@@ -114,6 +119,7 @@ router.get('/me', async (req, res, next) => {
         fullName: user.fullName,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
+        trialEndsAt: user.trialEndsAt,
       },
       companies: user.companies,
     })

@@ -3,9 +3,69 @@ import { PrismaClient, TaskStatus } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { createNotification } from '../services/notifications/notification.service'
+import { assertTaskQuota, computeUsage } from '../lib/usage'
 
 const prisma = new PrismaClient()
 const router = Router()
+
+const createSchema = z.object({
+  companyId: z.string().uuid(),
+  employeeId: z.string().uuid(),
+  title: z.string().min(3).max(200),
+  description: z.string().max(2000).optional(),
+  type: z.enum(['trend_report', 'content_plan', 'hooks', 'caption', 'script', 'shot_list', 'video']),
+})
+
+router.post('/', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const data = createSchema.parse(req.body)
+
+    const company = await prisma.company.findFirst({
+      where: { id: data.companyId, userId },
+      include: { employees: { where: { id: data.employeeId } } },
+    })
+    if (!company) {
+      res.status(404).json({ error: 'company_not_found' })
+      return
+    }
+    if (company.employees.length === 0) {
+      res.status(404).json({ error: 'employee_not_found' })
+      return
+    }
+
+    try {
+      await assertTaskQuota(prisma, userId)
+    } catch (err) {
+      const e = err as Error & { code?: string; usage?: unknown }
+      if (e.code === 'plan_limit_exceeded') {
+        res.status(402).json({ error: 'plan_limit_exceeded', usage: e.usage })
+        return
+      }
+      throw err
+    }
+
+    const task = await prisma.task.create({
+      data: {
+        companyId: company.id,
+        employeeId: data.employeeId,
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        status: 'in_progress',
+      },
+      include: { employee: true },
+    })
+
+    res.status(201).json({ task, usage: await computeUsage(prisma, userId) })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
+    next(err)
+  }
+})
 
 const actionSchema = z.object({
   action: z.enum(['approve', 'reject', 'reconsider', 'regenerate']),

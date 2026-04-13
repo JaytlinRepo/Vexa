@@ -18,6 +18,7 @@ import tasksRouter from './routes/tasks'
 import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
+import usageRouter from './routes/usage'
 
 if (!process.env.SESSION_SECRET) {
   console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
@@ -48,6 +49,7 @@ app.use('/api/tasks', tasksRouter)
 app.use('/api/feed', feedRouter)
 app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)
+app.use('/api/usage', usageRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
