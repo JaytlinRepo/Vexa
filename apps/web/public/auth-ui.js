@@ -145,7 +145,12 @@
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'signup_failed')
         authedUser = json.user
-        closeAuthAndStartOnboarding()
+        try {
+          closeAuthAndStartOnboarding()
+        } catch (err) {
+          console.error('[auth] onboarding open threw; reloading', err)
+          location.reload()
+        }
       } else {
         const payload = {
           identifier: document.getElementById('vx-login-id').value.trim(),
@@ -159,13 +164,20 @@
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'login_failed')
         authedUser = json.user
-        // If already onboarded, go straight to dashboard
+        // If already onboarded, go straight to dashboard. Any error downstream
+        // in the long enterDashboard chain should still land the user on a
+        // working page, so reload as a safety net.
         const me = await fetchMe()
-        if (me.companies && me.companies.length > 0) {
+        window.closeAuth()
+        if (me?.companies && me.companies.length > 0) {
           currentCompany = me.companies[0]
           obState.companyName = currentCompany.name
-          window.closeAuth()
-          if (typeof window.enterDashboard === 'function') window.enterDashboard()
+          try {
+            if (typeof window.enterDashboard === 'function') await window.enterDashboard()
+          } catch (err) {
+            console.error('[auth] enterDashboard chain threw; reloading', err)
+            location.reload()
+          }
         } else {
           closeAuthAndStartOnboarding()
         }
