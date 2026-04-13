@@ -1,37 +1,52 @@
 import 'dotenv/config'
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
-import { registerSSEClient, getNotifications, getUnreadCount, markAsRead, markAllAsRead } from './services/notifications/notification.service'
+import cookieParser from 'cookie-parser'
+import {
+  registerSSEClient,
+  getNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+} from './services/notifications/notification.service'
+import { requireAuth, AuthedRequest } from './middleware/auth'
+import authRouter from './routes/auth'
+import onboardingRouter from './routes/onboarding'
+import instagramRouter from './routes/instagram'
+
+if (!process.env.SESSION_SECRET) {
+  console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
+  process.env.SESSION_SECRET = 'dev-only-insecure-secret-change-me'
+}
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
 
-app.use(cors({ origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000', credentials: true }))
+app.use(
+  cors({
+    origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    credentials: true,
+  }),
+)
 app.use(express.json({ limit: '2mb' }))
+app.use(cookieParser())
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vexa-api', ts: new Date().toISOString() })
 })
 
-// Placeholder auth: reads userId from header. Replace with Cognito JWT verification.
-function requireUser(req: Request, res: Response, next: NextFunction): void {
-  const userId = req.header('x-user-id')
-  if (!userId) {
-    res.status(401).json({ error: 'unauthorized' })
-    return
-  }
-  ;(req as Request & { userId: string }).userId = userId
-  next()
-}
+app.use('/api/auth', authRouter)
+app.use('/api/onboarding', onboardingRouter)
+app.use('/api/instagram', instagramRouter)
 
-app.get('/api/notifications/stream', requireUser, (req, res) => {
-  const userId = (req as Request & { userId: string }).userId
+app.get('/api/notifications/stream', requireAuth, (req, res) => {
+  const { userId } = (req as AuthedRequest).session
   registerSSEClient(userId, res)
 })
 
-app.get('/api/notifications', requireUser, async (req, res, next) => {
+app.get('/api/notifications', requireAuth, async (req, res, next) => {
   try {
-    const userId = (req as Request & { userId: string }).userId
+    const { userId } = (req as AuthedRequest).session
     const [items, unread] = await Promise.all([getNotifications(userId), getUnreadCount(userId)])
     res.json({ items, unread })
   } catch (err) {
@@ -39,9 +54,9 @@ app.get('/api/notifications', requireUser, async (req, res, next) => {
   }
 })
 
-app.post('/api/notifications/:id/read', requireUser, async (req, res, next) => {
+app.post('/api/notifications/:id/read', requireAuth, async (req, res, next) => {
   try {
-    const userId = (req as Request & { userId: string }).userId
+    const { userId } = (req as AuthedRequest).session
     await markAsRead(req.params.id, userId)
     res.json({ ok: true })
   } catch (err) {
@@ -49,9 +64,9 @@ app.post('/api/notifications/:id/read', requireUser, async (req, res, next) => {
   }
 })
 
-app.post('/api/notifications/read-all', requireUser, async (req, res, next) => {
+app.post('/api/notifications/read-all', requireAuth, async (req, res, next) => {
   try {
-    const userId = (req as Request & { userId: string }).userId
+    const { userId } = (req as AuthedRequest).session
     await markAllAsRead(userId)
     res.json({ ok: true })
   } catch (err) {

@@ -73,7 +73,9 @@ enum MemoryType {
 model User {
   id                   String             @id @default(uuid())
   email                String             @unique
-  cognitoId            String             @unique @map("cognito_id")
+  username             String?            @unique
+  passwordHash         String?            @map("password_hash")
+  cognitoId            String?            @unique @map("cognito_id")
   fullName             String?            @map("full_name")
   subscriptionStatus   SubscriptionStatus @default(trial) @map("subscription_status")
   plan                 Plan               @default(starter)
@@ -96,8 +98,9 @@ model Company {
   subNiche   String?  @map("sub_niche")
   platform   Platform @default(instagram)
   brandVoice Json     @default("{}") @map("brand_voice")
-  audience   Json     @default("{}") 
+  audience   Json     @default("{}")
   goals      Json     @default("{}")
+  agentTools Json     @default("{}") @map("agent_tools")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -106,6 +109,7 @@ model Company {
   outputs   Output[]
   meetings  Meeting[]
   memory    BrandMemory[]
+  instagram InstagramConnection?
 
   @@map("companies")
 }
@@ -193,6 +197,24 @@ model BrandMemory {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("brand_memory")
+}
+
+model InstagramConnection {
+  id             String   @id @default(uuid())
+  companyId      String   @unique @map("company_id")
+  handle         String
+  profileUrl     String?  @map("profile_url")
+  followerCount  Int      @default(0) @map("follower_count")
+  followingCount Int      @default(0) @map("following_count")
+  postCount      Int      @default(0) @map("post_count")
+  engagementRate Float    @default(0) @map("engagement_rate")
+  topPosts       Json     @default("[]") @map("top_posts")
+  source         String   @default("stub")
+  connectedAt    DateTime @default(now()) @map("connected_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_connections")
 }
 
 model Notification {
