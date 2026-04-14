@@ -347,7 +347,7 @@
       'We pull follower counts and top-post signals so Maya knows what is actually working.',
       `
         <div class="ob-ig-card">
-          <div class="ob-ig-title">📸 Instagram Graph API</div>
+          <div class="ob-ig-title">Instagram connection</div>
           <ul class="ob-ig-bullets">
             <li>Read-only access — we never post on your behalf.</li>
             <li>Follower counts, post performance, engagement rate.</li>

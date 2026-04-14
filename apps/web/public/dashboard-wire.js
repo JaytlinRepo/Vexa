@@ -86,8 +86,7 @@
       'margin:20px 0 8px;padding:18px 20px;background:linear-gradient(135deg,rgba(225,48,108,.08),rgba(131,58,180,.06));border:1px solid rgba(225,48,108,.28);border-radius:12px'
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <span style="font-size:16px">📸</span>
-        <strong style="font-size:13px;letter-spacing:.02em">Instagram @${conn.handle}</strong>
+        <strong style="font-size:13px;letter-spacing:.02em">Instagram · @${conn.handle}</strong>
         <span style="font-size:10px;color:var(--t3);padding:2px 8px;border-radius:10px;background:var(--s3);letter-spacing:.08em;text-transform:uppercase">${conn.accountType || 'Creator'}</span>
         <span style="margin-left:auto;font-size:10px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase">${conn.source === 'stub' ? 'Demo data' : 'Live'}</span>
         <button id="vx-ig-simulate" style="background:transparent;border:1px solid var(--b2);color:var(--t3);font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase">Simulate day</button>
@@ -107,10 +106,10 @@
         <div style="font-size:10px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Top-performing post</div>
         <div style="font-size:13px;color:var(--t1);line-height:1.45;margin-bottom:6px">${escape(topPost.caption || '')}</div>
         <div style="font-size:11px;color:var(--t3);display:flex;gap:16px">
-          <span>❤ ${topPost.like_count?.toLocaleString?.() ?? topPost.likes ?? 0}</span>
-          <span>💬 ${topPost.comments_count?.toLocaleString?.() ?? topPost.comments ?? 0}</span>
-          ${topPost.insights?.reach ? `<span>👁 ${topPost.insights.reach.toLocaleString()} reach</span>` : ''}
-          ${topPost.insights?.saved ? `<span>🔖 ${topPost.insights.saved.toLocaleString()} saves</span>` : ''}
+          <span>${(topPost.like_count?.toLocaleString?.() ?? topPost.likes ?? 0)} likes</span>
+          <span>${(topPost.comments_count?.toLocaleString?.() ?? topPost.comments ?? 0)} comments</span>
+          ${topPost.insights?.reach ? `<span>${topPost.insights.reach.toLocaleString()} reach</span>` : ''}
+          ${topPost.insights?.saved ? `<span>${topPost.insights.saved.toLocaleString()} saves</span>` : ''}
         </div>
       </div>` : ''}
     `

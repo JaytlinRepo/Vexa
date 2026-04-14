@@ -9,6 +9,7 @@ export default function PrototypeShell({ html }: { html: string }) {
         style={{ display: 'contents' }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
+      <Script src="/theme-dark-default.js" strategy="beforeInteractive" />
       <Script src="/prototype.js" strategy="afterInteractive" />
       <Script src="/home-merge.js" strategy="afterInteractive" />
       <Script src="/auth-ui.js" strategy="afterInteractive" />

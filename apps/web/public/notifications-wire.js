@@ -92,7 +92,6 @@
         ${n.isRead ? 'opacity:.55' : ''}
       `
       row.innerHTML = `
-        <div style="font-size:18px;line-height:1">${escapeHtml(n.emoji || '•')}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px">${escapeHtml(n.title)}</div>
           <div style="font-size:12px;color:var(--t2);line-height:1.45">${escapeHtml(n.body)}</div>

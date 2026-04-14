@@ -106,7 +106,6 @@
     const top = feed[0]
     return `
       <div id="vx-trend" style="margin:8px 0 20px;padding:16px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;display:flex;gap:14px;align-items:flex-start">
-        <div style="font-size:20px;line-height:1">📈</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Fresh trend — ${escapeHtml(top.source)}</div>
           <a href="${escapeHtml(top.url)}" target="_blank" rel="noopener" style="font-size:14px;font-weight:500;color:var(--t1);text-decoration:none;line-height:1.4;display:block;margin-bottom:6px">${escapeHtml(top.title)}</a>
