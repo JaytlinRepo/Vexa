@@ -4,6 +4,17 @@
 
 Vexa is a SaaS platform that gives every content creator a full AI workforce — a Trend Analyst, Content Strategist, Copywriter, and Creative Director — that specializes in their niche, learns their brand, and delivers real structured work every day. You are the CEO. You approve, redirect, and call meetings. Your team does everything else.
 
+## Where it runs
+
+Two stacks. See [docs/STACKS.md](./docs/STACKS.md) for the comparison.
+
+| | Status | Stack |
+|---|---|---|
+| **Test preview** | ✅ Live | Vercel + Railway + Neon + Phyllo staging — see [docs/DEPLOY-TEST.md](./docs/DEPLOY-TEST.md) |
+| **Production** | 🟡 Architecture defined, not deployed | AWS Amplify + ECS Fargate + RDS + Phyllo prod + Bedrock — see [docs/DEPLOY-PROD.md](./docs/DEPLOY-PROD.md) |
+
+The current public URL (`https://vexa-web-chi.vercel.app`) is the **test preview**. Do not route real users or real money through it. Production migration plan is in `docs/DEPLOY-PROD.md`.
+
 ---
 
 ## What Makes Vexa Different

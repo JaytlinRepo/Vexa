@@ -1,12 +1,22 @@
-# Vexa — public preview deploy
+# Vexa — TEST PREVIEW STACK
 
-Get the site live on a free-tier stack: **Neon** (Postgres) + **Railway**
-(API container) + **Vercel** (Next.js web). Total time from sign-ups to
-live URL: ~30 minutes.
+> ⚠️ **This is the test/preview stack.** Free-tier hosts, throwaway
+> databases, Phyllo's staging API. NOT production — do NOT route real
+> users, real money, or sensitive data through it.
+>
+> Production lives on AWS. See [DEPLOY-PROD.md](./DEPLOY-PROD.md) for
+> the production path. This doc covers the preview stack we use for
+> development, internal demos, and pre-launch testing.
 
-All three platforms are free for our current usage. Move to AWS later
-when traffic / cost demands it (the CDK scaffold lives in
-`infrastructure/aws/cdk`).
+Stack:
+- **Neon** — serverless Postgres (free)
+- **Railway** — Express API container (free trial credit, then ~$5-10/mo)
+- **Vercel** — Next.js web (free Hobby plan)
+- **Phyllo staging** — `api.staging.getphyllo.com` (free)
+- **Bedrock** — disabled (`VEXA_MODE=test`); mock generators only
+- **Stripe** — disabled (no payment processing in test)
+
+Total time from sign-ups to live URL: ~30 minutes.
 
 ## 1 · Neon Postgres (5 min)
 

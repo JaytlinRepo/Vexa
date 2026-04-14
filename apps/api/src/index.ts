@@ -124,6 +124,19 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`[api] listening on http://localhost:${PORT}`)
+  const mode = getMode()
+  const phylloHost = process.env.PHYLLO_API_BASE || '(unset)'
+  const bedrockOn = !!(process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID)
+  const stripeOn = !!process.env.STRIPE_SECRET_KEY
+  console.log(`[api] listening on :${PORT}`)
+  console.log(`[api] ╔════════════════════════════════════════════════════════════╗`)
+  console.log(`[api] ║ MODE: ${String(mode).toUpperCase().padEnd(54)} ║`)
+  console.log(`[api] ║ Phyllo: ${phylloHost.padEnd(52)} ║`)
+  console.log(`[api] ║ Bedrock: ${(bedrockOn ? 'enabled' : 'disabled (mocks only)').padEnd(51)} ║`)
+  console.log(`[api] ║ Stripe:  ${(stripeOn ? 'enabled' : 'disabled').padEnd(51)} ║`)
+  console.log(`[api] ╚════════════════════════════════════════════════════════════╝`)
+  if (mode === 'test') {
+    console.log(`[api] TEST MODE — this is the preview stack. Do not route real users.`)
+  }
   registerScheduledJobs(new PrismaClient())
 })
