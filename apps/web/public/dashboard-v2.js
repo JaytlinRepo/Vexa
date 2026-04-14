@@ -591,15 +591,13 @@
     root.style.height = '100%'
     root.innerHTML = `
       <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
-        <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 36px 60px">
-          <div style="max-width:820px">
-            ${sectionHeader()}
-            ${sectionOverview()}
-            ${sectionReviewQueue()}
-            ${sectionTeam()}
-            ${sectionPerformance()}
-            ${sectionActivity()}
-          </div>
+        <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 40px 60px">
+          ${sectionHeader()}
+          ${sectionOverview()}
+          ${sectionReviewQueue()}
+          ${sectionTeam()}
+          ${sectionPerformance()}
+          ${sectionActivity()}
         </main>
         <aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
           ${sectionFeedStrip()}
