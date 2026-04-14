@@ -123,37 +123,46 @@
     })
   }
 
+  // Cached connection-state so we don't thrash fetches or flash the CTA
+  // repeatedly across polls / navigation. Populated on first successful
+  // check; refreshed only after a manual mutation (connect/disconnect).
+  let connectionState = { loaded: false, hasPhyllo: false }
+
+  async function refreshConnectionState() {
+    try {
+      const res = await fetch('/api/phyllo/accounts', { credentials: 'include' })
+      if (!res.ok) return
+      const json = await res.json()
+      const hasPhyllo = Array.isArray(json?.accounts) && json.accounts.some((a) => a.status !== 'NOT_CONNECTED')
+      connectionState = { loaded: true, hasPhyllo }
+    } catch {}
+  }
+
   // ── Inject a "Connect Instagram" CTA on the dashboard ──
-  // Visible whenever the current connection is stub/missing. Hides itself
-  // once we verify source === 'phyllo'.
+  // Only appears when the user has ZERO connected Phyllo accounts. Once they
+  // connect anything (Instagram, TikTok, YouTube, etc.) it stays hidden
+  // across future logins without re-asking — state is cached and only
+  // invalidated by an explicit mutation.
   async function injectDashboardConnectButton() {
     const main = document.querySelector('#view-db-dashboard main')
     if (!main) return
     const overview = main.querySelector('section:nth-of-type(2)')
     if (!overview) return
-    // If the panel is already there, leave it alone.
     if (document.getElementById('vx-phyllo-cta')) return
 
     const company = window.__vxCompany
     if (!company?.id) return
 
-    let shouldShow = true
-    try {
-      const res = await fetch(`/api/instagram/insights?companyId=${company.id}`, { credentials: 'include' })
-      if (res.ok) {
-        const json = await res.json()
-        if (json?.connection?.source === 'phyllo') shouldShow = false
-      }
-    } catch {}
-    if (!shouldShow) return
+    if (!connectionState.loaded) await refreshConnectionState()
+    if (connectionState.hasPhyllo) return // user already connected at least one platform
 
     const cta = document.createElement('div')
     cta.id = 'vx-phyllo-cta'
     cta.style.cssText = 'background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:22px;display:flex;align-items:center;gap:12px'
     cta.innerHTML = `
       <div style="flex:1">
-        <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">Connect your real Instagram</div>
-        <div style="color:var(--t2);font-size:11px">Pull follower counts, post performance, and audience demographics via Phyllo. Takes ~30 seconds.</div>
+        <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">Connect your platforms</div>
+        <div style="color:var(--t2);font-size:11px">Instagram, TikTok, YouTube and more — so your team works from real numbers. Read-only, disconnect any time.</div>
       </div>
       <button id="vx-phyllo-dash-btn" style="background:var(--t1);color:var(--bg);border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect</button>
     `
@@ -161,7 +170,8 @@
     cta.querySelector('#vx-phyllo-dash-btn').addEventListener('click', () => {
       openConnect({
         companyId: company.id,
-        onConnected: () => {
+        onConnected: async () => {
+          await refreshConnectionState()
           cta.remove()
           location.reload()
         },
@@ -265,7 +275,10 @@
         openConnect({
           companyId: company?.id,
           workPlatformId: btn.dataset.connect,
-          onConnected: () => renderIntegrationsState(),
+          onConnected: async () => {
+            await refreshConnectionState()
+            renderIntegrationsState()
+          },
         })
       })
     })
@@ -274,6 +287,7 @@
         if (!confirm('Disconnect this platform?')) return
         btn.disabled = true
         await fetch(`/api/phyllo/accounts/${btn.dataset.disconnect}/disconnect`, { method: 'POST', credentials: 'include' })
+        await refreshConnectionState()
         renderIntegrationsState()
       })
     })
@@ -290,7 +304,10 @@
       browse.addEventListener('click', () => {
         openConnect({
           companyId: company?.id,
-          onConnected: () => renderIntegrationsState(),
+          onConnected: async () => {
+            await refreshConnectionState()
+            renderIntegrationsState()
+          },
         })
       })
     }
