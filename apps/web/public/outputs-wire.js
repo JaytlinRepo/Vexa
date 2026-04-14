@@ -388,8 +388,314 @@
     return null
   }
 
+  // ── Shared building blocks for the briefKind-specific renderers ────────
+  function reportHeader(headline, sub) {
+    return `
+      <div style="margin-bottom:18px">
+        ${headline ? `<div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--t1);font-weight:500;line-height:1.2">${escapeHtml(headline)}</div>` : ''}
+        ${sub ? `<div style="color:var(--t3);font-size:12px;margin-top:4px">${escapeHtml(sub)}</div>` : ''}
+      </div>
+    `
+  }
+  function reportNote(text) {
+    if (!text) return ''
+    return `<div style="background:var(--s2);border-left:3px solid var(--t2);border-radius:6px;padding:10px 14px;color:var(--t2);font-size:12px;line-height:1.55;margin-bottom:14px">${escapeHtml(text)}</div>`
+  }
+  function reportSectionLabel(text) {
+    return `<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);font-family:'Syne',sans-serif;margin:18px 0 8px">${escapeHtml(text)}</div>`
+  }
+  function reportCard(title, body, accent) {
+    return `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-${accent ? 'left:3px solid ' + accent + ';border-' : ''}radius:10px;padding:14px 16px;margin-bottom:10px">
+        ${title ? `<div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600;letter-spacing:.04em;margin-bottom:6px">${escapeHtml(title)}</div>` : ''}
+        <div style="color:var(--t2);font-size:13px;line-height:1.55">${body}</div>
+      </div>
+    `
+  }
+  function reportKVRow(label, value) {
+    return `
+      <div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--b1)">
+        <div style="font-size:10px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;flex:0 0 140px">${escapeHtml(label)}</div>
+        <div style="color:var(--t1);font-size:13px;line-height:1.5">${escapeHtml(String(value))}</div>
+      </div>
+    `
+  }
+
+  // ── Competitor scan ─────────────────────────────────────────────
+  function rCompetitorScan(c) {
+    const plays = Array.isArray(c.plays) ? c.plays : (Array.isArray(c.competitors) ? c.competitors : [])
+    if (!plays.length) return null
+    return reportHeader(c.headline || 'Competitor scan', c.forCreator) +
+      reportNote(c.note) +
+      plays.map((p) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px 18px;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+            <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:14px;font-weight:600">${escapeHtml(p.tier || p.name || '')}</div>
+            ${p.archetype ? `<div style="color:var(--t3);font-size:11px">${escapeHtml(p.archetype)}</div>` : ''}
+          </div>
+          ${p.winningFormat || p.topFormat ? reportKVRow('Winning format', p.winningFormat || p.topFormat) : ''}
+          ${p.winningHook || p.hookPattern ? reportKVRow('Winning hook', p.winningHook || p.hookPattern) : ''}
+          ${p.winningCadence || p.posting ? reportKVRow('Cadence', p.winningCadence || p.posting) : ''}
+          ${p.whatIsWorking ? `<div style="color:var(--t1);font-size:13px;line-height:1.55;margin-top:10px">${escapeHtml(p.whatIsWorking)}</div>` : ''}
+          ${p.copyFromThem ? `<div style="background:rgba(126,179,154,.10);border-left:3px solid #7eb39a;padding:8px 12px;border-radius:4px;margin-top:10px;color:var(--t1);font-size:12px;line-height:1.5"><span style="color:#7eb39a;font-weight:600">Copy →</span> ${escapeHtml(p.copyFromThem)}</div>` : ''}
+          ${p.dontCopy ? `<div style="background:rgba(232,160,75,.10);border-left:3px solid #e8a04b;padding:8px 12px;border-radius:4px;margin-top:6px;color:var(--t1);font-size:12px;line-height:1.5"><span style="color:#e8a04b;font-weight:600">Skip →</span> ${escapeHtml(p.dontCopy)}</div>` : ''}
+        </div>
+      `).join('') +
+      (c.nextStep ? `<div style="background:var(--s3);border-radius:10px;padding:14px 16px;color:var(--t1);font-size:13px;line-height:1.55;margin-top:14px"><strong>Next step:</strong> ${escapeHtml(c.nextStep)}</div>` : '')
+  }
+
+  // ── Hashtag report ─────────────────────────────────────────────
+  function rHashtagReport(c) {
+    const buckets = Array.isArray(c.buckets) ? c.buckets : []
+    if (!buckets.length) return null
+    return reportHeader(c.headline || 'Hashtag report') +
+      reportNote(c.note) +
+      buckets.map((b) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600">${escapeHtml(b.label)}</div>
+          </div>
+          ${b.purpose ? `<div style="color:var(--t3);font-size:11px;line-height:1.5;margin-bottom:8px">${escapeHtml(b.purpose)}</div>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+            ${(b.tags || []).map((t) => `<span style="background:var(--s3);color:var(--t1);font-size:12px;padding:5px 10px;border-radius:999px">${escapeHtml(t)}</span>`).join('')}
+          </div>
+          ${b.note ? `<div style="color:var(--t2);font-size:11px;font-style:italic;line-height:1.5">${escapeHtml(b.note)}</div>` : ''}
+        </div>
+      `).join('') +
+      (Array.isArray(c.avoid) && c.avoid.length ? `
+        ${reportSectionLabel('Avoid')}
+        <ul style="margin:0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.6">
+          ${c.avoid.map((a) => `<li>${escapeHtml(a)}</li>`).join('')}
+        </ul>
+      ` : '')
+  }
+
+  // ── Audience deep dive ─────────────────────────────────────────
+  function rAudienceDeepDive(c) {
+    return reportHeader(c.headline || 'Audience deep dive', c.dataSource ? `Data source: ${c.dataSource === 'phyllo' ? 'live Phyllo sync' : 'niche pattern (no live data yet)'}` : null) +
+      (Array.isArray(c.demographics) && c.demographics.length ? `
+        ${reportSectionLabel('Demographics')}
+        ${c.demographics.map((d) => reportKVRow(d.label, d.value)).join('')}
+      ` : '') +
+      (c.peakWindows ? `
+        ${reportSectionLabel('Peak engagement windows')}
+        ${reportCard(c.peakWindows.label, escapeHtml(c.peakWindows.value) + (c.peakWindows.note ? `<div style="color:var(--t3);font-size:11px;margin-top:6px">${escapeHtml(c.peakWindows.note)}</div>` : ''))}
+      ` : '') +
+      (c.topPillars && Array.isArray(c.topPillars.items) ? `
+        ${reportSectionLabel(c.topPillars.label || 'Top pillars')}
+        ${c.topPillars.items.map((it) => reportKVRow(it.pillar, it.signal)).join('')}
+      ` : '') +
+      (c.oneThingToStop ? `
+        ${reportSectionLabel('One thing to stop')}
+        ${reportCard(null, escapeHtml(c.oneThingToStop), '#e8a04b')}
+      ` : '') +
+      (Array.isArray(c.whatWeStillDoNotKnow) && c.whatWeStillDoNotKnow.length ? `
+        ${reportSectionLabel('What we still do not know')}
+        <ul style="margin:0;padding-left:18px;color:var(--t3);font-size:12px;line-height:1.6">
+          ${c.whatWeStillDoNotKnow.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}
+        </ul>
+      ` : '')
+  }
+
+  // ── Engagement diagnosis ───────────────────────────────────────
+  function rEngagementDiagnosis(c) {
+    const findings = Array.isArray(c.findings) ? c.findings : []
+    return reportHeader(c.headline || 'Engagement diagnosis', c.dataSource ? `Data source: ${c.dataSource === 'phyllo' ? 'live Phyllo sync' : 'niche pattern (no live data yet)'}` : null) +
+      (c.summary ? `<div style="color:var(--t1);font-size:14px;line-height:1.55;margin-bottom:14px">${escapeHtml(c.summary)}</div>` : '') +
+      findings.map((f) => `
+        <div style="background:var(--s2);border-left:3px solid #e8a04b;border-top:1px solid var(--b1);border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);border-radius:6px;padding:14px 16px;margin-bottom:10px">
+          <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600;margin-bottom:6px">${escapeHtml(f.label)}</div>
+          <div style="color:var(--t2);font-size:13px;line-height:1.55;margin-bottom:8px">${escapeHtml(f.detail)}</div>
+          <div style="color:var(--t1);font-size:12px"><strong style="color:#7eb39a">Fix →</strong> ${escapeHtml(f.fix)}</div>
+        </div>
+      `).join('') +
+      (c.oneFixThisWeek ? `
+        ${reportSectionLabel('One fix this week')}
+        ${reportCard(null, escapeHtml(c.oneFixThisWeek), '#7eb39a')}
+      ` : '')
+  }
+
+  // ── Pillar rebuild ─────────────────────────────────────────────
+  function rPillarRebuild(c) {
+    const pillars = Array.isArray(c.pillars) ? c.pillars : []
+    return reportHeader(c.headline || 'Pillar rebuild') +
+      pillars.map((p) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="font-family:'Cormorant Garamond',serif;color:var(--t1);font-size:18px;font-weight:500;margin-bottom:8px">${escapeHtml(p.name)}</div>
+          ${p.whatItIs ? reportKVRow('What it is', p.whatItIs) : ''}
+          ${p.whoItIsFor ? reportKVRow('Who it is for', p.whoItIsFor) : ''}
+          ${p.examplePost ? reportKVRow('Example post', p.examplePost) : ''}
+          ${p.cadence ? reportKVRow('Cadence', p.cadence) : ''}
+        </div>
+      `).join('') +
+      (c.proposedCadence ? reportSectionLabel('Proposed cadence') + reportCard(null, escapeHtml(c.proposedCadence)) : '') +
+      (c.killedWhat ? reportSectionLabel('Killed') + reportCard(null, escapeHtml(c.killedWhat), '#e8a04b') : '')
+  }
+
+  // ── Cadence plan ───────────────────────────────────────────────
+  function rCadencePlan(c) {
+    const sched = Array.isArray(c.schedule) ? c.schedule : []
+    return reportHeader(c.headline || 'Cadence plan') +
+      (c.summary ? `<div style="color:var(--t1);font-size:14px;line-height:1.55;margin-bottom:14px">${escapeHtml(c.summary)}</div>` : '') +
+      (sched.length ? `
+        ${reportSectionLabel('Schedule')}
+        ${sched.map((s) => `
+          <div style="display:grid;grid-template-columns:60px 90px 1fr;gap:14px;align-items:baseline;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+            <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600">${escapeHtml(s.day)}</div>
+            <div style="color:var(--t2);font-size:11px">${escapeHtml(s.slot || '')}</div>
+            <div>
+              <div style="color:var(--t1);font-size:13px">${escapeHtml(s.format || '')}</div>
+              ${s.reason ? `<div style="color:var(--t3);font-size:11px;line-height:1.5;margin-top:2px">${escapeHtml(s.reason)}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      ` : '') +
+      (c.storyCadence ? reportSectionLabel('Stories') + reportCard(null, escapeHtml(c.storyCadence)) : '') +
+      (Array.isArray(c.avoid) && c.avoid.length ? `
+        ${reportSectionLabel('Avoid')}
+        <ul style="margin:0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.6">
+          ${c.avoid.map((a) => `<li>${escapeHtml(a)}</li>`).join('')}
+        </ul>
+      ` : '') +
+      (c.capacityMath ? reportSectionLabel('Capacity math') + reportCard(null, escapeHtml(c.capacityMath)) : '')
+  }
+
+  // ── 90-day plan ────────────────────────────────────────────────
+  function rNinetyDayPlan(c) {
+    const months = Array.isArray(c.months) ? c.months : []
+    const reels = Array.isArray(c.nextTwoReels) ? c.nextTwoReels : []
+    return reportHeader(c.headline || '90-day plan') +
+      months.map((m) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="font-family:'Cormorant Garamond',serif;color:var(--t1);font-size:18px;font-weight:500;margin-bottom:8px">${escapeHtml(m.month)}</div>
+          ${m.theme ? reportKVRow('Theme', m.theme) : ''}
+          ${m.goal ? reportKVRow('Goal', m.goal) : ''}
+          ${m.mustShip ? reportKVRow('Must ship', m.mustShip) : ''}
+        </div>
+      `).join('') +
+      (reels.length ? reportSectionLabel('Next two Reels') + reels.map((r) => reportCard(r.title, `${r.format ? escapeHtml(r.format) + ' · ' : ''}${escapeHtml(r.angle || '')}`)).join('') : '')
+  }
+
+  // ── Slot audit ─────────────────────────────────────────────────
+  function rSlotAudit(c) {
+    const slots = Array.isArray(c.slots) ? c.slots : []
+    return reportHeader(c.headline || 'Slot audit', c.dataSource === 'phyllo' ? 'Data source: live Phyllo sync' : 'Data source: niche pattern') +
+      slots.map((s) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600;margin-bottom:8px">${escapeHtml(s.label)}</div>
+          ${s.problem ? `<div style="color:var(--t2);font-size:13px;line-height:1.55;margin-bottom:8px"><strong style="color:#e8a04b">Problem →</strong> ${escapeHtml(s.problem)}</div>` : ''}
+          ${s.replacement ? `<div style="color:var(--t1);font-size:13px;line-height:1.55;margin-bottom:8px"><strong style="color:#7eb39a">Replace →</strong> ${escapeHtml(s.replacement)}</div>` : ''}
+          ${s.expectedLift ? `<div style="color:var(--t3);font-size:11px;line-height:1.5"><em>Expected lift:</em> ${escapeHtml(s.expectedLift)}</div>` : ''}
+        </div>
+      `).join('') +
+      (c.keep ? reportSectionLabel('Keep') + reportCard(null, escapeHtml(c.keep), '#7eb39a') : '')
+  }
+
+  // ── Helpers for section/items shape (used by Riley briefs) ─────
+  function rSectionsBlock(sections) {
+    if (!Array.isArray(sections) || !sections.length) return ''
+    return sections.map((s) => `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        ${s.heading ? `<div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600;margin-bottom:6px">${escapeHtml(s.heading)}</div>` : ''}
+        ${s.body ? `<div style="color:var(--t2);font-size:13px;line-height:1.55">${escapeHtml(s.body)}</div>` : ''}
+        ${Array.isArray(s.items) && s.items.length ? `
+          <ul style="margin:6px 0 0 18px;padding:0;color:var(--t2);font-size:12px;line-height:1.6">
+            ${s.items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}
+          </ul>
+        ` : ''}
+      </div>
+    `).join('')
+  }
+
+  // ── Pacing notes ───────────────────────────────────────────────
+  function rPacingNotes(c) {
+    return reportHeader(c.headline || 'Pacing notes') +
+      rSectionsBlock(c.sections) +
+      (c.oneFixThisWeek ? reportSectionLabel('One fix this week') + reportCard(null, escapeHtml(c.oneFixThisWeek), '#7eb39a') : '')
+  }
+
+  // ── Visual direction ───────────────────────────────────────────
+  function rVisualDirection(c) {
+    return reportHeader(c.headline || 'Visual direction') +
+      rSectionsBlock(c.sections) +
+      (c.testShot ? reportSectionLabel('Test shot') + reportCard(null, escapeHtml(c.testShot)) : '')
+  }
+
+  // ── Thumbnail brief ────────────────────────────────────────────
+  function rThumbnailBrief(c) {
+    const spec = c.spec || {}
+    return reportHeader(c.headline || 'Thumbnail brief') +
+      reportSectionLabel('Spec') +
+      Object.entries(spec).map(([k, v]) => reportKVRow(k.replace(/([A-Z])/g, ' $1').replace(/^./, (m) => m.toUpperCase()), String(v))).join('') +
+      (c.dontDo ? reportSectionLabel('Do not do') + reportCard(null, escapeHtml(c.dontDo), '#e8a04b') : '') +
+      (c.testAgainst ? reportSectionLabel('Test against') + reportCard(null, escapeHtml(c.testAgainst)) : '')
+  }
+
+  // ── Fix weak Reel ──────────────────────────────────────────────
+  function rFixWeakReel(c) {
+    const fix = c.proposedFix || {}
+    return reportHeader(c.headline || 'Fix the weak open') +
+      (c.diagnosis ? reportSectionLabel(c.diagnosis.label || 'Diagnosis') + reportCard(null, escapeHtml(c.diagnosis.body || ''), '#e8a04b') : '') +
+      (Array.isArray(fix.shots) && fix.shots.length ? `
+        ${reportSectionLabel(fix.label || 'Proposed fix')}
+        <ol style="list-style:none;padding:0;margin:0">
+          ${fix.shots.map((s) => `
+            <li style="display:grid;grid-template-columns:60px 90px 1fr;gap:14px;align-items:baseline;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+              <div style="font-family:'Syne',sans-serif;color:var(--t3);font-size:12px">${escapeHtml(s.at || '')}</div>
+              <div style="color:var(--t2);font-size:11px">${escapeHtml(s.shot || '')}</div>
+              <div style="color:var(--t1);font-size:12px;line-height:1.5">${escapeHtml(s.note || '')}</div>
+            </li>
+          `).join('')}
+        </ol>
+      ` : '') +
+      (c.whyItWorks ? reportSectionLabel('Why it works') + reportCard(null, escapeHtml(c.whyItWorks), '#7eb39a') : '') +
+      (c.reshoot ? reportSectionLabel('Reshoot') + reportCard(null, escapeHtml(c.reshoot)) : '')
+  }
+
+  // ── Bio rewrite ────────────────────────────────────────────────
+  function rBioRewrite(c) {
+    const options = Array.isArray(c.options) ? c.options : []
+    return reportHeader(c.headline || 'Bio rewrite') +
+      (c.current ? `<div style="color:var(--t3);font-size:12px;margin-bottom:6px">Current: ${escapeHtml(c.current)}</div>` : '') +
+      (c.sizeContext ? `<div style="color:var(--t2);font-size:12px;line-height:1.5;margin-bottom:14px">${escapeHtml(c.sizeContext)}</div>` : '') +
+      options.map((o) => `
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+          <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:12px;font-weight:600;letter-spacing:.04em;margin-bottom:8px">${escapeHtml(o.label)}</div>
+          <pre style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:12px;color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:15px;line-height:1.55;white-space:pre-wrap;margin:0 0 8px">${escapeHtml(o.text)}</pre>
+          <div style="color:var(--t3);font-size:11px;line-height:1.5">${escapeHtml(o.why)}</div>
+        </div>
+      `).join('') +
+      (c.recommendation ? reportSectionLabel('Recommendation') + reportCard(null, escapeHtml(c.recommendation), '#7eb39a') : '') +
+      (c.ctaRule ? reportSectionLabel('CTA rule') + reportCard(null, escapeHtml(c.ctaRule)) : '')
+  }
+
   function renderContentByType(type, content) {
     if (!content || typeof content !== 'object') return null
+    // Some OutputTypes carry multiple briefKind shapes (e.g. trend_report
+    // is the storage for weekly_trends, competitor_scan, hashtag_report,
+    // audience_deep_dive, engagement_diagnosis). Dispatch by content.kind
+    // first so each shape gets its own visual treatment instead of
+    // dropping to a JSON fallback.
+    if (content && typeof content === 'object' && content.kind) {
+      switch (content.kind) {
+        case 'competitor_scan':       return rCompetitorScan(content)
+        case 'hashtag_report':        return rHashtagReport(content)
+        case 'audience_deep_dive':    return rAudienceDeepDive(content)
+        case 'engagement_diagnosis':  return rEngagementDiagnosis(content)
+        case 'pillar_rebuild':        return rPillarRebuild(content)
+        case 'cadence_plan':          return rCadencePlan(content)
+        case 'ninety_day_plan':       return rNinetyDayPlan(content)
+        case 'slot_audit':            return rSlotAudit(content)
+        case 'pacing_notes':          return rPacingNotes(content)
+        case 'visual_direction':      return rVisualDirection(content)
+        case 'thumbnail_brief':       return rThumbnailBrief(content)
+        case 'fix_weak_reel':         return rFixWeakReel(content)
+        case 'bio_rewrite':           return rBioRewrite(content)
+        case 'carousel_opening_lines': return rHooks(content)
+        // weekly_trends / top_trend_hooks / reel_shot_list / etc fall
+        // through to the type-keyed handlers below.
+      }
+    }
     switch (type) {
       case 'trend_report': return rTrendReport(content)
       case 'content_plan': return rContentPlan(content)

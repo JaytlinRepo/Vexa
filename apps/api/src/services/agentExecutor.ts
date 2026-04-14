@@ -360,45 +360,43 @@ function maya_competitorScan(t: NicheTokens, ctx: PersonalContext | null) {
     kind: 'competitor_scan',
     generatedAt: new Date().toISOString(),
     headline: ig?.handle
-      ? `Three accounts above your tier — what's working and where to wedge in`
-      : `Three accounts above your tier in ${t.label}`,
+      ? `Three plays winning in ${t.label} right now — sized to your set`
+      : `Three plays winning in ${t.label} right now`,
     forCreator: ig ? `${fmtFollowers(myFollowers)} followers · ${followerTier(myFollowers)}` : null,
-    competitors: [
+    note: 'These are the formats + hook patterns over-performing at each tier in your niche this month. To run the same analysis on three specific accounts, paste their handles in chat and I will size them up.',
+    plays: [
       {
-        name: competitors[0],
-        size: sizeOf(ceilingTier),
-        topFormat: 'Reel + pinned cornerstone carousel',
-        posting: '4 feed posts/week · Mon/Wed/Fri 6am, Sun 8pm',
-        pillars: [t.samplePillars[0], t.samplePillars[1]],
-        hookPattern: 'Swap framing ("Stop X. Here is what actually works.")',
-        whatIsWorking: 'Leans hard into the transformation pillar with a single recurring client story. Comments loop because they end every post with a direct question.',
-        copyFromThem: 'The pinned cornerstone — one big reference carousel they drive every Reel toward. That asset does distribution for months.',
-        dontCopy: 'The daily posting cadence. They have a team; you don\'t. Copy the strategy, not the volume.',
+        tier: `Macro tier · ~${fmtFollowers(Math.round(ceilingTier))}`,
+        archetype: competitors[0],
+        winningFormat: 'Reel + pinned cornerstone carousel',
+        winningHook: 'Swap framing ("Stop X. Here is what actually works.")',
+        winningCadence: '4 feed posts/week · Mon/Wed/Fri 6am, Sun 8pm',
+        whatIsWorking: 'Creators at this tier are leaning hard into the transformation pillar with a single recurring client story. Comments loop because every post ends with a direct question.',
+        copyFromThem: 'The pinned cornerstone — one big reference carousel everything routes to. That asset does distribution for months.',
+        dontCopy: 'The daily posting cadence. Macro accounts have teams; one-person operations burn out before they see the lift.',
       },
       {
-        name: competitors[1],
-        size: sizeOf(midTier),
-        topFormat: 'Carousel-first',
-        posting: '3 posts/week · Tue/Thu/Sat',
-        pillars: [t.samplePillars[1], t.samplePillars[2]],
-        hookPattern: 'Counter-conventional ("You do not have a [X] problem. You have a [Y] problem.")',
-        whatIsWorking: 'Save rate is 2x yours because every carousel ends on a screenshot-friendly framework page. Audience uses their posts as reference material.',
+        tier: `Mid tier · ~${fmtFollowers(Math.round(midTier))}`,
+        archetype: competitors[1],
+        winningFormat: 'Carousel-first',
+        winningHook: 'Counter-conventional ("You do not have a [X] problem. You have a [Y] problem.")',
+        winningCadence: '3 posts/week · Tue/Thu/Sat',
+        whatIsWorking: 'Carousels ending on a screenshot-friendly framework page over-perform here. Audience uses these posts as reference material — save-rate is 2x the niche baseline.',
         copyFromThem: 'The last-slide structure. Always a framework people want to bookmark. Steal the pattern, bring your own content.',
-        dontCopy: 'Their voice — too academic for your audience. Keep yours warmer.',
+        dontCopy: 'A purely academic voice — it caps virality. Keep yours warmer.',
       },
       {
-        name: competitors[2],
-        size: `${sizeOf(closeTier)} · closest comp to you`,
-        topFormat: 'Reel-heavy',
-        posting: '5 posts/week',
-        pillars: t.samplePillars.slice(0, 2),
-        hookPattern: 'Confession ("I quit X for 30 days.")',
-        whatIsWorking: 'Fastest-growing of the three. Identity-shift confessions pulling 2-3x their baseline reach. Audience projects themselves into the role.',
-        copyFromThem: 'The identity-shift framing. Works even better on your account if you anchor it to a specific bottleneck your audience recognizes.',
-        dontCopy: 'The publishing volume. You will burn out before you see the lift.',
+        tier: `Closest tier ahead of you · ~${fmtFollowers(Math.round(closeTier))}`,
+        archetype: competitors[2],
+        winningFormat: 'Reel-heavy',
+        winningHook: 'Confession ("I quit X for 30 days.")',
+        winningCadence: '5 posts/week (high effort)',
+        whatIsWorking: 'Identity-shift confessions are the fastest-growing format at this tier — they pull 2-3x baseline reach because the audience projects themselves into the role.',
+        copyFromThem: 'The identity-shift framing. It works even better on your account if you anchor it to a specific bottleneck your audience recognizes.',
+        dontCopy: 'The 5-posts/week cadence. It is not sustainable solo.',
       },
     ],
-    nextStep: `${PERSONA_NAME.analyst} can brief Alex on a swap-framing hook set next — that is the single biggest lever you could pull from this scan.`,
+    nextStep: `${PERSONA_NAME.analyst} can brief Alex on a confession-style hook set next — that is the single biggest lever from this set of plays. Or send three real handles and we run this against them specifically.`,
     knowledgeApplied: [] as string[],
   }
 }
@@ -1112,15 +1110,14 @@ function presentBrief(opts: {
       }
     }
     case 'competitor_scan': {
-      const comps = get<Array<Record<string, unknown>>>(c, 'competitors', [])
-      const closest = comps[2] || comps[0]
-      const closestName = closest ? String(closest.name) : 'the closest comp'
-      const closestSize = closest ? String(closest.size) : ''
-      const insight = closest ? String(closest.copyFromThem || '') : ''
-      const hookPattern = closest ? String(closest.hookPattern || '') : ''
+      const plays = get<Array<Record<string, unknown>>>(c, 'plays', [])
+      const closest = plays[2] || plays[0]
+      const closestTier = closest ? String(closest.tier) : 'the closest tier'
+      const winningHook = closest ? String(closest.winningHook || '') : ''
+      const copyLine = closest ? String(closest.copyFromThem || '') : ''
       return {
-        opening: `**Three accounts above your tier — and the closest one is the one to study.**\n\n- **${closestName}**${closestSize ? ` · ${closestSize.split('·')[0].trim()}` : ''}\n- Their hook pattern: ${hookPattern}\n${insight ? `- Biggest copy-from-them: ${insight.split('.')[0]}` : ''}\n\n**Want me to walk through what they did this month, or move to the next two up the ladder?**`,
-        suggestedReplies: ['Walk me through the closest one', 'What should I copy first?', 'Show me the next two'],
+        opening: `**Three plays winning in your set this month — sized to your tier.**\n\n- The closest tier ahead of you (**${closestTier.replace(/^Closest tier ahead of you · /i, '')}**) is winning with **${winningHook.split('(')[0].trim()}** hooks\n- ${copyLine ? `Biggest play to copy: ${copyLine.split('.')[0]}` : 'Pattern is identity-shift, not novelty'}\n- Send me three real handles and I'll run the same analysis on them specifically\n\n**Want me to walk the closest tier in detail, or jump to briefing Alex on a confession-style hook?**`,
+        suggestedReplies: ['Walk me through the closest tier', 'Brief Alex on a confession hook', 'I will paste my real comps'],
         viewLabel: 'Open full scan',
       }
     }
