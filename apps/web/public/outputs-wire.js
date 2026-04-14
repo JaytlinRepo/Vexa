@@ -465,4 +465,8 @@
   // Exposed so work-wire.js can repopulate the Outputs section of the
   // unified Work page right after it builds the host containers.
   window.vxRenderOutputs = render
+
+  // Re-render when a brief just delivered so the new output appears in
+  // the library without a page reload.
+  window.addEventListener('vx-task-changed', () => setTimeout(render, 60))
 })()

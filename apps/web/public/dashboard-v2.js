@@ -711,4 +711,9 @@
   // Initial render for session-restore path.
   if (document.readyState !== 'loading') setTimeout(render, 800)
   document.addEventListener('DOMContentLoaded', () => setTimeout(render, 850))
+
+  // Re-render when a task is created (brief delivered) so the team
+  // strip flips from "Working" to "Output ready" without the CEO
+  // having to reload.
+  window.addEventListener('vx-task-changed', () => { setTimeout(render, 80) })
 })()

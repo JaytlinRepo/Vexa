@@ -294,25 +294,50 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
     tags: k.tags,
   }))
 
+  // Bedrock is best-effort and strictly time-boxed. A hung Bedrock call
+  // was leaving briefs stuck at "Working" forever because the HTTP
+  // response never returned — mock delivers immediately, so we'd rather
+  // ship the mock on time than block the UI waiting for Bedrock.
+  const BEDROCK_TIMEOUT_MS = 8_000
+
   if (hasBedrockCreds()) {
-    try {
-      const knowledgeBlock = knowledgeRows.length
-        ? `\n\n--- Niche knowledge (${opts.niche}) ---\n${knowledgeRows.map((k) => `[${k.kind}] ${k.title}: ${k.body}`).join('\n')}\n--- End knowledge ---`
-        : ''
+    const knowledgeBlock = knowledgeRows.length
+      ? `\n\n--- Niche knowledge (${opts.niche}) ---\n${knowledgeRows.map((k) => `[${k.kind}] ${k.title}: ${k.body}`).join('\n')}\n--- End knowledge ---`
+      : ''
+    const bedrockCall = (async () => {
       const raw = await invokeAgent({
         systemPrompt: bedrockSystemPrompt(opts, knowledgeBlock),
         messages: [{ role: 'user', content: bedrockUserPrompt(opts) }],
         maxTokens: 1500,
         temperature: 0.7,
       })
-      const content = parseAgentOutput<Record<string, unknown>>(raw)
-      return { content, knowledgeUsed: knowledgeRows.length, source: 'bedrock' }
+      return parseAgentOutput<Record<string, unknown>>(raw)
+    })()
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), BEDROCK_TIMEOUT_MS))
+    try {
+      const bedrockResult = await Promise.race([bedrockCall, timeout])
+      if (bedrockResult) {
+        return { content: bedrockResult, knowledgeUsed: knowledgeRows.length, source: 'bedrock' }
+      }
+      console.warn(`[agentExecutor] bedrock exceeded ${BEDROCK_TIMEOUT_MS}ms, falling back to mock for task ${opts.taskId}`)
     } catch (err) {
       console.warn('[agentExecutor] bedrock path failed, falling back to mock', err)
     }
   }
 
   const generator = MOCK_BY_TYPE[opts.type]
+  if (!generator) {
+    // Defensive: every OutputType should map to a generator. If a new
+    // type is added and we forget, return a minimal but valid output
+    // instead of throwing so the brief still reaches the CEO.
+    return {
+      content: {
+        note: `No generator wired for output type "${opts.type}" yet. The brief was received but nothing was produced.`,
+      },
+      knowledgeUsed: knowledgeRows.length,
+      source: 'mock',
+    }
+  }
   const content = await generator(prisma, opts, knowledgeRows)
   return { content, knowledgeUsed: knowledgeRows.length, source: 'mock' }
 }

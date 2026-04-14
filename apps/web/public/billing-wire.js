@@ -149,7 +149,11 @@
       return { ok: false, error: json?.error || 'failed' }
     }
     const json = await res.json()
+    // Refresh usage panel + broadcast so every wire that shows tasks
+    // (team strip, review queue, outputs library, calendar) can re-fetch
+    // and surface the brief that just landed delivered.
     refresh()
+    window.dispatchEvent(new CustomEvent('vx-task-changed', { detail: { task: json.task } }))
     return { ok: true, task: json.task }
   }
 

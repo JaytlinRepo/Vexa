@@ -211,4 +211,8 @@
   // Expose for work-wire.js so the unified Work page can re-render team
   // cards into its own host the moment it's built.
   window.vxRenderTeam = render
+
+  // Any time a task changes (brief just landed delivered) re-render the
+  // team cards so the pill flips from Working → Output ready.
+  window.addEventListener('vx-task-changed', () => setTimeout(render, 60))
 })()
