@@ -26,9 +26,9 @@ WORKDIR /repo
 RUN apk add --no-cache openssl
 
 COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /repo/apps/web/node_modules ./apps/web/node_modules 2>/dev/null || true
-COPY --from=deps /repo/packages/types/node_modules ./packages/types/node_modules 2>/dev/null || true
+# npm workspaces hoists deps to the root /node_modules, so the
+# per-workspace node_modules dirs may or may not exist. Don't copy
+# them — the hoisted root install + the COPY . . below is enough.
 
 COPY . .
 
@@ -57,7 +57,6 @@ COPY --from=build /repo/package.json ./
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/api/package.json ./apps/api/
 COPY --from=build /repo/apps/api/prisma ./apps/api/prisma
-COPY --from=build /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /repo/packages/types ./packages/types
 
 WORKDIR /repo/apps/api
