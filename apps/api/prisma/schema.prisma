@@ -76,6 +76,7 @@ model User {
   username             String?            @unique
   passwordHash         String?            @map("password_hash")
   cognitoId            String?            @unique @map("cognito_id")
+  phylloUserId         String?            @unique @map("phyllo_user_id")
   fullName             String?            @map("full_name")
   subscriptionStatus   SubscriptionStatus @default(trial) @map("subscription_status")
   plan                 Plan               @default(starter)
@@ -222,6 +223,8 @@ model InstagramConnection {
   accessToken    String?  @map("access_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
   igUserId       String?  @map("ig_user_id")
+  phylloAccountId String? @unique @map("phyllo_account_id")
+  platform       String   @default("instagram")
   source         String   @default("stub")
   connectedAt    DateTime @default(now()) @map("connected_at")
   lastSyncedAt   DateTime @default(now()) @map("last_synced_at")
