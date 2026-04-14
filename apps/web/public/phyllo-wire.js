@@ -196,8 +196,32 @@
 
     if (!connectionState.loaded) await refreshConnectionState()
 
-    // Index accounts by work_platform.id for quick lookup
+    // Collect connected accounts from two sources:
+    //   1. /api/platform/accounts — our local PlatformAccount rows (fast,
+    //      always reflects what we've persisted, includes legacy IG).
+    //   2. /api/phyllo/accounts — Phyllo live (catches accounts connected
+    //      in this session before our db caught up).
+    // Merge by work_platform mapping: platform name lowercase → workPlatformId
+    // from the DASH_CURATED list.
+    const PLATFORM_NAME_TO_ID = {
+      instagram: '9bb8913b-ddd9-430b-a66a-d74d846e6c66',
+      tiktok: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987',
+      youtube: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054',
+      twitter_x: '7645460a-96e0-4192-a3ce-a1fc30641f72',
+    }
     const byPlatform = new Map()
+    try {
+      const res = await fetch('/api/platform/accounts', { credentials: 'include' })
+      if (res.ok) {
+        const json = await res.json()
+        for (const a of json.accounts || []) {
+          const pid = PLATFORM_NAME_TO_ID[a.platform]
+          if (pid && !byPlatform.has(pid)) {
+            byPlatform.set(pid, { platform_username: a.handle, source: 'local' })
+          }
+        }
+      }
+    } catch {}
     try {
       const res = await fetch('/api/phyllo/accounts', { credentials: 'include' })
       if (res.ok) {
