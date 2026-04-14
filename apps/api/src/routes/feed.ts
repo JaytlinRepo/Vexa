@@ -136,12 +136,13 @@ router.get('/', requireAuth, async (req, res, next) => {
     const niche = (company.niche as string) || 'lifestyle'
     const subs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
 
-    const results = await Promise.all(subs.slice(0, 2).map((s) => fetchRedditTop(s, 5)))
+    const requestedLimit = Math.max(1, Math.min(24, Number(req.query.limit) || 6))
+    const results = await Promise.all(subs.slice(0, 2).map((s) => fetchRedditTop(s, 4)))
     let items: FeedItem[] = results.flat()
     if (items.length === 0) items = mockFallbackForNiche(niche)
 
     items.sort((a, b) => b.score - a.score)
-    res.json({ items: items.slice(0, 12), niche, source: items[0]?.id.startsWith('demo_') ? 'demo' : 'reddit' })
+    res.json({ items: items.slice(0, requestedLimit), niche, source: items[0]?.id.startsWith('demo_') ? 'demo' : 'reddit' })
   } catch (err) {
     next(err)
   }

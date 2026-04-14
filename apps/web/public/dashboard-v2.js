@@ -44,8 +44,10 @@
 
   const short = (n) => {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
-    if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
-    return String(n)
+    // Under 10K we prefer the full, comma-grouped number — "6,313" reads
+    // more credibly on a creator dashboard than "6.3K".
+    if (n >= 10_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return Number(n || 0).toLocaleString()
   }
 
   const timeAgo = (iso) => {
@@ -531,7 +533,7 @@
 
   // ─────────────── feed strip (right rail) ────────────────────────
   function sectionFeedStrip() {
-    const items = STATE.feed.slice(0, 12)
+    const items = STATE.feed.slice(0, 6)
     const niche = STATE.me?.companies?.[0]?.niche || ''
     const header = `
       <div style="padding:18px 20px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;gap:10px">
