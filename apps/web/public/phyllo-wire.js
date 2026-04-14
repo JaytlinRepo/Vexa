@@ -186,6 +186,7 @@
   ]
 
   async function injectDashboardConnectButton() {
+   try {
     const main = document.querySelector('#view-db-dashboard main')
     if (!main) return
     const overview = main.querySelector('section:nth-of-type(2)')
@@ -266,6 +267,9 @@
         document.getElementById('vx-settings-integrations-tab')?.click()
       }, 400)
     })
+   } catch (err) {
+     console.warn('[phyllo] injectDashboardConnectButton swallowed', err?.message || err)
+   }
   }
 
   // ── Inject a multi-platform Integrations panel on Settings ──
