@@ -230,14 +230,16 @@
   if (obWrap) {
     const reveal = document.getElementById('ob-4')
 
-    // Inject Step 3 — Instagram connect.
+    // Inject Step 3 — Instagram connect (real OAuth via Phyllo Connect).
+    // Required for now — no skip. Connection is what unlocks every
+    // personalized agent reply, so we gate the reveal on it.
     const ig = document.createElement('div')
     ig.className = 'ob-step'
     ig.id = 'ob-8'
     ig.innerHTML = `
       <span class="ob-eyebrow">Step 3 of 3</span>
       <h2 class="ob-title">Connect Instagram.</h2>
-      <p class="ob-sub">We pull follower counts and top-post signals so Maya knows what is actually working. The team figures out audience, sub-niche, and tools from this — you don't have to.</p>
+      <p class="ob-sub">Required to launch — your team needs real account data to give you real insights. Audience, sub-niche, top posts — the team figures all of that out from the connection.</p>
       <div class="ob-ig-card">
         <div class="ob-ig-title">Instagram connection</div>
         <ul class="ob-ig-bullets">
@@ -245,24 +247,45 @@
           <li>Follower counts, post performance, engagement rate.</li>
           <li>You can disconnect anytime from Settings.</li>
         </ul>
-        <input class="ob-input" id="ob-ig-handle" placeholder="@your_handle" autocomplete="off">
-        <div class="ob-ig-result" id="ob-ig-result"></div>
+        <div class="ob-ig-result" id="ob-ig-result" style="margin-top:10px;color:var(--t3);font-size:12px;min-height:18px"></div>
       </div>
       <div class="ob-actions">
-        <button class="btn-fill" id="ob-ig-next" style="padding:13px 32px;font-size:12px">Connect &amp; finish</button>
+        <button class="btn-fill" id="ob-ig-connect" style="padding:13px 32px;font-size:12px">Connect Instagram</button>
         <button class="ob-back" data-back>Back</button>
-        <button class="ob-skip" id="ob-ig-skip">Skip for now</button>
       </div>
     `
     obWrap.insertBefore(ig, reveal)
 
-    const finishOnboarding = async () => {
-      const handle = document.getElementById('ob-ig-handle').value.trim()
-      obState.instagram.handle = handle
-      await submitOnboardingAndConnectInstagram()
-    }
-    document.getElementById('ob-ig-next').addEventListener('click', finishOnboarding)
-    document.getElementById('ob-ig-skip').addEventListener('click', finishOnboarding)
+    const INSTAGRAM_WORK_PLATFORM_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
+
+    document.getElementById('ob-ig-connect').addEventListener('click', () => {
+      const result = document.getElementById('ob-ig-result')
+      const btn = document.getElementById('ob-ig-connect')
+      if (!currentCompany?.id) {
+        result.textContent = 'Company not ready yet — refresh and try again.'
+        return
+      }
+      if (typeof window.vxPhylloConnect !== 'function') {
+        result.textContent = 'Connect SDK not loaded yet — give it a second and try again.'
+        return
+      }
+      result.textContent = 'Opening Instagram authorization…'
+      btn.disabled = true
+      window.vxPhylloConnect({
+        companyId: currentCompany.id,
+        workPlatformId: INSTAGRAM_WORK_PLATFORM_ID,
+        onConnected: async () => {
+          result.textContent = 'Connected. Spinning up your team…'
+          // Sync was triggered inside vxPhylloConnect — go straight to reveal.
+          await finishToReveal()
+        },
+        onError: (msg) => {
+          result.textContent = 'Could not connect — ' + (msg || 'try again')
+          btn.disabled = false
+        },
+        onClose: () => { btn.disabled = false },
+      })
+    })
     ig.querySelector('[data-back]').addEventListener('click', () => obPrevTo('ob-8'))
   }
 
@@ -316,7 +339,9 @@
 
   // Override obNext: name → niche → Instagram → reveal. No sub-niche /
   // audience / goals / tools steps — agents derive those themselves.
-  window.obNext = function (step) {
+  // Company is created at step 2 → step 3 transition so we have a real
+  // companyId for the Phyllo Connect SDK on step 3.
+  window.obNext = async function (step) {
     if (step === 1) {
       obState.companyName = document.getElementById('ob-name-input').value.trim() || 'My Company'
       document.getElementById('ob-1').classList.remove('active')
@@ -325,9 +350,40 @@
     } else if (step === 2) {
       obState.niche = window.selectedNiche || ''
       if (!obState.niche) return
+      const btn = document.getElementById('ob-niche-btn')
+      if (btn) { btn.disabled = true; btn.textContent = 'Setting up your team…' }
+      const ok = await createCompanyForOnboarding()
+      if (!ok) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
+        return
+      }
       document.getElementById('ob-2').classList.remove('active')
       document.getElementById('ob-8').classList.add('active')
       setProgress(100)
+    }
+  }
+
+  async function createCompanyForOnboarding() {
+    try {
+      const r = await fetch(API + '/api/onboarding/company', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: obState.companyName, niche: obState.niche }),
+      })
+      if (!r.ok) return false
+      const j = await r.json()
+      currentCompany = j.company
+      return true
+    } catch { return false }
+  }
+
+  async function finishToReveal() {
+    document.getElementById('ob-8').classList.remove('active')
+    document.getElementById('ob-4').classList.add('active')
+    setProgress(100)
+    // Hook for any post-onboarding init (refresh dashboard later, etc.)
+    if (typeof window.startTeamReveal === 'function') {
+      try { window.startTeamReveal() } catch {}
     }
   }
 
@@ -338,58 +394,6 @@
     if (typeof origSelectNiche === 'function') origSelectNiche(el, niche)
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Submit onboarding → create company → optionally connect Instagram → reveal
-  // ───────────────────────────────────────────────────────────────────────────
-  async function submitOnboardingAndConnectInstagram() {
-    try {
-      const companyRes = await fetch(API + '/api/onboarding/company', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: obState.companyName,
-          niche: obState.niche,
-        }),
-      })
-      const companyJson = await companyRes.json()
-      if (!companyRes.ok) throw new Error(companyJson.error || 'company_create_failed')
-      currentCompany = companyJson.company
-
-      if (obState.instagram.handle) {
-        const igRes = await fetch(API + '/api/instagram/connect', {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ companyId: currentCompany.id, handle: obState.instagram.handle }),
-        })
-        if (igRes.ok) {
-          const { connection } = await igRes.json()
-          renderInstagramResult(connection)
-          await new Promise((r) => setTimeout(r, 1500))
-        }
-      }
-
-      // Advance to the reveal (original step 4)
-      document.getElementById('ob-8').classList.remove('active')
-      document.getElementById('ob-4').classList.add('active')
-      document.getElementById('ob-reveal-title').textContent = obState.companyName + ' is open for business.'
-      setProgress(95)
-      if (typeof window.startReveal === 'function') window.startReveal()
-    } catch (e) {
-      alert('Something went wrong: ' + e.message)
-    }
-  }
-
-  function renderInstagramResult(c) {
-    const el = document.getElementById('ob-ig-result')
-    if (!el) return
-    el.innerHTML = `
-      <div class="row"><span>Handle</span><strong>@${c.handle}</strong></div>
-      <div class="row"><span>Followers</span><strong>${c.followerCount.toLocaleString()}</strong></div>
-      <div class="row"><span>Posts</span><strong>${c.postCount}</strong></div>
-      <div class="row"><span>Engagement rate</span><strong>${c.engagementRate}%</strong></div>
-    `
-    el.classList.add('show')
-  }
 
   // ───────────────────────────────────────────────────────────────────────────
   // Wire the topbar login/signup and session bootstrap

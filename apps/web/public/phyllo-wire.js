@@ -72,7 +72,7 @@
   }
 
   async function openConnect(opts) {
-    const { companyId, onConnected, workPlatformId } = opts || {}
+    const { companyId, onConnected, onError, onClose, workPlatformId } = opts || {}
     console.log('[phyllo] openConnect start', { companyId })
     try {
       const [PhylloConnect, token] = await Promise.all([loadSdk(), fetchToken()])
@@ -118,15 +118,18 @@
       })
       phyllo.on('exit', (reason, userId) => {
         console.log('[phyllo] exit', { reason, userId })
+        if (typeof onClose === 'function') onClose(reason)
       })
       phyllo.on('connectionFailure', (reason, workplatformId, userId) => {
         console.warn('[phyllo] connectionFailure', { reason, workplatformId, userId })
+        if (typeof onError === 'function') onError(reason)
       })
       phyllo.open()
       console.log('[phyllo] open() called')
     } catch (err) {
       console.error('[phyllo] open failed', err)
-      alert('Phyllo connect failed: ' + (err?.message || err))
+      if (typeof onError === 'function') onError(err?.message || String(err))
+      else alert('Phyllo connect failed: ' + (err?.message || err))
     }
   }
 
