@@ -588,7 +588,10 @@
     if (!view) return
     await fetchAll()
     const root = view.querySelector('.db-layout') || view
-    root.style.height = '100%'
+    // The prototype's .db-layout is a grid (1fr 280px); our flex pane was
+    // being clipped into just the first column. Reset to a plain block so
+    // our inner flex layout can span the full view.
+    root.style.cssText = 'height:100%;display:block;overflow:hidden;grid-template-columns:none'
     root.innerHTML = `
       <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
         <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 40px 60px">
