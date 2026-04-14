@@ -1019,6 +1019,247 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
 // MAIN EXECUTOR
 // ─────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────
+// PRESENTATION SCRIPT
+// Given a briefKind + the structured output we just produced, returns
+// the agent's natural-language opening message for the meeting room
+// plus a few suggested CEO replies (rendered as quick-reply chips).
+// Each opener pulls real data from the content so the agent sounds
+// like they actually read what they made.
+// ─────────────────────────────────────────────────────────────────────
+
+interface BriefPresentation {
+  opening: string
+  suggestedReplies: string[]
+  viewLabel: string
+}
+
+function get<T>(obj: Record<string, unknown>, path: string, fallback: T): T {
+  const parts = path.split('.')
+  let cur: unknown = obj
+  for (const p of parts) {
+    if (cur && typeof cur === 'object' && p in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[p]
+    } else return fallback
+  }
+  return (cur as T) ?? fallback
+}
+
+function presentBrief(opts: {
+  briefKind: string | null | undefined
+  content: Record<string, unknown>
+  role: AgentRole
+  ctx: PersonalContext | null
+}): BriefPresentation | null {
+  const c = opts.content
+  const persona = PERSONA_NAME[opts.role]
+  const handle = opts.ctx?.instagram?.handle
+  const youAre = handle ? `@${handle}` : 'you'
+
+  switch (opts.briefKind) {
+    // ── Maya ───────────────────────────────────────────────────
+    case 'weekly_trends': {
+      const trends = get<Array<Record<string, unknown>>>(c, 'trends', [])
+      const top = trends[0]
+      const topic = top ? String(top.topic) : 'this week\'s top movement'
+      const growth = top ? String(top.growth) : ''
+      const window = top ? String(top.window) : ''
+      const urgency = top ? String(top.urgency) : ''
+      return {
+        opening: `I scanned ${opts.ctx?.niche || 'your niche'} this week — three trends moved. The one to act on is **${topic}** at ${growth} over ${window}. ${urgency === 'act_now' ? 'Window closes in 4-6 days. I can brief Alex on hooks and Riley on the shot list right now if you want to ship by Friday.' : 'Slower burn — better as a 2-week mini-series.'}`,
+        suggestedReplies: ['Brief Alex on hooks for it', 'Why this trend over the others?', 'Show me the data'],
+        viewLabel: 'Open full report',
+      }
+    }
+    case 'competitor_scan': {
+      const comps = get<Array<Record<string, unknown>>>(c, 'competitors', [])
+      const closest = comps[2] || comps[0]
+      const closestName = closest ? String(closest.name) : 'the closest comp'
+      const insight = closest ? String(closest.copyFromThem || '') : ''
+      return {
+        opening: `I scanned the three accounts above your tier in ${opts.ctx?.niche || 'your niche'}. The closest comp to you is **${closestName}**${insight ? ` — biggest copy-from-them: ${insight.split('.')[0]}.` : '.'} Want me to dig deeper into any one?`,
+        suggestedReplies: [`Why ${closestName}?`, 'What should we copy first?', 'How big is the gap?'],
+        viewLabel: 'Open full scan',
+      }
+    }
+    case 'hashtag_report': {
+      const buckets = get<Array<Record<string, unknown>>>(c, 'buckets', [])
+      const mid = buckets.find((b) => /mid/i.test(String(b.label || '')))
+      const midTags = mid ? get<string[]>(mid as Record<string, unknown>, 'tags', []) : []
+      return {
+        opening: `Rebuilt your hashtag set. Mid-tier is your sweet spot at your size — ${midTags.slice(0, 3).join(', ')}. Use 3-5 per post, one from each bucket. Want me to map them to your next 3 scheduled posts?`,
+        suggestedReplies: ['Map to my next posts', 'Which to drop?', 'Why mid-tier wins'],
+        viewLabel: 'Open full hashtag report',
+      }
+    }
+    case 'audience_deep_dive': {
+      const demos = get<Array<Record<string, unknown>>>(c, 'demographics', [])
+      const primary = demos.find((d) => /primary/i.test(String(d.label || '')))
+      const primaryVal = primary ? String(primary.value) : ''
+      const stop = String(get(c, 'oneThingToStop', ''))
+      return {
+        opening: `Pulled what I have on ${youAre}'s audience right now. ${primaryVal ? `Primary segment: **${primaryVal.split('—')[0].split('(')[0].trim()}**.` : ''} Biggest takeaway: ${stop.slice(0, 180)}${stop.length > 180 ? '…' : ''}`,
+        suggestedReplies: ['Why is that the biggest takeaway?', 'What about the rest?', 'How do I act on this?'],
+        viewLabel: 'Open audience report',
+      }
+    }
+    case 'engagement_diagnosis': {
+      const summary = String(get(c, 'summary', ''))
+      const fix = String(get(c, 'oneFixThisWeek', ''))
+      return {
+        opening: `${summary} The single fix this week: ${fix.slice(0, 220)}${fix.length > 220 ? '…' : ''}`,
+        suggestedReplies: ['Walk me through finding 1', 'Approve the fix', 'What if I can\'t ship Thursday?'],
+        viewLabel: 'Open diagnosis',
+      }
+    }
+
+    // ── Jordan ───────────────────────────────────────────────────
+    case 'weekly_plan': {
+      const posts = get<Array<Record<string, unknown>>>(c, 'posts', [])
+      const goalLine = String(get(c, 'goalContext', '') || '')
+      return {
+        opening: `Built next week — ${posts.length} posts. ${goalLine ? `${goalLine.split('.')[0]}.` : 'Reels Mon/Fri/Sun, carousel Wed.'} Trend slot is reserved for whatever Maya flags mid-week. Want any swaps before I lock it?`,
+        suggestedReplies: ['Lock it in', 'Move Friday earlier', 'Rebalance the pillars'],
+        viewLabel: 'Open the plan',
+      }
+    }
+    case 'pillar_rebuild': {
+      const pillars = get<Array<Record<string, unknown>>>(c, 'pillars', [])
+      const names = pillars.map((p) => String(p.name)).filter(Boolean)
+      const killed = String(get(c, 'killedWhat', ''))
+      return {
+        opening: `Rebuilt your pillars — proposing: **${names.join(' · ')}**. Killed list: ${killed.split('.')[0]}. Approve and I roll these into next week's plan.`,
+        suggestedReplies: ['Approve', 'Why these three?', 'Try a different pillar'],
+        viewLabel: 'Open the rebuild',
+      }
+    }
+    case 'cadence_plan': {
+      const sched = get<Array<Record<string, unknown>>>(c, 'schedule', [])
+      const days = sched.map((s) => String(s.day)).filter(Boolean).join('/')
+      return {
+        opening: `Recommend ${sched.length} feed posts/week on ${days}, plus daily stories. The Sunday slot is your biggest converter — protect it. Sound right or want to adjust?`,
+        suggestedReplies: ['Lock it in', 'I can only do 3/week', 'Why daily stories?'],
+        viewLabel: 'Open the cadence',
+      }
+    }
+    case 'ninety_day_plan': {
+      const months = get<Array<Record<string, unknown>>>(c, 'months', [])
+      const m1 = months[0] ? String((months[0] as Record<string, unknown>).theme) : ''
+      return {
+        opening: `Mapped out 12 weeks across 3 monthly themes. Month 1 starts with: ${m1}. The next two Reels are scoped — want to start with those or talk theme first?`,
+        suggestedReplies: ['Start the first Reel', 'Walk me through month 2', 'Adjust the goal'],
+        viewLabel: 'Open the 90-day plan',
+      }
+    }
+    case 'slot_audit': {
+      const slots = get<Array<Record<string, unknown>>>(c, 'slots', [])
+      const weakest = slots[0]
+      const label = weakest ? String(weakest.label) : 'your weakest slot'
+      const replacement = weakest ? String(weakest.replacement) : ''
+      return {
+        opening: `Audit done. ${label}. Proposed swap: ${replacement.split('.')[0]}. Approve and I queue it for this Friday.`,
+        suggestedReplies: ['Approve the swap', 'Why this slot?', 'Show the second-weakest'],
+        viewLabel: 'Open the audit',
+      }
+    }
+
+    // ── Alex ───────────────────────────────────────────────────
+    case 'top_trend_hooks': {
+      const hooks = get<Array<Record<string, unknown>>>(c, 'hooks', [])
+      const fav = hooks.find((h) => h.flagged) || hooks[1] || hooks[0]
+      const favText = fav ? String(fav.text) : ''
+      const favReason = fav ? String((fav as Record<string, unknown>).favoriteReason || '') : ''
+      return {
+        opening: `Wrote 5 variations. My pick: **"${favText}"** — ${favReason.split('.')[0]}. The other 4 are weaker for specific reasons (in the brief). Want a different angle or are we shipping this one?`,
+        suggestedReplies: ['Ship this one', 'Why is mine #2?', 'Try a sharper angle'],
+        viewLabel: 'Open all 5 hooks',
+      }
+    }
+    case 'reel_script_30s': {
+      const beats = get<Array<Record<string, unknown>>>(c, 'beats', [])
+      return {
+        opening: `30s script done — ${beats.length} beats: cold open, tension, reframe, payoff. The cold open is silent for the first 1.5s — that's the scroll-stop. Want to walk through any beat or are we ready for Riley to shot-list?`,
+        suggestedReplies: ['Hand to Riley', 'Walk me through the cold open', 'Punch up the payoff'],
+        viewLabel: 'Open the script',
+      }
+    }
+    case 'caption_next_post': {
+      const text = String(get(c, 'text', ''))
+      const firstLine = text.split('\n')[0] || ''
+      return {
+        opening: `Drafted a caption — leads with: "${firstLine}". Single soft CTA on the close. Want me to tighten or punch the close?`,
+        suggestedReplies: ['Use as-is', 'Tighten it', 'Punchier close'],
+        viewLabel: 'Open the caption',
+      }
+    }
+    case 'carousel_opening_lines': {
+      const hooks = get<Array<Record<string, unknown>>>(c, 'hooks', [])
+      const fav = hooks.find((h) => h.flagged) || hooks[1] || hooks[0]
+      const favText = fav ? String(fav.text) : ''
+      return {
+        opening: `Three slide-1 hooks. My pick: **"${favText}"** — direct address triggers self-check loop and doubles comment-rate on slide 1 in your niche. Want me to draft slides 2-7 too?`,
+        suggestedReplies: ['Draft the rest', 'Try a different opener', 'Why this one?'],
+        viewLabel: 'Open all 3 hooks',
+      }
+    }
+    case 'bio_rewrite': {
+      const rec = String(get(c, 'recommendation', ''))
+      return {
+        opening: `Three bio options ready for ${youAre}. ${rec.split('.')[0]}. Want me to tweak any of them or are we shipping?`,
+        suggestedReplies: ['Ship Option A', 'Punchier please', 'Add something specific'],
+        viewLabel: 'Open all 3 bios',
+      }
+    }
+
+    // ── Riley ───────────────────────────────────────────────────
+    case 'reel_shot_list': {
+      const shots = get<Array<Record<string, unknown>>>(c, 'shots', [])
+      const reelTitle = String(get(c, 'reelTitle', 'next Reel'))
+      return {
+        opening: `${shots.length}-shot plan for **${reelTitle}**. First 1.5 seconds are silent — that's the part of the cut that earns the scroll. Want me to walk through any shot in detail or are we ready to shoot?`,
+        suggestedReplies: ['Walk me through shot 1', 'Simplify the cut', 'Approve and shoot'],
+        viewLabel: 'Open the shot list',
+      }
+    }
+    case 'pacing_notes': {
+      const fix = String(get(c, 'oneFixThisWeek', ''))
+      return {
+        opening: `Pacing audit done. Your cuts run faster than the niche average — you're training the viewer to skim instead of watch. One fix this week: ${fix.split('.')[0]}. Want to discuss?`,
+        suggestedReplies: ['Why slower wins', 'Show me an example', 'Approve the fix'],
+        viewLabel: 'Open pacing notes',
+      }
+    }
+    case 'visual_direction': {
+      return {
+        opening: `Proposed a cohesive look — palette, lighting, shot style, text overlay system. The next Reel is the test. Want me to spec a sample shot or hand straight to the editor?`,
+        suggestedReplies: ['Spec a sample', 'Hand to editor', 'Adjust the palette'],
+        viewLabel: 'Open visual direction',
+      }
+    }
+    case 'thumbnail_brief': {
+      return {
+        opening: `Thumbnail spec is done — type treatment, color, focal subject. Big don't-do: no faces (your niche saves faceless thumbnails 2x more). Want a sketch first or send straight to the editor?`,
+        suggestedReplies: ['Send to editor', 'I want to sketch first', 'Why no faces?'],
+        viewLabel: 'Open the brief',
+      }
+    }
+    case 'fix_weak_reel': {
+      const why = String(get(c, 'whyItWorks', ''))
+      return {
+        opening: `Diagnosed the weak open: talking-head opens cost ~24 retention points in your niche. Fix is a 5-minute reshoot of the first 2.5 seconds. ${why.split('.')[0]}. Approve and I brief the editor.`,
+        suggestedReplies: ['Approve the reshoot', 'Why silent opens win', 'Try a different fix'],
+        viewLabel: 'Open the fix',
+      }
+    }
+  }
+  // Generic fallback for ad-hoc briefs.
+  return {
+    opening: `${persona} here. I just delivered the brief you asked for — open the file when you have a moment and let me know if you want changes.`,
+    suggestedReplies: ['Walk me through it', 'Approve', 'Try a different angle'],
+    viewLabel: 'Open the brief',
+  }
+}
+
 function bedrockSystemPrompt(opts: ExecuteOpts, knowledgeBlock: string): string {
   const persona = PERSONA_NAME[opts.role]
   const nicheLabel = bucketForNiche(opts.niche)
@@ -1110,6 +1351,18 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
   const content = generator(tokens, personal, knowledgeRows)
   if (knowledgeRows.length) {
     (content as Record<string, unknown>).knowledgeApplied = knowledgeRows.map((k) => `[${k.kind}] ${k.title}`)
+  }
+  // Attach a presentation script — the agent's opening message + suggested
+  // CEO replies — so the frontend can launch a meeting room around the
+  // brief instead of just dropping the file in the library.
+  const presentation = presentBrief({
+    briefKind: opts.briefKind,
+    content,
+    role: opts.role,
+    ctx: personal,
+  })
+  if (presentation) {
+    (content as Record<string, unknown>).presentation = presentation
   }
   return { content, knowledgeUsed: knowledgeRows.length, source: 'mock' }
 }

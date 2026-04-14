@@ -404,6 +404,15 @@
   function openDetail(id) {
     const o = outputs.find((x) => x.id === id)
     if (!o) return
+    openDetailFromObject(o)
+  }
+
+  // Renders the same detail modal but from a passed-in output object —
+  // used by the meeting room "View brief" button so it can present a
+  // brief that just delivered and may not yet be in the local outputs[]
+  // cache.
+  function openDetailFromObject(o) {
+    if (!o) return
     const overlay = document.createElement('div')
     overlay.style.cssText =
       'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
@@ -434,6 +443,10 @@
       if (ev.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) }
     })
   }
+
+  // Exposed so meeting-wire's "View brief" button can render a freshly
+  // delivered output without it needing to be in the local cache.
+  window.vxOpenOutputDetail = openDetailFromObject
 
   function exportOutput(id) {
     const o = outputs.find((x) => x.id === id)

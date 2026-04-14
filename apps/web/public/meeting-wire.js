@@ -25,8 +25,11 @@
     // Claude requires the first message in `messages` to have role='user',
     // so we show the greeting in the UI but do NOT push it into history.
     history = []
-    // Reset the badge so the previous meeting's stats don't bleed in.
+    // Reset transient UI state so the previous meeting's stats / chips
+    // don't bleed in.
     document.getElementById('vx-mtg-knowledge')?.remove()
+    document.getElementById('vx-mtg-quickreplies')?.remove()
+    document.getElementById('vx-mtg-viewbrief')?.remove()
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
       msgs.innerHTML = `
@@ -36,6 +39,84 @@
       `
     }
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
+  }
+
+  // Open the meeting room with a brief already on the table — the agent
+  // greets the CEO with a presentation message, quick-reply chips show
+  // suggested follow-ups, and a "View brief" button opens the structured
+  // output detail. Used by team-wire when a brief is freshly delivered.
+  window.openMeetingWithPresentation = function (opts) {
+    const { name, role, init, presentation, output } = opts
+    if (typeof window.openMeeting !== 'function') return
+    window.openMeeting(name, role, init)
+    // openMeeting reset the messages — give it a tick, then replace the
+    // generic greeting with the agent's presentation.
+    setTimeout(() => {
+      const msgs = document.getElementById('mr-msgs')
+      if (!msgs || !presentation) return
+      msgs.innerHTML = `
+        <div class="mr-msg">
+          <div class="mr-bubble" id="vx-mtg-opener"></div>
+        </div>
+      `
+      const bubble = document.getElementById('vx-mtg-opener')
+      if (bubble) bubble.textContent = presentation.opening
+      // Seed the conversation history with the agent's opener so when the
+      // CEO replies, the agent has context for what they just said.
+      history = [
+        { role: 'user', content: '[Brief delivered — please present it.]' },
+        { role: 'assistant', content: presentation.opening },
+      ]
+      renderQuickReplies(presentation.suggestedReplies || [])
+      renderViewBriefButton(presentation.viewLabel || 'Open the brief', output)
+    }, 60)
+  }
+
+  function renderQuickReplies(replies) {
+    document.getElementById('vx-mtg-quickreplies')?.remove()
+    if (!replies || replies.length === 0) return
+    const inputArea = document.querySelector('#meeting-room .mr-input') || document.querySelector('#mr-input-field')?.parentElement
+    if (!inputArea) return
+    const wrap = document.createElement('div')
+    wrap.id = 'vx-mtg-quickreplies'
+    wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px 0;font-family:DM Sans,sans-serif'
+    wrap.innerHTML = replies.map((r, i) =>
+      `<button data-vx-reply="${i}" style="background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:11px;padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:background .15s,color .15s">${escapeHtml(r)}</button>`
+    ).join('')
+    inputArea.parentElement?.insertBefore(wrap, inputArea)
+    wrap.querySelectorAll('[data-vx-reply]').forEach((btn) => {
+      btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--s3)'; btn.style.color = 'var(--t1)' })
+      btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--s2)'; btn.style.color = 'var(--t2)' })
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.vxReply)
+        const replyText = replies[idx]
+        if (!replyText) return
+        const inp = document.getElementById('mr-input-field')
+        if (inp) inp.value = replyText
+        if (typeof window.mrSendBtn === 'function') window.mrSendBtn()
+        wrap.remove()
+      })
+    })
+  }
+
+  function renderViewBriefButton(label, output) {
+    document.getElementById('vx-mtg-viewbrief')?.remove()
+    if (!output) return
+    const room = document.getElementById('meeting-room')
+    if (!room) return
+    const btn = document.createElement('button')
+    btn.id = 'vx-mtg-viewbrief'
+    btn.style.cssText =
+      'position:absolute;top:54px;right:60px;background:var(--t1);color:var(--bg);border:none;font-size:11px;letter-spacing:.04em;padding:7px 14px;border-radius:999px;font-family:DM Sans,sans-serif;font-weight:600;cursor:pointer;z-index:10'
+    btn.textContent = label
+    btn.addEventListener('click', () => {
+      // Hand off to outputs-wire's detail modal, which knows how to
+      // render every output type with the proper visuals.
+      if (typeof window.vxOpenOutputDetail === 'function') {
+        window.vxOpenOutputDetail(output)
+      }
+    })
+    room.appendChild(btn)
   }
 
   // Show a discreet "Knowledge: N · niche" badge inside the meeting room

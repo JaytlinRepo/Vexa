@@ -158,7 +158,28 @@
         if (result.ok) {
           el.remove()
           if (typeof render === 'function') render()
-          if (typeof window.navigate === 'function') window.navigate('db-tasks')
+          // If the brief came back with a presentation script, hand off
+          // to the meeting room so the agent walks the CEO through it
+          // live. Otherwise fall back to the old navigate-to-tasks path.
+          const output = result.task?.outputs?.[0]
+          const presentation = output?.content?.presentation
+          if (presentation && typeof window.openMeetingWithPresentation === 'function') {
+            const init = (empName || '?')[0].toUpperCase()
+            const roleTitle = role === 'analyst' ? 'Trend Analyst'
+              : role === 'strategist' ? 'Content Strategist'
+              : role === 'copywriter' ? 'Copywriter & Script Writer'
+              : role === 'creative_director' ? 'Creative Director'
+              : 'Teammate'
+            window.openMeetingWithPresentation({
+              name: empName,
+              role: roleTitle,
+              init,
+              presentation,
+              output,
+            })
+          } else if (typeof window.navigate === 'function') {
+            window.navigate('db-tasks')
+          }
         } else if (result.limitReached) {
           el.remove()
         } else {
