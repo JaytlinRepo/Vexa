@@ -324,6 +324,9 @@
       const slice = last28.slice(w * 7, (w + 1) * 7)
       weekly.push(slice.reduce((a, p) => a + (p.reach || 0), 0) / Math.max(1, slice.length))
     }
+    if (weekly.every((v) => v === 0)) {
+      return '<div style="height:110px;color:var(--t3);font-size:12px;display:grid;place-items:center;text-align:center;line-height:1.5">Reach unavailable<br/><span style="font-size:10px">Requires a Creator or Business account</span></div>'
+    }
     const min = Math.min(...weekly), max = Math.max(...weekly)
     const range = Math.max(1, max - min)
     const W = 220, H = 110, top = 10, bottom = H - 22
@@ -387,6 +390,9 @@
 
   function weekdayBars(media) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    if (!media || media.length === 0) {
+      return '<div style="height:110px;color:var(--t3);font-size:12px;display:grid;place-items:center;text-align:center;line-height:1.5">Per-post engagement unavailable<br/><span style="font-size:10px">Requires a Creator or Business account</span></div>'
+    }
     const sums = Array(7).fill(0)
     const counts = Array(7).fill(0)
     for (const m of (media || [])) {
