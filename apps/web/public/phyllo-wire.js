@@ -46,30 +46,40 @@
 
   async function openConnect(opts) {
     const { companyId, onConnected } = opts || {}
+    console.log('[phyllo] openConnect start', { companyId })
     try {
       const [PhylloConnect, token] = await Promise.all([loadSdk(), fetchToken()])
+      console.log('[phyllo] sdk + token ready', {
+        hasSdk: !!PhylloConnect,
+        hasInit: typeof PhylloConnect?.initialize,
+        tokenLen: token?.sdkToken?.length,
+        phylloUserId: token?.phylloUserId,
+        env: token?.environment,
+      })
+      if (!PhylloConnect || typeof PhylloConnect.initialize !== 'function') {
+        throw new Error('phyllo_sdk_missing_initialize')
+      }
       const phyllo = PhylloConnect.initialize({
         clientDisplayName: 'Vexa',
         environment: token.environment || 'staging',
         userId: token.phylloUserId,
         token: token.sdkToken,
-        singleAccount: false,
       })
-      phyllo.on('accountConnected', async (accountId) => {
+      console.log('[phyllo] initialized', phyllo)
+      phyllo.on('accountConnected', async (accountId, workplatformId, userId) => {
+        console.log('[phyllo] accountConnected', { accountId, workplatformId, userId })
         const ok = await syncAccount(accountId, companyId)
+        console.log('[phyllo] sync result', ok)
         if (ok && typeof onConnected === 'function') onConnected(accountId)
       })
-      phyllo.on('accountDisconnected', () => {})
-      phyllo.on('tokenExpired', () => {
-        console.warn('[phyllo] token expired')
-      })
-      phyllo.on('exit', (reason) => {
-        console.log('[phyllo] exit', reason)
-      })
+      phyllo.on('accountDisconnected', (a, w, u) => console.log('[phyllo] disconnected', a, w, u))
+      phyllo.on('tokenExpired', () => console.warn('[phyllo] token expired'))
+      phyllo.on('exit', (reason, userId) => console.log('[phyllo] exit', reason, userId))
       phyllo.open()
+      console.log('[phyllo] open() called')
     } catch (err) {
       console.error('[phyllo] open failed', err)
-      alert('Could not open the Phyllo connect flow: ' + err.message)
+      alert('Phyllo connect failed: ' + (err?.message || err))
     }
   }
 
