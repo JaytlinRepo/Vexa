@@ -5,6 +5,7 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { isTestMode } from '../lib/mode'
 import { readTopMemories, formatMemoryForPrompt } from '../lib/brandMemory'
 import { PLAN_LIMITS } from '../lib/plans'
+import { nicheKnowledgeBlock, AgentRole } from '../lib/nicheKnowledge'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -240,10 +241,22 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     })
     let memoryBlock = ''
     let platformBlock = ''
+    let knowledgeBlock = ''
+    let knowledgeCount = 0
     if (company) {
       const memories = await readTopMemories(prisma, company.id, 10)
       memoryBlock = formatMemoryForPrompt(memories)
       platformBlock = formatPlatformBlock(company.instagram)
+      // Pull niche-specific knowledge for this agent's role, scored
+      // against the CEO's current message so the most relevant entries
+      // surface (e.g. asking about hooks pulls hook_pattern entries).
+      knowledgeBlock = await nicheKnowledgeBlock(prisma, {
+        niche: company.niche,
+        role: data.employeeRole as AgentRole,
+        query: data.message,
+        limit: 6,
+      })
+      knowledgeCount = knowledgeBlock ? (knowledgeBlock.match(/^- \[/gm) || []).length : 0
     }
 
     res.setHeader('Content-Type', 'text/event-stream')
@@ -251,7 +264,11 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
-    res.write(`data: ${JSON.stringify({ source: hasBedrockCreds() ? 'bedrock' : 'mock', memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0 })}\n\n`)
+    res.write(`data: ${JSON.stringify({
+      source: hasBedrockCreds() ? 'bedrock' : 'mock',
+      memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0,
+      knowledgeCount,
+    })}\n\n`)
 
     // Belt & suspenders: Claude requires the first entry in `messages` to
     // have role='user'. Trim any leading assistant turns from history in
@@ -262,7 +279,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     }
 
     if (hasBedrockCreds()) {
-      await streamBedrock(res, data.employeeRole, sanitizedHistory, data.message, memoryBlock + platformBlock)
+      await streamBedrock(res, data.employeeRole, sanitizedHistory, data.message, memoryBlock + platformBlock + knowledgeBlock)
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
     }

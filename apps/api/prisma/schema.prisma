@@ -347,6 +347,49 @@ model InstagramConnection {
   @@map("instagram_connections")
 }
 
+// ─── NICHE KNOWLEDGE (RAG) ─────────────────────────────────────────────────
+// Each niche (fitness, finance, food, coaching, lifestyle) has a curated
+// set of entries the agents pull from when reasoning. Entries are tagged
+// by kind (pillar / audience / hook_pattern / format_signal / cadence /
+// language / competitor_archetype / taboo) and scoped to the agent roles
+// they should inform. Retrieval is currently keyword + tag based; an
+// optional `embedding` column is reserved for upgrading to vector search
+// later (Bedrock embeddings → pgvector) without a schema change.
+//
+// This is the RAG framework backing every agent prompt — it is the
+// difference between a generic LLM and an agent that actually knows the
+// creator's lane.
+enum NicheKnowledgeKind {
+  pillar
+  audience
+  hook_pattern
+  format_signal
+  cadence
+  language
+  competitor_archetype
+  taboo
+  framework
+}
+
+model NicheKnowledge {
+  id        String              @id @default(uuid())
+  niche     String                                            // 'fitness' | 'finance' | 'food' | 'coaching' | 'lifestyle' | 'default'
+  kind      NicheKnowledgeKind
+  title     String
+  body      String
+  tags      String[]            @default([])                  // keywords for retrieval
+  forRoles  String[]            @default([])                  // 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
+  weight    Float               @default(1.0)
+  source    String?                                           // attribution / provenance
+  embedding Json?                                             // reserved for vector search later
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@index([niche, kind])
+  @@index([niche])
+  @@map("niche_knowledge")
+}
+
 model Notification {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
