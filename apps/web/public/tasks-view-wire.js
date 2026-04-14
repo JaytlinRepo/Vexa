@@ -147,14 +147,15 @@
     })
   }
 
-  // Force list view when entering the tasks page, since the prototype defaults
-  // to calendar — simpler to show the real data in list form.
+  // Pre-render the list so when the CEO toggles to it (or work-wire stacks
+  // it below the calendar) it's already populated. Calendar remains the
+  // default view — unified Work page expects it on top.
   const origNavigate = window.navigate
   window.navigate = function (id) {
     const r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
     if (id === 'db-tasks') {
       setTimeout(() => {
-        if (typeof window.switchTasksView === 'function') window.switchTasksView('list')
+        if (typeof window.switchTasksView === 'function') window.switchTasksView('calendar')
         render()
       }, 80)
     }
