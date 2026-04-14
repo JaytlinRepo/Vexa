@@ -41,7 +41,34 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountId, companyId }),
     })
-    return res.ok
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      return { ok: false, error: err?.error || 'sync_failed' }
+    }
+    const json = await res.json().catch(() => ({}))
+    return { ok: true, ...json }
+  }
+
+  async function syncAccountWithRetry(accountId, companyId, { attempts = 6, intervalMs = 8000 } = {}) {
+    let last = null
+    for (let i = 0; i < attempts; i++) {
+      last = await syncAccount(accountId, companyId)
+      if (!last.ok) return last
+      if (last.skipped) return last // non-Instagram intentional skip
+      if (!last.sparse) return last // fully-populated data
+      await new Promise((r) => setTimeout(r, intervalMs))
+    }
+    return last
+  }
+
+  function showToast(text, tone = 'info') {
+    const bg = tone === 'error' ? '#ff6b6b' : tone === 'success' ? 'var(--t1)' : 'var(--s2)'
+    const fg = tone === 'success' ? 'var(--bg)' : tone === 'error' ? '#fff' : 'var(--t1)'
+    const el = document.createElement('div')
+    el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:10500;padding:12px 18px;background:${bg};color:${fg};border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:340px;line-height:1.45`
+    el.textContent = text
+    document.body.appendChild(el)
+    setTimeout(() => el.remove(), 5000)
   }
 
   async function openConnect(opts) {
@@ -69,9 +96,19 @@
       console.log('[phyllo] initialized', phyllo)
       phyllo.on('accountConnected', async (accountId, workplatformId, userId) => {
         console.log('[phyllo] accountConnected', { accountId, workplatformId, userId })
-        const ok = await syncAccount(accountId, companyId)
-        console.log('[phyllo] sync result', ok)
-        if (ok && typeof onConnected === 'function') onConnected(accountId)
+        showToast('Connected. Pulling data — this can take up to a minute…', 'info')
+        const result = await syncAccountWithRetry(accountId, companyId)
+        console.log('[phyllo] sync result', result)
+        if (result.ok && result.skipped) {
+          showToast(`${result.platform || 'Platform'} connected.`, 'success')
+        } else if (result.ok && result.sparse) {
+          showToast('Connected. Data is still loading — it will appear shortly.', 'info')
+        } else if (result.ok) {
+          showToast('Data synced from Instagram.', 'success')
+        } else {
+          showToast(`Sync failed: ${result.error}`, 'error')
+        }
+        if (result.ok && typeof onConnected === 'function') onConnected(accountId, result)
       })
       phyllo.on('accountDisconnected', (accountId, workplatformId, userId) => {
         console.log('[phyllo] disconnected', { accountId, workplatformId, userId })
@@ -138,44 +175,95 @@
     } catch {}
   }
 
-  // ── Inject a "Connect Instagram" CTA on the dashboard ──
-  // Only appears when the user has ZERO connected Phyllo accounts. Once they
-  // connect anything (Instagram, TikTok, YouTube, etc.) it stays hidden
-  // across future logins without re-asking — state is cached and only
-  // invalidated by an explicit mutation.
+  // ── Inject a Connection-status widget on the dashboard ──
+  // Shows one pill per curated platform, always visible. Green dot when
+  // connected, gray when not. Replaces the old nagging CTA.
+  const DASH_CURATED = [
+    { id: '9bb8913b-ddd9-430b-a66a-d74d846e6c66', name: 'Instagram' },
+    { id: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987', name: 'TikTok' },
+    { id: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054', name: 'YouTube' },
+    { id: '7645460a-96e0-4192-a3ce-a1fc30641f72', name: 'X' },
+  ]
+
   async function injectDashboardConnectButton() {
     const main = document.querySelector('#view-db-dashboard main')
     if (!main) return
     const overview = main.querySelector('section:nth-of-type(2)')
     if (!overview) return
-    if (document.getElementById('vx-phyllo-cta')) return
-
     const company = window.__vxCompany
     if (!company?.id) return
 
     if (!connectionState.loaded) await refreshConnectionState()
-    if (connectionState.hasPhyllo) return // user already connected at least one platform
 
-    const cta = document.createElement('div')
-    cta.id = 'vx-phyllo-cta'
-    cta.style.cssText = 'background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:22px;display:flex;align-items:center;gap:12px'
-    cta.innerHTML = `
-      <div style="flex:1">
-        <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">Connect your platforms</div>
-        <div style="color:var(--t2);font-size:11px">Instagram, TikTok, YouTube and more — so your team works from real numbers. Read-only, disconnect any time.</div>
+    // Index accounts by work_platform.id for quick lookup
+    const byPlatform = new Map()
+    try {
+      const res = await fetch('/api/phyllo/accounts', { credentials: 'include' })
+      if (res.ok) {
+        const json = await res.json()
+        for (const a of json.accounts || []) {
+          if (a.status === 'NOT_CONNECTED') continue
+          const pid = a.work_platform?.id
+          if (pid && !byPlatform.has(pid)) byPlatform.set(pid, a)
+        }
+      }
+    } catch {}
+
+    const existing = document.getElementById('vx-phyllo-cta')
+    const pills = DASH_CURATED.map((p) => {
+      const acct = byPlatform.get(p.id)
+      const connected = !!acct
+      const handle = acct?.platform_username ? '@' + acct.platform_username : null
+      return `
+        <div data-pid="${p.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:999px;cursor:pointer;transition:border-color .15s" title="${connected ? (handle || 'Connected') : 'Not connected — click to connect'}">
+          <span style="width:9px;height:9px;border-radius:50%;background:${connected ? '#34d27a' : 'var(--t3)'};${connected ? 'box-shadow:0 0 0 3px rgba(52,210,122,.18)' : 'opacity:.55'};flex-shrink:0"></span>
+          <span style="color:var(--t1);font-size:12px;font-weight:500">${escapeHtml(p.name)}</span>
+          ${connected && handle ? `<span style="color:var(--t3);font-size:11px">${escapeHtml(handle)}</span>` : ''}
+        </div>
+      `
+    }).join('')
+
+    const html = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600">Connections</div>
+        <a href="#" id="vx-manage-conns" style="color:var(--t3);font-size:11px;text-decoration:none">Manage →</a>
       </div>
-      <button id="vx-phyllo-dash-btn" style="background:var(--t1);color:var(--bg);border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect</button>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${pills}</div>
     `
-    overview.insertAdjacentElement('afterend', cta)
-    cta.querySelector('#vx-phyllo-dash-btn').addEventListener('click', () => {
-      openConnect({
-        companyId: company.id,
-        onConnected: async () => {
-          await refreshConnectionState()
-          cta.remove()
-          location.reload()
-        },
+    if (existing) {
+      existing.innerHTML = html
+    } else {
+      const cta = document.createElement('div')
+      cta.id = 'vx-phyllo-cta'
+      cta.style.cssText = 'margin-bottom:22px'
+      cta.innerHTML = html
+      overview.insertAdjacentElement('afterend', cta)
+    }
+
+    const root = document.getElementById('vx-phyllo-cta')
+    root.querySelectorAll('[data-pid]').forEach((pill) => {
+      pill.addEventListener('mouseenter', () => { pill.style.borderColor = 'var(--b2)' })
+      pill.addEventListener('mouseleave', () => { pill.style.borderColor = 'var(--b1)' })
+      pill.addEventListener('click', () => {
+        openConnect({
+          companyId: company.id,
+          workPlatformId: pill.dataset.pid,
+          onConnected: async () => {
+            await refreshConnectionState()
+            injectDashboardConnectButton()
+            // Re-render the dashboard data only if IG was connected, since
+            // that's the only platform we currently persist analytics for.
+            setTimeout(() => location.reload(), 800)
+          },
+        })
       })
+    })
+    root.querySelector('#vx-manage-conns')?.addEventListener('click', (e) => {
+      e.preventDefault()
+      if (typeof window.navigate === 'function') window.navigate('db-settings')
+      setTimeout(() => {
+        document.getElementById('vx-settings-integrations-tab')?.click()
+      }, 400)
     })
   }
 

@@ -116,6 +116,24 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       return
     }
 
+    const platformName = (account.work_platform?.name || '').toLowerCase()
+    const isInstagram = platformName === 'instagram'
+
+    // Non-Instagram connections are tracked by Phyllo but we don't persist
+    // their analytics into the InstagramConnection row (which would
+    // overwrite the user's IG numbers with, say, TikTok ones). Tell the
+    // caller connection succeeded; dashboard will show the platform as
+    // connected via the Integrations panel.
+    if (!isInstagram) {
+      res.json({
+        ok: true,
+        platform: account.work_platform?.name,
+        accountId: account.id,
+        skipped: 'non_instagram_not_persisted',
+      })
+      return
+    }
+
     // Pull the data in parallel. Each call is best-effort: if one fails we
     // still persist what we have.
     const [profile, contents, audience] = await Promise.allSettled([
@@ -134,6 +152,10 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       contents: contentList,
       audience: audienceRes,
     })
+
+    // Detect Phyllo "still ingesting" state — no follower count + no contents.
+    // Caller should retry after a delay.
+    const sparseData = stub.followerCount === 0 && stub.recentMedia.length === 0
 
     const payload = {
       handle: stub.username || account.platform_username || '',
@@ -192,7 +214,40 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       console.warn('[phyllo:sync] memory/notification emit failed', e)
     }
 
-    res.status(200).json({ connection, platform: account.work_platform?.name })
+    // Write a performance-type BrandMemory entry + notification on initial
+    // connect so agents and the activity timeline reflect the real numbers.
+    if (!sparseData) {
+      try {
+        const topCap = (stub.topPosts[0]?.caption || '').slice(0, 80)
+        await writeMemory(prisma, {
+          companyId: company.id,
+          type: 'performance',
+          weight: 1.5,
+          content: {
+            source: 'instagram',
+            summary: `Instagram @${stub.username}: ${stub.followerCount.toLocaleString()} followers, ${stub.engagementRate}% engagement${topCap ? `, top post "${topCap}"` : ''}`,
+            tags: ['instagram', 'analytics'],
+          },
+        })
+        await createNotification({
+          userId,
+          companyId: company.id,
+          type: 'team_update',
+          emoji: '',
+          title: 'Instagram synced',
+          body: `Maya has the real numbers for @${stub.username}. Your team is working from live data now.`,
+        })
+      } catch (e) {
+        console.warn('[phyllo] post-sync memory/notif failed', e)
+      }
+    }
+
+    res.status(200).json({
+      connection,
+      platform: account.work_platform?.name,
+      sparse: sparseData,
+      retryAfterMs: sparseData ? 10000 : null,
+    })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })
