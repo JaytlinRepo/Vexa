@@ -72,18 +72,48 @@ export async function persistPhylloSync(
     },
   })
 
-  // 2. Append a snapshot (time series)
-  await prisma.platformSnapshot.create({
-    data: {
+  // 2. Append a snapshot (time series), deduped by UTC day. The cron runs
+  // once a day but the CLI + manual Resync can both fire; without this
+  // check we'd pile multiple rows onto the same date and corrupt every
+  // day-over-day delta the dashboard computes.
+  const dayStart = new Date()
+  dayStart.setUTCHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1)
+
+  const existingToday = await prisma.platformSnapshot.findFirst({
+    where: {
       accountId: platformAccount.id,
-      followerCount: stub.followerCount,
-      followingCount: stub.followingCount,
-      postCount: stub.postCount,
-      avgReach: stub.avgReach,
-      avgImpressions: stub.avgImpressions,
-      engagementRate: stub.engagementRate,
+      capturedAt: { gte: dayStart, lt: dayEnd },
     },
+    orderBy: { capturedAt: 'desc' },
   })
+  if (existingToday) {
+    await prisma.platformSnapshot.update({
+      where: { id: existingToday.id },
+      data: {
+        followerCount: stub.followerCount,
+        followingCount: stub.followingCount,
+        postCount: stub.postCount,
+        avgReach: stub.avgReach,
+        avgImpressions: stub.avgImpressions,
+        engagementRate: stub.engagementRate,
+        capturedAt: new Date(),
+      },
+    })
+  } else {
+    await prisma.platformSnapshot.create({
+      data: {
+        accountId: platformAccount.id,
+        followerCount: stub.followerCount,
+        followingCount: stub.followingCount,
+        postCount: stub.postCount,
+        avgReach: stub.avgReach,
+        avgImpressions: stub.avgImpressions,
+        engagementRate: stub.engagementRate,
+      },
+    })
+  }
 
   // 3. Append an audience snapshot (if we have any meaningful data)
   const hasAudience =

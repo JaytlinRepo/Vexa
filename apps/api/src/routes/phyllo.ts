@@ -88,8 +88,24 @@ router.get('/debug', requireAuth, async (req, res, next) => {
     const contents = contentsRes.status === 'fulfilled' ? contentsRes.value : null
     const audience = audienceRes.status === 'fulfilled' ? audienceRes.value : null
 
+    // Surface why each call failed (403 = scope missing, 500 = Phyllo
+    // upstream blip, 404 = account moved). Without this the user sees
+    // "no data" and can't tell permission error from propagation delay.
+    const errors: Record<string, string | null> = {
+      profile: profileRes.status === 'rejected' ? String(profileRes.reason?.message || profileRes.reason) : null,
+      contents: contentsRes.status === 'rejected' ? String(contentsRes.reason?.message || contentsRes.reason) : null,
+      audience: audienceRes.status === 'rejected' ? String(audienceRes.reason?.message || audienceRes.reason) : null,
+    }
+
     // Quick health check
     const reasons: string[] = []
+    for (const [key, msg] of Object.entries(errors)) {
+      if (!msg) continue
+      if (/403/.test(msg)) reasons.push(`Phyllo ${key} call returned 403 — insufficient permissions. Scope was likely denied or not granted during Connect.`)
+      else if (/404/.test(msg)) reasons.push(`Phyllo ${key} call returned 404 — account not found on Meta's side. Reconnect required.`)
+      else if (/5\d\d/.test(msg)) reasons.push(`Phyllo ${key} call returned a 5xx — upstream Meta/Phyllo error. Retry in a few minutes.`)
+      else reasons.push(`Phyllo ${key} call failed: ${msg.slice(0, 160)}`)
+    }
     const followerCount = profile?.reputation?.follower_count ?? 0
     const contentCount = contents?.data?.length ?? 0
     const samplePostHasEngagement = !!(contents?.data?.[0]?.engagement && Object.values(contents.data[0].engagement).some((v) => Number(v) > 0))
@@ -119,6 +135,8 @@ router.get('/debug', requireAuth, async (req, res, next) => {
       sampleContent: contents?.data?.[0] ?? null,
       contentCount,
       audience,
+      errors,
+      accountTypeReported: igAccount.account_type ?? null,
       diagnosis: reasons.length ? reasons : ['Looks healthy — full data should be flowing.'],
       remediation: [
         'If account is PERSONAL on Meta\'s side: switch to Professional (Settings → Account → Switch to Professional Account), then disconnect and reconnect on Vexa.',

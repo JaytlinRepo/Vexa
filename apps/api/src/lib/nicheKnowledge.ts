@@ -91,13 +91,22 @@ export async function retrieveNicheKnowledge(
     ...(kinds ? { kind: { in: kinds } } : {}),
     ...(opts.role ? { OR: [{ forRoles: { has: opts.role } }, { forRoles: { isEmpty: true } }] } : {}),
   }
-  let entries = await prisma.nicheKnowledge.findMany({ where, take: 200 })
-
-  if (entries.length === 0 && opts.fallbackToDefault && bucket !== 'default') {
-    entries = await prisma.nicheKnowledge.findMany({
-      where: { ...where, niche: 'default' },
-      take: 200,
-    })
+  // Resilience: if the NicheKnowledge table doesn't exist yet (schema
+  // pushed but seed not run, or db:push not run on an old dev DB), we
+  // return an empty list rather than throwing — the agents still work
+  // with just memory + platform data.
+  let entries: NicheKnowledge[] = []
+  try {
+    entries = await prisma.nicheKnowledge.findMany({ where, take: 200 })
+    if (entries.length === 0 && opts.fallbackToDefault && bucket !== 'default') {
+      entries = await prisma.nicheKnowledge.findMany({
+        where: { ...where, niche: 'default' },
+        take: 200,
+      })
+    }
+  } catch (err) {
+    console.warn('[nicheKnowledge] retrieval failed (table missing? seed not run?)', (err as Error)?.message)
+    return []
   }
 
   return entries

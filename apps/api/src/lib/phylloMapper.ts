@@ -91,10 +91,17 @@ export function mapPhylloToStub(input: {
   const username = profile?.platform_username || input.account.platform_username || ''
   const url = profile?.url || (username ? `https://instagram.com/${username}` : '')
 
+  // Account type comes from Phyllo when present. Falls back to CREATOR
+  // (more common + compatible) rather than the old hardcoded BUSINESS lie
+  // that made every synced account claim business features it may not have.
+  const phylloType = (input.account.account_type || '').toUpperCase()
+  const accountType: 'BUSINESS' | 'CREATOR' =
+    phylloType === 'BUSINESS' ? 'BUSINESS' : 'CREATOR'
+
   return {
     username,
     igUserId: profile?.id || input.account.id,
-    accountType: 'BUSINESS',
+    accountType,
     bio: profile?.introduction || '',
     profileUrl: url,
     followerCount,

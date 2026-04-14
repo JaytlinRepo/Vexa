@@ -170,7 +170,9 @@
       const res = await fetch('/api/phyllo/accounts', { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
-      const hasPhyllo = Array.isArray(json?.accounts) && json.accounts.some((a) => a.status !== 'NOT_CONNECTED')
+      // Only treat 'CONNECTED' as truly connected — SESSION_EXPIRED
+      // accounts need reconnection, not a green dot.
+      const hasPhyllo = Array.isArray(json?.accounts) && json.accounts.some((a) => a.status === 'CONNECTED')
       connectionState = { loaded: true, hasPhyllo }
     } catch {}
   }
@@ -227,7 +229,9 @@
       if (res.ok) {
         const json = await res.json()
         for (const a of json.accounts || []) {
-          if (a.status === 'NOT_CONNECTED') continue
+          // Only CONNECTED accounts light up green. SESSION_EXPIRED means
+          // the user needs to reconnect — we don't lie about that.
+          if (a.status !== 'CONNECTED') continue
           const pid = a.work_platform?.id
           if (pid && !byPlatform.has(pid)) byPlatform.set(pid, a)
         }

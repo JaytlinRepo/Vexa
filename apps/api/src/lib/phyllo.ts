@@ -62,6 +62,9 @@ export interface PhylloAccount {
   platform_username: string | null
   profile_pic_url: string | null
   status: 'CONNECTED' | 'SESSION_EXPIRED' | 'NOT_CONNECTED'
+  // Present on some platforms (Instagram, TikTok) — 'PERSONAL', 'CREATOR',
+  // or 'BUSINESS'. Not always returned; callers must handle undefined.
+  account_type?: string | null
 }
 
 export function accountOwnerId(account: PhylloAccount): string | undefined {

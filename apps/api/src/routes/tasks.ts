@@ -80,7 +80,33 @@ router.post('/', requireAuth, async (req, res, next) => {
       knowledgeUsed = result.knowledgeUsed
       executionSource = result.source
     } catch (err) {
-      console.warn('[tasks] brief execution failed; task will sit in_progress', err)
+      // Don't leave the task stuck in 'in_progress' — the CEO would see
+      // an endlessly-loading card and never know the run failed. Flip to
+      // 'revision' + write a small stub output explaining what happened
+      // so they can re-brief the same task.
+      console.warn('[tasks] brief execution failed; flagging task for revision', err)
+      try {
+        await prisma.output.create({
+          data: {
+            taskId: task.id,
+            companyId: company.id,
+            employeeId: task.employeeId,
+            type: data.type,
+            content: {
+              error: 'execution_failed',
+              note: 'The agent could not complete this brief. Re-brief to try again.',
+              message: (err as Error)?.message?.slice(0, 500) || null,
+            } as unknown as import('@prisma/client').Prisma.InputJsonObject,
+            status: 'draft',
+          },
+        })
+        await prisma.task.update({
+          where: { id: task.id },
+          data: { status: 'revision' },
+        })
+      } catch (e2) {
+        console.warn('[tasks] failed to persist execution-failed stub', e2)
+      }
     }
 
     // Re-fetch with outputs so the client sees delivered status + content
