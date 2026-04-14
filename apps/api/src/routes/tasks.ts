@@ -17,6 +17,7 @@ const createSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().max(2000).optional(),
   type: z.enum(['trend_report', 'content_plan', 'hooks', 'caption', 'script', 'shot_list', 'video']),
+  briefKind: z.string().min(1).max(60).optional(),
 })
 
 router.post('/', requireAuth, async (req, res, next) => {
@@ -76,6 +77,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         type: data.type,
         title: data.title,
         description: data.description,
+        briefKind: data.briefKind,
       })
       knowledgeUsed = result.knowledgeUsed
       executionSource = result.source

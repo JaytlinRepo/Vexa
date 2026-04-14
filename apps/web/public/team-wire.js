@@ -63,37 +63,37 @@
     `
   }
 
-  // Preset briefs per employee. No free-text input — the CEO picks one of
-  // these cards and the task is assigned immediately with the preset's
-  // title, description, and output type. Keeps the brief UX button-first.
+  // Preset briefs per employee. Each one has a briefKind slug so the
+  // backend routes to a specific generator — otherwise five briefs with
+  // the same OutputType all produce identical output.
   const BRIEFS_BY_ROLE = {
     analyst: [
-      { title: 'Scan my niche for this week\'s trends', description: 'Pull the top 3 trends moving in my niche with growth %, window, and a verdict for each. Flag anything I should act on in the next 48 hours.', type: 'trend_report' },
-      { title: 'Competitor scan — top 3 in my niche', description: 'Identify the three best-performing accounts in my sub-niche right now and summarize what is working for them: post formats, pillars, posting times, hook patterns.', type: 'trend_report' },
-      { title: 'Which hashtags are actually working', description: 'Return 10-15 hashtags that are currently pulling reach in my niche, bucketed by size (big / mid / small). Avoid dead or oversaturated tags.', type: 'trend_report' },
-      { title: 'Audience deep dive', description: 'Summarize what I know about my audience right now: demographics, peak engagement windows, content pillars they respond to best, and one thing I should stop posting.', type: 'trend_report' },
-      { title: 'Why my engagement dropped', description: 'Look at the last two weeks and explain what changed. Name the posts, the formats, or the cadence shift. Propose one specific fix I can ship this week.', type: 'trend_report' },
+      { briefKind: 'weekly_trends',        title: 'Scan my niche for this week\'s trends', description: 'Pull the top 3 trends moving in my niche with growth %, window, and a verdict for each. Flag anything I should act on in the next 48 hours.', type: 'trend_report' },
+      { briefKind: 'competitor_scan',      title: 'Competitor scan — top 3 in my niche', description: 'Identify the three best-performing accounts in my sub-niche right now and summarize what is working for them: post formats, pillars, posting times, hook patterns.', type: 'trend_report' },
+      { briefKind: 'hashtag_report',       title: 'Which hashtags are actually working', description: 'Return 10-15 hashtags that are currently pulling reach in my niche, bucketed by size (big / mid / small). Avoid dead or oversaturated tags.', type: 'trend_report' },
+      { briefKind: 'audience_deep_dive',   title: 'Audience deep dive', description: 'Summarize what I know about my audience right now: demographics, peak engagement windows, content pillars they respond to best, and one thing I should stop posting.', type: 'trend_report' },
+      { briefKind: 'engagement_diagnosis', title: 'Why my engagement dropped', description: 'Look at the last two weeks and explain what changed. Name the posts, the formats, or the cadence shift. Propose one specific fix I can ship this week.', type: 'trend_report' },
     ],
     strategist: [
-      { title: 'Plan next week\'s content', description: 'Build my weekly content calendar. 3-5 posts. Each has day, format, topic, and angle. Anchor it on my pillars and leave room for one trend-driven slot.', type: 'content_plan' },
-      { title: 'Rebuild my content pillars', description: 'Look at my niche + the last month of what landed, then propose 3-4 pillars I should rotate through. Define what each pillar is, who it is for, and one example post.', type: 'content_plan' },
-      { title: 'Suggest a posting cadence', description: 'Recommend how often I should post per week and on which days, based on my audience\'s active windows and my realistic production capacity.', type: 'content_plan' },
-      { title: '90-day growth plan', description: 'Map out what we should ship over the next 12 weeks to move toward the goal. Break it into monthly themes and name the first two Reels for the next two weeks.', type: 'content_plan' },
-      { title: 'Audit what is not working', description: 'Review recent outputs and posts and name the two weakest content slots. Propose what replaces them.', type: 'content_plan' },
+      { briefKind: 'weekly_plan',   title: 'Plan next week\'s content', description: 'Build my weekly content calendar. 3-5 posts. Each has day, format, topic, and angle. Anchor it on my pillars and leave room for one trend-driven slot.', type: 'content_plan' },
+      { briefKind: 'pillar_rebuild', title: 'Rebuild my content pillars', description: 'Look at my niche + the last month of what landed, then propose 3-4 pillars I should rotate through. Define what each pillar is, who it is for, and one example post.', type: 'content_plan' },
+      { briefKind: 'cadence_plan',   title: 'Suggest a posting cadence', description: 'Recommend how often I should post per week and on which days, based on my audience\'s active windows and my realistic production capacity.', type: 'content_plan' },
+      { briefKind: 'ninety_day_plan', title: '90-day growth plan', description: 'Map out what we should ship over the next 12 weeks to move toward the goal. Break it into monthly themes and name the first two Reels for the next two weeks.', type: 'content_plan' },
+      { briefKind: 'slot_audit',     title: 'Audit what is not working', description: 'Review recent outputs and posts and name the two weakest content slots. Propose what replaces them.', type: 'content_plan' },
     ],
     copywriter: [
-      { title: '5 hooks for this week\'s top trend', description: 'Write 5 hook variations aimed at the trend Maya flagged this week. Flag your favorite and tell me why the other 4 are weaker.', type: 'hooks' },
-      { title: 'Reel script — 30 seconds', description: 'Write a 30-second Reel script for the top item in this week\'s plan. Cold open, 3 beats, payoff line. No fluff.', type: 'script' },
-      { title: 'Caption for my next post', description: 'Draft a caption for my next scheduled post. Keep it tight, use line breaks, punch at the end, and include a single CTA.', type: 'caption' },
-      { title: '3 opening lines for a carousel', description: 'Three slide-1 hooks for a carousel on this week\'s pillar. Each needs to stop the thumb on slide 1 alone.', type: 'hooks' },
-      { title: 'Rewrite my bio', description: 'Rewrite my Instagram bio to reflect my current niche, audience, and the one thing I want a new visitor to remember about me.', type: 'caption' },
+      { briefKind: 'top_trend_hooks',        title: '5 hooks for this week\'s top trend', description: 'Write 5 hook variations aimed at the trend Maya flagged this week. Flag your favorite and tell me why the other 4 are weaker.', type: 'hooks' },
+      { briefKind: 'reel_script_30s',        title: 'Reel script — 30 seconds', description: 'Write a 30-second Reel script for the top item in this week\'s plan. Cold open, 3 beats, payoff line. No fluff.', type: 'script' },
+      { briefKind: 'caption_next_post',      title: 'Caption for my next post', description: 'Draft a caption for my next scheduled post. Keep it tight, use line breaks, punch at the end, and include a single CTA.', type: 'caption' },
+      { briefKind: 'carousel_opening_lines', title: '3 opening lines for a carousel', description: 'Three slide-1 hooks for a carousel on this week\'s pillar. Each needs to stop the thumb on slide 1 alone.', type: 'hooks' },
+      { briefKind: 'bio_rewrite',            title: 'Rewrite my bio', description: 'Rewrite my Instagram bio to reflect my current niche, audience, and the one thing I want a new visitor to remember about me.', type: 'caption' },
     ],
     creative_director: [
-      { title: 'Shot list for next Reel', description: 'Shot list for the top Reel in this week\'s plan. Opening shot, 3-5 mid shots with timestamps, closing shot, sound + editor notes.', type: 'shot_list' },
-      { title: 'Pacing notes for an existing cut', description: 'Review the current pacing rhythm of my recent Reels and recommend how to cut tighter: hold lengths, beat-to-cut timing, where to add silence.', type: 'shot_list' },
-      { title: 'Visual direction — new aesthetic', description: 'Propose a refreshed visual direction: palette, lighting cues, shot style, text overlay treatment. One cohesive look I can hold across posts.', type: 'shot_list' },
-      { title: 'Thumbnail brief for a carousel', description: 'Design direction for a slide-1 thumbnail: type treatment, color, focal subject, and one don\'t-do that would kill the scroll stop.', type: 'shot_list' },
-      { title: 'Fix the weakest Reel of the week', description: 'Pick the Reel from the last week with the weakest opening and propose exactly how to reshoot or re-edit the first 2 seconds.', type: 'shot_list' },
+      { briefKind: 'reel_shot_list',    title: 'Shot list for next Reel', description: 'Shot list for the top Reel in this week\'s plan. Opening shot, 3-5 mid shots with timestamps, closing shot, sound + editor notes.', type: 'shot_list' },
+      { briefKind: 'pacing_notes',      title: 'Pacing notes for an existing cut', description: 'Review the current pacing rhythm of my recent Reels and recommend how to cut tighter: hold lengths, beat-to-cut timing, where to add silence.', type: 'shot_list' },
+      { briefKind: 'visual_direction',  title: 'Visual direction — new aesthetic', description: 'Propose a refreshed visual direction: palette, lighting cues, shot style, text overlay treatment. One cohesive look I can hold across posts.', type: 'shot_list' },
+      { briefKind: 'thumbnail_brief',   title: 'Thumbnail brief for a carousel', description: 'Design direction for a slide-1 thumbnail: type treatment, color, focal subject, and one don\'t-do that would kill the scroll stop.', type: 'shot_list' },
+      { briefKind: 'fix_weak_reel',     title: 'Fix the weakest Reel of the week', description: 'Pick the Reel from the last week with the weakest opening and propose exactly how to reshoot or re-edit the first 2 seconds.', type: 'shot_list' },
     ],
   }
 
@@ -153,6 +153,7 @@
           title: brief.title,
           description: brief.description,
           type: brief.type,
+          briefKind: brief.briefKind,
         }) : { ok: false, error: 'not_ready' })
         if (result.ok) {
           el.remove()
