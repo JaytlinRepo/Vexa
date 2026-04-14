@@ -9,8 +9,83 @@
 import { PrismaClient, OutputType } from '@prisma/client'
 import { executeBrief } from '../src/services/agentExecutor'
 import type { AgentRole } from '../src/lib/nicheKnowledge'
+import type { PersonalContext } from '../src/lib/personalContext'
 
 const prisma = new PrismaClient()
+
+// Two stub personalContexts so we can verify per-user variation in the
+// audit — same niche, different data should produce visibly different
+// content (different handles in headlines, different sizing in
+// competitor scans, different bio recommendations, etc.).
+function stubA(niche: string): PersonalContext {
+  return {
+    companyId: 'stub-a',
+    companyName: 'Stub A',
+    niche,
+    subNiche: niche === 'fitness' ? 'women\'s strength training' : null,
+    brandVoice: {},
+    audience: {},
+    goals: {},
+    instagram: {
+      handle: 'creator_a',
+      source: 'phyllo',
+      accountType: 'CREATOR',
+      followerCount: 6_300,
+      followingCount: 980,
+      postCount: 39,
+      engagementRate: 3.2,
+      avgReach: 28_000,
+      avgImpressions: 32_000,
+      topPosts: [
+        { caption: 'The 15-min weighted walk that beats cardio', likeCount: 4_120, commentCount: 312, permalink: null, mediaType: 'REEL' },
+        { caption: 'How to read a label · 3 red flags', likeCount: 1_840, commentCount: 92, permalink: null, mediaType: 'CAROUSEL_ALBUM' },
+      ],
+      audienceAge: [{ bucket: '25-34', share: 0.42 }, { bucket: '35-44', share: 0.31 }, { bucket: '18-24', share: 0.16 }],
+      audienceGender: [{ bucket: 'FEMALE', share: 0.78 }, { bucket: 'MALE', share: 0.22 }],
+      audienceTopCountries: [{ bucket: 'US', share: 0.62 }, { bucket: 'CA', share: 0.09 }],
+      audienceTopCities: [{ bucket: 'New York, NY', share: 0.08 }, { bucket: 'Los Angeles, CA', share: 0.06 }],
+      lastSyncedAt: new Date(),
+    },
+    activeGoal: { type: 'followers', target: 10_000, byDate: '2026-07-01', baseline: 6_300, metricLabel: 'Followers' },
+    recentMemories: [],
+    seed: 12_345,
+  }
+}
+
+function stubB(niche: string): PersonalContext {
+  return {
+    companyId: 'stub-b',
+    companyName: 'Stub B',
+    niche,
+    subNiche: niche === 'fitness' ? 'busy-mom HIIT' : null,
+    brandVoice: {},
+    audience: {},
+    goals: {},
+    instagram: {
+      handle: 'creator_b',
+      source: 'phyllo',
+      accountType: 'BUSINESS',
+      followerCount: 84_000,
+      followingCount: 412,
+      postCount: 218,
+      engagementRate: 2.1,
+      avgReach: 145_000,
+      avgImpressions: 180_000,
+      topPosts: [
+        { caption: 'Why your hormones hate intermittent fasting', likeCount: 26_400, commentCount: 1_810, permalink: null, mediaType: 'REEL' },
+        { caption: 'My 4 supplement non-negotiables', likeCount: 12_200, commentCount: 540, permalink: null, mediaType: 'CAROUSEL_ALBUM' },
+      ],
+      audienceAge: [{ bucket: '35-44', share: 0.48 }, { bucket: '25-34', share: 0.27 }, { bucket: '45-54', share: 0.16 }],
+      audienceGender: [{ bucket: 'FEMALE', share: 0.91 }, { bucket: 'MALE', share: 0.09 }],
+      audienceTopCountries: [{ bucket: 'US', share: 0.71 }, { bucket: 'AU', share: 0.06 }],
+      audienceTopCities: [{ bucket: 'Austin, TX', share: 0.06 }, { bucket: 'Denver, CO', share: 0.04 }],
+      lastSyncedAt: new Date(),
+    },
+    activeGoal: null,
+    recentMemories: [],
+    seed: 98_765,
+  }
+}
 
 interface Preset {
   role: AgentRole
@@ -53,8 +128,18 @@ const PERSONA: Record<AgentRole, string> = {
 
 async function run() {
   const niche = process.argv[2] || 'fitness'
+  // Personas: 'a' = small creator with goal, 'b' = larger creator no goal,
+  // 'none' = no PersonalContext (graceful-fallback path).
+  const persona = process.argv[3] || 'a'
+  const personal = persona === 'a' ? stubA(niche) : persona === 'b' ? stubB(niche) : null
+
   console.log(`\n============================================================`)
-  console.log(` Brief audit — niche: ${niche}`)
+  console.log(` Brief audit — niche: ${niche} · persona: ${persona}`)
+  if (personal) {
+    console.log(` @${personal.instagram?.handle} · ${personal.instagram?.followerCount.toLocaleString()} followers · seed ${personal.seed}`)
+  } else {
+    console.log(` no PersonalContext (testing graceful fallback)`)
+  }
   console.log(`============================================================\n`)
 
   for (const b of BRIEFS) {
@@ -72,6 +157,7 @@ async function run() {
         title: b.title,
         description: b.description,
         briefKind: b.briefKind,
+        personal,
       })
       console.log(`  source: ${result.source} · knowledge entries used: ${result.knowledgeUsed}`)
       console.log(`  content:\n${JSON.stringify(result.content, null, 2).split('\n').map((l) => '    ' + l).join('\n')}`)

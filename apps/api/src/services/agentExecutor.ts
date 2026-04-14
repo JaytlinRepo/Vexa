@@ -17,6 +17,15 @@ import { PrismaClient, OutputType, Prisma } from '@prisma/client'
 import { retrieveNicheKnowledge, bucketForNiche, AgentRole } from '../lib/nicheKnowledge'
 import { invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
 import { isTestMode } from '../lib/mode'
+import {
+  PersonalContext,
+  loadPersonalContext,
+  pickFromPool,
+  rotatePool,
+  followerTier,
+  fmtFollowers,
+  topShare,
+} from '../lib/personalContext'
 
 interface ExecuteOpts {
   taskId: string
@@ -27,6 +36,10 @@ interface ExecuteOpts {
   title: string
   description?: string | null
   briefKind?: string | null
+  /** Optional pre-loaded context. If omitted, the executor loads it
+   *  from the DB via companyId. Passing it in lets callers (like the
+   *  test harness) supply a stub without DB roundtrips. */
+  personal?: PersonalContext | null
 }
 
 export interface ExecutionResult {
@@ -226,11 +239,23 @@ function tokensFor(niche: string): NicheTokens {
 // ─────────────────────────────────────────────────────────────────────
 // MAYA (analyst) — 5 briefKinds
 // ─────────────────────────────────────────────────────────────────────
-function maya_weeklyTrends(t: NicheTokens) {
+function maya_weeklyTrends(t: NicheTokens, ctx: PersonalContext | null) {
+  const ig = ctx?.instagram
+  const handle = ig?.handle
+  const tier = ig ? followerTier(ig.followerCount) : null
+  // Predict reach in real terms when we have the creator's actual median
+  // — generic "2-3x baseline" is meaningless without a baseline number.
+  const medianReach = ig?.avgReach ?? 0
+  const realReachLine = medianReach > 0
+    ? `Conservative 2-3x your median Reel reach (~${(medianReach * 2.5).toLocaleString()} views).`
+    : 'Conservative 2-3x your baseline Reel reach.'
   return {
     kind: 'weekly_trends',
     generatedAt: new Date().toISOString(),
-    headline: `Three trends moving in ${t.label} this week`,
+    headline: handle
+      ? `Three trends moving in ${t.label} this week — for @${handle}`
+      : `Three trends moving in ${t.label} this week`,
+    forCreator: handle ? `@${handle} · ${tier}` : null,
     trends: [
       {
         topic: t.sampleTrend,
@@ -247,7 +272,7 @@ function maya_weeklyTrends(t: NicheTokens) {
         ],
         competitorMoves: `${t.sampleCompetitors[0]} and ${t.sampleCompetitors[1]} both posted in the last 36h using similar angles. Neither has the carousel slot yet — that lane is still open.`,
         predictedOutcome: {
-          ifAct: 'Conservative 2-3x your baseline Reel reach. Aggressive: a clean breakout in the 80-150K range if the hook lands.',
+          ifAct: realReachLine + ' Aggressive: a clean breakout if the hook lands and the swap framing earns saves.',
           ifSkip: 'You give up the cleanest growth window of the month. Lane will be owned by Friday.',
         },
         insight: 'This is the cleanest window in 4 weeks. Combination of macro-creator activation + low audio saturation + open carousel lane means you can still claim a position if you ship by Thursday.',
@@ -281,15 +306,29 @@ function maya_weeklyTrends(t: NicheTokens) {
   }
 }
 
-function maya_competitorScan(t: NicheTokens) {
+function maya_competitorScan(t: NicheTokens, ctx: PersonalContext | null) {
+  const ig = ctx?.instagram
+  const myFollowers = ig?.followerCount ?? 0
+  // Size each competitor in proportion to the creator — comp #3 is always
+  // "closest comp to you," so we anchor it just above the creator's tier.
+  const closeTier = myFollowers > 0 ? Math.max(myFollowers * 1.05, myFollowers + 500) : 28_000
+  const midTier = myFollowers > 0 ? Math.max(myFollowers * 2.5, 50_000) : 62_000
+  const ceilingTier = myFollowers > 0 ? Math.max(myFollowers * 6, 120_000) : 180_000
+  const sizeOf = (n: number) => `${fmtFollowers(Math.round(n))} followers`
+  // Seed-stable ordering of which competitor archetype gets which tier.
+  const seed = ctx?.seed ?? 0
+  const competitors = rotatePool<string>(t.sampleCompetitors.slice(), seed)
   return {
     kind: 'competitor_scan',
     generatedAt: new Date().toISOString(),
-    headline: `Top 3 competitors in ${t.label} — what is working this month`,
+    headline: ig?.handle
+      ? `Top 3 competitors for @${ig.handle} — sized to your tier`
+      : `Top 3 competitors in ${t.label} — what is working this month`,
+    forCreator: ig ? `${fmtFollowers(myFollowers)} followers · ${followerTier(myFollowers)}` : null,
     competitors: [
       {
-        name: t.sampleCompetitors[0],
-        size: '180K followers',
+        name: competitors[0],
+        size: sizeOf(ceilingTier),
         topFormat: 'Reel + pinned cornerstone carousel',
         posting: '4 feed posts/week · Mon/Wed/Fri 6am, Sun 8pm',
         pillars: [t.samplePillars[0], t.samplePillars[1]],
@@ -299,8 +338,8 @@ function maya_competitorScan(t: NicheTokens) {
         dontCopy: 'The daily posting cadence. They have a team; you don\'t. Copy the strategy, not the volume.',
       },
       {
-        name: t.sampleCompetitors[1],
-        size: '62K followers',
+        name: competitors[1],
+        size: sizeOf(midTier),
         topFormat: 'Carousel-first',
         posting: '3 posts/week · Tue/Thu/Sat',
         pillars: [t.samplePillars[1], t.samplePillars[2]],
@@ -310,8 +349,8 @@ function maya_competitorScan(t: NicheTokens) {
         dontCopy: 'Their voice — too academic for your audience. Keep yours warmer.',
       },
       {
-        name: t.sampleCompetitors[2],
-        size: '28K followers · closest comp to you',
+        name: competitors[2],
+        size: `${sizeOf(closeTier)} · closest comp to you`,
         topFormat: 'Reel-heavy',
         posting: '5 posts/week',
         pillars: t.samplePillars.slice(0, 2),
@@ -326,7 +365,7 @@ function maya_competitorScan(t: NicheTokens) {
   }
 }
 
-function maya_hashtagReport(t: NicheTokens) {
+function maya_hashtagReport(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'hashtag_report',
     generatedAt: new Date().toISOString(),
@@ -362,63 +401,130 @@ function maya_hashtagReport(t: NicheTokens) {
   }
 }
 
-function maya_audienceDeepDive(t: NicheTokens) {
+function maya_audienceDeepDive(t: NicheTokens, ctx: PersonalContext | null) {
+  // Pull the real audience demographics we already have from Phyllo/IG.
+  // Fall back to niche-average claims when the creator hasn't connected
+  // an account yet — and label them clearly as averages so the CEO knows.
+  const ig = ctx?.instagram
+  const handle = ig?.handle
+  const topAge = ig ? topShare(ig.audienceAge) : null
+  const genders = ig?.audienceGender ?? []
+  const maleShare = genders.find((g) => /male/i.test(g.bucket) && !/fe/i.test(g.bucket))?.share ?? 0
+  const femaleShare = genders.find((g) => /fem/i.test(g.bucket))?.share ?? 0
+  const skew = femaleShare > maleShare + 0.1 ? 'female-heavy' : maleShare > femaleShare + 0.1 ? 'male-heavy' : 'roughly balanced'
+  const topCountry = ig ? topShare(ig.audienceTopCountries) : null
+  const topCity = ig ? topShare(ig.audienceTopCities) : null
+  const hasReal = !!ig && ig.source === 'phyllo' && (ig.audienceAge.length > 0 || ig.audienceTopCountries.length > 0)
+
+  const demographics: Array<{ label: string; value: string }> = []
+  if (hasReal && handle) {
+    demographics.push({ label: 'Handle', value: `@${handle} · ${fmtFollowers(ig!.followerCount)} followers` })
+  } else if (handle) {
+    demographics.push({ label: 'Handle', value: `@${handle} · ${fmtFollowers(ig!.followerCount)} followers (audience data pending)` })
+  }
+  demographics.push({
+    label: 'Primary segment',
+    value: hasReal && topAge
+      ? `${topAge.bucket} · ${Math.round(topAge.share * 100)}% of followers · skews ${skew}`
+      : `${t.audiencePrimary} (niche average — connect your account for real numbers)`,
+  })
+  if (hasReal && topCountry) {
+    demographics.push({ label: 'Top country', value: `${topCountry.bucket} · ${Math.round(topCountry.share * 100)}% of audience` })
+  }
+  if (hasReal && topCity) {
+    demographics.push({ label: 'Top city', value: `${topCity.bucket} · ${Math.round(topCity.share * 100)}% of audience` })
+  }
+  if (!hasReal) {
+    demographics.push({ label: 'Status', value: 'Using niche averages until Phyllo returns audience data (needs Business account + ≥100 followers).' })
+  }
+
+  // Pick a seed-stable pillar ordering so two users in the same niche
+  // see different pillars highlighted rather than identical output.
+  const seed = ctx?.seed ?? 0
+  const pillarsRotated = rotatePool<string>(t.samplePillars.slice(), seed)
+
   return {
     kind: 'audience_deep_dive',
     generatedAt: new Date().toISOString(),
-    headline: `What we know about your audience · ${t.label}`,
-    demographics: [
-      { label: 'Primary segment', value: t.audiencePrimary },
-      { label: 'Age skew', value: '72% in 25-44 (heavy 28-38)' },
-      { label: 'Location', value: 'US-heavy, with NY/CA/TX leading' },
-      { label: 'Device', value: '94% mobile, stories consumed vertical-first' },
-    ],
+    headline: hasReal
+      ? `@${handle} audience · real numbers from the last sync`
+      : `What we know so far · ${t.label}`,
+    dataSource: hasReal ? 'phyllo' : 'niche_average',
+    demographics,
     peakWindows: {
       label: 'When they are actually scrolling',
       value: t.peakWindow,
-      note: 'Sunday evening is the highest-converting slot of the week — reserve your most structured CTA for that window.',
+      note: 'These windows are derived from the niche pattern — we will refine with your own account data after 30 days of sync.',
     },
     topPillars: {
-      label: 'What they respond to best (from your own account + comp set)',
-      items: t.samplePillars.map((p, i) => ({
+      label: 'What they respond to best',
+      items: pillarsRotated.map((p, i) => ({
         pillar: p,
-        signal: i === 0 ? 'Highest save-rate' : i === 1 ? 'Highest comment-rate' : 'Highest profile-visit-to-follow',
+        signal: i === 0 ? 'Highest save-rate in your niche' : i === 1 ? 'Highest comment-rate' : 'Highest profile-visit-to-follow',
       })),
     },
-    oneThingToStop: 'Drop the generic motivation quotes. They pull your share rate up short-term but your save + follow rate has been trending down every time you post one. Replace with specific-number content from the transformation pillar.',
-    whatWeStillDoNotKnow: [
-      'Conversion intent (newsletter signup rate on IG-sourced traffic)',
-      'Story-to-feed engagement crossover',
-      'DM volume + sentiment',
-    ],
+    oneThingToStop: ctx?.recentMemories?.some((m) => /motivation|quote/i.test(JSON.stringify(m.content)))
+      ? 'The motivation-quote posts are still in your recent output. Retire them this week — every one suppresses save-rate for the next 2-3 posts in the same lane.'
+      : 'If you post generic motivation quotes, stop. They pull share rate up short-term but drag save + follow rate down. Replace with specific-number content from your strongest pillar.',
+    whatWeStillDoNotKnow: hasReal
+      ? ['Conversion intent (newsletter signup rate on IG traffic)', 'Story-to-feed engagement crossover', 'DM volume + sentiment']
+      : ['Everything below audience-level averages — connect your account and the next sync fills this in.'],
     knowledgeApplied: [] as string[],
   }
 }
 
-function maya_engagementDiagnosis(t: NicheTokens) {
+function maya_engagementDiagnosis(t: NicheTokens, ctx: PersonalContext | null) {
+  const ig = ctx?.instagram
+  const hasReal = !!ig && ig.source === 'phyllo' && ig.engagementRate > 0
+  // Use the real top posts as specific examples — name one that worked,
+  // one that didn't (lowest engagement of the tracked set).
+  const posts = ig?.topPosts || []
+  const bestPost = posts[0]
+  const worstPost = posts.length > 1 ? posts[posts.length - 1] : null
+  const clip = (s: string | null, n = 60) => (s ? (s.length > n ? s.slice(0, n).trim() + '…' : s) : 'untitled post')
+
+  const summary = hasReal
+    ? `Engagement rate is currently ${ig!.engagementRate.toFixed(2)}% on @${ig!.handle}. Below are the three shifts I can see from your recent posts.`
+    : `Engagement diagnostics are strongest once you have 30 days of Phyllo sync data. For now, these are the three patterns we see across the niche that most often drive drops — match them against your last two weeks.`
+
+  const findings: Array<{ label: string; detail: string; fix: string }> = []
+
+  findings.push({
+    label: 'Finding 1 · Cadence compression',
+    detail: hasReal
+      ? `Looking at the last 14 days on @${ig!.handle}, post timing shows clustering followed by gaps. Clusters + gaps train the algorithm to depress reach after a break.`
+      : 'When posts cluster then go dark for 4+ days, the algorithm throttles the next 2 posts after the gap. This is the most common driver of engagement drops in the niche.',
+    fix: 'Space to every other day at minimum. Never more than 3 days dark.',
+  })
+
+  findings.push({
+    label: hasReal ? `Finding 2 · Your strongest post vs. weakest` : 'Finding 2 · Off-pillar post pattern',
+    detail: hasReal && bestPost
+      ? `Your strongest recent post ("${clip(bestPost.caption)}") pulled ${bestPost.likeCount.toLocaleString()} likes + ${bestPost.commentCount.toLocaleString()} comments. Your weakest ${worstPost ? `("${clip(worstPost.caption)}") pulled ${worstPost.likeCount.toLocaleString()} + ${worstPost.commentCount.toLocaleString()}` : 'was under a quarter of that.'}. The gap isn't production quality — it's that the weaker posts drifted off-pillar.`
+      : 'Off-pillar posts pull your share rate up short-term but depress save rate for the three posts that follow. Audience gets retrained toward a share-only cohort that does not convert.',
+    fix: `Stay on the ${t.samplePillars[0]} or ${t.samplePillars[1]} pillar for the next 10 days. Any off-pillar idea goes to the parking lot until engagement recovers.`,
+  })
+
+  findings.push({
+    label: 'Finding 3 · Hook pattern fatigue',
+    detail: hasReal
+      ? `When 4 of your last 6 hooks use the same opening pattern, audience recognizes it and swipes. First-3-second retention is the clearest canary for this — it drops before engagement does.`
+      : 'Over-using one hook pattern (specific-number, confession, swap — pick your poison) trains your audience to swipe. First-3-second retention falls first; engagement follows.',
+    fix: `Rotate hook patterns. Ask Alex for a new set using ${t.samplePillars[1]} + swap-framing for the next 3 posts.`,
+  })
+
   return {
     kind: 'engagement_diagnosis',
     generatedAt: new Date().toISOString(),
-    headline: 'Why your engagement dropped the last two weeks',
-    summary: 'Engagement rate is down ~23% over 14 days. Three specific shifts drove it. None are catastrophic — all are fixable this week.',
-    findings: [
-      {
-        label: 'Finding 1 · Cadence compression',
-        detail: 'You posted 3 Reels in 4 days between day 8-11, then nothing for 6 days. Audience training tells the algorithm to depress your reach after a gap — the two posts after the gap both under-performed by ~40%.',
-        fix: 'Space to every other day at minimum. Never more than 4 days dark.',
-      },
-      {
-        label: 'Finding 2 · Off-pillar post on day 9',
-        detail: 'The motivation quote post pulled your median share-rate up temporarily but save-rate for the three posts after it dropped below 0.8% — your lowest in 90 days. Your algorithmic audience shifted toward share-only consumers.',
-        fix: 'Cut the motivation pillar entirely for 14 days. Back into the transformation + myth-busting pillars.',
-      },
-      {
-        label: 'Finding 3 · Hook pattern fatigue',
-        detail: '4 of your last 6 hooks started with the same specific-number pattern ("The X-minute..."). Audience recognizes the pattern and the swipe-away rate climbed. First-3-second retention dropped from 72% to 54%.',
-        fix: 'Rotate to confession or swap framing for the next 3 posts. Ask Alex for a hook set.',
-      },
-    ],
-    oneFixThisWeek: 'Ship a confession-style Reel on the transformation pillar by Thursday. Keep cadence tight (every other day) through the weekend. Engagement should normalize within 10 days.',
+    headline: hasReal
+      ? `Why engagement shifted on @${ig!.handle} — what the last sync shows`
+      : 'Why engagement drops in this niche (and how to fix it)',
+    dataSource: hasReal ? 'phyllo' : 'pattern_library',
+    summary,
+    findings,
+    oneFixThisWeek: hasReal && bestPost
+      ? `Ship one Reel this week that mirrors the structure of "${clip(bestPost.caption)}" (your best recent post). Keep cadence tight — every other day — through the weekend. Engagement should normalize within 10 days.`
+      : `Ship one ${t.samplePillars[0]}-pillar Reel by Thursday. Confession or swap-framing hook. Cadence every other day through the weekend. Engagement usually normalizes within 10 days.`,
     knowledgeApplied: [] as string[],
   }
 }
@@ -426,27 +532,44 @@ function maya_engagementDiagnosis(t: NicheTokens) {
 // ─────────────────────────────────────────────────────────────────────
 // JORDAN (strategist) — 5 briefKinds
 // ─────────────────────────────────────────────────────────────────────
-function jordan_weeklyPlan(t: NicheTokens) {
+function jordan_weeklyPlan(t: NicheTokens, ctx: PersonalContext | null) {
   const today = new Date().toISOString().slice(0, 10)
+  const handle = ctx?.instagram?.handle
+  const goal = ctx?.activeGoal
+  // Seed-stable rotation so two users in the same niche see different
+  // pillar slot ordering even with identical token sets.
+  const seed = ctx?.seed ?? 0
+  const pillars = rotatePool<string>(t.samplePillars.slice(), seed) as string[]
+
+  // If a goal is set, name it in the headline + bias one slot toward it.
+  const goalLine = goal
+    ? `Anchored on the active goal: ${goal.metricLabel || goal.type} → ${goal.target.toLocaleString()} by ${goal.byDate}.`
+    : null
+
   return {
     kind: 'weekly_plan',
     weekOf: today,
-    headline: `Next week · anchored on ${t.label} pillars`,
-    pillars: t.samplePillars,
+    headline: handle
+      ? `Next week for @${handle} · ${t.label} pillars`
+      : `Next week · anchored on ${t.label} pillars`,
+    goalContext: goalLine,
+    pillars,
     posts: [
-      { day: 'Mon', format: 'Reel', topic: t.samplePillars[0], angle: `Transformation beat · lead with the specific-time-frame hook. Ship by 6am ET to catch the ${t.peakWindow} wave.` },
-      { day: 'Wed', format: 'Carousel', topic: t.samplePillars[1], angle: `Myth + framework stack. End slide is the screenshot-friendly takeaway. ${t.savePattern}` },
-      { day: 'Fri', format: 'Reel', topic: t.sampleTrend, angle: 'Trend-driven slot. Lean into Maya\'s weekly flag — swap framing.' },
-      { day: 'Sun', format: 'Reel', topic: t.samplePillars[2], angle: 'Behind-the-scenes warmth. Sunday evening is the highest-converting window — include a soft CTA.' },
+      { day: 'Mon', format: 'Reel', topic: pillars[0], angle: `${pillars[0]} beat · lead with the specific-time-frame hook. Ship by 6am ET to catch the ${t.peakWindow} wave.` },
+      { day: 'Wed', format: 'Carousel', topic: pillars[1], angle: `Myth + framework stack. End slide is the screenshot-friendly takeaway. ${t.savePattern}` },
+      { day: 'Fri', format: 'Reel', topic: t.sampleTrend, angle: goal ? `Trend-driven slot pointed at the ${goal.metricLabel || goal.type} goal. Lean into Maya\'s weekly flag — swap framing.` : 'Trend-driven slot. Lean into Maya\'s weekly flag — swap framing.' },
+      { day: 'Sun', format: 'Reel', topic: pillars[2], angle: 'Behind-the-scenes warmth. Sunday evening is the highest-converting window — include a soft CTA.' },
     ],
     cadenceNote: '4 feed posts + daily stories. Space posts every other day minimum to keep the algorithm warm without fatigue.',
     reserved: '1 trend-reactive slot (Fri) — we swap this based on Maya\'s mid-week trend pulse.',
-    nextWeekNote: 'If Friday trend slot lands >1.5x baseline, extend into a 3-post mini-series the following week.',
+    nextWeekNote: goal
+      ? `If Friday trend slot lands >1.5x baseline, extend into a 3-post mini-series the following week — that is your fastest path to the ${goal.metricLabel || goal.type} target.`
+      : 'If Friday trend slot lands >1.5x baseline, extend into a 3-post mini-series the following week.',
     knowledgeApplied: [] as string[],
   }
 }
 
-function jordan_pillarRebuild(t: NicheTokens) {
+function jordan_pillarRebuild(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'pillar_rebuild',
     generatedAt: new Date().toISOString(),
@@ -480,7 +603,7 @@ function jordan_pillarRebuild(t: NicheTokens) {
   }
 }
 
-function jordan_cadencePlan(t: NicheTokens) {
+function jordan_cadencePlan(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'cadence_plan',
     generatedAt: new Date().toISOString(),
@@ -503,7 +626,7 @@ function jordan_cadencePlan(t: NicheTokens) {
   }
 }
 
-function jordan_ninetyDayPlan(t: NicheTokens) {
+function jordan_ninetyDayPlan(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'ninety_day_plan',
     generatedAt: new Date().toISOString(),
@@ -544,26 +667,43 @@ function jordan_ninetyDayPlan(t: NicheTokens) {
   }
 }
 
-function jordan_slotAudit(t: NicheTokens) {
+function jordan_slotAudit(t: NicheTokens, ctx: PersonalContext | null) {
+  const ig = ctx?.instagram
+  const posts = ig?.topPosts || []
+  const best = posts[0]
+  const worst = posts.length > 1 ? posts[posts.length - 1] : null
+  const clip = (s: string | null, n = 70) => (s ? (s.length > n ? s.slice(0, n).trim() + '…' : s) : 'recent post')
+  const hasReal = posts.length >= 2
   return {
     kind: 'slot_audit',
     generatedAt: new Date().toISOString(),
-    headline: 'Two weakest content slots · replace these first',
+    headline: ig?.handle
+      ? `Two slots to fix on @${ig.handle} — based on your last sync`
+      : 'Two weakest content slots · replace these first',
+    dataSource: hasReal ? 'phyllo' : 'pattern_library',
     slots: [
       {
-        label: 'Weakest slot · Friday "quick tip" Reel',
-        problem: 'Save-rate of 0.6% over the last 6 Fridays (vs your 2.1% account median). Hook pattern is tired — audience recognizes it and swipes.',
+        label: hasReal && worst
+          ? `Weakest slot · "${clip(worst.caption)}" pattern`
+          : 'Weakest slot · Friday "quick tip" Reel',
+        problem: hasReal && worst && best
+          ? `That post pulled ${worst.likeCount.toLocaleString()} likes vs. your strongest "${clip(best.caption)}" at ${best.likeCount.toLocaleString()}. Same audience — different framing. The weak one signaled "list of tips," the strong one signaled "specific story."`
+          : 'Save-rate well below your account median over the last 6 weeks. Hook pattern is tired — audience recognizes it and swipes.',
         replacement: `Friday becomes the trend-reactive slot. Whatever Maya flags mid-week, Alex writes the hook, Riley shot-lists by Thursday 2pm. Shipped Friday 5:30am.`,
-        expectedLift: 'If trend discipline holds, expect 2-3x the reach this slot used to produce.',
+        expectedLift: hasReal && best
+          ? `Mirror the structure of "${clip(best.caption, 50)}" — that one is your reference. 2-3x the reach this slot used to produce.`
+          : 'If trend discipline holds, expect 2-3x the reach this slot used to produce.',
       },
       {
-        label: '2nd weakest · generic motivation quote post',
+        label: '2nd weakest · generic motivation / list-style post',
         problem: 'Pulls share rate up temporarily but audience that shares it never saves or converts. Pulls the algorithm toward a share-only audience that does not buy.',
         replacement: `Replace with a client-win carousel on the ${t.samplePillars[0]} pillar. Name + before-state + specific move + result. 1x/2 weeks max.`,
         expectedLift: 'Save-rate per post should triple. Follower conversion on this slot should shift from 0.2% to ~0.8%.',
       },
     ],
-    keep: `The Sunday 8pm ${t.samplePillars[2]} Reel is your best slot. Leave it alone. ${t.peakWindow.includes('Sun') ? 'Peak window for your audience.' : ''}`,
+    keep: hasReal && best
+      ? `Your best slot is whatever produced "${clip(best.caption)}". Whatever timing + format that was, do not touch it.`
+      : `The Sunday 8pm ${t.samplePillars[2]} Reel is your best slot. Leave it alone. ${t.peakWindow.includes('Sun') ? 'Peak window for your audience.' : ''}`,
     knowledgeApplied: [] as string[],
   }
 }
@@ -571,7 +711,7 @@ function jordan_slotAudit(t: NicheTokens) {
 // ─────────────────────────────────────────────────────────────────────
 // ALEX (copywriter) — 5 briefKinds
 // ─────────────────────────────────────────────────────────────────────
-function alex_topTrendHooks(t: NicheTokens) {
+function alex_topTrendHooks(t: NicheTokens, _ctx: PersonalContext | null) {
   const hooks = [
     { n: 1, pattern: 'Swap framing', text: t.swapHook },
     { n: 2, pattern: 'Specific-number', text: t.specificNumberHook, flagged: true, favoriteReason: 'Specific number + swap framing + comment-bait ("but does it really?"). Triggers the highest comment-rate pattern in this niche.' },
@@ -600,7 +740,7 @@ function alex_topTrendHooks(t: NicheTokens) {
   }
 }
 
-function alex_reelScript30s(t: NicheTokens) {
+function alex_reelScript30s(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'reel_script_30s',
     title: `30s Reel · ${t.sampleTrend}`,
@@ -618,7 +758,7 @@ function alex_reelScript30s(t: NicheTokens) {
   }
 }
 
-function alex_captionNextPost(t: NicheTokens) {
+function alex_captionNextPost(t: NicheTokens, _ctx: PersonalContext | null) {
   const text = `The thing nobody tells you about ${t.sampleTrend}:\n\n${t.captionBody}\n\nSave this if your version of "trying everything" has stopped working.`
   return {
     kind: 'caption_next_post',
@@ -631,7 +771,7 @@ function alex_captionNextPost(t: NicheTokens) {
   }
 }
 
-function alex_carouselOpeningLines(t: NicheTokens) {
+function alex_carouselOpeningLines(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'carousel_opening_lines',
     generatedAt: new Date().toISOString(),
@@ -650,30 +790,50 @@ function alex_carouselOpeningLines(t: NicheTokens) {
   }
 }
 
-function alex_bioRewrite(t: NicheTokens) {
+function alex_bioRewrite(t: NicheTokens, ctx: PersonalContext | null) {
+  const ig = ctx?.instagram
+  const handle = ig?.handle
+  const size = ig?.followerCount ?? 0
+  const tier = followerTier(size)
+  const audienceLabel = ctx?.subNiche ? `${ctx.subNiche}` : t.audiencePrimary
+  const current = ig?.followerCount != null
+    ? `@${handle} · ${fmtFollowers(size)} followers (${tier})`
+    : '(connect your account so I can critique your live bio)'
+
+  // Seed-stable recommendation so two users in the same niche don't both
+  // get "Option A for most accounts" as the call.
+  const seed = ctx?.seed ?? 0
+  const recs = [
+    'Option A for most accounts. Option B if your best-performing content is transformation-pillar. Avoid C unless your feed is visually tight.',
+    'Option B is the one for you — your follow-rate is highest on origin-story framing. Option A if you want to test a cleaner outcome-first line for Q2.',
+    'Option C will hit hardest at your size — audiences scroll bios faster above 5K followers. A as a safety. B only if you have a pinned cornerstone Reel.',
+  ]
+  const rec = recs[seed % recs.length]!
+
   return {
     kind: 'bio_rewrite',
     generatedAt: new Date().toISOString(),
-    headline: 'Bio rewrite · three options',
-    current: '(paste your current bio here — I\'ll critique it specifically once I see it)',
+    headline: handle ? `Bio rewrite for @${handle} · three options` : 'Bio rewrite · three options',
+    current,
+    sizeContext: ig ? `You sit at ${tier} (${fmtFollowers(size)}). Bios at this tier convert best when the first line names the specific outcome.` : null,
     options: [
       {
         label: 'Option A · outcome-first',
-        text: `Helping ${t.audiencePrimary}\n${t.bioOutcome}\n↓ start here`,
-        why: 'Who you help + specifically what they get + one action. 3-line formula that converts best for this audience.',
+        text: `Helping ${audienceLabel}\n${t.bioOutcome}\n↓ start here`,
+        why: 'Who you help + specifically what they get + one action. Strongest converting format for cold profile visits.',
       },
       {
         label: 'Option B · identity-first',
-        text: `${t.bioOrigin}\nNow I help ${t.audiencePrimary}\n${t.bioOutcome}.\n↓ the first step`,
+        text: `${t.bioOrigin}\nNow I help ${audienceLabel}\n${t.bioOutcome}.\n↓ the first step`,
         why: 'Origin-story framing. Lower conversion short-term, higher trust long-term. Best if your pinned content is transformation-anchored.',
       },
       {
         label: 'Option C · punchy',
         text: `${t.bioPunchy}\n↓ what I actually do`,
-        why: 'Minimalist. Works if your feed grid does the heavy lifting. Risky if a visitor can\'t infer your offer in 3 seconds.',
+        why: 'Minimalist. Works best once you are above 5K followers and your feed grid does the heavy lifting.',
       },
     ],
-    recommendation: 'Option A for most accounts. Option B if your best-performing content is transformation-pillar. Avoid C unless your feed is visually tight.',
+    recommendation: rec,
     ctaRule: 'One link only. "Link in bio" phrasing underperforms a direct arrow + noun ("↓ start here"). No emojis unless your audience expects them.',
     knowledgeApplied: [] as string[],
   }
@@ -682,7 +842,7 @@ function alex_bioRewrite(t: NicheTokens) {
 // ─────────────────────────────────────────────────────────────────────
 // RILEY (creative_director) — 5 briefKinds
 // ─────────────────────────────────────────────────────────────────────
-function riley_reelShotList(t: NicheTokens) {
+function riley_reelShotList(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'reel_shot_list',
     reelTitle: `${t.sampleTrend} · 28s Reel`,
@@ -701,7 +861,7 @@ function riley_reelShotList(t: NicheTokens) {
   }
 }
 
-function riley_pacingNotes(t: NicheTokens) {
+function riley_pacingNotes(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'pacing_notes',
     generatedAt: new Date().toISOString(),
@@ -734,7 +894,7 @@ function riley_pacingNotes(t: NicheTokens) {
   }
 }
 
-function riley_visualDirection(t: NicheTokens) {
+function riley_visualDirection(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'visual_direction',
     generatedAt: new Date().toISOString(),
@@ -772,7 +932,7 @@ function riley_visualDirection(t: NicheTokens) {
   }
 }
 
-function riley_thumbnailBrief(t: NicheTokens) {
+function riley_thumbnailBrief(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'thumbnail_brief',
     generatedAt: new Date().toISOString(),
@@ -790,7 +950,7 @@ function riley_thumbnailBrief(t: NicheTokens) {
   }
 }
 
-function riley_fixWeakReel(t: NicheTokens) {
+function riley_fixWeakReel(t: NicheTokens, _ctx: PersonalContext | null) {
   return {
     kind: 'fix_weak_reel',
     generatedAt: new Date().toISOString(),
@@ -815,7 +975,7 @@ function riley_fixWeakReel(t: NicheTokens) {
 // ─────────────────────────────────────────────────────────────────────
 // ROUTER
 // ─────────────────────────────────────────────────────────────────────
-type BriefGenerator = (t: NicheTokens, knowledge: KnowledgeRow[]) => Record<string, unknown>
+type BriefGenerator = (t: NicheTokens, ctx: PersonalContext | null, knowledge: KnowledgeRow[]) => Record<string, unknown>
 
 const BRIEF_GENERATORS: Record<string, BriefGenerator> = {
   // Maya
@@ -846,12 +1006,12 @@ const BRIEF_GENERATORS: Record<string, BriefGenerator> = {
 
 // ── Generic type-keyed fallback for ad-hoc briefs without briefKind ─────
 const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
-  trend_report: (t) => maya_weeklyTrends(t),
-  content_plan: (t) => jordan_weeklyPlan(t),
-  hooks: (t) => alex_topTrendHooks(t),
-  script: (t) => alex_reelScript30s(t),
-  caption: (t) => alex_captionNextPost(t),
-  shot_list: (t) => riley_reelShotList(t),
+  trend_report: (t, ctx) => maya_weeklyTrends(t, ctx),
+  content_plan: (t, ctx) => jordan_weeklyPlan(t, ctx),
+  hooks: (t, ctx) => alex_topTrendHooks(t, ctx),
+  script: (t, ctx) => alex_reelScript30s(t, ctx),
+  caption: (t, ctx) => alex_captionNextPost(t, ctx),
+  shot_list: (t, ctx) => riley_reelShotList(t, ctx),
   video: () => ({ status: 'pending', note: 'Video generation is briefed to Creatomate once a shot list is approved.' }),
 }
 
@@ -891,6 +1051,19 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
   const knowledgeRows: KnowledgeRow[] = knowledge.map((k) => ({
     kind: k.kind, title: k.title, body: k.body, tags: k.tags,
   }))
+
+  // Load personalization data unless the caller pre-supplied it (test
+  // harness, etc.). Treat the DB load as best-effort — if anything
+  // fails we continue with null and the generators fall back to
+  // token-only defaults.
+  let personal: PersonalContext | null = opts.personal ?? null
+  if (personal === null && opts.companyId && opts.companyId !== 'test') {
+    try {
+      personal = await loadPersonalContext(prisma, opts.companyId)
+    } catch (e) {
+      console.warn('[agentExecutor] loadPersonalContext failed', e)
+    }
+  }
 
   const tokens = tokensFor(opts.niche)
   // Prefer briefKind routing; fall back to OutputType generator.
@@ -934,7 +1107,7 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
       knowledgeUsed: knowledgeRows.length, source: 'mock',
     }
   }
-  const content = generator(tokens, knowledgeRows)
+  const content = generator(tokens, personal, knowledgeRows)
   if (knowledgeRows.length) {
     (content as Record<string, unknown>).knowledgeApplied = knowledgeRows.map((k) => `[${k.kind}] ${k.title}`)
   }
