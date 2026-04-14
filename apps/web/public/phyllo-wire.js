@@ -241,6 +241,7 @@
     }
 
     const root = document.getElementById('vx-phyllo-cta')
+    if (!root) return // dashboard-v2 rerendered underneath us; next poll will retry
     root.querySelectorAll('[data-pid]').forEach((pill) => {
       pill.addEventListener('mouseenter', () => { pill.style.borderColor = 'var(--b2)' })
       pill.addEventListener('mouseleave', () => { pill.style.borderColor = 'var(--b1)' })
