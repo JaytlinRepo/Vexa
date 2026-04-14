@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import * as phyllo from '../lib/phyllo'
 import { mapPhylloToStub } from '../lib/phylloMapper'
+import { writeMemory } from '../lib/brandMemory'
+import { createNotification } from '../services/notifications/notification.service'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -162,6 +164,33 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       update: { ...payload, connectedAt: new Date() },
       create: { companyId: company.id, ...payload },
     })
+
+    // Push key facts into BrandMemory so meetings reflect the real numbers
+    // without re-fetching from Phyllo every call.
+    try {
+      const topPost = stub.topPosts[0]
+      await writeMemory(prisma, {
+        companyId: company.id,
+        type: 'performance',
+        weight: 1.4,
+        content: {
+          source: 'instagram',
+          summary: `Instagram @${stub.username}: ${stub.followerCount.toLocaleString()} followers, ${stub.engagementRate}% engagement. Top post: "${(topPost?.caption || '').slice(0, 80)}" (${topPost?.like_count ?? 0} likes).`,
+          tags: ['instagram', 'analytics'],
+        },
+      })
+      await createNotification({
+        userId,
+        companyId: company.id,
+        type: 'team_update',
+        emoji: '✅',
+        title: `Instagram @${stub.username} connected`,
+        body: `${stub.followerCount.toLocaleString()} followers · ${stub.engagementRate}% engagement. Your team is now working from real numbers.`,
+        metadata: { phylloAccountId: account.id },
+      })
+    } catch (e) {
+      console.warn('[phyllo:sync] memory/notification emit failed', e)
+    }
 
     res.status(200).json({ connection, platform: account.work_platform?.name })
   } catch (err) {

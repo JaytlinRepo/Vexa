@@ -9,6 +9,38 @@ import { PLAN_LIMITS } from '../lib/plans'
 const prisma = new PrismaClient()
 const router = Router()
 
+function formatPlatformBlock(ig: {
+  handle: string
+  source: string
+  followerCount: number
+  engagementRate: number
+  avgReach: number
+  avgImpressions: number
+  postCount: number
+  topPosts: unknown
+  audienceAge: unknown
+  audienceTop: unknown
+} | null): string {
+  if (!ig || ig.source !== 'phyllo') return ''
+  const topPosts = Array.isArray(ig.topPosts) ? ig.topPosts : []
+  const topLine = topPosts[0]
+    ? `  top post: "${String((topPosts[0] as { caption?: string }).caption || '').slice(0, 90)}" — ${(topPosts[0] as { like_count?: number }).like_count ?? 0} likes`
+    : ''
+  const ages = Array.isArray(ig.audienceAge) ? ig.audienceAge : []
+  const topAge = ages.sort((a: { share: number }, b: { share: number }) => b.share - a.share)[0] as { bucket?: string } | undefined
+  const countries = Array.isArray(ig.audienceTop) ? ig.audienceTop : []
+  const topCountry = countries.sort((a: { share: number }, b: { share: number }) => b.share - a.share)[0] as { bucket?: string } | undefined
+  return `
+
+--- Live Instagram data (@${ig.handle}) ---
+  ${ig.followerCount.toLocaleString()} followers, ${ig.postCount} posts
+  ${ig.engagementRate}% engagement rate, avg reach ${ig.avgReach.toLocaleString()} / impressions ${ig.avgImpressions.toLocaleString()}
+  primary audience: ${topAge?.bucket ?? 'unknown'}${topCountry?.bucket ? `, ${topCountry.bucket}` : ''}
+${topLine}
+Use these numbers when giving advice. Do not invent different stats.
+--- End platform data ---`
+}
+
 const roleSchema = z.enum(['analyst', 'strategist', 'copywriter', 'creative_director'])
 
 const replySchema = z.object({
@@ -128,12 +160,18 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       return
     }
 
-    // Pull this user's company + most relevant memories for the system prompt.
-    const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    // Pull this user's company + most relevant memories + platform data for
+    // the system prompt.
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      include: { instagram: true },
+    })
     let memoryBlock = ''
+    let platformBlock = ''
     if (company) {
       const memories = await readTopMemories(prisma, company.id, 10)
       memoryBlock = formatMemoryForPrompt(memories)
+      platformBlock = formatPlatformBlock(company.instagram)
     }
 
     res.setHeader('Content-Type', 'text/event-stream')
@@ -144,7 +182,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     res.write(`data: ${JSON.stringify({ source: hasBedrockCreds() ? 'bedrock' : 'mock', memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0 })}\n\n`)
 
     if (hasBedrockCreds()) {
-      await streamBedrock(res, data.employeeRole, data.history, data.message, memoryBlock)
+      await streamBedrock(res, data.employeeRole, data.history, data.message, memoryBlock + platformBlock)
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
     }
