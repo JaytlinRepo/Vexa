@@ -22,6 +22,7 @@ import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
 import phylloRouter from './routes/phyllo'
+import platformDataRouter from './routes/platformData'
 
 if (!process.env.SESSION_SECRET) {
   console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
@@ -59,6 +60,7 @@ app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/memory', memoryRouter)
 app.use('/api/phyllo', phylloRouter)
+app.use('/api/platform', platformDataRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
