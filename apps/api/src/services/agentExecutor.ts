@@ -464,8 +464,10 @@ function maya_audienceDeepDive(t: NicheTokens, ctx: PersonalContext | null) {
       })),
     },
     oneThingToStop: ctx?.recentMemories?.some((m) => /motivation|quote/i.test(JSON.stringify(m.content)))
-      ? 'The motivation-quote posts are still in your recent output. Retire them this week — every one suppresses save-rate for the next 2-3 posts in the same lane.'
-      : 'If you post generic motivation quotes, stop. They pull share rate up short-term but drag save + follow rate down. Replace with specific-number content from your strongest pillar.',
+      ? 'Confirmed pattern: motivation-quote posts are in your recent output. Retire them this week — every one suppresses save-rate for the next 2-3 posts in the same lane.'
+      : hasReal
+        ? 'Generic motivation quotes pull share rate up short-term and drag save + follow rate down. I have not seen them in your recent posts yet — but if they show up, replace with specific-number content from your strongest pillar.'
+        : 'Common pitfall in this niche (I cannot verify against your account yet): generic motivation quotes pull share rate up short-term but drag save + follow rate down. Worth checking against your last 30 days yourself.',
     whatWeStillDoNotKnow: hasReal
       ? ['Conversion intent (newsletter signup rate on IG traffic)', 'Story-to-feed engagement crossover', 'DM volume + sentiment']
       : ['Everything below audience-level averages — connect your account and the next sync fills this in.'],
@@ -1093,22 +1095,52 @@ function presentBrief(opts: {
       }
     }
     case 'audience_deep_dive': {
+      const dataSource = String(get(c, 'dataSource', ''))
+      const isReal = dataSource === 'phyllo'
       const demos = get<Array<Record<string, unknown>>>(c, 'demographics', [])
       const primary = demos.find((d) => /primary/i.test(String(d.label || '')))
+      // Keep the full primary value (including any "(niche average)"
+      // caveat the generator added) so we don't strip the honesty signal.
       const primaryVal = primary ? String(primary.value) : ''
-      const stop = String(get(c, 'oneThingToStop', ''))
+      const memoryHasMotivation = !!(opts.ctx?.recentMemories || []).some((m) =>
+        /motivation|quote/i.test(JSON.stringify(m.content || '')),
+      )
+      // Be honest about what we know vs. what we're inferring. Niche-
+      // average data must NEVER be presented as if it's the user's own.
+      if (isReal) {
+        const stop = String(get(c, 'oneThingToStop', ''))
+        const stopLine = memoryHasMotivation
+          ? `**Biggest takeaway:** ${stop.slice(0, 220)}${stop.length > 220 ? '…' : ''}`
+          : `**Hypothesis to watch:** ${stop.slice(0, 220)}${stop.length > 220 ? '…' : ''}`
+        return {
+          opening: `**Audience snapshot for ${youAre}.**\n\n- **Primary segment:** ${primaryVal}\n- ${stopLine}`,
+          suggestedReplies: ['What about the rest?', 'How do I act on this?', 'Show country + city breakdown'],
+          viewLabel: 'Open audience report',
+        }
+      }
+      // No real audience data — say so explicitly. Don't claim to know
+      // the user's primary segment when we're just citing the niche.
       return {
-        opening: `Pulled what I have on ${youAre}'s audience right now. ${primaryVal ? `Primary segment: **${primaryVal.split('—')[0].split('(')[0].trim()}**.` : ''} Biggest takeaway: ${stop.slice(0, 180)}${stop.length > 180 ? '…' : ''}`,
-        suggestedReplies: ['Why is that the biggest takeaway?', 'What about the rest?', 'How do I act on this?'],
+        opening: `**I don't have your audience data yet.** Phyllo hasn't returned demographics for ${youAre} — usually that means the account is still PERSONAL on Meta, recently switched to Pro and Meta is propagating, or follower volume is below the threshold Meta requires for audience insights.\n\nFor now I can only share what's true **across your niche** — treat it as hypothesis, not fact about you specifically.\n\n**Want me to walk you through the niche pattern, or help diagnose why audience data isn't flowing?**`,
+        suggestedReplies: ['Show the niche pattern', 'Why isn\'t my audience data flowing?', 'How do I unblock this?'],
         viewLabel: 'Open audience report',
       }
     }
     case 'engagement_diagnosis': {
-      const summary = String(get(c, 'summary', ''))
-      const fix = String(get(c, 'oneFixThisWeek', ''))
+      const dataSource = String(get(c, 'dataSource', ''))
+      const isReal = dataSource === 'phyllo'
+      if (isReal) {
+        const summary = String(get(c, 'summary', ''))
+        const fix = String(get(c, 'oneFixThisWeek', ''))
+        return {
+          opening: `${summary}\n\n**One fix this week:** ${fix.slice(0, 240)}${fix.length > 240 ? '…' : ''}`,
+          suggestedReplies: ['Walk me through finding 1', 'Approve the fix', 'What if I can\'t ship Thursday?'],
+          viewLabel: 'Open diagnosis',
+        }
+      }
       return {
-        opening: `${summary} The single fix this week: ${fix.slice(0, 220)}${fix.length > 220 ? '…' : ''}`,
-        suggestedReplies: ['Walk me through finding 1', 'Approve the fix', 'What if I can\'t ship Thursday?'],
+        opening: `**I can't diagnose your specific drop yet — I don't have engagement data for ${youAre}.** Once Phyllo returns post-level metrics (needs a Pro account on Meta + ~24-48h after switching), I can name the actual posts that hurt and propose a real fix.\n\nFor now I can walk you through the **three patterns that most often drive drops in your niche** — match them against your last two weeks yourself.`,
+        suggestedReplies: ['Show the three patterns', 'Why isn\'t my data flowing?', 'How do I unblock this?'],
         viewLabel: 'Open diagnosis',
       }
     }
