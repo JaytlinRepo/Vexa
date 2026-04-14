@@ -1,14 +1,15 @@
 /* Vexa — unified Work page (calendar + team + outputs stacked).
  *
- * Single scrollable surface inside #view-db-tasks:
- *   1. Calendar (the existing tasks/cal view, calendar default)
- *   2. Team (employee cards, moved from #view-db-team)
- *   3. Outputs library (moved from #view-db-outputs)
+ * Single scrollable surface inside #view-db-tasks. Calendar on top
+ * (forced as the default tasks-view), Team cards below, Outputs library
+ * at the bottom.
  *
- * The other two views (#view-db-team, #view-db-outputs) are hidden so
- * stale content doesn't paint, but their DOM stays in place so the
- * existing wire scripts (team-wire, outputs-wire) keep finding their
- * elements when they re-render.
+ * Strategy: build empty host containers (.emp-cards for team,
+ * [data-outputs-host] for outputs) inside the unified view, then trigger
+ * team-wire.js and outputs-wire.js to populate them. Both wire scripts
+ * have been broadened to write into every matching host on the page, so
+ * the same render call fills both the standalone view (kept for fallback)
+ * and our unified view.
  */
 ;(function () {
   function esc(s) {
@@ -24,7 +25,7 @@
       <div id="vx-work-header" style="margin-bottom:22px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin-bottom:4px;font-family:'Syne',sans-serif">Work</div>
         <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(28px,3.2vw,40px);font-weight:500;line-height:1.1;color:var(--t1);margin:0">Calendar &middot; Team &middot; Outputs</h1>
-        <div style="color:var(--t2);font-size:13px;margin-top:6px">Everything your team is shipping, who is shipping it, and what is already approved — all on one page.</div>
+        <div style="color:var(--t2);font-size:13px;margin-top:6px">Everything your team is shipping, who is shipping it, and what is already approved &mdash; all on one page.</div>
       </div>
     `
   }
@@ -46,8 +47,6 @@
     }
   }
 
-  // Hide the now-unused standalone Team and Outputs views so they never
-  // appear behind the unified page after a stray navigate() call.
   function hideStandaloneViews() {
     ['view-db-team', 'view-db-outputs'].forEach((id) => {
       const v = document.getElementById(id)
@@ -55,42 +54,34 @@
     })
   }
 
-  // Pull the inner content from the standalone Team view into a hosted
-  // section underneath the calendar. We *move* the .emp-cards element
-  // (rather than clone) so team-wire.js's render() keeps writing into the
-  // same node and we don't get stale duplicate copies.
-  function buildTeamSection() {
-    const teamView = document.getElementById('view-db-team')
-    if (!teamView) return null
-    const cards = teamView.querySelector('.emp-cards')
-    if (!cards) return null
-
-    const wrap = document.createElement('section')
-    wrap.id = 'vx-work-team'
-    wrap.style.cssText = 'margin-top:40px'
-    wrap.innerHTML = sectionLabel('Your team')
-    wrap.appendChild(cards)
-    return wrap
+  function ensureTeamSection(inner) {
+    let section = inner.querySelector('#vx-work-team')
+    if (section) return section
+    section = document.createElement('section')
+    section.id = 'vx-work-team'
+    section.style.cssText = 'margin-top:40px'
+    section.innerHTML = `
+      ${sectionLabel('Your team')}
+      <div class="emp-cards"></div>
+    `
+    inner.appendChild(section)
+    return section
   }
 
-  function buildOutputsSection() {
-    const outView = document.getElementById('view-db-outputs')
-    if (!outView) return null
-    const inner = outView.querySelector('.view-inner')
-    if (!inner) return null
-    // Move the filter bar + grid into our section. Skip any leftover
-    // section title/sub since the unified header replaces them.
-    const wrap = document.createElement('section')
-    wrap.id = 'vx-work-outputs'
-    wrap.style.cssText = 'margin-top:48px'
-    wrap.innerHTML = sectionLabel('Outputs library')
-    Array.from(inner.children).forEach((child) => {
-      if (child.classList.contains('db-section-title')) return
-      if (child.classList.contains('db-section-sub')) return
-      if (child.id === 'vx-work-header') return
-      wrap.appendChild(child)
-    })
-    return wrap
+  function ensureOutputsSection(inner) {
+    let section = inner.querySelector('#vx-work-outputs')
+    if (section) return section
+    section = document.createElement('section')
+    section.id = 'vx-work-outputs'
+    section.style.cssText = 'margin-top:48px'
+    section.innerHTML = `
+      ${sectionLabel('Outputs library')}
+      <div data-outputs-host>
+        <div class="outputs-filter" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px"></div>
+      </div>
+    `
+    inner.appendChild(section)
+    return section
   }
 
   function injectStack() {
@@ -102,29 +93,38 @@
     // Remove the view's stock title + subtitle so we own the header.
     inner.querySelectorAll('.db-section-title, .db-section-sub').forEach((n) => n.remove())
 
-    // Replace existing header (re-injects on each navigate)
-    inner.querySelector('#vx-work-header')?.remove()
-    const headerWrap = document.createElement('div')
-    headerWrap.innerHTML = workHeader()
-    inner.insertBefore(headerWrap.firstElementChild, inner.firstChild)
+    // Header (idempotent)
+    if (!inner.querySelector('#vx-work-header')) {
+      const headerWrap = document.createElement('div')
+      headerWrap.innerHTML = workHeader()
+      inner.insertBefore(headerWrap.firstElementChild, inner.firstChild)
+    }
 
     ensureCalendarDefault()
     hideStandaloneViews()
 
-    // Append Team section if not already present (or refresh it)
-    inner.querySelector('#vx-work-team')?.remove()
-    const teamSection = buildTeamSection()
-    if (teamSection) inner.appendChild(teamSection)
+    // Build host containers (idempotent — won't duplicate)
+    ensureTeamSection(inner)
+    ensureOutputsSection(inner)
 
-    // Append Outputs section if not already present (or refresh it)
-    inner.querySelector('#vx-work-outputs')?.remove()
-    const outputsSection = buildOutputsSection()
-    if (outputsSection) inner.appendChild(outputsSection)
+    // Kick the wire scripts to populate our hosts. They render into every
+    // matching host on the page, so the unified Work sections fill in.
+    if (window.vxRenderTeam) {
+      try { window.vxRenderTeam() } catch {}
+    } else {
+      // Fall back to the navigate event — team-wire wraps it and renders
+      // when id is 'db-team'. We just call it directly.
+      window.dispatchEvent(new CustomEvent('vx-team-render-request'))
+    }
+    if (window.vxRenderOutputs) {
+      try { window.vxRenderOutputs() } catch {}
+    } else {
+      window.dispatchEvent(new CustomEvent('vx-outputs-render-request'))
+    }
   }
 
-  // Wrap navigate so that any time the user lands on Tasks, the unified
-  // stack is rebuilt + calendar is forced. Also intercept old links to
-  // db-team / db-outputs and redirect to the unified Work page.
+  // Wrap navigate so any time the user lands on Tasks, the unified stack
+  // is rebuilt. Also redirect old links to db-team / db-outputs.
   const origNavigate = window.navigate
   window.navigate = function (id) {
     if (id === 'db-team' || id === 'db-outputs') {
@@ -136,7 +136,7 @@
     const r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
     if (id === 'db-tasks') {
       setTimeout(injectStack, 60)
-      setTimeout(injectStack, 320) // after prototype's 280ms view-swap
+      setTimeout(injectStack, 320)
     }
     return r
   }
@@ -150,7 +150,9 @@
   function retry() {
     const tasksView = document.getElementById('view-db-tasks')
     if (!tasksView) return
-    if (!tasksView.querySelector('#vx-work-header')) injectStack()
+    if (!tasksView.querySelector('#vx-work-team') || !tasksView.querySelector('#vx-work-outputs')) {
+      injectStack()
+    }
   }
 
   if (document.readyState !== 'loading') setTimeout(injectStack, 700)

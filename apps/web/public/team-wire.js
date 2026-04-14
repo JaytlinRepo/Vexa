@@ -172,7 +172,7 @@
   window.vxOpenAssignModal = openAssignModal
 
   function wireAssignButtons() {
-    document.querySelectorAll('#view-db-team [data-assign-role]').forEach((btn) => {
+    document.querySelectorAll('.emp-cards [data-assign-role]').forEach((btn) => {
       if (btn.dataset.vxWired) return
       btn.dataset.vxWired = '1'
       btn.addEventListener('click', () => openAssignModal(btn.dataset.assignRole, btn.dataset.assignName))
@@ -180,23 +180,25 @@
   }
 
   async function render() {
-    const host = document.querySelector('#view-db-team .emp-cards')
-    if (!host) return
+    // Find every .emp-cards container on the page — could be the standalone
+    // team view, the unified Work page's team section, or both.
+    const hosts = document.querySelectorAll('.emp-cards')
+    if (hosts.length === 0) return
     const tasks = await fetchTasks()
     const byRole = { analyst: [], strategist: [], copywriter: [], creative_director: [] }
     for (const t of tasks) {
       const role = t.employee?.role
       if (role && byRole[role]) byRole[role].push(t)
     }
-    // Tasks already come back ordered by createdAt desc, so byRole[role][0] is newest.
-    host.innerHTML = EMPLOYEES.map((e) => cardHTML(e, byRole[e.role] || [])).join('')
+    const html = EMPLOYEES.map((e) => cardHTML(e, byRole[e.role] || [])).join('')
+    hosts.forEach((host) => { host.innerHTML = html })
     wireAssignButtons()
   }
 
   const origNavigate = window.navigate
   window.navigate = function (id) {
     const r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-team') setTimeout(render, 80)
+    if (id === 'db-team' || id === 'db-tasks') setTimeout(render, 80)
     return r
   }
 
@@ -205,4 +207,8 @@
     if (typeof prevEnter === 'function') await prevEnter()
     setTimeout(render, 250)
   }
+
+  // Expose for work-wire.js so the unified Work page can re-render team
+  // cards into its own host the moment it's built.
+  window.vxRenderTeam = render
 })()

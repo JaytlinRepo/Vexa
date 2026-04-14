@@ -86,34 +86,34 @@
   }
 
   async function render() {
-    const host = document.getElementById('view-db-outputs')
-    if (!host) return
-
-    renderFilterBar(host)
-
-    // The grid container inside the view — find the first element after the
-    // filter bar that should hold cards. Preserve the prototype's markup by
-    // looking for an existing grid; otherwise append one.
-    let grid = host.querySelector('.output-grid, .outputs-grid, #db-outputs-grid')
-    if (!grid) {
-      grid = document.createElement('div')
-      grid.id = 'db-outputs-grid'
-      grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:18px'
-      host.appendChild(grid)
-    }
+    // Outputs library can live in two places: the standalone view and the
+    // unified Work page. Render into every host marked [data-outputs-host]
+    // (Work page) plus the original #view-db-outputs (standalone).
+    const hosts = Array.from(document.querySelectorAll('[data-outputs-host], #view-db-outputs'))
+    if (hosts.length === 0) return
 
     outputs = await fetchOutputs()
-    if (outputs.length === 0) {
-      grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px;grid-column:1/-1;border:1px dashed var(--b1);border-radius:12px">No outputs yet. As your team delivers work it will land here.</div>'
-      return
-    }
-    grid.innerHTML = outputs.map(cardHTML).join('')
 
-    grid.querySelectorAll('[data-view]').forEach((btn) => {
-      btn.addEventListener('click', () => openDetail(btn.dataset.view))
-    })
-    grid.querySelectorAll('[data-export]').forEach((btn) => {
-      btn.addEventListener('click', () => exportOutput(btn.dataset.export))
+    hosts.forEach((host) => {
+      renderFilterBar(host)
+      let grid = host.querySelector('.output-grid, .outputs-grid, [data-outputs-grid]')
+      if (!grid) {
+        grid = document.createElement('div')
+        grid.dataset.outputsGrid = '1'
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:18px'
+        host.appendChild(grid)
+      }
+      if (outputs.length === 0) {
+        grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px;grid-column:1/-1;border:1px dashed var(--b1);border-radius:12px">No outputs yet. As your team delivers work it will land here.</div>'
+        return
+      }
+      grid.innerHTML = outputs.map(cardHTML).join('')
+      grid.querySelectorAll('[data-view]').forEach((btn) => {
+        btn.addEventListener('click', () => openDetail(btn.dataset.view))
+      })
+      grid.querySelectorAll('[data-export]').forEach((btn) => {
+        btn.addEventListener('click', () => exportOutput(btn.dataset.export))
+      })
     })
   }
 
@@ -161,7 +161,7 @@
   const origNavigate = window.navigate
   window.navigate = function (id) {
     const r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-outputs') setTimeout(render, 80)
+    if (id === 'db-outputs' || id === 'db-tasks') setTimeout(render, 80)
     return r
   }
 
@@ -170,4 +170,8 @@
     if (typeof prevEnter === 'function') await prevEnter()
     setTimeout(render, 350)
   }
+
+  // Exposed so work-wire.js can repopulate the Outputs section of the
+  // unified Work page right after it builds the host containers.
+  window.vxRenderOutputs = render
 })()

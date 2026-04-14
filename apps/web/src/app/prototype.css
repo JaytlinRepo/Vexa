@@ -642,26 +642,28 @@ input,textarea{cursor:text}
 
 /* ══ FULL CALENDAR ══════════════════════════════════════ */
 
-/* Agent color accents — muted, monochromatic */
+/* Agent color accents — distinct hues so calendar entries are quickly
+   identifiable at a glance. Each agent has a soft body fill and a denser
+   stripe (border-left) for stronger ID. Tuned to read on both themes. */
 :root {
-  --c-jordan: rgba(237,235,230,.18);
-  --c-maya:   rgba(237,235,230,.10);
-  --c-alex:   rgba(237,235,230,.14);
-  --c-riley:  rgba(237,235,230,.08);
-  --c-jordan-b: rgba(237,235,230,.32);
-  --c-maya-b:   rgba(237,235,230,.22);
-  --c-alex-b:   rgba(237,235,230,.26);
-  --c-riley-b:  rgba(237,235,230,.18);
+  --c-jordan: rgba(91,138,114,.18);    /* sage — strategist */
+  --c-maya:   rgba(199,155,60,.18);    /* amber — analyst */
+  --c-alex:   rgba(200,118,116,.18);   /* coral — copywriter */
+  --c-riley:  rgba(126,124,176,.18);   /* lavender-slate — creative director */
+  --c-jordan-b: rgba(91,138,114,.75);
+  --c-maya-b:   rgba(199,155,60,.78);
+  --c-alex-b:   rgba(200,118,116,.78);
+  --c-riley-b:  rgba(126,124,176,.78);
 }
 [data-theme="light"] {
-  --c-jordan: rgba(17,17,16,.09);
-  --c-maya:   rgba(17,17,16,.05);
-  --c-alex:   rgba(17,17,16,.07);
-  --c-riley:  rgba(17,17,16,.04);
-  --c-jordan-b: rgba(17,17,16,.18);
-  --c-maya-b:   rgba(17,17,16,.12);
-  --c-alex-b:   rgba(17,17,16,.14);
-  --c-riley-b:  rgba(17,17,16,.09);
+  --c-jordan: rgba(91,138,114,.16);
+  --c-maya:   rgba(199,155,60,.18);
+  --c-alex:   rgba(200,118,116,.16);
+  --c-riley:  rgba(126,124,176,.16);
+  --c-jordan-b: rgba(91,138,114,.85);
+  --c-maya-b:   rgba(199,155,60,.85);
+  --c-alex-b:   rgba(200,118,116,.85);
+  --c-riley-b:  rgba(126,124,176,.85);
 }
 
 .cal-toolbar {
@@ -749,7 +751,7 @@ input,textarea{cursor:text}
 .cal-entry {
   border-radius:5px;padding:4px 7px;margin-bottom:4px;
   font-size:11px;line-height:1.4;
-  border-left:2px solid transparent;
+  border-left:3px solid transparent;
   transition:opacity .2s,transform .2s;
   position:relative;
 }

@@ -259,7 +259,10 @@ function switchSettings(btn,panel){
 
 // Calendar state
 let calViewMode = 'month' // 'month' | 'week'
-let calDate = new Date(2025, 0, 13) // Jan 13 2025
+// Always open on the current month — the demo entries are dated to Jan 2025
+// so they only render when the user navigates there, but the CEO should
+// land on a calendar that reflects today.
+let calDate = new Date()
 
 // Data model — each entry has: date(YYYY-MM-DD), type, title, who, status
 let calEntries = [
