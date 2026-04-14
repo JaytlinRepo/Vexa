@@ -12,6 +12,7 @@ interface FeedItem {
   title: string
   summary: string
   url: string
+  imageUrl: string | null
   createdAt: string
   type: 'article' | 'research' | 'reddit'
   score: number
@@ -25,6 +26,17 @@ const SUBREDDITS_BY_NICHE: Record<string, string[]> = {
   coaching: ['coaching', 'productivity'],
   lifestyle: ['lifestyle', 'productivity'],
   personal_development: ['selfimprovement', 'getdisciplined'],
+}
+
+function extractRedditImage(d: Record<string, unknown>): string | null {
+  const thumb = d.thumbnail as string | undefined
+  if (thumb && /^https?:\/\//.test(thumb)) return thumb
+  const preview = d.preview as { images?: Array<{ source?: { url?: string } }> } | undefined
+  const url = preview?.images?.[0]?.source?.url
+  if (url) return url.replace(/&amp;/g, '&')
+  const directUrl = d.url as string | undefined
+  if (directUrl && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(directUrl)) return directUrl
+  return null
 }
 
 async function fetchRedditTop(sub: string, limit = 6): Promise<FeedItem[]> {
@@ -54,6 +66,7 @@ async function fetchRedditTop(sub: string, limit = 6): Promise<FeedItem[]> {
         title: d.title,
         summary: (d.selftext || '').slice(0, 240) || `${score.toLocaleString()} upvotes, ${d.num_comments ?? 0} comments — hot discussion on r/${sub}.`,
         url: `https://www.reddit.com${d.permalink}`,
+        imageUrl: extractRedditImage(c.data),
         createdAt: new Date(d.created_utc * 1000).toISOString(),
         type: 'reddit',
         score: potential,
@@ -71,7 +84,7 @@ async function fetchRedditTop(sub: string, limit = 6): Promise<FeedItem[]> {
 function mockFallbackForNiche(niche: string): FeedItem[] {
   // Used when Reddit is unreachable (offline / rate-limited).
   const now = Date.now()
-  const base: Array<Omit<FeedItem, 'id' | 'createdAt'>> = [
+  const base: Array<Omit<FeedItem, 'id' | 'createdAt' | 'imageUrl'>> = [
     {
       source: 'Demo feed',
       title: `Top-performing format in ${niche} this week: 15-second transformation Reels`,
@@ -103,6 +116,7 @@ function mockFallbackForNiche(niche: string): FeedItem[] {
   return base.map((b, i) => ({
     ...b,
     id: `demo_${i}_${now}`,
+    imageUrl: null,
     createdAt: new Date(now - (i + 1) * 3600 * 1000).toISOString(),
   }))
 }

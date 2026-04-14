@@ -253,13 +253,99 @@
     return `
       <section style="margin-bottom:40px">
         ${sectionLabel('Performance — last 30 days')}
-        <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
-          ${chartCard('Engagement by day', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia))}
-          ${topPostCard(ig.topPosts?.[0], ig.recentMedia)}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            ${chartCard('Content mix', formatDonutSvg(ig.recentMedia), null)}
+            ${chartCard('Weekly reach', weeklyReachSvg(ig.followerSeries), reachDelta(ig.followerSeries))}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            ${chartCard('Engagement by day', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia))}
+            ${topPostCard(ig.topPosts?.[0], ig.recentMedia)}
+          </div>
         </div>
       </section>
     `
+  }
+
+  function formatDonutSvg(media) {
+    if (!media || media.length === 0) return '<div style="height:140px;color:var(--t3);font-size:12px;display:grid;place-items:center">No data</div>'
+    const counts = {}
+    for (const m of media) {
+      const k = prettyMedia(m.media_type)
+      counts[k] = (counts[k] || 0) + 1
+    }
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    const total = entries.reduce((a, [, c]) => a + c, 0)
+    const palette = ['var(--t1)', 'var(--t2)', 'var(--b2)', 'var(--s3)']
+    const CIRC = 201.06
+    let offset = 0
+    const segs = entries.map(([, c], i) => {
+      const len = (c / total) * CIRC
+      const seg = `<circle cx="45" cy="45" r="32" fill="none" stroke="${palette[i] || 'var(--b2)'}" stroke-width="14" stroke-dasharray="${len.toFixed(2)} ${CIRC}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 45 45)"/>`
+      offset += len
+      return seg
+    }).join('')
+    const legend = entries.map(([label, c], i) => {
+      const pct = Math.round((c / total) * 100)
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t2)">
+        <span style="width:10px;height:10px;border-radius:2px;background:${palette[i] || 'var(--b2)'}"></span>
+        <span style="color:var(--t1)">${esc(label)}</span>
+        <span style="margin-left:auto">${pct}%</span>
+      </div>`
+    }).join('')
+    return `
+      <div style="display:flex;gap:14px;align-items:center">
+        <svg viewBox="0 0 90 90" width="110" height="110" style="flex-shrink:0">
+          <circle cx="45" cy="45" r="32" fill="none" stroke="var(--b1)" stroke-width="14" />
+          ${segs}
+        </svg>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">${legend}</div>
+      </div>
+    `
+  }
+
+  function prettyMedia(t) {
+    switch (t) {
+      case 'REEL': return 'Reels'
+      case 'CAROUSEL_ALBUM': return 'Carousel'
+      case 'IMAGE': return 'Static'
+      case 'VIDEO': return 'Video'
+      default: return String(t || 'Other')
+    }
+  }
+
+  function weeklyReachSvg(series) {
+    if (!series || series.length < 7) return '<div style="height:110px;color:var(--t3);font-size:12px;display:grid;place-items:center">No data</div>'
+    const last28 = series.slice(-28)
+    const weekly = []
+    for (let w = 0; w < 4; w++) {
+      const slice = last28.slice(w * 7, (w + 1) * 7)
+      weekly.push(slice.reduce((a, p) => a + (p.reach || 0), 0) / Math.max(1, slice.length))
+    }
+    const min = Math.min(...weekly), max = Math.max(...weekly)
+    const range = Math.max(1, max - min)
+    const W = 220, H = 110, top = 10, bottom = H - 22
+    const step = W / (weekly.length - 1)
+    const pts = weekly.map((v, i) => `${(i * step).toFixed(1)},${(bottom - ((v - min) / range) * (bottom - top)).toFixed(1)}`).join(' ')
+    const labels = ['W1', 'W2', 'W3', 'W4']
+    return `
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
+        <polygon points="0,${H} ${pts} ${W},${H}" fill="var(--t1)" fill-opacity="0.10" />
+        <polyline points="${pts}" fill="none" stroke="var(--t1)" stroke-width="2" stroke-linejoin="round" />
+        ${labels.map((l, i) => `<text x="${(i * step).toFixed(1)}" y="${H - 4}" fill="var(--t3)" font-size="9" text-anchor="${i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}">${l}</text>`).join('')}
+      </svg>
+    `
+  }
+
+  function reachDelta(series) {
+    if (!series || series.length < 14) return null
+    const last28 = series.slice(-28)
+    const w1 = last28.slice(0, 7).reduce((a, p) => a + (p.reach || 0), 0)
+    const w4 = last28.slice(21, 28).reduce((a, p) => a + (p.reach || 0), 0)
+    if (w1 === 0) return null
+    const delta = Math.round(((w4 - w1) / w1) * 100)
+    return (delta >= 0 ? '+' : '') + delta + '%'
   }
 
   function chartCard(title, body, statRight) {
@@ -443,22 +529,81 @@
     })
   }
 
+  // ─────────────── feed strip (right rail) ────────────────────────
+  function sectionFeedStrip() {
+    const items = STATE.feed.slice(0, 12)
+    const niche = STATE.me?.companies?.[0]?.niche || ''
+    const header = `
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px">Knowledge feed</div>
+          <div style="color:var(--t1);font-size:12px">Maya — ${esc(formatNiche(niche))}</div>
+        </div>
+        <button data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:999px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit">Full feed</button>
+      </div>
+    `
+    if (items.length === 0) {
+      return `
+        ${header}
+        <div style="padding:40px 20px;text-align:center;color:var(--t3);font-size:12px">Pulling fresh signals…</div>
+      `
+    }
+    const list = items.map(feedItemHTML).join('')
+    return `
+      ${header}
+      <ol style="list-style:none;padding:0;margin:0">${list}</ol>
+    `
+  }
+
+  function feedItemHTML(item) {
+    const when = timeAgo(item.createdAt)
+    const thumb = item.imageUrl
+      ? `<img src="${esc(item.imageUrl)}" alt="" style="width:72px;height:72px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s3)" loading="lazy" onerror="this.style.display='none'" />`
+      : `<div style="width:72px;height:72px;border-radius:8px;background:var(--s3);flex-shrink:0;display:grid;place-items:center;color:var(--t3);font-size:10px;letter-spacing:.06em;text-transform:uppercase">${esc(item.type || 'Link')}</div>`
+    const scoreTag = item.score != null
+      ? `<span style="color:var(--t1);font-weight:600;margin-left:auto">${item.score}</span>`
+      : ''
+    return `
+      <li style="padding:14px 20px;border-bottom:1px solid var(--b1)">
+        <a href="${esc(item.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;gap:12px;align-items:flex-start">
+          ${thumb}
+          <div style="flex:1;min-width:0">
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;display:flex;gap:8px;align-items:center">
+              <span>${esc(item.source)}</span>
+              <span>·</span>
+              <span>${esc(when)}</span>
+              ${scoreTag}
+            </div>
+            <div style="color:var(--t1);font-size:13px;font-weight:500;line-height:1.35;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(item.title)}</div>
+            <div style="color:var(--t2);font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(item.mayaTake || item.summary)}</div>
+          </div>
+        </a>
+      </li>
+    `
+  }
+
   // ─────────────── render ──────────────────────────────────────────
   async function render() {
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
     await fetchAll()
-    // Replace inner structure entirely. Overwrite existing .db-layout contents
-    // with a single scrollable column layout.
     const root = view.querySelector('.db-layout') || view
+    root.style.height = '100%'
     root.innerHTML = `
-      <div style="width:100%;max-width:1100px;margin:0 auto;padding:44px 48px 80px;font-family:'DM Sans',sans-serif">
-        ${sectionHeader()}
-        ${sectionOverview()}
-        ${sectionReviewQueue()}
-        ${sectionTeam()}
-        ${sectionPerformance()}
-        ${sectionActivity()}
+      <div style="height:100%;display:grid;grid-template-columns:1fr 340px;gap:0;font-family:'DM Sans',sans-serif">
+        <main style="overflow-y:auto;padding:44px 48px 80px;min-width:0">
+          <div style="max-width:820px">
+            ${sectionHeader()}
+            ${sectionOverview()}
+            ${sectionReviewQueue()}
+            ${sectionTeam()}
+            ${sectionPerformance()}
+            ${sectionActivity()}
+          </div>
+        </main>
+        <aside style="overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
+          ${sectionFeedStrip()}
+        </aside>
       </div>
     `
     wireEvents(root)
