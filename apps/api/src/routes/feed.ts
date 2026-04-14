@@ -2,6 +2,7 @@ import { Router } from 'express'
 import axios from 'axios'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { fetchNicheRSSFeeds, RSSItem } from '../services/integrations/rss.service'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -26,6 +27,47 @@ const SUBREDDITS_BY_NICHE: Record<string, string[]> = {
   coaching: ['coaching', 'productivity'],
   lifestyle: ['lifestyle', 'productivity'],
   personal_development: ['selfimprovement', 'getdisciplined'],
+}
+
+function rssToFeedItem(r: RSSItem): FeedItem {
+  // Map RSS publisher articles onto the FeedItem shape. Score uses source
+  // quality as a proxy (high-quality publishers start at 85) since RSS
+  // doesn't expose engagement counts.
+  const summary = (r.description || '').replace(/<[^>]+>/g, '').slice(0, 240) ||
+    `${r.source} · ${r.publishedAt.toLocaleDateString()}`
+  return {
+    id: `rss_${Buffer.from(r.url).toString('base64').slice(0, 24)}`,
+    source: r.source,
+    title: r.title,
+    summary,
+    url: r.url,
+    imageUrl: r.imageUrl || null,
+    createdAt: r.publishedAt.toISOString(),
+    type: 'article',
+    score: 80 + Math.min(15, Math.floor((Date.now() - r.publishedAt.getTime() < 3 * 86400000 ? 15 : 5))),
+    mayaTake:
+      'Publisher coverage — strong anchor for an educational Reel or carousel citing the source.',
+  }
+}
+
+function interleaveByType(items: FeedItem[]): FeedItem[] {
+  const byType: Record<string, FeedItem[]> = {}
+  for (const i of items) {
+    ;(byType[i.type] ||= []).push(i)
+  }
+  const out: FeedItem[] = []
+  let added = true
+  while (added) {
+    added = false
+    for (const key of Object.keys(byType)) {
+      const next = byType[key].shift()
+      if (next) {
+        out.push(next)
+        added = true
+      }
+    }
+  }
+  return out
 }
 
 function extractRedditImage(d: Record<string, unknown>): string | null {
@@ -136,13 +178,25 @@ router.get('/', requireAuth, async (req, res, next) => {
     const niche = (company.niche as string) || 'lifestyle'
     const subs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
 
-    const requestedLimit = Math.max(1, Math.min(24, Number(req.query.limit) || 6))
-    const results = await Promise.all(subs.slice(0, 2).map((s) => fetchRedditTop(s, 4)))
-    let items: FeedItem[] = results.flat()
+    const requestedLimit = Math.max(1, Math.min(24, Number(req.query.limit) || 12))
+    // Cap Reddit to a small share of the feed — publisher RSS articles
+    // read better and keep Maya's feed from feeling like r/ all day.
+    const maxRedditShare = Math.max(1, Math.min(4, Number(req.query.redditMax) || 3))
+
+    const [redditResults, rssItems] = await Promise.all([
+      Promise.all(subs.slice(0, 2).map((s) => fetchRedditTop(s, 3))),
+      fetchNicheRSSFeeds(niche, 4, 4).catch(() => [] as RSSItem[]),
+    ])
+
+    let items: FeedItem[] = [
+      ...redditResults.flat().slice(0, maxRedditShare),
+      ...rssItems.map(rssToFeedItem),
+    ]
     if (items.length === 0) items = mockFallbackForNiche(niche)
 
-    items.sort((a, b) => b.score - a.score)
-    res.json({ items: items.slice(0, requestedLimit), niche, source: items[0]?.id.startsWith('demo_') ? 'demo' : 'reddit' })
+    // Mix: alternate by source so Reddit doesn't bunch at the top.
+    items = interleaveByType(items)
+    res.json({ items: items.slice(0, requestedLimit), niche, source: 'mixed' })
   } catch (err) {
     next(err)
   }
