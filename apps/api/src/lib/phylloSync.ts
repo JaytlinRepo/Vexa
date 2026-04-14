@@ -62,43 +62,78 @@ export async function syncPhylloAccount(
   const stub = mapPhylloToStub({ account, profile: profileItem, contents: contentList, audience: audienceRes })
   const sparse = stub.followerCount === 0 && stub.recentMedia.length === 0
 
-  // Legacy InstagramConnection row — only for IG variants.
+  // Legacy InstagramConnection row — only for IG variants. If this sync
+  // came back sparse (Phyllo returned nothing useful — scope missing,
+  // propagation delay, or account flipped back to PERSONAL), we must NOT
+  // overwrite existing good metrics with zeros. Keep prior numbers and
+  // only refresh the metadata (lastSyncedAt, handle, bio, phyllo id).
   if (isInstagram) {
-    const payload = {
-      handle: stub.username || account.platform_username || '',
-      profileUrl: stub.profileUrl,
-      accountType: stub.accountType,
-      bio: stub.bio,
-      followerCount: stub.followerCount,
-      followingCount: stub.followingCount,
-      postCount: stub.postCount,
-      engagementRate: stub.engagementRate,
-      avgReach: stub.avgReach,
-      avgImpressions: stub.avgImpressions,
-      topPosts: stub.topPosts as unknown as object,
-      recentMedia: stub.recentMedia as unknown as object,
-      followerSeries: stub.followerSeries as unknown as object,
-      audienceAge: stub.audienceAge as unknown as object,
-      audienceGender: stub.audienceGender as unknown as object,
-      audienceTop: stub.audienceTopCountries as unknown as object,
-      audienceCities: stub.audienceTopCities as unknown as object,
-      igUserId: stub.igUserId,
-      phylloAccountId: account.id,
-      platform: platformName,
-      source: 'phyllo',
-      lastSyncedAt: new Date(),
+    if (sparse) {
+      // Metadata-only update; do not touch numeric / JSON metric fields.
+      await prisma.instagramConnection.upsert({
+        where: { companyId },
+        update: {
+          handle: stub.username || account.platform_username || '',
+          profileUrl: stub.profileUrl,
+          bio: stub.bio,
+          igUserId: stub.igUserId,
+          phylloAccountId: account.id,
+          platform: platformName,
+          source: 'phyllo',
+          lastSyncedAt: new Date(),
+        },
+        create: {
+          companyId,
+          handle: stub.username || account.platform_username || '',
+          profileUrl: stub.profileUrl,
+          accountType: stub.accountType,
+          bio: stub.bio,
+          igUserId: stub.igUserId,
+          phylloAccountId: account.id,
+          platform: platformName,
+          source: 'phyllo',
+        },
+      })
+      console.warn(`[phylloSync] sparse sync for ${account.id} — preserved existing metrics, refreshed metadata only`)
+    } else {
+      const payload = {
+        handle: stub.username || account.platform_username || '',
+        profileUrl: stub.profileUrl,
+        accountType: stub.accountType,
+        bio: stub.bio,
+        followerCount: stub.followerCount,
+        followingCount: stub.followingCount,
+        postCount: stub.postCount,
+        engagementRate: stub.engagementRate,
+        avgReach: stub.avgReach,
+        avgImpressions: stub.avgImpressions,
+        topPosts: stub.topPosts as unknown as object,
+        recentMedia: stub.recentMedia as unknown as object,
+        followerSeries: stub.followerSeries as unknown as object,
+        audienceAge: stub.audienceAge as unknown as object,
+        audienceGender: stub.audienceGender as unknown as object,
+        audienceTop: stub.audienceTopCountries as unknown as object,
+        audienceCities: stub.audienceTopCities as unknown as object,
+        igUserId: stub.igUserId,
+        phylloAccountId: account.id,
+        platform: platformName,
+        source: 'phyllo',
+        lastSyncedAt: new Date(),
+      }
+      await prisma.instagramConnection.upsert({
+        where: { companyId },
+        update: { ...payload, connectedAt: new Date() },
+        create: { companyId, ...payload },
+      })
     }
-    await prisma.instagramConnection.upsert({
-      where: { companyId },
-      update: { ...payload, connectedAt: new Date() },
-      create: { companyId, ...payload },
-    })
   }
 
-  // New generalized tables (all platforms).
+  // New generalized tables (all platforms). Skip snapshot writes when
+  // sparse — same reasoning as above, a sparse sync must never overwrite
+  // the real prior day-over-day data the dashboard trajectory charts off.
   let internalAccountId: string | null = null
   try {
-    const persisted = await persistPhylloSync(prisma, companyId, phylloUserId, account, stub)
+    const persisted = await persistPhylloSync(prisma, companyId, phylloUserId, account, stub, { sparse })
     internalAccountId = persisted.accountId
   } catch (e) {
     console.warn('[phylloSync] platform-snapshot write failed', e)

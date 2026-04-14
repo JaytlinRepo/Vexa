@@ -39,6 +39,7 @@ export async function persistPhylloSync(
   phylloUserId: string,
   account: PhylloAccount,
   stub: IgStub,
+  opts: { sparse?: boolean } = {},
 ): Promise<{ accountId: string }> {
   const platform = mapPlatformName(account.work_platform?.name)
   const handle = stub.username || account.platform_username || 'unknown'
@@ -72,47 +73,58 @@ export async function persistPhylloSync(
     },
   })
 
-  // 2. Append a snapshot (time series), deduped by UTC day. The cron runs
-  // once a day but the CLI + manual Resync can both fire; without this
-  // check we'd pile multiple rows onto the same date and corrupt every
-  // day-over-day delta the dashboard computes.
-  const dayStart = new Date()
-  dayStart.setUTCHours(0, 0, 0, 0)
-  const dayEnd = new Date(dayStart)
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1)
+  // 2. Append a snapshot (time series). Two rules:
+  //   - Skip entirely on a sparse sync — writing zeros would wipe the
+  //     real prior data the dashboard trajectory charts off.
+  //   - Dedupe by UTC day so cron + manual resync don't pile identical
+  //     rows. When an existing row exists for today and the new numbers
+  //     are better, update; if they're worse (edge case — a sparse sync
+  //     got past the first guard) keep the prior row untouched.
+  if (!opts.sparse) {
+    const dayStart = new Date()
+    dayStart.setUTCHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1)
 
-  const existingToday = await prisma.platformSnapshot.findFirst({
-    where: {
-      accountId: platformAccount.id,
-      capturedAt: { gte: dayStart, lt: dayEnd },
-    },
-    orderBy: { capturedAt: 'desc' },
-  })
-  if (existingToday) {
-    await prisma.platformSnapshot.update({
-      where: { id: existingToday.id },
-      data: {
-        followerCount: stub.followerCount,
-        followingCount: stub.followingCount,
-        postCount: stub.postCount,
-        avgReach: stub.avgReach,
-        avgImpressions: stub.avgImpressions,
-        engagementRate: stub.engagementRate,
-        capturedAt: new Date(),
-      },
-    })
-  } else {
-    await prisma.platformSnapshot.create({
-      data: {
+    const existingToday = await prisma.platformSnapshot.findFirst({
+      where: {
         accountId: platformAccount.id,
-        followerCount: stub.followerCount,
-        followingCount: stub.followingCount,
-        postCount: stub.postCount,
-        avgReach: stub.avgReach,
-        avgImpressions: stub.avgImpressions,
-        engagementRate: stub.engagementRate,
+        capturedAt: { gte: dayStart, lt: dayEnd },
       },
+      orderBy: { capturedAt: 'desc' },
     })
+    if (existingToday) {
+      // Only overwrite when the new numbers are real. If somehow a
+      // zero-everything payload slipped past the sparse check upstream,
+      // don't let it nuke today's prior good data.
+      const newIsBetter = stub.followerCount > 0 || stub.avgReach > 0 || stub.engagementRate > 0
+      if (newIsBetter) {
+        await prisma.platformSnapshot.update({
+          where: { id: existingToday.id },
+          data: {
+            followerCount: stub.followerCount,
+            followingCount: stub.followingCount,
+            postCount: stub.postCount,
+            avgReach: stub.avgReach,
+            avgImpressions: stub.avgImpressions,
+            engagementRate: stub.engagementRate,
+            capturedAt: new Date(),
+          },
+        })
+      }
+    } else {
+      await prisma.platformSnapshot.create({
+        data: {
+          accountId: platformAccount.id,
+          followerCount: stub.followerCount,
+          followingCount: stub.followingCount,
+          postCount: stub.postCount,
+          avgReach: stub.avgReach,
+          avgImpressions: stub.avgImpressions,
+          engagementRate: stub.engagementRate,
+        },
+      })
+    }
   }
 
   // 3. Append an audience snapshot (if we have any meaningful data)
