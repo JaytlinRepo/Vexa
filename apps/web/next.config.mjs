@@ -11,6 +11,18 @@ const nextConfig = {
       { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
     ]
   },
+  // Public companion scripts (/*.js) are where we iterate fastest; tell
+  // browsers not to cache them so dev reloads always get fresh code.
+  async headers() {
+    return [
+      {
+        source: '/:path*.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig
