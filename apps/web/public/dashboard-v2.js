@@ -86,13 +86,13 @@
       : `${capitalize(u?.plan || 'starter')} · ${capitalize(status)}`
 
     return `
-      <section style="margin-bottom:32px">
+      <section style="margin-bottom:22px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
           <div>
-            <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(28px,3.5vw,44px);font-weight:500;line-height:1.1;color:var(--t1);margin:0 0 6px">${esc(greetingFor(user?.fullName || user?.username))}</h1>
-            <div style="color:var(--t2);font-size:13px">${esc(company?.name || 'Your company')} · ${esc(formatNiche(company?.niche))}</div>
+            <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(26px,3vw,38px);font-weight:500;line-height:1.1;color:var(--t1);margin:0 0 4px">${esc(greetingFor(user?.fullName || user?.username))}</h1>
+            <div style="color:var(--t2);font-size:12px">${esc(company?.name || 'Your company')} · ${esc(formatNiche(company?.niche))}</div>
           </div>
-          <button data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:999px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${esc(chipLabel)}</button>
+          <button data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 14px;border-radius:999px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${esc(chipLabel)}</button>
         </div>
       </section>
     `
@@ -112,11 +112,11 @@
     const engRate = ig?.engagementRate ?? 0
 
     return `
-      <section style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:40px">
-        ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage below' : 'All caught up', awaiting > 0 ? 'db-tasks' : null)}
-        ${tile('Followers', ig ? short(ig.followerCount) : '—', ig ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d` : 'No IG connected')}
-        ${tile('Engagement', ig ? engRate.toFixed(1) + '%' : '—', ig ? `Avg across last ${ig.recentMedia?.length || 0} posts` : '—')}
-        ${tile('Tasks this month', `${tasksUsed} / ${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% used`, null, pct)}
+      <section style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px">
+        ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'All caught up', awaiting > 0 ? 'db-tasks' : null)}
+        ${tile('Followers', ig ? short(ig.followerCount) : '—', ig ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d` : 'Not connected')}
+        ${tile('Engagement', ig ? engRate.toFixed(1) + '%' : '—', ig ? `Avg across ${ig.recentMedia?.length || 0} posts` : '—')}
+        ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
       </section>
     `
   }
@@ -124,11 +124,11 @@
   function tile(label, value, sub, navId, progressPct) {
     const action = navId ? `data-v2-nav="${navId}" style="cursor:pointer"` : ''
     return `
-      <div ${action} style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:20px;${navId ? 'transition:border-color .2s' : ''}">
-        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">${esc(label)}</div>
-        <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:500;line-height:1;margin-bottom:6px">${esc(value)}</div>
+      <div ${action} style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;${navId ? 'transition:border-color .2s' : ''}">
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">${esc(label)}</div>
+        <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:500;line-height:1;margin-bottom:4px">${esc(value)}</div>
         <div style="color:var(--t2);font-size:11px">${esc(sub)}</div>
-        ${progressPct != null ? `<div style="height:3px;border-radius:2px;background:var(--s3);margin-top:10px;overflow:hidden"><div style="width:${progressPct}%;height:100%;background:var(--t1);transition:width .4s ease"></div></div>` : ''}
+        ${progressPct != null ? `<div style="height:2px;border-radius:2px;background:var(--s3);margin-top:8px;overflow:hidden"><div style="width:${progressPct}%;height:100%;background:var(--t1);transition:width .4s ease"></div></div>` : ''}
       </div>
     `
   }
@@ -137,16 +137,16 @@
     const delivered = STATE.tasks.filter((t) => t.status === 'delivered').slice(0, 3)
     if (delivered.length === 0) {
       return `
-        <section style="margin-bottom:40px">
+        <section style="margin-bottom:26px">
           ${sectionLabel('Awaiting your review')}
-          <div style="padding:32px;text-align:center;color:var(--t3);font-size:13px;border:1px dashed var(--b1);border-radius:12px">Your team is working. New deliveries will surface here.</div>
+          <div style="padding:22px;text-align:center;color:var(--t3);font-size:12px;border:1px dashed var(--b1);border-radius:10px">Your team is working. New deliveries will surface here.</div>
         </section>
       `
     }
     return `
-      <section style="margin-bottom:40px">
+      <section style="margin-bottom:26px">
         ${sectionLabel('Awaiting your review')}
-        <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;flex-direction:column;gap:10px">
           ${delivered.map(reviewCard).join('')}
         </div>
       </section>
@@ -156,20 +156,20 @@
   function reviewCard(t) {
     const role = ROLE[t.employee?.role] || { name: t.employee?.name || 'Vexa', title: '', init: 'V' }
     return `
-      <article data-task-id="${t.id}" style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:20px 22px">
-        <header style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:6px">
+      <article data-task-id="${t.id}" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px">
+        <header style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px">
           <div>
-            <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">${esc(role.name)} · ${esc(formatType(t.type))}</div>
-            <h3 style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;color:var(--t1);margin:0">${esc(t.title)}</h3>
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">${esc(role.name)} · ${esc(formatType(t.type))}</div>
+            <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;color:var(--t1);margin:0">${esc(t.title)}</h3>
           </div>
           <span style="color:var(--t3);font-size:11px;flex-shrink:0">${esc(timeAgo(t.createdAt))}</span>
         </header>
-        ${t.description ? `<p style="color:var(--t2);font-size:13px;line-height:1.6;margin:8px 0 0">${esc(t.description)}</p>` : ''}
+        ${t.description ? `<p style="color:var(--t2);font-size:12px;line-height:1.55;margin:6px 0 0">${esc(t.description)}</p>` : ''}
         ${outputPreview(t.outputs?.[0])}
-        <footer style="display:flex;gap:10px;margin-top:16px">
-          <button data-v2-action="approve" data-task-id="${t.id}" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Approve</button>
-          <button data-v2-action="reject" data-task-id="${t.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:10px 18px;border-radius:8px;font-size:12px;font-weight:500;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Reject</button>
-          <button data-v2-meeting="${role.name}" data-v2-role="${role.title}" data-v2-init="${role.init}" style="margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t3);padding:10px 18px;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer">Call meeting</button>
+        <footer style="display:flex;gap:8px;margin-top:12px">
+          <button data-v2-action="approve" data-task-id="${t.id}" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Approve</button>
+          <button data-v2-action="reject" data-task-id="${t.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-weight:500;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Reject</button>
+          <button data-v2-meeting="${role.name}" data-v2-role="${role.title}" data-v2-init="${role.init}" style="margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Call meeting</button>
         </footer>
       </article>
     `
@@ -179,18 +179,18 @@
     if (!o) return ''
     const c = o.content || {}
     if (Array.isArray(c.hooks) && c.hooks.length) {
-      return `<ol style="margin:12px 0 0;padding-left:18px;color:var(--t2);font-size:13px;line-height:1.8">
+      return `<ol style="margin:10px 0 0;padding-left:16px;color:var(--t2);font-size:12px;line-height:1.65">
         ${c.hooks.slice(0, 4).map((h) => `<li${h.flagged ? ' style="color:var(--t1);font-weight:500"' : ''}>${esc(h.text || '')}</li>`).join('')}
       </ol>`
     }
     if (Array.isArray(c.trends) && c.trends.length) {
-      return `<ul style="margin:12px 0 0;padding-left:0;list-style:none;color:var(--t2);font-size:13px;line-height:1.7">
-        ${c.trends.slice(0, 3).map((t) => `<li style="padding:4px 0"><strong style="color:var(--t1);font-weight:500">${esc(t.topic || '')}</strong> <span style="color:var(--t3);margin:0 6px">·</span> ${esc(t.growth || '')} <span style="color:var(--t3);margin:0 6px">·</span> ${esc(t.verdict || '')}</li>`).join('')}
+      return `<ul style="margin:10px 0 0;padding-left:0;list-style:none;color:var(--t2);font-size:12px;line-height:1.6">
+        ${c.trends.slice(0, 3).map((t) => `<li style="padding:2px 0"><strong style="color:var(--t1);font-weight:500">${esc(t.topic || '')}</strong> <span style="color:var(--t3);margin:0 5px">·</span> ${esc(t.growth || '')} <span style="color:var(--t3);margin:0 5px">·</span> ${esc(t.verdict || '')}</li>`).join('')}
       </ul>`
     }
     if (Array.isArray(c.posts) && c.posts.length) {
-      return `<ul style="margin:12px 0 0;padding-left:0;list-style:none;color:var(--t2);font-size:13px;line-height:1.7">
-        ${c.posts.slice(0, 3).map((p) => `<li style="padding:4px 0"><strong style="color:var(--t1);font-weight:500;width:40px;display:inline-block">${esc(p.day || '')}</strong> ${esc(p.format || '')} <span style="color:var(--t3);margin:0 6px">·</span> ${esc(p.topic || '')}</li>`).join('')}
+      return `<ul style="margin:10px 0 0;padding-left:0;list-style:none;color:var(--t2);font-size:12px;line-height:1.6">
+        ${c.posts.slice(0, 3).map((p) => `<li style="padding:2px 0"><strong style="color:var(--t1);font-weight:500;width:36px;display:inline-block">${esc(p.day || '')}</strong> ${esc(p.format || '')} <span style="color:var(--t3);margin:0 5px">·</span> ${esc(p.topic || '')}</li>`).join('')}
       </ul>`
     }
     return ''
@@ -205,7 +205,7 @@
       tasksByRole[r].push(t)
     }
     return `
-      <section style="margin-bottom:40px">
+      <section style="margin-bottom:26px">
         ${sectionLabel('Your team')}
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
           ${EMPLOYEE_ROLES.map((role) => teamCard(role, tasksByRole[role] || [])).join('')}
@@ -222,20 +222,20 @@
     const latest = tasks[0]
 
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-          <div style="width:32px;height:32px;border-radius:10px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:13px;font-family:'Syne',sans-serif">${r.init}</div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif">${r.init}</div>
           <div style="min-width:0">
-            <div style="color:var(--t1);font-size:13px;font-weight:600;line-height:1.2">${esc(r.name)}</div>
-            <div style="color:var(--t3);font-size:10px;letter-spacing:.06em;text-transform:uppercase">${esc(r.title)}</div>
+            <div style="color:var(--t1);font-size:12px;font-weight:600;line-height:1.2">${esc(r.name)}</div>
+            <div style="color:var(--t3);font-size:9px;letter-spacing:.06em;text-transform:uppercase">${esc(r.title)}</div>
           </div>
         </div>
-        <div style="color:var(--t2);font-size:11px;margin-bottom:4px;display:flex;align-items:center;gap:6px">
-          <span style="width:6px;height:6px;border-radius:50%;background:${delivered ? 'var(--t1)' : working ? '#e8c87a' : 'var(--t3)'}"></span>
+        <div style="color:var(--t2);font-size:10px;margin-bottom:4px;display:flex;align-items:center;gap:6px">
+          <span style="width:5px;height:5px;border-radius:50%;background:${delivered ? 'var(--t1)' : working ? '#e8c87a' : 'var(--t3)'}"></span>
           ${esc(status)}
         </div>
-        <div style="color:var(--t2);font-size:12px;line-height:1.4;margin-bottom:14px;min-height:32px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(latest ? latest.title : 'Getting ready for their first task.')}</div>
-        <button data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 12px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer">Call meeting</button>
+        <div style="color:var(--t2);font-size:11px;line-height:1.4;margin-bottom:10px;min-height:28px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(latest ? latest.title : 'Getting ready.')}</div>
+        <button data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Call meeting</button>
       </div>
     `
   }
@@ -244,14 +244,14 @@
     const ig = STATE.insights
     if (!ig) {
       return `
-        <section style="margin-bottom:40px">
+        <section style="margin-bottom:26px">
           ${sectionLabel('Performance — last 30 days')}
           <div style="padding:32px;text-align:center;color:var(--t3);font-size:13px;border:1px dashed var(--b1);border-radius:12px">Connect Instagram to see performance charts.</div>
         </section>
       `
     }
     return `
-      <section style="margin-bottom:40px">
+      <section style="margin-bottom:26px">
         ${sectionLabel('Performance — last 30 days')}
         <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
@@ -456,7 +456,7 @@
       `
     }
     return `
-      <section style="margin-bottom:40px">
+      <section style="margin-bottom:26px">
         ${sectionLabel('Activity')}
         <ol style="list-style:none;padding:0;margin:0;border-left:1px solid var(--b1)">
           ${items.map((n) => `
@@ -473,7 +473,7 @@
   }
 
   function sectionLabel(text) {
-    return `<h2 style="color:var(--t1);font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0 0 14px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
+    return `<h2 style="color:var(--t2);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0 0 10px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
   }
 
   function capitalize(s) {
@@ -591,7 +591,7 @@
     root.style.height = '100%'
     root.innerHTML = `
       <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
-        <main style="flex:1;min-width:0;overflow-y:auto;padding:44px 48px 80px">
+        <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 36px 60px">
           <div style="max-width:820px">
             ${sectionHeader()}
             ${sectionOverview()}
