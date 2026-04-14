@@ -123,25 +123,104 @@
   // the readable view a content team would expect. Falls back to JSON
   // for unknown shapes.
 
+  // ── TREND REPORT ─────────────────────────────────────────────────
+  // Each trend gets:
+  //   • Color-coded urgency stripe (act now / build / skip)
+  //   • Sparkline of the last 7 days (visual at a glance)
+  //   • Growth + window
+  //   • Audience-fit line
+  //   • Three Maya-voiced callouts: insight / action / solution
+  // Falls back gracefully if a trend was seeded with the older shape
+  // (just topic/growth/window/verdict).
+  const URGENCY = {
+    act_now: { label: 'Act now', tint: '#e8a04b', bg: 'rgba(232,160,75,.14)', border: 'rgba(232,160,75,.55)' },
+    build:   { label: 'Build for the month', tint: '#7eb39a', bg: 'rgba(126,179,154,.14)', border: 'rgba(126,179,154,.55)' },
+    skip:    { label: 'Skip', tint: '#9c9c9c', bg: 'rgba(156,156,156,.10)', border: 'rgba(156,156,156,.45)' },
+  }
+
+  function sparklineSvg(values, tint) {
+    const arr = Array.isArray(values) && values.length ? values : []
+    if (arr.length < 2) return ''
+    const W = 220, H = 56, padT = 6, padB = 6
+    const min = Math.min(...arr), max = Math.max(...arr)
+    const range = Math.max(1, max - min)
+    const step = W / (arr.length - 1)
+    const pts = arr.map((v, i) => `${(i * step).toFixed(1)},${(padT + (H - padT - padB) - ((v - min) / range) * (H - padT - padB)).toFixed(1)}`).join(' ')
+    const last = arr[arr.length - 1]
+    const lastX = ((arr.length - 1) * step).toFixed(1)
+    const lastY = (padT + (H - padT - padB) - ((last - min) / range) * (H - padT - padB)).toFixed(1)
+    return `
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">
+        <polygon points="0,${H} ${pts} ${W},${H}" fill="${tint}" fill-opacity="0.13" />
+        <polyline points="${pts}" fill="none" stroke="${tint}" stroke-width="2" stroke-linejoin="round" />
+        <circle cx="${lastX}" cy="${lastY}" r="3.5" fill="${tint}" />
+      </svg>
+    `
+  }
+
+  function callout(label, body, tint) {
+    return `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:11px 14px">
+        <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:${tint};font-weight:700;margin-bottom:6px;font-family:'Syne',sans-serif">${escapeHtml(label)}</div>
+        <div style="color:var(--t1);font-size:13px;line-height:1.55">${escapeHtml(body)}</div>
+      </div>
+    `
+  }
+
   function rTrendReport(c) {
     const trends = Array.isArray(c.trends) ? c.trends : []
     if (!trends.length) return null
-    return `
-      <ol style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px">
-        ${trends.map((t, i) => `
-          <li style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:16px 18px">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px">
-              <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
-                <span style="color:var(--t3);font-size:11px;font-family:'Syne',sans-serif">0${i + 1}</span>
-                <span style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--t1);font-weight:500">${escapeHtml(t.topic || '')}</span>
+    const generatedLine = c.generatedAt
+      ? `<div style="color:var(--t3);font-size:11px;letter-spacing:.06em;margin-bottom:18px">Pulled ${escapeHtml(fmtDate(c.generatedAt))} · ${trends.length} trend${trends.length === 1 ? '' : 's'} flagged · Maya</div>`
+      : ''
+    return generatedLine + `
+      <div style="display:flex;flex-direction:column;gap:18px">
+        ${trends.map((t, i) => {
+          const u = URGENCY[t.urgency] || URGENCY.build
+          return `
+            <article style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">
+              <div style="background:${u.bg};border-bottom:1px solid ${u.border};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:14px;min-width:0">
+                  <span style="background:${u.tint};color:#fff;font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:999px;font-family:'Syne',sans-serif">${escapeHtml(u.label)}</span>
+                  <span style="color:var(--t3);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Window: ${escapeHtml(t.window || '—')}</span>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <span style="color:${u.tint};font-size:22px;font-weight:600;font-family:'Syne',sans-serif">${escapeHtml(t.growth || '')}</span>
+                  <span style="color:var(--t3);font-size:11px">7d</span>
+                </div>
               </div>
-              ${t.growth ? `<span style="color:var(--t1);font-size:13px;font-weight:600;white-space:nowrap">${escapeHtml(t.growth)}</span>` : ''}
-            </div>
-            <div style="color:var(--t3);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${escapeHtml(t.window || '')}</div>
-            <div style="color:var(--t2);font-size:13px;line-height:1.55">${escapeHtml(t.verdict || '')}</div>
-          </li>
-        `).join('')}
-      </ol>
+              <div style="padding:18px 20px">
+                <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:center;margin-bottom:14px">
+                  <div>
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+                      <span style="color:var(--t3);font-size:11px;font-family:'Syne',sans-serif">0${i + 1}</span>
+                      <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--t1);font-weight:500;margin:0">${escapeHtml(t.topic || '')}</h3>
+                    </div>
+                    ${t.audienceFit ? `<div style="color:var(--t2);font-size:12px;line-height:1.5"><span style="color:var(--t3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px">Audience fit</span>${escapeHtml(t.audienceFit)}</div>` : ''}
+                  </div>
+                  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">
+                    ${sparklineSvg(t.sparkline, u.tint)}
+                    <div style="display:flex;justify-content:space-between;color:var(--t3);font-size:9px;margin-top:4px;letter-spacing:.06em">
+                      <span>7d ago</span><span>now</span>
+                    </div>
+                  </div>
+                </div>
+
+                ${t.insight || t.action || t.solution
+                  ? `
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                      ${t.insight ? callout('Maya\'s read', t.insight, u.tint) : ''}
+                      ${t.action ? callout('What to do', t.action, u.tint) : ''}
+                      ${t.solution ? callout('Ship this', t.solution, u.tint) : ''}
+                    </div>
+                  `
+                  : (t.verdict ? `<div style="color:var(--t2);font-size:13px;line-height:1.55">${escapeHtml(t.verdict)}</div>` : '')
+                }
+              </div>
+            </article>
+          `
+        }).join('')}
+      </div>
     `
   }
 
