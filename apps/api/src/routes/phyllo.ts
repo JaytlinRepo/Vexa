@@ -48,6 +48,89 @@ router.get('/platforms', requireAuth, async (_req, res, next) => {
   }
 })
 
+/**
+ * Debug: dump the raw Phyllo response for the current user's account so
+ * we can tell why a connected account is returning sparse data. Returns
+ * the account record + profile + first 5 contents + audience exactly as
+ * Phyllo sent them, plus a quick health diagnosis.
+ */
+router.get('/debug', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phylloUserId: true } })
+    if (!user?.phylloUserId) {
+      res.json({ error: 'no_phyllo_user', diagnosis: 'No Phyllo user record yet — finish Connect first.' })
+      return
+    }
+    const accounts = await phyllo.listAccountsForUser(user.phylloUserId)
+    const igAccount = accounts.data.find(
+      (a) => (a.work_platform?.name || '').toLowerCase().includes('instagram') && a.status !== 'NOT_CONNECTED',
+    )
+    if (!igAccount) {
+      res.json({
+        error: 'no_instagram_account',
+        accounts: accounts.data.map((a) => ({
+          platform: a.work_platform?.name,
+          status: a.status,
+          handle: a.platform_username,
+        })),
+        diagnosis: 'No connected Instagram account on this Phyllo user.',
+      })
+      return
+    }
+
+    const [profileRes, contentsRes, audienceRes] = await Promise.allSettled([
+      phyllo.getProfile(igAccount.id),
+      phyllo.getContents(igAccount.id, 5),
+      phyllo.getAudience(igAccount.id),
+    ])
+    const profile = profileRes.status === 'fulfilled' ? profileRes.value.data?.[0] ?? null : null
+    const contents = contentsRes.status === 'fulfilled' ? contentsRes.value : null
+    const audience = audienceRes.status === 'fulfilled' ? audienceRes.value : null
+
+    // Quick health check
+    const reasons: string[] = []
+    const followerCount = profile?.reputation?.follower_count ?? 0
+    const contentCount = contents?.data?.length ?? 0
+    const samplePostHasEngagement = !!(contents?.data?.[0]?.engagement && Object.values(contents.data[0].engagement).some((v) => Number(v) > 0))
+    const audienceHasData = !!(audience?.gender_age_distribution?.length || audience?.countries?.length)
+
+    if (followerCount === 0) reasons.push('follower_count is 0 — Phyllo has not pulled basic profile data yet')
+    if (contentCount === 0) reasons.push('No content rows — IG insights scope likely missing or this account has no posts')
+    if (contentCount > 0 && !samplePostHasEngagement) reasons.push('Posts returned but no engagement metrics — account is likely still PERSONAL on Meta\'s side, OR Meta is still propagating insights (24-48h after Pro switch)')
+    if (!audienceHasData) reasons.push('No audience demographics — requires Business account on Meta + sufficient follower volume (Meta gates this below ~100 followers)')
+
+    res.json({
+      account: {
+        id: igAccount.id,
+        handle: igAccount.platform_username,
+        platform: igAccount.work_platform?.name,
+        status: igAccount.status,
+      },
+      profile: profile
+        ? {
+            id: profile.id,
+            handle: profile.platform_username,
+            reputation: profile.reputation,
+            hasUrl: !!profile.url,
+            hasIntro: !!profile.introduction,
+          }
+        : null,
+      sampleContent: contents?.data?.[0] ?? null,
+      contentCount,
+      audience,
+      diagnosis: reasons.length ? reasons : ['Looks healthy — full data should be flowing.'],
+      remediation: [
+        'If account is PERSONAL on Meta\'s side: switch to Professional (Settings → Account → Switch to Professional Account), then disconnect and reconnect on Vexa.',
+        'If just switched to Professional: wait 24-48h for Meta to propagate insights, then trigger Resync from Settings → Integrations.',
+        'If consent was skipped: disconnect, reconnect, and accept ALL permissions on the Meta consent screen.',
+      ],
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.post('/accounts/:id/disconnect', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
