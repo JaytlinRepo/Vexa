@@ -590,8 +590,8 @@
     const root = view.querySelector('.db-layout') || view
     root.style.height = '100%'
     root.innerHTML = `
-      <div style="height:100%;display:grid;grid-template-columns:1fr 340px;gap:0;font-family:'DM Sans',sans-serif">
-        <main style="overflow-y:auto;padding:44px 48px 80px;min-width:0">
+      <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
+        <main style="flex:1;min-width:0;overflow-y:auto;padding:44px 48px 80px">
           <div style="max-width:820px">
             ${sectionHeader()}
             ${sectionOverview()}
@@ -601,7 +601,7 @@
             ${sectionActivity()}
           </div>
         </main>
-        <aside style="overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
+        <aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
           ${sectionFeedStrip()}
         </aside>
       </div>
