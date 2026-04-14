@@ -126,7 +126,7 @@
     return `
       <div ${action} style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;${navId ? 'transition:border-color .2s' : ''}">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">${esc(label)}</div>
-        <div style="color:var(--t1);font-family:'DM Sans',sans-serif;font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1;margin-bottom:4px">${esc(value)}</div>
+        <div class="vx-tile-value" style="color:var(--t1);margin-bottom:4px">${esc(value)}</div>
         <div style="color:var(--t2);font-size:11px">${esc(sub)}</div>
         ${progressPct != null ? `<div style="height:2px;border-radius:2px;background:var(--s3);margin-top:8px;overflow:hidden"><div style="width:${progressPct}%;height:100%;background:var(--t1);transition:width .4s ease"></div></div>` : ''}
       </div>
