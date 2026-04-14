@@ -60,7 +60,7 @@
         </div>
       `
       const bubble = document.getElementById('vx-mtg-opener')
-      if (bubble) bubble.textContent = presentation.opening
+      if (bubble) bubble.innerHTML = renderAgentMarkdown(presentation.opening)
       // Seed the conversation history with the agent's opener so when the
       // CEO replies, the agent has context for what they just said.
       history = [
@@ -144,6 +144,36 @@
 
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  // Tiny safe markdown renderer for agent replies. The system prompt
+  // tells the agents to format with **bold**, "- " bullets, and blank
+  // lines between blocks. We escape first, then convert markers — XSS-
+  // safe because no raw HTML is ever injected from the model.
+  function renderAgentMarkdown(raw) {
+    const safe = escapeHtml(raw || '')
+    const lines = safe.split('\n')
+    const out = []
+    let inList = false
+    for (const line of lines) {
+      const isBullet = /^\s*-\s+/.test(line)
+      if (isBullet) {
+        if (!inList) { out.push('<ul style="margin:6px 0 6px 18px;padding:0">'); inList = true }
+        out.push('<li style="margin:3px 0;line-height:1.55">' + line.replace(/^\s*-\s+/, '') + '</li>')
+      } else {
+        if (inList) { out.push('</ul>'); inList = false }
+        if (line.trim() === '') {
+          out.push('<div style="height:6px"></div>')
+        } else {
+          out.push('<div style="margin:3px 0;line-height:1.55">' + line + '</div>')
+        }
+      }
+    }
+    if (inList) out.push('</ul>')
+    let html = out.join('')
+    // Bold (run after structural pass so we don't break bullet detection)
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:var(--t1);font-weight:600">$1</strong>')
+    return html
   }
 
   // Override closeMeeting() so "End Meeting" posts the transcript to
@@ -299,7 +329,10 @@
             const evt = JSON.parse(json)
             if (evt.chunk) {
               assistantText += evt.chunk
-              bubble.textContent = assistantText
+              // Re-render the full message as markdown each chunk so
+              // bullets / bold / line-breaks appear as the agent types.
+              // Cheap for short messages and worth it for legibility.
+              bubble.innerHTML = renderAgentMarkdown(assistantText)
               msgs.scrollTop = msgs.scrollHeight
             } else if (evt.done) {
               history.push({ role: 'assistant', content: assistantText })
