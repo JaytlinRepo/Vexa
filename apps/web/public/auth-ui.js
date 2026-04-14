@@ -177,21 +177,18 @@
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'login_failed')
         authedUser = json.user
-        // If already onboarded, go straight to dashboard. Any error downstream
-        // in the long enterDashboard chain should still land the user on a
-        // working page, so reload as a safety net.
+        // Decide next screen based on whether the account already has a
+        // company. For onboarded users we reload rather than calling the
+        // enterDashboard wrapper chain directly — that chain is wrapped by
+        // 20+ companion scripts and at least one layer silently no-ops
+        // post-login so the nav never switches. The session-restore path
+        // (DOMContentLoaded → dashboard-wire init) is battle-tested and
+        // lands cleanly on the dashboard, so we take that path every time.
         const me = await fetchMe()
-        window.closeAuth()
         if (me?.companies && me.companies.length > 0) {
-          currentCompany = me.companies[0]
-          obState.companyName = currentCompany.name
-          try {
-            if (typeof window.enterDashboard === 'function') await window.enterDashboard()
-          } catch (err) {
-            console.error('[auth] enterDashboard chain threw; reloading', err)
-            location.reload()
-          }
+          location.reload()
         } else {
+          window.closeAuth()
           closeAuthAndStartOnboarding()
         }
       }
