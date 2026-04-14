@@ -1,8 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "buildCommand": "cd ../.. && npm install --workspaces --include-workspace-root --no-audit --no-fund && cd apps/web && npm run build",
-  "installCommand": "echo 'install handled by buildCommand to support monorepo'",
-  "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "framework": "nextjs"
 }
