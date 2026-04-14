@@ -55,6 +55,7 @@ export interface IgStub {
   audienceAge: IgAudienceBucket[]
   audienceGender: IgAudienceBucket[]
   audienceTopCountries: IgAudienceBucket[]
+  audienceTopCities: IgAudienceBucket[]
 }
 
 // ── Deterministic PRNG from handle ──────────────────────────────────────────
@@ -194,6 +195,7 @@ export function buildStub(handle: string): IgStub {
     audienceAge,
     audienceGender,
     audienceTopCountries,
+    audienceTopCities: [],
   }
 }
 

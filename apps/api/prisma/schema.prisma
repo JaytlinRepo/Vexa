@@ -332,6 +332,7 @@ model InstagramConnection {
   audienceAge    Json     @default("{}") @map("audience_age")
   audienceGender Json     @default("{}") @map("audience_gender")
   audienceTop    Json     @default("[]") @map("audience_top_countries")
+  audienceCities Json     @default("[]") @map("audience_top_cities")
   accessToken    String?  @map("access_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
   igUserId       String?  @map("ig_user_id")

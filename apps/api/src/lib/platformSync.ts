@@ -97,7 +97,7 @@ export async function persistPhylloSync(
         ageBreakdown: stub.audienceAge as never,
         genderBreakdown: stub.audienceGender as never,
         topCountries: stub.audienceTopCountries as never,
-        topCities: [] as never,
+        topCities: stub.audienceTopCities as never,
       },
     })
   }

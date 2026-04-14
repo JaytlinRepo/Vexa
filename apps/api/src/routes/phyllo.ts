@@ -180,6 +180,7 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       audienceAge: stub.audienceAge as unknown as object,
       audienceGender: stub.audienceGender as unknown as object,
       audienceTop: stub.audienceTopCountries as unknown as object,
+      audienceCities: stub.audienceTopCities as unknown as object,
       igUserId: stub.igUserId,
       phylloAccountId: account.id,
       platform: account.work_platform?.name?.toLowerCase() || 'instagram',

@@ -30,6 +30,7 @@ function stubToDb(stub: IgStub) {
     audienceAge: stub.audienceAge as unknown as object,
     audienceGender: stub.audienceGender as unknown as object,
     audienceTop: stub.audienceTopCountries as unknown as object,
+    audienceCities: stub.audienceTopCities as unknown as object,
     igUserId: stub.igUserId,
     source: 'stub',
     lastSyncedAt: new Date(),
@@ -55,6 +56,7 @@ function dbToStub(row: { [k: string]: unknown }): IgStub {
     audienceAge: (row.audienceAge as IgStub['audienceAge']) || [],
     audienceGender: (row.audienceGender as IgStub['audienceGender']) || [],
     audienceTopCountries: (row.audienceTop as IgStub['audienceTopCountries']) || [],
+    audienceTopCities: (row.audienceCities as IgStub['audienceTopCities']) || [],
   }
 }
 

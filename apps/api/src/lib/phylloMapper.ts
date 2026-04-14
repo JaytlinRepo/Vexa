@@ -82,6 +82,12 @@ export function mapPhylloToStub(input: {
     .slice(0, 5)
     .map((c) => ({ bucket: c.code, share: clamp01(c.value / 100) }))
 
+  const audienceTopCities = (input.audience?.cities || [])
+    .slice()
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+    .map((c) => ({ bucket: c.name, share: clamp01(c.value / 100) }))
+
   const username = profile?.platform_username || input.account.platform_username || ''
   const url = profile?.url || (username ? `https://instagram.com/${username}` : '')
 
@@ -103,6 +109,7 @@ export function mapPhylloToStub(input: {
     audienceAge,
     audienceGender,
     audienceTopCountries,
+    audienceTopCities,
   }
 }
 

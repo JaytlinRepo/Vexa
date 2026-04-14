@@ -258,10 +258,10 @@
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             ${chartCard('Content mix', formatDonutSvg(ig.recentMedia), null)}
-            ${chartCard('Weekly reach', weeklyReachSvg(ig.followerSeries), reachDelta(ig.followerSeries))}
+            ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender))}
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            ${chartCard('Engagement by day', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia))}
+            ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null)}
             ${topPostCard(ig.topPosts?.[0], ig.recentMedia)}
           </div>
         </div>
@@ -302,6 +302,74 @@
           ${segs}
         </svg>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px">${legend}</div>
+      </div>
+    `
+  }
+
+  function audienceMixBars(gender, age) {
+    const g = Array.isArray(gender) ? gender : []
+    if (g.length === 0) return '<div style="height:110px;color:var(--t3);font-size:12px;display:grid;place-items:center">No audience data yet</div>'
+    const labels = { MALE: 'Men', FEMALE: 'Women', OTHER: 'Other', UNKNOWN: 'Other' }
+    const ordered = g
+      .slice()
+      .filter((b) => b && typeof b.share === 'number')
+      .sort((a, b) => b.share - a.share)
+    const domAge = (Array.isArray(age) ? age : []).slice().sort((a, b) => b.share - a.share)[0]
+    const domAgeLabel = domAge ? domAge.bucket : ''
+    const max = Math.max(...ordered.map((b) => b.share), 0.01)
+    return `
+      <div style="display:flex;flex-direction:column;gap:10px;padding-top:4px">
+        ${ordered.map((b) => {
+          const pct = Math.round(b.share * 100)
+          const label = labels[b.bucket] || b.bucket
+          const width = Math.max(6, Math.round((b.share / max) * 100))
+          return `
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:44px;color:var(--t2);font-size:11px;flex-shrink:0">${escape(label)}</span>
+              <div style="flex:1;height:10px;background:var(--s3);border-radius:5px;overflow:hidden">
+                <div style="width:${width}%;height:100%;background:var(--t1);border-radius:5px"></div>
+              </div>
+              <span style="width:36px;color:var(--t1);font-size:12px;font-weight:600;text-align:right">${pct}%</span>
+            </div>
+          `
+        }).join('')}
+        ${domAgeLabel ? `<div style="color:var(--t3);font-size:11px;margin-top:2px">Dominant age: <strong style="color:var(--t2)">${escape(domAgeLabel)}</strong></div>` : ''}
+      </div>
+    `
+  }
+
+  function dominantGenderLabel(gender) {
+    const g = Array.isArray(gender) ? gender : []
+    if (g.length === 0) return null
+    const top = g.slice().sort((a, b) => b.share - a.share)[0]
+    const labels = { MALE: 'Men', FEMALE: 'Women', OTHER: 'Other' }
+    const name = labels[top.bucket] || top.bucket
+    return `${name} ${Math.round(top.share * 100)}%`
+  }
+
+  function topCitiesBars(cities) {
+    const c = Array.isArray(cities) ? cities : []
+    if (c.length === 0) {
+      return '<div style="height:110px;color:var(--t3);font-size:12px;display:grid;place-items:center;text-align:center;line-height:1.5">No city data yet<br/><span style="font-size:10px">Populates on next sync</span></div>'
+    }
+    const ordered = c.slice().sort((a, b) => b.share - a.share).slice(0, 5)
+    const max = Math.max(...ordered.map((b) => b.share), 0.01)
+    return `
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
+        ${ordered.map((b) => {
+          const pct = (b.share * 100).toFixed(1)
+          const width = Math.max(6, Math.round((b.share / max) * 100))
+          const shortName = String(b.bucket || '').split(',')[0]
+          return `
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="flex:0 0 120px;color:var(--t2);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escape(b.bucket)}">${escape(shortName)}</span>
+              <div style="flex:1;height:8px;background:var(--s3);border-radius:4px;overflow:hidden">
+                <div style="width:${width}%;height:100%;background:var(--t1);border-radius:4px"></div>
+              </div>
+              <span style="width:44px;color:var(--t1);font-size:11px;font-weight:600;text-align:right">${pct}%</span>
+            </div>
+          `
+        }).join('')}
       </div>
     `
   }
