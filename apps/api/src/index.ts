@@ -23,6 +23,8 @@ import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
 import phylloRouter from './routes/phyllo'
 import platformDataRouter from './routes/platformData'
+import { registerScheduledJobs } from './scheduler'
+import { PrismaClient } from '@prisma/client'
 
 if (!process.env.SESSION_SECRET) {
   console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
@@ -104,4 +106,5 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.log(`[api] listening on http://localhost:${PORT}`)
+  registerScheduledJobs(new PrismaClient())
 })
