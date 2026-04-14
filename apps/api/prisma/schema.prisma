@@ -112,6 +112,7 @@ model Company {
   meetings  Meeting[]
   memory    BrandMemory[]
   instagram InstagramConnection?
+  platformAccounts PlatformAccount[]
 
   @@map("companies")
 }
@@ -199,6 +200,117 @@ model BrandMemory {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("brand_memory")
+}
+
+// ─── PLATFORM DATA MODEL (multi-platform, time-series) ──────────────────────
+// Each connected social account lives in PlatformAccount. Every sync writes
+// a PlatformSnapshot (point-in-time KPIs), a PlatformAudience row (demo
+// breakdown at that moment), and upserts one PlatformPost row per post we
+// saw. Everything is scoped to a Company, and Company is scoped to a User,
+// so tenant isolation is enforced at the app layer (findFirst + onDelete
+// cascade). No user can read another user's rows.
+
+enum SocialPlatform {
+  instagram
+  tiktok
+  youtube
+  twitter_x
+  facebook
+  twitch
+  substack
+  snapchat
+  linkedin
+  pinterest
+  other
+}
+
+model PlatformAccount {
+  id                String    @id @default(uuid())
+  companyId         String    @map("company_id")
+  platform          SocialPlatform
+  platformUserId    String?   @map("platform_user_id")  // e.g. Instagram user id
+  handle            String
+  displayName       String?   @map("display_name")
+  profileUrl        String?   @map("profile_url")
+  profileImageUrl   String?   @map("profile_image_url")
+  bio               String?
+  accountType       String?   @map("account_type")       // CREATOR / BUSINESS / PERSONAL
+  phylloAccountId   String?   @unique @map("phyllo_account_id")
+  phylloUserId      String?   @map("phyllo_user_id")
+  status            String    @default("connected")      // connected / disconnected / expired
+  connectedAt       DateTime  @default(now()) @map("connected_at")
+  lastSyncedAt      DateTime  @default(now()) @map("last_synced_at")
+  disconnectedAt    DateTime? @map("disconnected_at")
+
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  snapshots  PlatformSnapshot[]
+  posts      PlatformPost[]
+  audiences  PlatformAudience[]
+
+  @@unique([companyId, platform, handle])
+  @@index([companyId])
+  @@map("platform_accounts")
+}
+
+model PlatformSnapshot {
+  id              String   @id @default(uuid())
+  accountId       String   @map("account_id")
+  capturedAt      DateTime @default(now()) @map("captured_at")
+  followerCount   Int      @default(0) @map("follower_count")
+  followingCount  Int      @default(0) @map("following_count")
+  postCount       Int      @default(0) @map("post_count")
+  avgReach        Int      @default(0) @map("avg_reach")
+  avgImpressions  Int      @default(0) @map("avg_impressions")
+  engagementRate  Float    @default(0) @map("engagement_rate")
+
+  account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, capturedAt])
+  @@map("platform_snapshots")
+}
+
+model PlatformPost {
+  id               String    @id @default(uuid())
+  accountId        String    @map("account_id")
+  platformPostId   String    @map("platform_post_id")
+  mediaType        String    @map("media_type")          // REEL / CAROUSEL_ALBUM / IMAGE / VIDEO
+  caption          String?
+  url              String?
+  thumbnailUrl     String?   @map("thumbnail_url")
+  publishedAt      DateTime? @map("published_at")
+  likeCount        Int       @default(0) @map("like_count")
+  commentCount     Int       @default(0) @map("comment_count")
+  shareCount       Int       @default(0) @map("share_count")
+  saveCount        Int       @default(0) @map("save_count")
+  viewCount        Int       @default(0) @map("view_count")
+  reachCount       Int       @default(0) @map("reach_count")
+  impressionCount  Int       @default(0) @map("impression_count")
+  lastSyncedAt     DateTime  @default(now()) @map("last_synced_at")
+
+  account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, platformPostId])
+  @@index([accountId, publishedAt])
+  @@map("platform_posts")
+}
+
+model PlatformAudience {
+  id             String   @id @default(uuid())
+  accountId      String   @map("account_id")
+  capturedAt     DateTime @default(now()) @map("captured_at")
+  // Age buckets: [{bucket:'18-24', share:0.114}, ...]
+  ageBreakdown   Json     @default("[]") @map("age_breakdown")
+  // Gender buckets: [{bucket:'MALE', share:0.38}, {bucket:'FEMALE', share:0.40}, ...]
+  genderBreakdown Json    @default("[]") @map("gender_breakdown")
+  // [{bucket:'US', share:0.518}, {bucket:'BR', share:0.105}, ...]
+  topCountries   Json     @default("[]") @map("top_countries")
+  // [{bucket:'Atlanta, Georgia', share:0.139}, ...]
+  topCities      Json     @default("[]") @map("top_cities")
+
+  account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, capturedAt])
+  @@map("platform_audiences")
 }
 
 model InstagramConnection {

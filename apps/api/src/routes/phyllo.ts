@@ -6,6 +6,7 @@ import * as phyllo from '../lib/phyllo'
 import { mapPhylloToStub } from '../lib/phylloMapper'
 import { writeMemory } from '../lib/brandMemory'
 import { createNotification } from '../services/notifications/notification.service'
+import { persistPhylloSync } from '../lib/platformSync'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -191,6 +192,15 @@ router.post('/sync', requireAuth, async (req, res, next) => {
       update: { ...payload, connectedAt: new Date() },
       create: { companyId: company.id, ...payload },
     })
+
+    // Also write to the generalized tables (point-in-time snapshot + posts +
+    // audience). Legacy InstagramConnection stays populated for backward
+    // compatibility; new code should read from PlatformAccount.
+    try {
+      await persistPhylloSync(prisma, company.id, user.phylloUserId, account, stub)
+    } catch (e) {
+      console.warn('[phyllo] platform-snapshot write failed (legacy IG row still persisted)', e)
+    }
 
     // Push key facts into BrandMemory so meetings reflect the real numbers
     // without re-fetching from Phyllo every call.
