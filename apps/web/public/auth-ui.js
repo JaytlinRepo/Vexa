@@ -221,148 +221,49 @@
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // EXTENDED ONBOARDING — inject steps 4–7 (audience, goals, tools, IG) between
-  // the prototype's step 3 (sub-niche) and step 4 (team reveal).
+  // ONBOARDING — three steps total: name → niche → Instagram, then reveal.
+  // The agents derive sub-niche / audience / goals / tool sources themselves
+  // from the connected account + brand memory + niche knowledge base, so we
+  // don't ask the CEO to fill any of that in upfront.
   // ───────────────────────────────────────────────────────────────────────────
   const obWrap = document.querySelector('#onboarding .ob-wrap')
   if (obWrap) {
     const reveal = document.getElementById('ob-4')
 
-    function step(id, eyebrow, title, sub, body, continueHandler, opts) {
-      const el = document.createElement('div')
-      el.className = 'ob-step'
-      el.id = id
-      el.innerHTML = `
-        <span class="ob-eyebrow">${eyebrow}</span>
-        <h2 class="ob-title">${title}</h2>
-        <p class="ob-sub">${sub}</p>
-        ${body}
-        <div class="ob-actions">
-          <button class="btn-fill" style="padding:13px 32px;font-size:12px" data-next>${opts?.continueLabel || 'Continue'}</button>
-          <button class="ob-back" data-back>Back</button>
-          ${opts?.skip ? '<button class="ob-skip" data-skip>Skip</button>' : ''}
-        </div>`
-      el.querySelector('[data-next]').addEventListener('click', continueHandler)
-      el.querySelector('[data-back]').addEventListener('click', () => obPrevTo(id))
-      if (opts?.skip) el.querySelector('[data-skip]').addEventListener('click', continueHandler)
-      obWrap.insertBefore(el, reveal)
-      return el
+    // Inject Step 3 — Instagram connect.
+    const ig = document.createElement('div')
+    ig.className = 'ob-step'
+    ig.id = 'ob-8'
+    ig.innerHTML = `
+      <span class="ob-eyebrow">Step 3 of 3</span>
+      <h2 class="ob-title">Connect Instagram.</h2>
+      <p class="ob-sub">We pull follower counts and top-post signals so Maya knows what is actually working. The team figures out audience, sub-niche, and tools from this — you don't have to.</p>
+      <div class="ob-ig-card">
+        <div class="ob-ig-title">Instagram connection</div>
+        <ul class="ob-ig-bullets">
+          <li>Read-only access — we never post on your behalf.</li>
+          <li>Follower counts, post performance, engagement rate.</li>
+          <li>You can disconnect anytime from Settings.</li>
+        </ul>
+        <input class="ob-input" id="ob-ig-handle" placeholder="@your_handle" autocomplete="off">
+        <div class="ob-ig-result" id="ob-ig-result"></div>
+      </div>
+      <div class="ob-actions">
+        <button class="btn-fill" id="ob-ig-next" style="padding:13px 32px;font-size:12px">Connect &amp; finish</button>
+        <button class="ob-back" data-back>Back</button>
+        <button class="ob-skip" id="ob-ig-skip">Skip for now</button>
+      </div>
+    `
+    obWrap.insertBefore(ig, reveal)
+
+    const finishOnboarding = async () => {
+      const handle = document.getElementById('ob-ig-handle').value.trim()
+      obState.instagram.handle = handle
+      await submitOnboardingAndConnectInstagram()
     }
-
-    // Step A — audience
-    step(
-      'ob-5',
-      'Step 4 of 7',
-      'Who are they for?',
-      'Describe your audience. The team uses this to sharpen hooks, tone, and examples.',
-      `
-        <input class="ob-input" id="ob-aud-desc" placeholder="e.g. Women 35–50, busy moms losing their last 20 lb" autocomplete="off">
-        <input class="ob-input" id="ob-aud-age" placeholder="Age range (e.g. 28–45)" autocomplete="off" style="margin-top:10px">
-        <input class="ob-input" id="ob-aud-int" placeholder="Interests (comma-separated)" autocomplete="off" style="margin-top:10px">
-      `,
-      () => {
-        obState.audience = {
-          description: document.getElementById('ob-aud-desc').value.trim(),
-          age: document.getElementById('ob-aud-age').value.trim(),
-          interests: document.getElementById('ob-aud-int').value.trim(),
-        }
-        setProgress(55)
-        showStep('6')
-      },
-    )
-
-    // Step B — goals
-    const goalOptions = [
-      ['grow_following', 'Grow my following'],
-      ['more_engagement', 'More engagement'],
-      ['drive_sales', 'Drive sales'],
-      ['build_authority', 'Build authority'],
-      ['launch_product', 'Launch a product'],
-      ['build_community', 'Build a community'],
-    ]
-    step(
-      'ob-6',
-      'Step 5 of 7',
-      'What are you trying to do?',
-      'Pick one or more. Jordan will tune your weekly plan around these outcomes.',
-      `<div class="ob-tags" id="ob-goals">${goalOptions.map(([v, l]) => `<button class="ob-tag" data-goal="${v}" type="button">${l}</button>`).join('')}</div>`,
-      () => {
-        obState.goals = Array.from(document.querySelectorAll('#ob-goals .ob-tag.selected')).map((e) => e.dataset.goal)
-        if (obState.goals.length === 0) return
-        setProgress(70)
-        showStep('7')
-      },
-      { continueLabel: 'Continue' },
-    )
-    document.getElementById('ob-6').querySelectorAll('#ob-goals .ob-tag').forEach((t) => {
-      t.addEventListener('click', () => t.classList.toggle('selected'))
-    })
-
-    // Step C — agent tools
-    const toolsByAgent = {
-      maya:   ['Reddit', 'Google Trends', 'NewsAPI', 'RSS feeds', 'YouTube'],
-      jordan: ['Your past outputs', 'Top competitors', 'Instagram insights'],
-      alex:   ['Your previous captions', 'Top-performing hooks', 'Saved swipe file'],
-      riley:  ['Pexels', 'Pixabay', 'Your brand color palette', 'Creatomate templates'],
-    }
-    step(
-      'ob-7',
-      'Step 6 of 7',
-      'What should your team use?',
-      'Pick the sources each employee should pull from. You can change this anytime.',
-      `
-        ${Object.entries(toolsByAgent).map(([agent, tools]) => `
-          <div class="ob-tool-group">
-            <div class="ob-tool-group-title">
-              <span class="chip">${agentName(agent)}</span>
-              <span>${agentRole(agent)}</span>
-            </div>
-            <div class="ob-tags" data-agent="${agent}">
-              ${tools.map((t) => `<button class="ob-tag selected" data-tool="${t}" type="button">${t}</button>`).join('')}
-            </div>
-          </div>`).join('')}
-      `,
-      () => {
-        const selected = {}
-        Object.keys(toolsByAgent).forEach((agent) => {
-          selected[agent] = Array.from(document.querySelectorAll(`[data-agent="${agent}"] .ob-tag.selected`)).map((e) => e.dataset.tool)
-        })
-        obState.agentTools = selected
-        setProgress(85)
-        showStep('8')
-      },
-    )
-    document.getElementById('ob-7').querySelectorAll('.ob-tag').forEach((t) => {
-      t.addEventListener('click', () => t.classList.toggle('selected'))
-    })
-
-    // Step D — Instagram connect
-    step(
-      'ob-8',
-      'Step 7 of 7',
-      'Connect Instagram.',
-      'We pull follower counts and top-post signals so Maya knows what is actually working.',
-      `
-        <div class="ob-ig-card">
-          <div class="ob-ig-title">Instagram connection</div>
-          <ul class="ob-ig-bullets">
-            <li>Read-only access — we never post on your behalf.</li>
-            <li>Follower counts, post performance, engagement rate.</li>
-            <li>You can disconnect anytime from Settings.</li>
-          </ul>
-          <input class="ob-input" id="ob-ig-handle" placeholder="@your_handle" autocomplete="off">
-          <div class="ob-ig-result" id="ob-ig-result"></div>
-        </div>
-      `,
-      async () => {
-        const handle = document.getElementById('ob-ig-handle').value.trim()
-        obState.instagram.handle = handle
-        await submitOnboardingAndConnectInstagram()
-      },
-      { skip: true, continueLabel: 'Connect & finish' },
-    )
-
-    // Override the step 3 → step 4 transition so it lands in our new flow.
+    document.getElementById('ob-ig-next').addEventListener('click', finishOnboarding)
+    document.getElementById('ob-ig-skip').addEventListener('click', finishOnboarding)
+    ig.querySelector('[data-back]').addEventListener('click', () => obPrevTo('ob-8'))
   }
 
   function agentName(a) { return { maya: 'Maya', jordan: 'Jordan', alex: 'Alex', riley: 'Riley' }[a] }
@@ -381,13 +282,14 @@
   }
 
   function obPrevTo(fromId) {
-    const order = ['ob-1', 'ob-2', 'ob-3', 'ob-5', 'ob-6', 'ob-7', 'ob-8', 'ob-4']
+    // Three-step flow: name → niche → Instagram → reveal.
+    const order = ['ob-1', 'ob-2', 'ob-8', 'ob-4']
     const idx = order.indexOf(fromId)
     if (idx <= 0) return
     const prev = order[idx - 1]
     document.getElementById(fromId).classList.remove('active')
     document.getElementById(prev).classList.add('active')
-    const progressMap = { 'ob-1': 15, 'ob-2': 30, 'ob-3': 45, 'ob-5': 55, 'ob-6': 70, 'ob-7': 85 }
+    const progressMap = { 'ob-1': 33, 'ob-2': 66 }
     if (progressMap[prev] !== undefined) setProgress(progressMap[prev])
   }
 
@@ -412,28 +314,20 @@
     showStep(1)
   }
 
-  // Override obNext so step 3 (sub-niche) goes to our step 5 (audience) rather
-  // than jumping straight to the team reveal.
-  const originalObNext = window.obNext
+  // Override obNext: name → niche → Instagram → reveal. No sub-niche /
+  // audience / goals / tools steps — agents derive those themselves.
   window.obNext = function (step) {
     if (step === 1) {
       obState.companyName = document.getElementById('ob-name-input').value.trim() || 'My Company'
       document.getElementById('ob-1').classList.remove('active')
       document.getElementById('ob-2').classList.add('active')
-      setProgress(30)
+      setProgress(66)
     } else if (step === 2) {
       obState.niche = window.selectedNiche || ''
       if (!obState.niche) return
       document.getElementById('ob-2').classList.remove('active')
-      document.getElementById('ob-3').classList.add('active')
-      setProgress(45)
-    } else if (step === 3) {
-      obState.subNiche = document.getElementById('ob-subniche-input').value.trim()
-      document.getElementById('ob-3').classList.remove('active')
-      showStep('5')
-      setProgress(55)
-    } else if (typeof originalObNext === 'function') {
-      originalObNext(step)
+      document.getElementById('ob-8').classList.add('active')
+      setProgress(100)
     }
   }
 
@@ -455,10 +349,6 @@
         body: JSON.stringify({
           name: obState.companyName,
           niche: obState.niche,
-          subNiche: obState.subNiche || undefined,
-          audience: obState.audience,
-          goals: { selected: obState.goals },
-          agentTools: obState.agentTools,
         }),
       })
       const companyJson = await companyRes.json()
