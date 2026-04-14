@@ -150,6 +150,29 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 .home-merged-section{margin-top:120px;padding-top:80px;border-top:1px solid var(--b1)}
 .home-merged-section:first-of-type{margin-top:120px}
 
+/* Boost chart contrast — prototype uses --t2 (mid-gray) on lines, too
+   pale against either theme. Force strong foreground color. */
+.chart-svg polyline{stroke:var(--t1)!important;stroke-width:2!important}
+.chart-svg polygon{fill:var(--t1)!important;fill-opacity:.08!important}
+[data-theme="dark"] .chart-svg polygon{fill-opacity:.14!important}
+.chart-svg .chart-axis-label{fill:var(--t2);font-size:9px;letter-spacing:.04em}
+.chart-card-val{color:var(--t1);font-weight:600}
+.chart-card-title{color:var(--t1)}
+
+/* Bars: ensure readable contrast and clear top-bar emphasis */
+.bar-chart .bar{background:var(--t2);opacity:.55;border-radius:2px}
+.bar-chart .bar.highlight{background:var(--t2);opacity:.85}
+.bar-chart .bar.top{background:var(--t1);opacity:1}
+.bar-chart .bar-lbl{color:var(--t3);font-size:10px;letter-spacing:.04em;margin-top:6px}
+
+/* Donut swatches + legend text */
+.donut-legend-item{color:var(--t2);font-size:11px;display:flex;align-items:center;gap:8px;padding:3px 0}
+.donut-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* Insight callout quotes under charts */
+.insight-callout{color:var(--t2);font-size:11px;line-height:1.55;padding-top:10px;border-top:1px dashed var(--b1);margin-top:10px}
+.insight-callout-who{color:var(--t1);font-weight:600;margin-right:6px}
+
 /* Hero fills viewport and centers vertically when home loads */
 #view-home .view-inner > .hero-content{
   min-height:calc(100vh - 180px);

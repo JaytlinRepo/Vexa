@@ -51,7 +51,11 @@
     })
     const poly = svg.querySelector('polyline')
     const area = svg.querySelector('polygon')
-    if (poly) poly.setAttribute('points', pts.join(' '))
+    if (poly) {
+      poly.setAttribute('points', pts.join(' '))
+      poly.setAttribute('stroke', 'var(--t1)')
+      poly.setAttribute('stroke-width', '2')
+    }
     if (area) area.setAttribute('points', `0,${H - 15} ${pts.join(' ')} ${W},${H - 15}`.replace(/\s+/g, ' '))
 
     const delta = series[series.length - 1].followers - series[0].followers
@@ -225,7 +229,11 @@
     const pts = weekly.map((v, i) => `${(i * step).toFixed(1)},${(bottom - ((v - min) / range) * (bottom - top)).toFixed(1)}`)
     const poly = svg.querySelector('polyline')
     const area = svg.querySelector('polygon')
-    if (poly) poly.setAttribute('points', pts.join(' '))
+    if (poly) {
+      poly.setAttribute('points', pts.join(' '))
+      poly.setAttribute('stroke', 'var(--t1)')
+      poly.setAttribute('stroke-width', '2')
+    }
     if (area) area.setAttribute('points', `0,95 ${pts.join(' ')} ${W},95`.replace(/\s+/g, ' '))
 
     const val = card.querySelector('.chart-card-val')
