@@ -5,6 +5,8 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { createNotification } from '../services/notifications/notification.service'
 import { assertTaskQuota, computeUsage } from '../lib/usage'
 import { recordTaskApproved, recordTaskRejected } from '../lib/brandMemory'
+import { executeAndStore } from '../services/agentExecutor'
+import { AgentRole } from '../lib/nicheKnowledge'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -58,7 +60,41 @@ router.post('/', requireAuth, async (req, res, next) => {
       include: { employee: true },
     })
 
-    res.status(201).json({ task, usage: await computeUsage(prisma, userId) })
+    // Execute the brief inline — pulls niche knowledge, generates the
+    // structured output (Bedrock when configured, mock otherwise), writes
+    // the Output row, and flips the task to 'delivered'. This is the
+    // "real work in your queue within seconds" promise.
+    let knowledgeUsed = 0
+    let executionSource: 'bedrock' | 'mock' | null = null
+    try {
+      const role = task.employee.role as AgentRole
+      const result = await executeAndStore(prisma, {
+        taskId: task.id,
+        companyId: company.id,
+        niche: company.niche,
+        role,
+        type: data.type,
+        title: data.title,
+        description: data.description,
+      })
+      knowledgeUsed = result.knowledgeUsed
+      executionSource = result.source
+    } catch (err) {
+      console.warn('[tasks] brief execution failed; task will sit in_progress', err)
+    }
+
+    // Re-fetch with outputs so the client sees delivered status + content
+    // in the same response.
+    const fresh = await prisma.task.findUnique({
+      where: { id: task.id },
+      include: { employee: true, outputs: true },
+    })
+
+    res.status(201).json({
+      task: fresh ?? task,
+      usage: await computeUsage(prisma, userId),
+      execution: { knowledgeUsed, source: executionSource },
+    })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })

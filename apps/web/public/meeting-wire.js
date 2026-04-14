@@ -25,6 +25,8 @@
     // Claude requires the first message in `messages` to have role='user',
     // so we show the greeting in the UI but do NOT push it into history.
     history = []
+    // Reset the badge so the previous meeting's stats don't bleed in.
+    document.getElementById('vx-mtg-knowledge')?.remove()
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
       msgs.innerHTML = `
@@ -34,6 +36,33 @@
       `
     }
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
+  }
+
+  // Show a discreet "Knowledge: N · niche" badge inside the meeting room
+  // so the CEO can see the agent is reasoning from a real knowledge base,
+  // not generic LLM defaults.
+  function renderKnowledgeBadge(knowledgeCount, niche, memoryCount) {
+    const room = document.getElementById('meeting-room')
+    if (!room) return
+    document.getElementById('vx-mtg-knowledge')?.remove()
+    const nicheLabel = niche ? String(niche).trim() : 'your niche'
+    const parts = []
+    if (knowledgeCount > 0) parts.push(`${knowledgeCount} ${escapeHtml(nicheLabel)} knowledge entr${knowledgeCount === 1 ? 'y' : 'ies'}`)
+    if (memoryCount > 0) parts.push(`${memoryCount} brand memor${memoryCount === 1 ? 'y' : 'ies'}`)
+    if (!parts.length) return
+    const badge = document.createElement('div')
+    badge.id = 'vx-mtg-knowledge'
+    badge.style.cssText =
+      'position:absolute;top:14px;right:60px;display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;font-family:DM Sans,sans-serif;z-index:10'
+    badge.innerHTML = `
+      <span style="width:5px;height:5px;border-radius:50%;background:var(--t1)"></span>
+      <span>Drawing from ${parts.join(' + ')}</span>
+    `
+    room.appendChild(badge)
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   }
 
   // Override closeMeeting() so "End Meeting" posts the transcript to
@@ -195,6 +224,8 @@
               history.push({ role: 'assistant', content: assistantText })
             } else if (evt.error) {
               bubble.textContent = '(Stream error: ' + evt.error + ')'
+            } else if (typeof evt.knowledgeCount === 'number') {
+              renderKnowledgeBadge(evt.knowledgeCount, evt.niche, evt.memoryCount)
             }
           } catch {
             // ignore parse errors on heartbeats / empty frames

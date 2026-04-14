@@ -268,6 +268,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       source: hasBedrockCreds() ? 'bedrock' : 'mock',
       memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0,
       knowledgeCount,
+      niche: company?.niche || null,
     })}\n\n`)
 
     // Belt & suspenders: Claude requires the first entry in `messages` to
