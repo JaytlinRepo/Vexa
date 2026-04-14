@@ -257,12 +257,8 @@
         <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            ${chartCard('Content mix', formatDonutSvg(ig.recentMedia), null)}
             ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender))}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null)}
-            ${topPostCard(ig.topPosts?.[0], ig.recentMedia)}
           </div>
         </div>
       </section>
