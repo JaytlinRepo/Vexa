@@ -133,6 +133,14 @@ export function listAccountsForUser(phylloUserId: string): Promise<{ data: Phyll
   return call<{ data: PhylloAccount[] }>('GET', `/v1/accounts?user_id=${phylloUserId}`)
 }
 
+export function disconnectAccount(accountId: string): Promise<void> {
+  return call<void>('POST', `/v1/accounts/${accountId}/disconnect`)
+}
+
+export function listWorkPlatforms(): Promise<{ data: Array<{ id: string; name: string; logo_url?: string; category?: string }> }> {
+  return call('GET', '/v1/work-platforms?limit=100')
+}
+
 export function getProfile(accountId: string): Promise<{ data: PhylloProfile[] }> {
   return call<{ data: PhylloProfile[] }>('GET', `/v1/profiles?account_id=${accountId}`)
 }

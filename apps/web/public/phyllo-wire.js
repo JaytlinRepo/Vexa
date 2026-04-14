@@ -45,7 +45,7 @@
   }
 
   async function openConnect(opts) {
-    const { companyId, onConnected } = opts || {}
+    const { companyId, onConnected, workPlatformId } = opts || {}
     console.log('[phyllo] openConnect start', { companyId })
     try {
       const [PhylloConnect, token] = await Promise.all([loadSdk(), fetchToken()])
@@ -64,6 +64,7 @@
         environment: token.environment || 'staging',
         userId: token.phylloUserId,
         token: token.sdkToken,
+        ...(workPlatformId ? { workPlatformId } : {}),
       })
       console.log('[phyllo] initialized', phyllo)
       phyllo.on('accountConnected', async (accountId, workplatformId, userId) => {
@@ -168,107 +169,198 @@
     })
   }
 
-  // ── Inject a full Instagram panel on Settings ──
-  async function injectSettingsInstagramPanel() {
+  // ── Inject a multi-platform Integrations panel on Settings ──
+  // The curated list below is shown in order. Anything Phyllo returns that
+  // isn't here gets appended under "Other connections."
+  const CURATED = [
+    { id: '9bb8913b-ddd9-430b-a66a-d74d846e6c66', name: 'Instagram' },
+    { id: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987', name: 'TikTok' },
+    { id: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054', name: 'YouTube' },
+    { id: '7645460a-96e0-4192-a3ce-a1fc30641f72', name: 'X' },
+    { id: 'ad2fec62-2987-40a0-89fb-23485972598c', name: 'Facebook' },
+    { id: 'e4de6c01-5b78-4fc0-a651-24f44134457b', name: 'Twitch' },
+    { id: 'fbf76083-710b-439a-8b8c-956f607ef2c1', name: 'Substack' },
+    { id: 'ee3c8d7a-3207-4f56-945f-f942b34c96e1', name: 'Snapchat' },
+  ]
+
+  async function injectSettingsIntegrationsPanel() {
     const settingsView = document.getElementById('view-db-settings')
     if (!settingsView) return
     const nav = settingsView.querySelector('.settings-nav')
     if (!nav) return
-    if (document.getElementById('vx-settings-instagram-tab')) return
+    if (document.getElementById('vx-settings-integrations-tab')) return
 
-    // Add the tab button (after any existing custom tabs)
     const tabBtn = document.createElement('button')
-    tabBtn.id = 'vx-settings-instagram-tab'
+    tabBtn.id = 'vx-settings-integrations-tab'
     tabBtn.className = 'settings-nav-item'
-    tabBtn.textContent = 'Instagram'
-    tabBtn.setAttribute('onclick', "switchSettings(this,'instagram')")
+    tabBtn.textContent = 'Integrations'
+    tabBtn.setAttribute('onclick', "switchSettings(this,'integrations')")
     nav.appendChild(tabBtn)
 
-    // Add the panel
     const container = settingsView.querySelector('.settings-panel')?.parentElement
     if (!container) return
     const panel = document.createElement('div')
     panel.className = 'settings-panel'
-    panel.id = 'settings-instagram'
+    panel.id = 'settings-integrations'
     panel.innerHTML = `
       <div class="settings-section">
-        <h3>Instagram</h3>
-        <p>Connect your Instagram Business or Creator account so your team works from real numbers. We use Phyllo, which handles OAuth on our behalf.</p>
-        <div id="vx-ig-panel-body" style="margin-top:16px"></div>
+        <h3>Integrations</h3>
+        <p>Connect the platforms where your brand lives so your team works from real numbers. Managed through Phyllo — one login per platform, read-only access, disconnect any time.</p>
+        <div id="vx-integrations-body" style="margin-top:16px"></div>
       </div>
     `
     container.appendChild(panel)
 
-    await renderSettingsPanelState()
+    await renderIntegrationsState()
   }
 
-  async function renderSettingsPanelState() {
-    const body = document.getElementById('vx-ig-panel-body')
+  async function renderIntegrationsState() {
+    const body = document.getElementById('vx-integrations-body')
     if (!body) return
-    // Fetch current state
-    let conn = null
-    try {
-      const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.ok ? r.json() : null)
-      const companyId = me?.companies?.[0]?.id
-      if (companyId) {
-        const res = await fetch(`/api/instagram/insights?companyId=${companyId}`, { credentials: 'include' })
-        if (res.ok) conn = (await res.json()).connection
-      }
-      window.__vxCompany = me?.companies?.[0] || window.__vxCompany
-    } catch {}
+    body.innerHTML = '<div style="padding:16px;color:var(--t3);font-size:12px">Loading connections…</div>'
 
-    const isPhyllo = conn?.source === 'phyllo'
-    if (conn && isPhyllo) {
-      body.innerHTML = `
-        <div style="padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;display:flex;align-items:center;gap:12px">
-          <div style="flex:1">
-            <div style="font-size:12px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Connected via Phyllo</div>
-            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:2px">@${escapeHtml(conn.handle)}</div>
-            <div style="color:var(--t2);font-size:12px">${Number(conn.followerCount).toLocaleString()} followers · last synced ${new Date(conn.lastSyncedAt || conn.connectedAt).toLocaleString()}</div>
-          </div>
-          <button id="vx-ig-resync" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Resync</button>
-          <button id="vx-ig-disconnect" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Disconnect</button>
-        </div>
-      `
-      body.querySelector('#vx-ig-resync').addEventListener('click', async () => {
-        if (!conn?.phylloAccountId) return
-        const btn = body.querySelector('#vx-ig-resync')
-        btn.disabled = true
-        btn.textContent = 'Resyncing…'
-        const ok = await syncAccount(conn.phylloAccountId, conn.companyId)
-        if (ok) renderSettingsPanelState()
-        btn.disabled = false
-      })
-      body.querySelector('#vx-ig-disconnect').addEventListener('click', async () => {
-        if (!confirm('Disconnect Instagram?')) return
-        await fetch('/api/instagram', { method: 'DELETE', credentials: 'include' })
-        renderSettingsPanelState()
-      })
-      return
+    // Pull: our user + company + IG connection state, plus Phyllo's list of
+    // accounts (source of truth for multi-platform status).
+    const [me, igConn, phylloRes] = await Promise.all([
+      fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetchIgConnection(),
+      fetch('/api/phyllo/accounts', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+    const company = me?.companies?.[0]
+    window.__vxCompany = company || window.__vxCompany
+    const accounts = phylloRes?.accounts || []
+
+    // Index Phyllo-connected accounts by work platform id.
+    const byPlatform = new Map()
+    for (const a of accounts) {
+      const pid = a.work_platform?.id
+      if (pid && !byPlatform.has(pid)) byPlatform.set(pid, a)
     }
 
-    const stubNote = conn && !isPhyllo
-      ? `<div style="padding:10px 14px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);font-size:12px;margin-bottom:14px">Currently showing demo data for <strong style="color:var(--t1)">@${escapeHtml(conn.handle)}</strong>. Connect real account below.</div>`
-      : ''
+    // Build row list: curated first, then anything non-curated Phyllo returned.
+    const seen = new Set()
+    const rows = []
+    for (const p of CURATED) {
+      rows.push(platformRow(p, byPlatform.get(p.id), igConn))
+      seen.add(p.id)
+    }
+    const extras = accounts.filter((a) => a.work_platform?.id && !seen.has(a.work_platform.id))
+    for (const a of extras) {
+      rows.push(platformRow({ id: a.work_platform.id, name: a.work_platform.name || 'Connection' }, a, igConn))
+    }
+
     body.innerHTML = `
-      ${stubNote}
-      <button id="vx-ig-connect-btn" style="background:var(--t1);color:var(--bg);border:none;padding:11px 20px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect Instagram via Phyllo</button>
-      <div style="margin-top:14px;color:var(--t3);font-size:11px;line-height:1.6">
-        Read-only access. Requires a Business or Creator Instagram account.
-        You can disconnect at any time.
+      <div style="display:flex;flex-direction:column;gap:8px">${rows.join('')}</div>
+      <div style="margin-top:18px;padding:14px 16px;background:var(--s2);border:1px dashed var(--b1);border-radius:10px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">Don't see your platform?</div>
+          <div style="color:var(--t2);font-size:11px">Open the full picker — Phyllo supports 20+ platforms.</div>
+        </div>
+        <button id="vx-integ-browse" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Browse all</button>
       </div>
     `
-    body.querySelector('#vx-ig-connect-btn').addEventListener('click', () => {
-      openConnect({
-        companyId: window.__vxCompany?.id,
-        onConnected: () => {
-          renderSettingsPanelState()
-          location.reload()
-        },
+
+    body.querySelectorAll('[data-connect]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openConnect({
+          companyId: company?.id,
+          workPlatformId: btn.dataset.connect,
+          onConnected: () => renderIntegrationsState(),
+        })
       })
     })
+    body.querySelectorAll('[data-disconnect]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Disconnect this platform?')) return
+        btn.disabled = true
+        await fetch(`/api/phyllo/accounts/${btn.dataset.disconnect}/disconnect`, { method: 'POST', credentials: 'include' })
+        renderIntegrationsState()
+      })
+    })
+    body.querySelectorAll('[data-resync]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        btn.textContent = 'Resyncing…'
+        await syncAccount(btn.dataset.resync, company?.id)
+        renderIntegrationsState()
+      })
+    })
+    const browse = body.querySelector('#vx-integ-browse')
+    if (browse) {
+      browse.addEventListener('click', () => {
+        openConnect({
+          companyId: company?.id,
+          onConnected: () => renderIntegrationsState(),
+        })
+      })
+    }
   }
 
+  async function fetchIgConnection() {
+    try {
+      const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null))
+      const companyId = me?.companies?.[0]?.id
+      if (!companyId) return null
+      const res = await fetch(`/api/instagram/insights?companyId=${companyId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return (await res.json()).connection
+    } catch {
+      return null
+    }
+  }
+
+  function platformRow(platform, account, igConn) {
+    const isConnected = !!account && account.status !== 'NOT_CONNECTED'
+    const statusDot = isConnected
+      ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--t1);display:inline-block"></span>'
+      : '<span style="width:7px;height:7px;border-radius:50%;background:var(--t3);display:inline-block;opacity:.6"></span>'
+    const label = isConnected ? 'Connected' : 'Not connected'
+
+    let detail = ''
+    if (isConnected) {
+      const handle = account.platform_username ? `@${account.platform_username}` : 'Active'
+      detail = `<span style="color:var(--t3);font-size:11px">· ${escapeHtml(handle)}</span>`
+      // Add follower count + last sync if we have local data (Instagram only for now).
+      if (platform.id === '9bb8913b-ddd9-430b-a66a-d74d846e6c66' && igConn?.source === 'phyllo') {
+        detail += ` <span style="color:var(--t3);font-size:11px">· ${Number(igConn.followerCount).toLocaleString()} followers · last synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}</span>`
+      }
+    }
+
+    const actions = isConnected
+      ? `${platform.id === '9bb8913b-ddd9-430b-a66a-d74d846e6c66' ? `<button data-resync="${account.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Resync</button>` : ''}
+         <button data-disconnect="${account.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Disconnect</button>`
+      : `<button data-connect="${platform.id}" style="background:var(--t1);color:var(--bg);border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect</button>`
+
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--t1);font-family:'Syne',sans-serif;flex-shrink:0">${esc(initials(platform.name))}</div>
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">${escapeHtml(platform.name)}</div>
+          <div style="color:var(--t2);font-size:11px;display:flex;align-items:center;gap:8px">
+            ${statusDot}<span>${escapeHtml(label)}</span>${detail}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">${actions}</div>
+      </div>
+    `
+  }
+
+  function initials(name) {
+    return String(name || '?').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?'
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return 'never'
+    const diff = Math.max(0, Date.now() - new Date(iso).getTime())
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return m + ' min ago'
+    const h = Math.floor(m / 60)
+    if (h < 24) return h + ' hr ago'
+    return Math.floor(h / 24) + 'd ago'
+  }
+
+  function esc(s) { return escapeHtml(s) }
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   }
@@ -281,7 +373,7 @@
     pollCount++
     injectOnboardingButton()
     injectDashboardConnectButton()
-    injectSettingsInstagramPanel()
+    injectSettingsIntegrationsPanel()
     if (pollCount > 120) clearInterval(poll) // stop after ~72s
   }, 600)
 })()

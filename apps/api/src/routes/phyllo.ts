@@ -21,6 +21,52 @@ async function ensurePhylloUser(userId: string): Promise<string> {
   return created.id
 }
 
+router.get('/accounts', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phylloUserId: true } })
+    if (!user?.phylloUserId) {
+      res.json({ accounts: [] })
+      return
+    }
+    const { data } = await phyllo.listAccountsForUser(user.phylloUserId)
+    res.json({ accounts: data })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/platforms', requireAuth, async (_req, res, next) => {
+  try {
+    const list = await phyllo.listWorkPlatforms()
+    res.json({ platforms: list.data })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/accounts/:id/disconnect', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phylloUserId: true } })
+    if (!user?.phylloUserId) {
+      res.status(400).json({ error: 'no_phyllo_user' })
+      return
+    }
+    const account = await phyllo.getAccount(req.params.id)
+    if (account.user_id !== user.phylloUserId) {
+      res.status(403).json({ error: 'account_not_owned' })
+      return
+    }
+    await phyllo.disconnectAccount(req.params.id)
+    // If this was the Instagram row we were syncing, drop the local connection too.
+    await prisma.instagramConnection.deleteMany({ where: { phylloAccountId: account.id } })
+    res.json({ ok: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.post('/sdk-token', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
