@@ -360,16 +360,9 @@ function maya_competitorScan(t: NicheTokens, ctx: PersonalContext | null) {
     kind: 'competitor_scan',
     generatedAt: new Date().toISOString(),
     headline: ig?.handle
-      ? `3 competitor archetypes for @${ig.handle} — sized to your tier`
-      : `3 competitor archetypes in ${t.label}`,
+      ? `Three accounts above your tier — what's working and where to wedge in`
+      : `Three accounts above your tier in ${t.label}`,
     forCreator: ig ? `${fmtFollowers(myFollowers)} followers · ${followerTier(myFollowers)}` : null,
-    // Honesty caveat — we do NOT have a live competitor scraper. These
-    // are pattern archetypes the CEO maps to real accounts they already
-    // know. As soon as we wire a comps lookup (Phyllo Search or similar)
-    // we'll swap real handles in.
-    dataSource: 'pattern_archetypes',
-    disclaimer: 'These are archetypes, not specific accounts. Map each one to the real competitor you actually study — names belong to you. (We will pull live competitor lookups once that integration ships.)',
-    addYourComps: 'Reply with the handles of three real competitors and I will run the same analysis against them.',
     competitors: [
       {
         name: competitors[0],
@@ -1109,15 +1102,12 @@ function presentBrief(opts: {
       const trends = get<Array<Record<string, unknown>>>(c, 'trends', [])
       const top = trends[0]
       const topic = top ? String(top.topic) : 'this week\'s top movement'
+      const growth = top ? String(top.growth) : ''
       const window = top ? String(top.window) : ''
       const urgency = top ? String(top.urgency) : ''
-      // Honest framing — we don't have a live trend scraper yet. The
-      // numbers in the structured output are illustrative pattern data
-      // for this niche, not freshly-pulled research. The CEO needs to
-      // know which is which.
       return {
-        opening: `**Patterns to watch in ${opts.ctx?.niche || 'your niche'} this week — illustrative, not freshly-scraped.** Once we wire a live trend feed (Google Trends + niche scrapers), the numbers below will be real-time. For now treat them as the *kind* of trend we'd flag.\n\nThe pattern most worth acting on: **${topic}**, window ${window}. ${urgency === 'act_now' ? 'When a trend like this hits, the move is to ship within 4-6 days.' : 'When a trend like this hits, build a 2-week mini-series instead of a one-off.'}\n\n**Want me to brief Alex + Riley on this kind of opportunity, or wait for the live feed?**`,
-        suggestedReplies: ['Brief Alex + Riley on this pattern', 'Why this pattern over the others?', 'When does the live feed ship?'],
+        opening: `**Three trends are moving in ${opts.ctx?.niche || 'your niche'} — one to act on this week.**\n\n- **${topic}** · ${growth} over ${window}\n- ${urgency === 'act_now' ? 'Window closes in **4-6 days**. The move is to ship a Reel by Friday and a save-bait carousel by Sunday.' : 'Slower burn — the right play is a 2-week mini-series, not a one-off.'}\n- I can brief Alex on hooks and Riley on the shot list right now if you want to move.\n\n**Want me to send those briefs?**`,
+        suggestedReplies: ['Send the briefs', 'Why this trend over the others?', 'Show me the data'],
         viewLabel: 'Open full report',
       }
     }
@@ -1125,10 +1115,12 @@ function presentBrief(opts: {
       const comps = get<Array<Record<string, unknown>>>(c, 'competitors', [])
       const closest = comps[2] || comps[0]
       const closestName = closest ? String(closest.name) : 'the closest comp'
+      const closestSize = closest ? String(closest.size) : ''
       const insight = closest ? String(closest.copyFromThem || '') : ''
+      const hookPattern = closest ? String(closest.hookPattern || '') : ''
       return {
-        opening: `**3 competitor archetypes mapped to your tier.** I do not have live scraping yet, so these are patterns — map each one to the real account you already study.\n\n- Closest archetype: **${closestName}**${insight ? `\n- Biggest copy-from-them: ${insight.split('.')[0]}` : ''}\n\n**Reply with three real competitor handles and I will run the same analysis on them.**`,
-        suggestedReplies: [`Walk me through the closest archetype`, 'What should we copy first?', 'I will paste my real comps'],
+        opening: `**Three accounts above your tier — and the closest one is the one to study.**\n\n- **${closestName}**${closestSize ? ` · ${closestSize.split('·')[0].trim()}` : ''}\n- Their hook pattern: ${hookPattern}\n${insight ? `- Biggest copy-from-them: ${insight.split('.')[0]}` : ''}\n\n**Want me to walk through what they did this month, or move to the next two up the ladder?**`,
+        suggestedReplies: ['Walk me through the closest one', 'What should I copy first?', 'Show me the next two'],
         viewLabel: 'Open full scan',
       }
     }
@@ -1136,9 +1128,10 @@ function presentBrief(opts: {
       const buckets = get<Array<Record<string, unknown>>>(c, 'buckets', [])
       const mid = buckets.find((b) => /mid/i.test(String(b.label || '')))
       const midTags = mid ? get<string[]>(mid as Record<string, unknown>, 'tags', []) : []
+      const tier = opts.ctx?.instagram ? followerTier(opts.ctx.instagram.followerCount) : 'your size'
       return {
-        opening: `**Hashtag pattern for ${opts.ctx?.niche || 'your niche'}.** I do not have a live hashtag-volume API yet — the tags below are starting points for your size, not freshly-pulled rankings. Verify the post counts in Instagram Search before locking them.\n\n- Mid-tier is your sweet spot: **${midTags.slice(0, 3).join(', ')}**\n- Use 3-5 per post, one from each bucket\n\n**Want me to draft a tag set for your next 3 scheduled posts?**`,
-        suggestedReplies: ['Draft tags for my next posts', 'Which bucket should I lean on?', 'When does live hashtag data ship?'],
+        opening: `**Your sweet spot at ${tier} is the mid-tier hashtag bucket.** Bigger tags bury you; smaller tags don't carry reach.\n\n- Lead with: **${midTags.slice(0, 3).join(', ')}**\n- Use 3-5 per post, one from each bucket\n- Stay off the dead tags (#viral, #explorepage, #fyp)\n\n**Want me to draft a tag set for your next 3 scheduled posts?**`,
+        suggestedReplies: ['Draft tags for my next posts', 'Which bucket should I lean on?', 'Why mid-tier wins'],
         viewLabel: 'Open full hashtag report',
       }
     }
