@@ -56,11 +56,16 @@ export interface PhylloSdkToken {
 
 export interface PhylloAccount {
   id: string
-  user_id: string
+  user: { id: string; name?: string }
+  user_id?: string // legacy alias, may or may not be present
   work_platform: { id: string; name: string; logo_url?: string }
   platform_username: string | null
   profile_pic_url: string | null
   status: 'CONNECTED' | 'SESSION_EXPIRED' | 'NOT_CONNECTED'
+}
+
+export function accountOwnerId(account: PhylloAccount): string | undefined {
+  return account.user?.id || account.user_id
 }
 
 export interface PhylloProfile {
@@ -105,8 +110,8 @@ export interface PhylloContentList {
 
 export interface PhylloAudience {
   gender_age_distribution?: Array<{ gender: string; age_range: string; value: number }>
-  country_distribution?: Array<{ code: string; name: string; value: number }>
-  city_distribution?: Array<{ name: string; value: number }>
+  countries?: Array<{ code: string; value: number }>
+  cities?: Array<{ name: string; value: number }>
 }
 
 // ── Calls ───────────────────────────────────────────────────────────────────

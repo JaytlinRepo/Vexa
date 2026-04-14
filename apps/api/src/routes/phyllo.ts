@@ -56,7 +56,7 @@ router.post('/accounts/:id/disconnect', requireAuth, async (req, res, next) => {
       return
     }
     const account = await phyllo.getAccount(req.params.id)
-    if (account.user_id !== user.phylloUserId) {
+    if (phyllo.accountOwnerId(account) !== user.phylloUserId) {
       res.status(403).json({ error: 'account_not_owned' })
       return
     }
@@ -103,8 +103,9 @@ router.post('/sync', requireAuth, async (req, res, next) => {
 
     // Verify the account belongs to this user's phyllo user
     const account = await phyllo.getAccount(data.accountId)
-    if (account.user_id !== user.phylloUserId) {
-      res.status(403).json({ error: 'account_not_owned' })
+    const ownerId = phyllo.accountOwnerId(account)
+    if (ownerId !== user.phylloUserId) {
+      res.status(403).json({ error: 'account_not_owned', expected: user.phylloUserId, actual: ownerId })
       return
     }
 

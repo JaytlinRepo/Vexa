@@ -1,4 +1,5 @@
-import { PhylloAccount, PhylloAudience, PhylloContent, PhylloContentList, PhylloProfile } from './phyllo'
+import { PhylloAccount, PhylloAudience, PhylloContentList, PhylloProfile } from './phyllo'
+import type { PhylloContent } from './phyllo'
 import type { IgMedia, IgStub } from './instagramStub'
 
 /**
@@ -74,9 +75,12 @@ export function mapPhylloToStub(input: {
   // Audience buckets
   const audienceAge = aggregateAge(input.audience?.gender_age_distribution || [])
   const audienceGender = aggregateGender(input.audience?.gender_age_distribution || [])
-  const audienceTopCountries = (input.audience?.country_distribution || [])
+  // Phyllo returns country share as a percentage (0..100), not a decimal.
+  const audienceTopCountries = (input.audience?.countries || [])
+    .slice()
+    .sort((a, b) => b.value - a.value)
     .slice(0, 5)
-    .map((c) => ({ bucket: c.code || c.name, share: clamp01(c.value / 100) }))
+    .map((c) => ({ bucket: c.code, share: clamp01(c.value / 100) }))
 
   const username = profile?.platform_username || input.account.platform_username || ''
   const url = profile?.url || (username ? `https://instagram.com/${username}` : '')
@@ -118,9 +122,10 @@ function aggregateAge(rows: Array<{ gender: string; age_range: string; value: nu
     buckets[r.age_range] = (buckets[r.age_range] || 0) + r.value
     total += r.value
   }
-  return Object.entries(buckets)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([bucket, value]) => ({ bucket, share: total > 0 ? clamp01(value / total) : 0 }))
+  const order = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65-']
+  return order
+    .filter((k) => buckets[k] != null)
+    .map((bucket) => ({ bucket, share: total > 0 ? clamp01((buckets[bucket] || 0) / total) : 0 }))
 }
 
 function aggregateGender(rows: Array<{ gender: string; age_range: string; value: number }>) {
