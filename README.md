@@ -83,8 +83,8 @@ Pipeline: Jordan approval → Alex → Riley → Creatomate video render.
 | Plan | Monthly | Annual | Includes |
 |---|---|---|---|
 | Starter | $14.99/mo | $11/mo | Maya + Alex, 30 tasks/mo, Knowledge Feed |
-| Pro | $49/mo | $37/mo | Full team, unlimited tasks, meetings, memory, 10 videos/mo |
-| Agency | $99/mo | $74/mo | 5 workspaces, 50 videos/mo, white-label |
+| Pro | $49.99/mo | $37/mo | Full team, unlimited tasks, meetings, memory, 10 videos/mo |
+| Agency | $99.99/mo | $74/mo | 5 workspaces, 50 videos/mo, white-label |
 
 All plans start with a 7-day free trial. No credit card required.
 

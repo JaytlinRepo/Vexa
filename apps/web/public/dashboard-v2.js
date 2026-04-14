@@ -236,7 +236,10 @@
           ${esc(status)}
         </div>
         <div style="color:var(--t2);font-size:11px;line-height:1.4;margin-bottom:10px;min-height:28px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(latest ? latest.title : 'Getting ready.')}</div>
-        <button data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Call meeting</button>
+        <div style="display:flex;gap:6px">
+          <button data-v2-brief="${role}" data-v2-brief-name="${r.name}" style="flex:1;background:var(--t1);color:var(--bg);border:none;padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;font-weight:600;cursor:pointer">Brief</button>
+          <button data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" style="flex:1;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Meeting</button>
+        </div>
       </div>
     `
   }
@@ -596,6 +599,13 @@
         const role = mt.dataset.v2Role
         const init = mt.dataset.v2Init
         if (typeof window.openMeeting === 'function') window.openMeeting(name, role, init)
+        return
+      }
+      const bf = e.target.closest('[data-v2-brief]')
+      if (bf) {
+        const r = bf.dataset.v2Brief
+        const name = bf.dataset.v2BriefName
+        if (typeof window.vxOpenAssignModal === 'function') window.vxOpenAssignModal(r, name)
       }
     })
   }

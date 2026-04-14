@@ -15,11 +15,13 @@
 
   let history = []
   let currentRole = 'copywriter'
+  let currentName = 'Alex'
   let streaming = false
 
   const originalOpen = window.openMeeting
   window.openMeeting = function (name, role, init) {
     currentRole = ROLE_BY_NAME[name] || 'copywriter'
+    currentName = name
     // Claude requires the first message in `messages` to have role='user',
     // so we show the greeting in the UI but do NOT push it into history.
     history = []
@@ -32,6 +34,96 @@
       `
     }
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
+  }
+
+  // Override closeMeeting() so "End Meeting" posts the transcript to
+  // /api/meeting/end, gets a summary + auto-created tasks back, and shows
+  // them in a little recap modal before the meeting actually closes. If
+  // the meeting was empty, we close silently without pinging the API.
+  function roleTitle(role) {
+    return role === 'analyst' ? 'Trend Analyst'
+      : role === 'strategist' ? 'Content Strategist'
+      : role === 'copywriter' ? 'Copywriter'
+      : role === 'creative_director' ? 'Creative Director'
+      : 'Teammate'
+  }
+
+  function showSummaryModal(name, data, onDone) {
+    document.getElementById('vx-mtg-summary')?.remove()
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+    const tasks = data.tasksCreated || []
+    const decisions = data.decisions || []
+    const el = document.createElement('div')
+    el.id = 'vx-mtg-summary'
+    el.style.cssText =
+      'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+    el.innerHTML = `
+      <div style="width:100%;max-width:520px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:28px;color:var(--t1);font-family:'DM Sans',sans-serif;max-height:92vh;overflow:auto">
+        <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Meeting summary</div>
+        <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 14px">Recap with ${esc(name)}</h3>
+        <p style="color:var(--t2);font-size:13px;line-height:1.55;margin:0 0 18px">${esc(data.summary || 'Meeting ended.')}</p>
+        ${decisions.length ? `
+          <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Decisions</div>
+          <ul style="margin:0 0 18px;padding-left:18px;color:var(--t1);font-size:13px;line-height:1.55">
+            ${decisions.map((d) => `<li>${esc(d.decision)}</li>`).join('')}
+          </ul>
+        ` : ''}
+        ${tasks.length ? `
+          <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Tasks created (${tasks.length})</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+            ${tasks.map((t) => `
+              <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">
+                <div style="font-size:13px;color:var(--t1);margin-bottom:2px">${esc(t.title)}</div>
+                <div style="font-size:11px;color:var(--t3)">Assigned to ${esc(roleTitle(t.employeeRole))}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div style="color:var(--t3);font-size:12px;margin-bottom:18px;font-style:italic">No new tasks created from this meeting.</div>
+        `}
+        <div style="display:flex;justify-content:flex-end;gap:10px">
+          ${tasks.length ? `<button id="vx-mtg-go-tasks" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">View tasks</button>` : ''}
+          <button id="vx-mtg-close" style="background:var(--t1);color:var(--bg);border:none;padding:10px 18px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600">Close</button>
+        </div>
+      </div>
+    `
+    el.addEventListener('click', (e) => { if (e.target === el) { el.remove(); onDone?.() } })
+    document.body.appendChild(el)
+    el.querySelector('#vx-mtg-close').addEventListener('click', () => { el.remove(); onDone?.() })
+    el.querySelector('#vx-mtg-go-tasks')?.addEventListener('click', () => {
+      el.remove()
+      onDone?.()
+      if (typeof window.navigate === 'function') window.navigate('db-tasks')
+    })
+  }
+
+  const originalClose = window.closeMeeting
+  window.closeMeeting = async function () {
+    // Nothing to summarize — just close.
+    if (!history.length) {
+      if (typeof originalClose === 'function') originalClose()
+      return
+    }
+    const snapshot = history.slice()
+    const name = currentName
+    // Close the meeting room visually first so the summary modal doesn't
+    // stack on top of the chat view.
+    if (typeof originalClose === 'function') originalClose()
+    try {
+      const res = await fetch('/api/meeting/end', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeRole: currentRole, history: snapshot }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      showSummaryModal(name, data)
+    } catch (e) {
+      // Silent — meeting is already closed, no need to surface an error.
+    } finally {
+      history = []
+    }
   }
 
   window.mrSendBtn = async function () {

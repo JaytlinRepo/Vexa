@@ -21,7 +21,23 @@ function formatPlatformBlock(ig: {
   audienceAge: unknown
   audienceTop: unknown
 } | null): string {
-  if (!ig || ig.source !== 'phyllo') return ''
+  // No real account connected (or only the stub / demo data). Be explicit
+  // about it so the agent refuses to invent numbers — a customer caught
+  // Maya citing a fake "23% engagement drop" when no account was linked.
+  if (!ig || ig.source !== 'phyllo') {
+    return `
+
+--- Account data ---
+NO PLATFORM ACCOUNT IS CONNECTED. You do not have the CEO's follower count,
+engagement rate, reach, impressions, or post performance. If the CEO asks
+about their stats, numbers, trends, or specific posts, you MUST say exactly
+that — something like "I can't see your account yet. Connect Instagram in
+Settings → Integrations and I'll pull real numbers on my next sync." Never
+estimate, never invent figures, never cite percentages or follower counts.
+You CAN still give structural advice (frameworks, hook ideas, shot lists,
+general best practice) — just not data-specific claims.
+--- End account data ---`
+  }
   const topPosts = Array.isArray(ig.topPosts) ? ig.topPosts : []
   const topLine = topPosts[0]
     ? `  top post: "${String((topPosts[0] as { caption?: string }).caption || '').slice(0, 90)}" — ${(topPosts[0] as { like_count?: number }).like_count ?? 0} likes`
@@ -37,7 +53,10 @@ function formatPlatformBlock(ig: {
   ${ig.engagementRate}% engagement rate, avg reach ${ig.avgReach.toLocaleString()} / impressions ${ig.avgImpressions.toLocaleString()}
   primary audience: ${topAge?.bucket ?? 'unknown'}${topCountry?.bucket ? `, ${topCountry.bucket}` : ''}
 ${topLine}
-Use these numbers when giving advice. Do not invent different stats.
+Use these numbers when giving advice. Do not invent different stats. If the
+CEO asks about a metric NOT listed above (e.g. a specific post's save rate,
+yesterday's story views), say you don't have that field yet rather than
+estimating.
 --- End platform data ---`
 }
 
@@ -247,6 +266,170 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
     }
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
+    next(err)
+  }
+})
+
+// ─── END MEETING — summary + auto-tasks ─────────────────────────────────────
+// When the CEO clicks "End Meeting", we hand the full transcript to Claude,
+// ask for a short summary + decisions + action items, and turn each action
+// item into an actual Task row so the CEO lands back on a dashboard with
+// follow-through already scheduled.
+
+const endSchema = z.object({
+  employeeRole: roleSchema,
+  history: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() }))
+    .min(1)
+    .max(80),
+})
+
+interface EndDecision {
+  decision: string
+  actionItem?: string
+  assignedTo?: 'analyst' | 'strategist' | 'copywriter' | 'creative_director' | null
+}
+
+const OUTPUT_TYPE_BY_ROLE: Record<z.infer<typeof roleSchema>, 'trend_report' | 'content_plan' | 'hooks' | 'shot_list'> = {
+  analyst: 'trend_report',
+  strategist: 'content_plan',
+  copywriter: 'hooks',
+  creative_director: 'shot_list',
+}
+
+function mockSummary(role: z.infer<typeof roleSchema>, history: Array<{ role: string; content: string }>): { summary: string; decisions: EndDecision[] } {
+  const p = PERSONA[role]
+  const userTurns = history.filter((h) => h.role === 'user')
+  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.slice(0, 140) || 'what you brought up'
+  return {
+    summary: `${p.name} met with the CEO about: "${lastUserMsg}". ${p.name} gathered enough context to move forward and flagged one concrete follow-up to own next.`,
+    decisions: [
+      {
+        decision: `Move forward on the angle from this meeting.`,
+        actionItem: `${p.name} will draft the next deliverable in their lane.`,
+        assignedTo: role,
+      },
+    ],
+  }
+}
+
+router.post('/end', requireAuth, async (req, res, next) => {
+  try {
+    const data = endSchema.parse(req.body)
+    const { userId } = (req as AuthedRequest).session
+
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      include: { employees: true },
+    })
+    if (!company) {
+      res.status(404).json({ error: 'company_not_found' })
+      return
+    }
+
+    // Summarize. Bedrock when we have creds, deterministic mock otherwise.
+    let summary = ''
+    let decisions: EndDecision[] = []
+    if (hasBedrockCreds()) {
+      try {
+        const { invokeAgent, parseAgentOutput } = await import('../services/bedrock/bedrock.service')
+        const p = PERSONA[data.employeeRole]
+        const transcript = data.history
+          .map((m) => `${m.role === 'user' ? 'CEO' : p.name}: ${m.content}`)
+          .join('\n\n')
+        const prompt = `You just finished a meeting between the CEO and ${p.name} (${p.title}). Read the transcript below and produce:
+1. A 2-3 sentence summary of what was actually discussed and decided.
+2. A list of decisions and action items. Only include real ones — do not invent work that wasn't discussed. Prefer 0-3 items over padding.
+3. For each action item, name who should own it: "analyst" (Maya), "strategist" (Jordan), "copywriter" (Alex), "creative_director" (Riley), or null if it's the CEO's own.
+
+Transcript:
+${transcript}
+
+Return ONLY valid JSON in this shape:
+{
+  "summary": "string",
+  "decisions": [
+    { "decision": "string", "actionItem": "string", "assignedTo": "analyst" | "strategist" | "copywriter" | "creative_director" | null }
+  ]
+}`
+        const raw = await invokeAgent({
+          systemPrompt: 'You are a precise meeting summarizer. Return only valid JSON, no prose, no code fences.',
+          messages: [{ role: 'user', content: prompt }],
+          maxTokens: 512,
+          temperature: 0.3,
+        })
+        const parsed = parseAgentOutput<{ summary: string; decisions: EndDecision[] }>(raw)
+        summary = parsed.summary
+        decisions = Array.isArray(parsed.decisions) ? parsed.decisions.slice(0, 5) : []
+      } catch (err) {
+        console.warn('[meeting/end] summary via bedrock failed, using mock', err)
+        const mock = mockSummary(data.employeeRole, data.history)
+        summary = mock.summary
+        decisions = mock.decisions
+      }
+    } else {
+      const mock = mockSummary(data.employeeRole, data.history)
+      summary = mock.summary
+      decisions = mock.decisions
+    }
+
+    // Persist the meeting row so the CEO has a transcript they can revisit.
+    const hostEmployee = company.employees.find((e) => e.role === data.employeeRole)
+    let meetingId: string | null = null
+    if (hostEmployee) {
+      const messagesForDb = data.history.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: new Date().toISOString(),
+      }))
+      const created = await prisma.meeting.create({
+        data: {
+          companyId: company.id,
+          employeeId: hostEmployee.id,
+          messages: messagesForDb as unknown as object,
+          summary,
+          decisions: decisions as unknown as object,
+          endedAt: new Date(),
+        },
+      })
+      meetingId = created.id
+    }
+
+    // Turn every assignable decision into a real Task. Action items with
+    // assignedTo === null are the CEO's own — we don't create a task for
+    // those, we just surface them in the summary.
+    const tasksCreated: Array<{ id: string; title: string; employeeRole: string }> = []
+    for (const d of decisions) {
+      if (!d.actionItem || !d.assignedTo) continue
+      const emp = company.employees.find((e) => e.role === d.assignedTo)
+      if (!emp) continue
+      const type = OUTPUT_TYPE_BY_ROLE[d.assignedTo]
+      const task = await prisma.task.create({
+        data: {
+          companyId: company.id,
+          employeeId: emp.id,
+          title: d.actionItem.slice(0, 200),
+          description: `From meeting with ${PERSONA[data.employeeRole].name}: ${d.decision}`,
+          type,
+          status: 'in_progress',
+        },
+      })
+      tasksCreated.push({ id: task.id, title: task.title, employeeRole: d.assignedTo })
+    }
+
+    if (meetingId && tasksCreated.length > 0) {
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: { tasksCreated: tasksCreated as unknown as object },
+      })
+    }
+
+    res.json({ summary, decisions, tasksCreated, meetingId })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })

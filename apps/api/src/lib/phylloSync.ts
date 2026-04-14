@@ -12,6 +12,7 @@ import { mapPhylloToStub } from './phylloMapper'
 import { persistPhylloSync } from './platformSync'
 import { writeMemory } from './brandMemory'
 import { createNotification } from '../services/notifications/notification.service'
+import { runWatch } from './metricsWatch'
 
 export interface SyncResult {
   accountId: string
@@ -95,10 +96,29 @@ export async function syncPhylloAccount(
   }
 
   // New generalized tables (all platforms).
+  let internalAccountId: string | null = null
   try {
-    await persistPhylloSync(prisma, companyId, phylloUserId, account, stub)
+    const persisted = await persistPhylloSync(prisma, companyId, phylloUserId, account, stub)
+    internalAccountId = persisted.accountId
   } catch (e) {
     console.warn('[phylloSync] platform-snapshot write failed', e)
+  }
+
+  // Maya's watch loop — compare the snapshot we just wrote against recent
+  // history and, if engagement has dropped / followers declined / growth
+  // has flatlined, emit a Maya-voiced notification. De-duped for 20h
+  // inside runWatch.
+  if (internalAccountId && !sparse) {
+    try {
+      await runWatch(prisma, {
+        userId,
+        companyId,
+        accountId: internalAccountId,
+        handle: stub.username || account.platform_username || 'your account',
+      })
+    } catch (e) {
+      console.warn('[phylloSync] watch run failed', e)
+    }
   }
 
   // Memory + notification only on the first good snapshot, not on every
