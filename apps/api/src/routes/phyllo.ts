@@ -117,7 +117,11 @@ router.post('/sync', requireAuth, async (req, res, next) => {
     }
 
     const platformName = (account.work_platform?.name || '').toLowerCase()
-    const isInstagram = platformName === 'instagram'
+    // Phyllo has three Instagram variants — treat them all as IG for sync.
+    const isInstagram =
+      platformName === 'instagram' ||
+      platformName === 'instagram direct' ||
+      platformName === 'instagram lite'
 
     // Non-Instagram connections are tracked by Phyllo but we don't persist
     // their analytics into the InstagramConnection row (which would
