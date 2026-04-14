@@ -20,8 +20,9 @@
   const originalOpen = window.openMeeting
   window.openMeeting = function (name, role, init) {
     currentRole = ROLE_BY_NAME[name] || 'copywriter'
+    // Claude requires the first message in `messages` to have role='user',
+    // so we show the greeting in the UI but do NOT push it into history.
     history = []
-    // Reset the message list so each meeting starts fresh
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
       msgs.innerHTML = `
@@ -29,7 +30,6 @@
           <div class="mr-bubble">"Hey — ${name} here. What are we working on?"</div>
         </div>
       `
-      history.push({ role: 'assistant', content: `Hey — ${name} here. What are we working on?` })
     }
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
   }

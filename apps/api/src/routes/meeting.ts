@@ -190,8 +190,16 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     res.flushHeaders?.()
     res.write(`data: ${JSON.stringify({ source: hasBedrockCreds() ? 'bedrock' : 'mock', memoryCount: memoryBlock ? (memoryBlock.match(/^- /gm) || []).length : 0 })}\n\n`)
 
+    // Belt & suspenders: Claude requires the first entry in `messages` to
+    // have role='user'. Trim any leading assistant turns from history in
+    // case a client sends them by mistake.
+    const sanitizedHistory = [...data.history]
+    while (sanitizedHistory.length && sanitizedHistory[0]!.role !== 'user') {
+      sanitizedHistory.shift()
+    }
+
     if (hasBedrockCreds()) {
-      await streamBedrock(res, data.employeeRole, data.history, data.message, memoryBlock + platformBlock)
+      await streamBedrock(res, data.employeeRole, sanitizedHistory, data.message, memoryBlock + platformBlock)
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
     }
