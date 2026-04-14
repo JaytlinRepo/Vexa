@@ -258,29 +258,47 @@
 
     const INSTAGRAM_WORK_PLATFORM_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
 
-    document.getElementById('ob-ig-connect').addEventListener('click', () => {
+    document.getElementById('ob-ig-connect').addEventListener('click', async () => {
       const result = document.getElementById('ob-ig-result')
       const btn = document.getElementById('ob-ig-connect')
       if (!currentCompany?.id) {
         result.textContent = 'Company not ready yet — refresh and try again.'
         return
       }
+      // Pre-flight: hit the SDK-token endpoint directly so we can
+      // surface a server-side error (missing Phyllo creds, 5xx) BEFORE
+      // opening the modal. The modal swallows server errors silently.
+      result.textContent = 'Checking Instagram connection…'
+      btn.disabled = true
+      try {
+        const r = await fetch(API + '/api/phyllo/sdk-token', { credentials: 'include' })
+        if (!r.ok) {
+          const j = await r.json().catch(() => null)
+          const msg = (j && (j.error || j.message)) || ('HTTP ' + r.status)
+          result.innerHTML = `<div style="color:#ff6b6b">Server is not configured for Instagram yet — ${msg}.</div><div style="margin-top:6px;color:var(--t3);font-size:11px">Likely missing PHYLLO_CLIENT_ID / PHYLLO_CLIENT_SECRET on the API. Set them on Railway and retry.</div>`
+          btn.disabled = false
+          return
+        }
+      } catch (e) {
+        result.innerHTML = `<div style="color:#ff6b6b">Could not reach the API — ${e.message}.</div>`
+        btn.disabled = false
+        return
+      }
       if (typeof window.vxPhylloConnect !== 'function') {
-        result.textContent = 'Connect SDK not loaded yet — give it a second and try again.'
+        result.textContent = 'Connect SDK not loaded yet — wait a second and try again.'
+        btn.disabled = false
         return
       }
       result.textContent = 'Opening Instagram authorization…'
-      btn.disabled = true
       window.vxPhylloConnect({
         companyId: currentCompany.id,
         workPlatformId: INSTAGRAM_WORK_PLATFORM_ID,
         onConnected: async () => {
           result.textContent = 'Connected. Spinning up your team…'
-          // Sync was triggered inside vxPhylloConnect — go straight to reveal.
           await finishToReveal()
         },
         onError: (msg) => {
-          result.textContent = 'Could not connect — ' + (msg || 'try again')
+          result.innerHTML = `<div style="color:#ff6b6b">Could not connect — ${msg || 'try again'}.</div>`
           btn.disabled = false
         },
         onClose: () => { btn.disabled = false },

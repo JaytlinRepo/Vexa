@@ -136,32 +136,11 @@
   // Public API used by other wire scripts.
   window.vxPhylloConnect = openConnect
 
-  // ── Inject a "Connect real account" button into the onboarding IG step ──
-  function injectOnboardingButton() {
-    const step = document.getElementById('ob-8')
-    if (!step || step.dataset.vxPhylloInjected) return
-    const card = step.querySelector('.ob-ig-card')
-    if (!card) return
-    step.dataset.vxPhylloInjected = '1'
-    const wrap = document.createElement('div')
-    wrap.style.cssText = 'display:flex;gap:10px;align-items:center;margin-top:12px'
-    wrap.innerHTML = `
-      <button id="vx-phyllo-btn" style="background:var(--t1);color:var(--bg);border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect real account via Phyllo</button>
-      <span style="color:var(--t3);font-size:11px">or enter a handle above to use demo data</span>
-    `
-    card.appendChild(wrap)
-    wrap.querySelector('#vx-phyllo-btn').addEventListener('click', () => {
-      openConnect({
-        onConnected: () => {
-          const result = document.getElementById('ob-ig-result')
-          if (result) {
-            result.innerHTML = '<div style="padding:8px 0;color:var(--t1);font-size:12px">Connected. Your real numbers will load on the dashboard.</div>'
-            result.classList.add('show')
-          }
-        },
-      })
-    })
-  }
+  // The onboarding step renders its own Connect button (auth-ui.js).
+  // This used to inject a second "Connect real account via Phyllo"
+  // button, but that left two buttons stacked and only the second one
+  // was wired to the new flow. No-op now.
+  function injectOnboardingButton() { /* deprecated — owned by auth-ui.js */ }
 
   // Cached connection-state so we don't thrash fetches or flash the CTA
   // repeatedly across polls / navigation. Populated on first successful
