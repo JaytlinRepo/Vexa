@@ -9,7 +9,7 @@
  */
 ;(function () {
   const EMPLOYEES = [
-    { role: 'strategist',        name: 'Jordan', init: 'J', short: 'Content Strategist', color: '#c8f060' },
+    { role: 'strategist',        name: 'Jordan', init: 'J', short: 'Content Strategist', color: 'var(--t1)' },
     { role: 'analyst',           name: 'Maya',   init: 'M', short: 'Trend Analyst',      color: '#6ab4ff' },
     { role: 'copywriter',        name: 'Alex',   init: 'A', short: 'Copywriter',         color: '#e8c87a' },
     { role: 'creative_director', name: 'Riley',  init: 'R', short: 'Creative Director',  color: '#b482ff' },
@@ -46,9 +46,9 @@
     const approved = tasks.filter((t) => t.status === 'approved').length
     const total = tasks.length
     const stats = [
-      { label: 'Awaiting review', value: awaiting, accent: 'var(--accent, #c8f060)' },
+      { label: 'Awaiting review', value: awaiting, accent: 'var(--accent, var(--t1))' },
       { label: 'In progress',     value: progress, accent: '#e8c87a' },
-      { label: 'Approved',        value: approved, accent: '#c8f060' },
+      { label: 'Approved',        value: approved, accent: 'var(--t1)' },
       { label: 'Total tasks',     value: total,    accent: 'var(--t2)' },
     ]
     return `
@@ -67,7 +67,7 @@
     const mine = tasks.filter((t) => t.employee?.role === role)
     if (mine.length === 0) return { pill: 'Idle', dot: 'var(--t3)' }
     const delivered = mine.find((t) => t.status === 'delivered')
-    if (delivered) return { pill: 'Output ready', dot: '#c8f060' }
+    if (delivered) return { pill: 'Output ready', dot: 'var(--t1)' }
     const working = mine.find((t) => t.status === 'pending' || t.status === 'in_progress' || t.status === 'revision')
     if (working) return { pill: 'Working', dot: '#e8c87a' }
     return { pill: 'Done', dot: 'var(--t3)' }

@@ -154,8 +154,8 @@
     const lastX = w - pad
     const lastY = h - pad - ((ys[ys.length - 1] - min) / range) * (h - pad * 2)
     return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
-      <path d="${path}" fill="none" stroke="#c8f060" stroke-width="1.5" />
-      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="#c8f060" />
+      <path d="${path}" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="currentColor" />
     </svg>`
   }
 

@@ -35,7 +35,7 @@
   function accent(status) {
     if (status === 'past_due' || status === 'canceled') return '#ff6b6b'
     if (status === 'trial') return '#e8c87a'
-    return '#c8f060'
+    return 'var(--t1)'
   }
 
   function renderPanel(usage) {
@@ -58,7 +58,7 @@
     const used = usage.tasks.used
     const limit = usage.tasks.limit
     const pct = Math.min(100, Math.round((used / Math.max(1, limit)) * 100))
-    const barColor = pct >= 90 ? '#ff6b6b' : pct >= 70 ? '#e8c87a' : '#c8f060'
+    const barColor = pct >= 90 ? '#ff6b6b' : pct >= 70 ? '#e8c87a' : 'var(--t1)'
 
     const card = document.createElement('div')
     card.id = 'vx-plan-card'

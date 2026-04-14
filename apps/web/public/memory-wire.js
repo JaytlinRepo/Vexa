@@ -13,7 +13,7 @@
   }
 
   const TYPE_COLOR = {
-    preference: '#c8f060',
+    preference: 'var(--t1)',
     feedback: '#e8c87a',
     voice: '#b482ff',
     performance: '#6ab4ff',
