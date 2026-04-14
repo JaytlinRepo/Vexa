@@ -695,3 +695,14 @@ document.addEventListener('keydown',e=>{
     document.getElementById('onboarding').classList.remove('active')
   }
 })
+
+// Expose calendar state so companion scripts (idea-wire.js) can read
+// calDate (current visible month) and push into calEntries when the CEO
+// adds an idea. Array reference is shared, so push() mutates the same
+// underlying list prototype.js renders from. calDate uses a getter
+// because calNav() reassigns the local binding.
+window.calEntries = calEntries
+Object.defineProperty(window, 'calDate', {
+  get: () => calDate,
+  configurable: true,
+})
