@@ -150,6 +150,15 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 .home-merged-section{margin-top:120px;padding-top:80px;border-top:1px solid var(--b1)}
 .home-merged-section:first-of-type{margin-top:120px}
 
+/* Dashboard tile value — match the sidebar nav (DM Sans, weight 500) */
+.vx-tile-value{
+  font-family:'DM Sans',sans-serif !important;
+  font-size:26px !important;
+  font-weight:500 !important;
+  letter-spacing:-.01em !important;
+  line-height:1 !important;
+}
+
 /* ── Insights chart overrides — prototype used --t2 for everything,
       too pale on both themes. Force strong foreground + readable weights. */
 #view-db-dashboard .chart-card,
