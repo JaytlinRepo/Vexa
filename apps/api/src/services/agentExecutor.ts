@@ -78,6 +78,9 @@ interface NicheTokens {
   captionBody: string                              // multi-line caption body
   replacementMoves: [string, string, string]       // "The X that quietly..."
   wedgeTopic: string                               // subject matter for the replacement
+  bioOutcome: string                               // "build strength in 15 min/day"
+  bioOrigin: string                                // "I was stuck too."  (B-option opener)
+  bioPunchy: string                                // "Fitness. Without the noise."  (C-option tagline)
 }
 
 const NICHE_TOKENS: Record<string, NicheTokens> = {
@@ -99,6 +102,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about doing more. It\'s about doing the one thing that actually moves the needle.\n\nHere is what I swapped:\n— The 45-minute session that was quietly killing my recovery\n— The tracking obsession that made consistency impossible\n— The all-or-nothing mindset\n\nWhat replaced it?\nWalks. Specifically, weighted walks. 15 minutes. Three times a week.\n\nThat\'s it.`,
     replacementMoves: ['The 45-minute session that was quietly killing my recovery', 'The tracking obsession that made consistency impossible', 'The all-or-nothing mindset'],
     wedgeTopic: 'low-impact, time-efficient training',
+    bioOutcome: 'build strength without living in the gym',
+    bioOrigin: 'I was stuck in the 45-min cardio loop too.',
+    bioPunchy: 'Fitness. Without the noise.',
   },
   finance: {
     label: 'finance',
@@ -118,6 +124,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about earning more. It\'s about routing the money you already make to the right place.\n\nHere is what I swapped:\n— The single checking account that quietly leaked $200/month\n— The budgeting spreadsheet I filled out once and abandoned\n— The "I\'ll start investing when I earn more" mindset\n\nWhat replaced it?\nThree accounts: checking, HYSA, brokerage. One rule: money hits checking, splits automatically the same day.\n\nThat\'s it.`,
     replacementMoves: ['The single checking account that quietly leaked $200/month', 'The budgeting spreadsheet I filled out once and abandoned', 'The "I\'ll start investing when I earn more" mindset'],
     wedgeTopic: 'structure-of-account advice for beginners',
+    bioOutcome: 'stop leaking money every month',
+    bioOrigin: 'I had one checking account and no plan too.',
+    bioPunchy: 'Money. Without the hype.',
   },
   food: {
     label: 'food',
@@ -137,6 +146,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about eating less. It\'s about swapping one ingredient that changes the macros.\n\nHere is what I swapped:\n— Protein bars that cost $4 a pop and never filled me up\n— Yogurt cups that were half sugar by weight\n— "Healthy" snack mixes that were just candy with almonds\n\nWhat replaced it?\nCottage cheese. Blended smooth with cocoa + maple. 4 ingredients. 22g protein.\n\nThat\'s it.`,
     replacementMoves: ['Protein bars that cost $4 a pop and never filled me up', 'Yogurt cups that were half sugar by weight', '"Healthy" snack mixes that were just candy with almonds'],
     wedgeTopic: 'ingredient-swap recipes that hit macros',
+    bioOutcome: 'hit your macros without meal-prep Sundays',
+    bioOrigin: 'I was buying $4 protein bars too.',
+    bioPunchy: 'Real food. Fast.',
   },
   coaching: {
     label: 'coaching',
@@ -156,6 +168,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about motivation. It\'s about removing one decision from your day.\n\nHere is what I swapped:\n— The yearly planning session that produced nothing by March\n— The to-do list that grew faster than I could ship\n— The "I\'ll start Monday" mindset\n\nWhat replaced it?\nOne habit. Ten minutes. Same time every day.\n\nThat\'s it.`,
     replacementMoves: ['The yearly planning session that produced nothing by March', 'The to-do list that grew faster than I could ship', 'The "I\'ll start Monday" mindset'],
     wedgeTopic: 'structural habit design, not motivation content',
+    bioOutcome: 'build habits that actually stick',
+    bioOrigin: 'I was the "I\'ll start Monday" person too.',
+    bioPunchy: 'Coaching. Without the motivation poster.',
   },
   lifestyle: {
     label: 'lifestyle',
@@ -175,6 +190,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about having more. It\'s about holding the week with one ritual that carries you through Monday.\n\nHere is what I swapped:\n— The Sunday-night planning session that left me more tired\n— The long to-do list that made Monday feel heavier\n— The "I\'ll just wing it" mindset\n\nWhat replaced it?\nA 20-minute reset. Bed made. Counter clear. One candle lit. Coffee prepped.\n\nThat\'s it.`,
     replacementMoves: ['The Sunday-night planning session that left me more tired', 'The long to-do list that made Monday feel heavier', 'The "I\'ll just wing it" mindset'],
     wedgeTopic: 'ritual-based calm instead of productivity optimization',
+    bioOutcome: 'make your Sunday reset feel like a ritual, not a chore',
+    bioOrigin: 'I was a Sunday-night-spiral person too.',
+    bioPunchy: 'Slow living. On purpose.',
   },
   default: {
     label: 'your niche',
@@ -194,6 +212,9 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     captionBody: `It\'s not about doing more. It\'s about doing the one thing your audience will remember you for.\n\nHere is what I would swap:\n— The safe content that never earns the scroll\n— The tactic you keep trying that never compounds\n— The comparison-scrolling habit\n\nWhat replaces it?\nYour signature move. Named. Specific. Shipped weekly.\n\nThat\'s it.`,
     replacementMoves: ['The safe content that never earns the scroll', 'The tactic you keep trying that never compounds', 'The comparison-scrolling habit'],
     wedgeTopic: 'your signature angle',
+    bioOutcome: 'the one specific outcome your audience wants',
+    bioOrigin: 'I was in your spot too.',
+    bioPunchy: 'Your niche. On your terms.',
   },
 }
 
@@ -638,22 +659,22 @@ function alex_bioRewrite(t: NicheTokens) {
     options: [
       {
         label: 'Option A · outcome-first',
-        text: `Helping ${t.audiencePrimary}\nship better content in 15 min/day\n↓ start here`,
-        why: 'Who you help + what they get + one action. 3-line formula that converts best for this audience.',
+        text: `Helping ${t.audiencePrimary}\n${t.bioOutcome}\n↓ start here`,
+        why: 'Who you help + specifically what they get + one action. 3-line formula that converts best for this audience.',
       },
       {
         label: 'Option B · identity-first',
-        text: `I was stuck too.\nNow I help ${t.audiencePrimary}\nbuild a system that compounds.\n↓ the first step`,
+        text: `${t.bioOrigin}\nNow I help ${t.audiencePrimary}\n${t.bioOutcome}.\n↓ the first step`,
         why: 'Origin-story framing. Lower conversion short-term, higher trust long-term. Best if your pinned content is transformation-anchored.',
       },
       {
         label: 'Option C · punchy',
-        text: `${t.label}. Without the noise.\n↓ what I actually do`,
+        text: `${t.bioPunchy}\n↓ what I actually do`,
         why: 'Minimalist. Works if your feed grid does the heavy lifting. Risky if a visitor can\'t infer your offer in 3 seconds.',
       },
     ],
     recommendation: 'Option A for most accounts. Option B if your best-performing content is transformation-pillar. Avoid C unless your feed is visually tight.',
-    ctaRule: 'One link only. "Link in bio" phrasing underperforms a direct arrow + noun ("↓ start here").',
+    ctaRule: 'One link only. "Link in bio" phrasing underperforms a direct arrow + noun ("↓ start here"). No emojis unless your audience expects them.',
     knowledgeApplied: [] as string[],
   }
 }
@@ -840,7 +861,18 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
 
 function bedrockSystemPrompt(opts: ExecuteOpts, knowledgeBlock: string): string {
   const persona = PERSONA_NAME[opts.role]
-  return `You are ${persona}, the ${opts.role} on a content team. Execute the CEO's brief and return structured JSON matching the shape the team renders to them. Reason from the niche knowledge below — do not reference it by name.${knowledgeBlock}\n\nReturn ONLY valid JSON, no prose, no code fences. Output type: ${opts.type}. Brief kind: ${opts.briefKind || 'unspecified'}.`
+  const nicheLabel = bucketForNiche(opts.niche)
+  return `You are ${persona}, the ${opts.role} on a content team. Execute the CEO's brief and return structured JSON matching the shape the team renders to them.
+
+CRITICAL CONTEXT — DO NOT IGNORE:
+- The creator's niche is: ${opts.niche} (category: ${nicheLabel}).
+- All output must be ON-BRAND for that niche. A fitness creator gets fitness advice, a coaching creator gets coaching advice, etc.
+- DO NOT default to generic creator tropes (crypto, hustle culture, "moonshot", "alpha", "DYOR", emoji-heavy bio clichés) unless the niche is explicitly finance/crypto.
+- DO NOT use emojis in bios, hooks, or captions unless the creator's brand voice clearly calls for them.
+
+Reason from the niche knowledge below — do not reference it by name.${knowledgeBlock}
+
+Return ONLY valid JSON, no prose, no code fences. Output type: ${opts.type}. Brief kind: ${opts.briefKind || 'unspecified'}.`
 }
 
 function bedrockUserPrompt(opts: ExecuteOpts): string {
@@ -860,8 +892,19 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
     kind: k.kind, title: k.title, body: k.body, tags: k.tags,
   }))
 
+  const tokens = tokensFor(opts.niche)
+  // Prefer briefKind routing; fall back to OutputType generator.
+  const byKind = opts.briefKind ? BRIEF_GENERATORS[opts.briefKind] : undefined
+  const generator = byKind || TYPE_FALLBACK[opts.type]
+
+  // Bedrock is ONLY used when we don't have a curated generator for this
+  // brief. The hand-crafted mocks produce more niche-accurate output than
+  // Bedrock does without rich RAG context (users were getting crypto-bro
+  // bios on a fitness account). When niche knowledge seeding + full RAG
+  // prompts are ready, we can flip this back.
   const BEDROCK_TIMEOUT_MS = 8_000
-  if (hasBedrockCreds()) {
+  const shouldTryBedrock = hasBedrockCreds() && !byKind
+  if (shouldTryBedrock) {
     const knowledgeBlock = knowledgeRows.length
       ? `\n\n--- Niche knowledge (${opts.niche}) ---\n${knowledgeRows.map((k) => `[${k.kind}] ${k.title}: ${k.body}`).join('\n')}\n--- End knowledge ---`
       : ''
@@ -874,9 +917,9 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
       })
       return parseAgentOutput<Record<string, unknown>>(raw)
     })()
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), BEDROCK_TIMEOUT_MS))
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), BEDROCK_TIMEOUT_MS))
     try {
-      const bedrockResult = await Promise.race([bedrockCall, timeout])
+      const bedrockResult = await Promise.race([bedrockCall, timeoutPromise])
       if (bedrockResult) {
         return { content: bedrockResult, knowledgeUsed: knowledgeRows.length, source: 'bedrock' }
       }
@@ -885,11 +928,6 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
       console.warn('[agentExecutor] bedrock path failed, falling back to mock', err)
     }
   }
-
-  const tokens = tokensFor(opts.niche)
-  // Prefer briefKind routing; fall back to OutputType generator.
-  const byKind = opts.briefKind ? BRIEF_GENERATORS[opts.briefKind] : undefined
-  const generator = byKind || TYPE_FALLBACK[opts.type]
   if (!generator) {
     return {
       content: { note: `No generator wired for type "${opts.type}" / kind "${opts.briefKind ?? 'none'}".` },
