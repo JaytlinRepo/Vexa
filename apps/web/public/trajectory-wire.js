@@ -257,7 +257,7 @@
           <h2 style="color:var(--t2);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0;font-family:'Syne',sans-serif">Trajectory — @${escapeHtml(data.account.handle)}</h2>
           ${rangeSelector()}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
           <div data-expand="growth" style="cursor:zoom-in;transition:transform .15s ease,border-color .15s ease">${growthCard(filtered)}</div>
           <div data-expand="consistency" style="cursor:zoom-in;transition:transform .15s ease,border-color .15s ease">${consistencyCard(filtered)}</div>
           <div data-expand="trend" style="cursor:zoom-in;transition:transform .15s ease,border-color .15s ease">${trendCard(filtered)}</div>

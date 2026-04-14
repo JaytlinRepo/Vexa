@@ -113,7 +113,7 @@
     const engRate = ig?.engagementRate ?? 0
 
     return `
-      <section style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px">
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:26px">
         ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'All caught up', awaiting > 0 ? 'db-tasks' : null)}
         ${tile('Followers', ig ? short(ig.followerCount) : '—', ig ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d` : 'Not connected')}
         ${tile('Engagement', ig ? engRate.toFixed(1) + '%' : '—', ig ? `Avg across ${ig.recentMedia?.length || 0} posts` : '—')}
@@ -208,7 +208,7 @@
     return `
       <section style="margin-bottom:26px">
         ${sectionLabel('Your team')}
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
           ${EMPLOYEE_ROLES.map((role) => teamCard(role, tasksByRole[role] || [])).join('')}
         </div>
       </section>
@@ -259,7 +259,7 @@
         ${sectionLabel('Performance — last 30 days')}
         <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
             ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender))}
             ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null)}
           </div>

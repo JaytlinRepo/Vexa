@@ -91,7 +91,7 @@
         <span style="margin-left:auto;font-size:10px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase">${conn.source === 'stub' ? 'Demo data' : 'Live'}</span>
         <button id="vx-ig-simulate" style="background:transparent;border:1px solid var(--b2);color:var(--t3);font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;letter-spacing:.06em;text-transform:uppercase">Simulate day</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;font-family:'DM Sans',sans-serif;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;font-family:'DM Sans',sans-serif;margin-bottom:16px">
         ${cell('Followers', conn.followerCount.toLocaleString())}
         ${cell('Posts', String(conn.postCount))}
         ${cell('Engagement', conn.engagementRate.toFixed(2) + '%')}

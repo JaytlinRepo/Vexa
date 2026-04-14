@@ -83,7 +83,7 @@
     section.style.marginBottom = '26px'
     section.innerHTML = `
       ${sectionLabel(`This month — ${esc(sc.monthLabel)}`)}
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
         ${statCard('Outputs shipped', outputsBig, outputsSub, null)}
         ${statCard('Approval rate', approvalBig, approvalSub, null)}
         ${statCard('Engagement lift (30d)', liftBig, liftSub, liftTint)}

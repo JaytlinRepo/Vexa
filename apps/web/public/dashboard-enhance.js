@@ -52,7 +52,7 @@
       { label: 'Total tasks',     value: total,    accent: 'var(--t2)' },
     ]
     return `
-      <div id="vx-quickstats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 8px">
+      <div id="vx-quickstats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0 8px">
         ${stats.map((s) => `
           <div style="padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
             <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">${s.label}</div>

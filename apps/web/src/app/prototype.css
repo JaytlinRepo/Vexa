@@ -1281,3 +1281,119 @@ input,textarea{cursor:text}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS
+   The product is built mobile-first by default — below are the
+   adjustments at narrower viewports. Touches every shell-level
+   surface; per-component adjustments live alongside their inline
+   styles and use auto-fit minmax grids so they collapse naturally.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet and below (≤1024px) ─────────────────────────────────── */
+@media (max-width: 1024px) {
+  .sidenav { width: 220px; }
+  .main { margin-left: 220px; }
+  .topbar { padding: 14px 24px; }
+  .view-inner { padding: 32px 28px 60px; }
+  .mkt-view { padding: 32px 28px; }
+  .pricing-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .emp-cards {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    gap: 14px;
+  }
+  /* Dashboard v2 stacks: 2-pane → single column */
+  #view-db-dashboard .db-layout > div[style*="display:flex"] {
+    flex-direction: column !important;
+  }
+  #view-db-dashboard aside {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--b1) !important;
+  }
+  /* Calendar shrinks day cells */
+  .cal-month-grid { font-size: 11px; }
+  .cal-day { min-height: 90px; padding: 6px; }
+  .cal-week-grid { overflow-x: auto; }
+}
+
+/* ── Phone (≤768px) ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Sidebar collapses to a top bar — never enough horizontal real
+     estate on a phone. The original .sidenav becomes a thin top strip
+     with the company name; nav items move to a hamburger or stay
+     hidden until tapped. For now, hide the sidenav and show only
+     the main column with topbar nav. */
+  .sidenav { display: none !important; }
+  .main { margin-left: 0 !important; }
+  .topbar {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .topbar-section { font-size: 13px; }
+  .view { padding-top: 76px; }
+  .view-inner { padding: 22px 16px 60px; }
+  .mkt-view { padding: 22px 16px; }
+  .ob-wrap { padding: 24px 18px; max-width: 100%; }
+  /* Hero typography scales — already uses clamp, just nudge spacing */
+  .home-merged-section { margin-top: 60px; padding-top: 50px; }
+  /* Modals get tighter padding so they don't overflow on small phones */
+  #vx-assign > div, #vx-mtg-summary > div, #vx-traj-modal > div,
+  #vx-goal-modal > div, #vx-idea-modal > div {
+    padding: 18px !important;
+    max-height: 88vh !important;
+  }
+  /* Meeting room takes full viewport on phone */
+  #meeting-room { padding: 0 !important; }
+  .mr-msgs { padding: 16px 14px !important; gap: 12px !important; }
+  .mr-foot { padding: 12px 14px !important; }
+  .mr-bubble { max-width: 88% !important; font-size: 13px; padding: 12px 14px !important; }
+  /* Knowledge badge + view-brief button repositioned so they don't
+     overlap the close button on narrow screens */
+  #vx-mtg-knowledge { top: 50px !important; right: 14px !important; left: 14px !important; max-width: none !important; justify-content: flex-start !important; }
+  #vx-mtg-viewbrief { top: 90px !important; right: 14px !important; }
+  /* Tile grids collapse to single column */
+  .pricing-grid { max-width: 360px; }
+  .out-nav, .outputs-filter { flex-wrap: wrap; gap: 6px !important; }
+  .out-nav button, .outputs-filter button { font-size: 11px; padding: 8px 12px; }
+  /* Calendar: drop to a vertical day list pattern instead of forcing
+     the 7-col grid which crushes everything on a phone */
+  .cal-month-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  .cal-month-header { display: none; }
+  .cal-day {
+    min-height: auto;
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    align-items: start;
+  }
+  .cal-day-num { margin-bottom: 0; }
+  /* Tasks view toolbar wraps */
+  .cal-toolbar { flex-wrap: wrap; gap: 8px; }
+  /* Settings tabs scroll horizontally instead of wrapping */
+  .settings-nav { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 8px; }
+  .settings-nav-item { white-space: nowrap; flex-shrink: 0; }
+  /* Scrollable table-like content gets horizontal scroll affordance */
+  .out-card { padding: 14px 16px; }
+}
+
+/* ── Tiny phone (≤420px) — last-mile cleanup ──────────────────── */
+@media (max-width: 420px) {
+  .topbar-btn { padding: 7px 12px; font-size: 11px; }
+  .mr-bubble { font-size: 12.5px; max-width: 92% !important; }
+  .ob-wrap { padding: 18px 14px; }
+  /* H1 in hero — clamp lower bound is small enough already, no further
+     change needed */
+}
