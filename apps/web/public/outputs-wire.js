@@ -167,14 +167,56 @@
     `
   }
 
+  function signalsGrid(signals) {
+    if (!Array.isArray(signals) || !signals.length) return ''
+    return `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:14px 0">
+        ${signals.map((s) => `
+          <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">
+            <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">${escapeHtml(s.label)}</div>
+            <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:14px;font-weight:500;line-height:1.3">${escapeHtml(s.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `
+  }
+
+  function paragraphCallout(label, body, tint) {
+    return `
+      <div style="background:var(--s2);border-left:3px solid ${tint};border-top:1px solid var(--b1);border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);border-radius:6px;padding:14px 16px">
+        <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:${tint};font-weight:700;margin-bottom:6px;font-family:'Syne',sans-serif">${escapeHtml(label)}</div>
+        <div style="color:var(--t1);font-size:13px;line-height:1.65">${escapeHtml(body)}</div>
+      </div>
+    `
+  }
+
+  function predictedSplit(predicted, tint) {
+    if (!predicted) return ''
+    const cell = (label, body, tone) => `
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:6px;height:6px;border-radius:50%;background:${tone}"></span>
+          <span style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:${tone};font-weight:700;font-family:'Syne',sans-serif">${escapeHtml(label)}</span>
+        </div>
+        <div style="color:var(--t1);font-size:13px;line-height:1.6">${escapeHtml(body)}</div>
+      </div>
+    `
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+        ${predicted.ifAct ? cell('If you act', predicted.ifAct, tint) : ''}
+        ${predicted.ifSkip ? cell('If you skip', predicted.ifSkip, '#9c9c9c') : ''}
+      </div>
+    `
+  }
+
   function rTrendReport(c) {
     const trends = Array.isArray(c.trends) ? c.trends : []
     if (!trends.length) return null
     const generatedLine = c.generatedAt
-      ? `<div style="color:var(--t3);font-size:11px;letter-spacing:.06em;margin-bottom:18px">Pulled ${escapeHtml(fmtDate(c.generatedAt))} · ${trends.length} trend${trends.length === 1 ? '' : 's'} flagged · Maya</div>`
+      ? `<div style="color:var(--t3);font-size:11px;letter-spacing:.06em;margin-bottom:22px">Pulled ${escapeHtml(fmtDate(c.generatedAt))} · ${trends.length} trend${trends.length === 1 ? '' : 's'} flagged · Maya</div>`
       : ''
     return generatedLine + `
-      <div style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:24px">
         ${trends.map((t, i) => {
           const u = URGENCY[t.urgency] || URGENCY.build
           return `
@@ -189,14 +231,14 @@
                   <span style="color:var(--t3);font-size:11px">7d</span>
                 </div>
               </div>
-              <div style="padding:18px 20px">
-                <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:center;margin-bottom:14px">
+              <div style="padding:20px 22px">
+                <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:center;margin-bottom:18px">
                   <div>
-                    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
                       <span style="color:var(--t3);font-size:11px;font-family:'Syne',sans-serif">0${i + 1}</span>
-                      <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--t1);font-weight:500;margin:0">${escapeHtml(t.topic || '')}</h3>
+                      <h3 style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--t1);font-weight:500;margin:0">${escapeHtml(t.topic || '')}</h3>
                     </div>
-                    ${t.audienceFit ? `<div style="color:var(--t2);font-size:12px;line-height:1.5"><span style="color:var(--t3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px">Audience fit</span>${escapeHtml(t.audienceFit)}</div>` : ''}
+                    ${t.audienceFit ? `<div style="color:var(--t2);font-size:13px;line-height:1.6"><span style="color:var(--t3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:8px;font-family:'Syne',sans-serif">Audience fit</span>${escapeHtml(t.audienceFit)}</div>` : ''}
                   </div>
                   <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">
                     ${sparklineSvg(t.sparkline, u.tint)}
@@ -206,15 +248,26 @@
                   </div>
                 </div>
 
-                ${t.insight || t.action || t.solution
-                  ? `
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-                      ${t.insight ? callout('Maya\'s read', t.insight, u.tint) : ''}
-                      ${t.action ? callout('What to do', t.action, u.tint) : ''}
-                      ${t.solution ? callout('Ship this', t.solution, u.tint) : ''}
-                    </div>
-                  `
-                  : (t.verdict ? `<div style="color:var(--t2);font-size:13px;line-height:1.55">${escapeHtml(t.verdict)}</div>` : '')
+                ${t.whyNow ? paragraphCallout('Why now', t.whyNow, u.tint) : ''}
+
+                ${signalsGrid(t.signals)}
+
+                ${t.competitorMoves ? `
+                  <div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:14px 16px;margin-bottom:14px">
+                    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);font-weight:700;margin-bottom:6px;font-family:'Syne',sans-serif">Competitor activity</div>
+                    <div style="color:var(--t2);font-size:13px;line-height:1.6">${escapeHtml(t.competitorMoves)}</div>
+                  </div>
+                ` : ''}
+
+                ${predictedSplit(t.predictedOutcome, u.tint)}
+
+                ${t.insight || t.action || t.solution ? `
+                  <div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
+                    ${t.insight ? paragraphCallout('Maya\'s read', t.insight, u.tint) : ''}
+                    ${t.action ? paragraphCallout('The play', t.action, u.tint) : ''}
+                    ${t.solution ? paragraphCallout('Maya is briefing the team', t.solution, u.tint) : ''}
+                  </div>
+                ` : (t.verdict ? `<div style="color:var(--t2);font-size:13px;line-height:1.6;margin-top:14px">${escapeHtml(t.verdict)}</div>` : '')
                 }
               </div>
             </article>
@@ -373,12 +426,6 @@
         <button style="background:none;border:none;color:var(--t2);font-size:22px;cursor:pointer;line-height:1" aria-label="Close">×</button>
       </div>
       <div id="vx-out-body">${body}</div>
-      ${pretty ? `
-        <details style="margin-top:18px">
-          <summary style="cursor:pointer;color:var(--t3);font-size:11px;letter-spacing:.08em;text-transform:uppercase">Show raw JSON</summary>
-          <pre style="margin-top:10px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px;overflow:auto;font-size:12px;line-height:1.6;color:var(--t2);white-space:pre-wrap">${escapeHtml(JSON.stringify(o.content, null, 2))}</pre>
-        </details>
-      ` : ''}
     `
     panel.querySelector('button[aria-label="Close"]').addEventListener('click', () => overlay.remove())
     overlay.appendChild(panel)

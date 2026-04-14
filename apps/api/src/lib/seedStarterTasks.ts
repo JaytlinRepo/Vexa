@@ -13,9 +13,15 @@ interface TrendItem {
   urgency: 'act_now' | 'build' | 'skip'
   sparkline: number[] // 7 normalized values 0-100 representing the last week
   audienceFit: string
-  insight: string   // Maya's read on why this is moving
-  action: string    // What to do this week
-  solution: string  // The concrete shippable Maya would brief Jordan/Alex on
+  // Maya's analytical reasoning. The renderer treats every field below as
+  // optional so older seeds with just insight/action/solution still render.
+  whyNow?: string                                       // What triggered the spike
+  signals?: Array<{ label: string; value: string }>    // Concrete data Maya pulled
+  competitorMoves?: string                             // Who else is in the lane
+  predictedOutcome?: { ifAct: string; ifSkip: string } // What happens either way
+  insight: string   // Maya's overall read
+  action: string    // The 3-step play
+  solution: string  // What Maya is briefing the team on
 }
 
 interface NichePack {
@@ -60,10 +66,24 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           window: '48h',
           urgency: 'act_now',
           sparkline: [12, 18, 22, 35, 58, 81, 100],
-          audienceFit: 'Strong fit — your audience skews 28-44, time-poor, already values low-impact.',
-          insight: 'This spike is being driven by two big creators dropping vest-walk Reels in the last 72 hours. The trend is broad enough that it has not collapsed into a single sound, so you can ride it with original audio without competing for the slot.',
-          action: 'Ship one Reel this week, before the weekend window closes. Lead with the swap angle (treadmill → weighted walk) — that is the comment-bait the algorithm is rewarding right now.',
-          solution: 'I am briefing Alex on hooks (5 variations) and Riley on the shot list. You will see both in the queue inside an hour. Approve and we can post by Friday.',
+          audienceFit: 'Strong — your followers index 1.8x against the "low-impact, time-poor" segment that is driving this trend. Save rate on your last three transformation posts (12.4%) suggests this audience is actively bookmarking solutions, not just watching.',
+          whyNow: 'Two macro-creators (1.2M and 840K followers) dropped vest-walk Reels within 18 hours of each other on Tuesday. Combined they pulled 4.1M views in the first 24 hours, which triggered the algorithm to start routing weighted-walking content to fitness watchers across the platform. The trend is in the "still expanding" phase — not yet locked to a single sound, so original audio is still rewarded. Historically these windows close in 5-7 days as the lane fills with copycat content and the algorithm shifts to penalizing repetition.',
+          signals: [
+            { label: 'Search interest (Google + IG)', value: '+340% / 48h' },
+            { label: 'Top-50 fitness accounts posting', value: '11 of 50' },
+            { label: 'Avg engagement on category', value: '4.2x baseline' },
+            { label: 'Estimated trend window remaining', value: '4-6 days' },
+            { label: 'Competing audios', value: '3 (none dominant yet)' },
+            { label: 'Hashtag saturation', value: 'Low (#weightedwalking 84K posts)' },
+          ],
+          competitorMoves: 'Two of your direct comp set (@strongmom_official and @runlessfaster) posted within the last 36 hours. Both used the "treadmill swap" angle. Neither has hit the carousel format yet — that lane is still open and historically out-saves Reels for this kind of content by 2.1x.',
+          predictedOutcome: {
+            ifAct: 'Conservative: 2-3x your last-30-day median Reel reach (~28K views). Aggressive: a clean breakout in the 80K-150K range if the hook lands and the swap framing earns saves. Either way you pick up 200-500 followers from the right audience.',
+            ifSkip: 'You give up the cleanest growth window of the month. The lane will be owned by Friday. Re-entering after that means competing with creators 5-10x your size for the same algorithmic surface.',
+          },
+          insight: 'This is the cleanest trend window we have had in 4 weeks. The combination of macro-creator activation, low audio saturation, and an open carousel lane means you can still claim a position if you ship by Thursday. The swap framing (treadmill → weighted walk) is doing 3.4x the engagement of generic vest-walk content because it triggers the comment-bait loop ("but does it actually burn more than running?"). That comment volume is what the algorithm reads as quality signal.',
+          action: 'Ship a Reel by Thursday, then a save-bait carousel by Sunday. Reel leads with the swap framing and the heart-rate-zone visual to drive comments. Carousel breaks down the math (calorie burn comparison, time efficiency, gear cost) for the saves. Stack them so the carousel rides the comment momentum from the Reel.',
+          solution: 'Briefs already going out: Alex is writing 5 hook variations (the "your treadmill is the problem" angle is in the queue), Riley is shot-listing the 28-second cut with the heart-rate overlay. You will see all of it in your review queue within the hour. Approve and you ship Thursday.',
         },
         {
           topic: 'protein-first breakfast',
@@ -72,10 +92,24 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           window: '7d',
           urgency: 'build',
           sparkline: [38, 42, 51, 60, 68, 75, 82],
-          audienceFit: 'Good fit — overlaps with your transformation pillar. Audience saves > shares on this format.',
-          insight: 'Slower trajectory than weighted walking but with much longer half-life. Search interest has been climbing for 9 weeks straight, not a 48-hour spike. This becomes a pillar, not a single Reel.',
-          action: 'Build a 4-post mini-series (Mon/Wed/Fri/Mon) instead of a one-off. Each post anchors on one breakfast and stacks the macro count visibly.',
-          solution: 'Hand off to Jordan to slot into next week\'s plan. I will pull the 5 highest-performing breakfast formats from competitors so we are not reinventing the format.',
+          audienceFit: 'Good — your audience has high overlap with the macro-counting sub-segment. Posts about food rank #2 in your historical save-rate (behind transformation). Engagement skews female 25-39, which is the demographic driving the search.',
+          whyNow: 'This is a 9-week sustained climb, not a spike. Search interest has been ladder-stepping up since the start of January as the "quit dieting, start fueling" reframing has caught on. No single creator is owning it, which means the lane is still open for a thoughtful series rather than a one-off Reel.',
+          signals: [
+            { label: 'Search interest (Google + IG)', value: '+180% / 7d, +810% / 90d' },
+            { label: 'Top-50 fitness accounts posting', value: '6 of 50 (low coverage)' },
+            { label: 'Avg engagement on category', value: '1.8x baseline' },
+            { label: 'Trend trajectory', value: 'Climbing, no saturation point' },
+            { label: 'Save-to-share ratio', value: '4.1:1 (heavy save behavior)' },
+            { label: 'Best format (your audience)', value: 'Carousel + Reel pair' },
+          ],
+          competitorMoves: 'Comp set is mostly silent on this one. @nutritionwithnatalie is the only direct competitor running a series, and their format (single Reel per breakfast) is leaving the multi-day macro framing on the table. That is your wedge.',
+          predictedOutcome: {
+            ifAct: 'A 4-post series builds a pillar that compounds. Expect each post to pull 1.2-1.6x your baseline reach on the post day, plus 30-40% of total engagement coming in days 8-30 from search and saves. Likely 600-1200 net followers across the series.',
+            ifSkip: 'You lose a pillar opportunity. Trends like this only show up 2-3x a year for a niche, and accounts that own them become the default reference point in their lane.',
+          },
+          insight: 'This is the opposite kind of opportunity from weighted walking — slow-burn instead of spike. The math here favors a series, not a single post. Each post seeds search + saves that keep working for 30+ days, so by post 4 you have a stack of evergreen distribution. The save-to-share ratio (4.1:1) tells me this audience treats this content like reference material — they bookmark it for grocery day. That changes the format: tight macros visible on screen, label readable, screenshot-friendly composition.',
+          action: 'Build a 4-post series across 2 weeks (Mon/Wed/Fri/Mon). Each post anchors on one breakfast — eggs, cottage cheese, Greek yogurt, overnight oats — with the macros stacked visibly on the visual itself. Pair each Reel with a carousel covering the macro math. Anchor the series with a pinned cornerstone post on profile.',
+          solution: 'Handing off to Jordan now to slot the series into weeks 2-3. I am pulling the 5 highest-saving breakfast formats from the last 90 days so we start from proven structures instead of guessing. Riley will spec a consistent visual treatment so the series reads as a system, not 4 unrelated posts.',
         },
         {
           topic: 'mini-band booty prep',
@@ -84,10 +118,24 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           window: '7d',
           urgency: 'skip',
           sparkline: [55, 58, 61, 64, 67, 69, 72],
-          audienceFit: 'Weak fit — saturated in your sub-niche. Top 50 fitness accounts have all posted in last 14 days.',
-          insight: 'Looks tempting on the trend chart but the slot is owned. Of the last 200 high-performing Reels in this lane, 80% are from 12 accounts you cannot out-distribute right now.',
-          action: 'Pass on this one. If you post, expect <30% of your baseline reach because the algorithm has already routed this audience to bigger creators.',
-          solution: 'I will keep watching — if a sub-angle emerges (e.g. mini-band for postpartum specifically) I will flag it. For this week, focus on the weighted walking window.',
+          audienceFit: 'Weak — your audience is broader than the booty-prep sub-niche. Followers who came in for transformation content actively unfollow when accounts pivot too hard into glute-isolation work (we saw a small dip in May 2025 after one such post).',
+          whyNow: 'Spring/summer prep cycle as expected — this trend climbs every Q1 and peaks late March. Nothing new about the angle and no fresh creator activation, just calendar.',
+          signals: [
+            { label: 'Search interest (Google + IG)', value: '+90% / 7d' },
+            { label: 'Top-50 fitness accounts posting', value: '34 of 50 (heavy saturation)' },
+            { label: 'Avg engagement on category', value: '0.6x baseline (suppressed)' },
+            { label: 'Lane ownership', value: '12 accounts hold 80% of impressions' },
+            { label: 'Estimated reach if you post', value: '20-35% of your baseline' },
+            { label: 'Predicted follower delta', value: 'Net -10 to -40' },
+          ],
+          competitorMoves: 'The lane is owned. @bandbootybuilder, @glutebible, and 10 others have posted in the last 14 days. Combined they hold 80% of category impressions. The remaining 20% is split across 200+ accounts — that is the bucket you would land in.',
+          predictedOutcome: {
+            ifAct: 'Below-baseline reach (likely 6K-12K vs your 28K median). Expect 0-50 followers gained, plus a small unfollow event from your transformation audience as they read the pivot. Net: lose ground.',
+            ifSkip: 'No cost. The category will normalize after spring and your slot stays uncluttered for the trends that actually fit your audience.',
+          },
+          insight: 'This is the trap of trend reports — a +90% number looks compelling until you check who actually owns the lane. Of the last 200 viral Reels in this category, 80% came from 12 accounts you cannot out-distribute. The algorithm has already routed this audience to those creators. Your post would hit your existing followers and stop. Worse, posting this kind of isolation work signals a niche shift to your audience that does not match what they followed you for.',
+          action: 'Pass. Spend the week on the weighted walking play and the protein breakfast series. If you really want a glute angle, the open lane is "compound lifts that grow glutes" — none of the booty-prep accounts are touching it because it is harder and less video-friendly. I can scope that as a follow-up if you want.',
+          solution: 'No brief on this one. Holding the slot. I will pulse-check this category weekly — if a sub-angle (e.g. mini-band for postpartum recovery) breaks open with less competition, I will flag it as a separate trend.',
         },
       ],
       hookTopic: 'weighted walking',
