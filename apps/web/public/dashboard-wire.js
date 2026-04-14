@@ -200,6 +200,21 @@
     }
   }
 
+  // Force the view state even if prototype's navigate() animation lost the
+  // swap. Without this, after a session-restore login the marketing view
+  // and the dashboard view can both end up visible on top of each other —
+  // .view is position:absolute inset:0, so anything still holding .active
+  // paints over the dashboard. Belt-and-suspenders: explicitly strip it.
+  function forceDashboardVisible() {
+    document.querySelectorAll('.view').forEach((v) => {
+      if (v.id !== 'view-db-dashboard') v.classList.remove('active')
+    })
+    const dash = document.getElementById('view-db-dashboard')
+    if (dash) dash.classList.add('active')
+    const onboarding = document.getElementById('onboarding')
+    if (onboarding) onboarding.classList.remove('active')
+  }
+
   // ── On page load, auto-enter dashboard if already onboarded ───────────────
   async function init() {
     const me = await fetchMe()
@@ -208,6 +223,10 @@
     if (!company) return
     // Skip marketing — jump straight to the dashboard
     safeOriginalEnter()
+    forceDashboardVisible()
+    // And once more after prototype's 280ms navigate animation window has
+    // elapsed, in case our early call lost the race with the animated swap.
+    setTimeout(forceDashboardVisible, 320)
     await refreshDashboardFor(me.user, company)
   }
 
