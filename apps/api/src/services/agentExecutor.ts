@@ -64,6 +64,40 @@ interface KnowledgeRow {
   tags: string[]
 }
 
+// Reference shape used by every brief that wants to surface concrete
+// examples — the user's own top posts when Phyllo has data, niche
+// patterns / named competitor archetypes otherwise. The renderer turns
+// these into cards in the brief detail modal so the CEO sees real
+// examples instead of just descriptions.
+interface BriefReference {
+  label: string
+  source: 'creator_own' | 'competitor' | 'niche_pattern' | 'external'
+  attribution?: string
+  caption?: string
+  text?: string
+  whyItWorks?: string
+  permalink?: string | null
+  thumbnailSpec?: string
+  metrics?: string
+}
+
+/** Pulls the creator's own top posts as reference cards. Returns up to
+ *  N items. Empty array if no IG data — caller falls back to niche
+ *  patterns. */
+function ownTopPostsAsReferences(ctx: PersonalContext | null, n = 2): BriefReference[] {
+  const ig = ctx?.instagram
+  if (!ig || ig.source !== 'phyllo' || !ig.topPosts.length) return []
+  return ig.topPosts.slice(0, n).map((p, i) => ({
+    label: i === 0 ? 'Your strongest recent post' : 'Another high-performer',
+    source: 'creator_own' as const,
+    attribution: `@${ig.handle}`,
+    caption: p.caption || 'untitled',
+    permalink: p.permalink,
+    metrics: `${p.likeCount.toLocaleString()} likes · ${p.commentCount.toLocaleString()} comments · ${p.mediaType.toLowerCase().replace('_album', '')}`,
+    whyItWorks: i === 0 ? 'Mirror this structure. Specifically: the hook framing and the cut that earns the scroll.' : 'Same family — note what the two have in common.',
+  }))
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // NICHE-SPECIFIC COPY TOKENS
 // Thin tokens the generators weave in so outputs feel like the niche
@@ -102,7 +136,11 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     sampleTrend: 'weighted walking',
     sampleTrend2: 'protein-first breakfast',
     samplePillars: ['transformation', 'myth busting', 'behind the scenes'],
-    sampleCompetitors: ['@strongmom_official', '@runlessfaster', '@coach.amanda'],
+    // Archetype labels — never invent specific @ handles. Real
+    // competitor handles come from a comps table (future) or the user
+    // typing them in. Made-up handles erode trust the moment the CEO
+    // searches one and finds it doesn't exist.
+    sampleCompetitors: ['Macro fitness creator (1M+)', 'Mid-tier women\'s strength account (50-100K)', 'Closest comp · sub-niche match'],
     sampleHashtagsBig: ['#fitnessmotivation', '#weightlossjourney', '#homeworkout'],
     sampleHashtagsMid: ['#weightedwalking', '#strengthafter40', '#progressoverperfection'],
     sampleHashtagsSmall: ['#lowimpactworkout', '#proteinfirst', '#healthmoms'],
@@ -124,7 +162,7 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     sampleTrend: 'HYSA rate-chase',
     sampleTrend2: 'three-account system',
     samplePillars: ['frameworks', 'myth busting', 'real numbers'],
-    sampleCompetitors: ['@humbledollar', '@moneywithkatie', '@gradmoneyguide'],
+    sampleCompetitors: ['Macro personal-finance creator (500K+)', 'Mid-tier framework-led account (50-150K)', 'Closest comp · beginner-money sub-niche'],
     sampleHashtagsBig: ['#personalfinance', '#moneytips', '#financialfreedom'],
     sampleHashtagsMid: ['#hysa', '#emergencyfund', '#debtfreejourney'],
     sampleHashtagsSmall: ['#sinkingfunds', '#threeaccountsystem', '#moneyreset'],
@@ -146,7 +184,7 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     sampleTrend: 'cottage cheese dessert',
     sampleTrend2: 'no-flour bread',
     samplePillars: ['quick wins', 'ingredient deep-dives', 'kitchen stories'],
-    sampleCompetitors: ['@proteinchefmel', '@onepanwonders', '@baked.by.lo'],
+    sampleCompetitors: ['Macro recipe creator (500K+)', 'Mid-tier high-protein account (50-150K)', 'Closest comp · macro-friendly sub-niche'],
     sampleHashtagsBig: ['#easyrecipes', '#healthyrecipes', '#highproteinrecipes'],
     sampleHashtagsMid: ['#cottagecheese', '#5minuterecipes', '#macrofriendly'],
     sampleHashtagsSmall: ['#onepanmeal', '#labelreading', '#pantrymakeover'],
@@ -168,7 +206,7 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     sampleTrend: 'micro-habits over goals',
     sampleTrend2: 'burnout recovery frameworks',
     samplePillars: ['frameworks', 'transformation proof', 'hot takes'],
-    sampleCompetitors: ['@careerwithlina', '@emily.coaches', '@firstmanagerplaybook'],
+    sampleCompetitors: ['Macro coaching creator (300K+)', 'Mid-tier framework-led coach (40-120K)', 'Closest comp · vertical-niche coach'],
     sampleHashtagsBig: ['#coachinglife', '#executivecoach', '#careerdevelopment'],
     sampleHashtagsMid: ['#microhabits', '#firsttimemanager', '#burnoutrecovery'],
     sampleHashtagsSmall: ['#coachingframework', '#decisionfatigue', '#leadershipreset'],
@@ -190,7 +228,7 @@ const NICHE_TOKENS: Record<string, NicheTokens> = {
     sampleTrend: 'Sunday reset',
     sampleTrend2: 'capsule wardrobe',
     samplePillars: ['aesthetic', 'routine', 'product discovery'],
-    sampleCompetitors: ['@thathomemaker', '@morning.ritual.club', '@the.hosting.shop'],
+    sampleCompetitors: ['Macro lifestyle creator (500K+)', 'Mid-tier aesthetic-led account (50-150K)', 'Closest comp · slow-living sub-niche'],
     sampleHashtagsBig: ['#lifestyleblogger', '#sundayreset', '#minimalism'],
     sampleHashtagsMid: ['#slowliving', '#capsulewardrobe', '#cozycorner'],
     sampleHashtagsSmall: ['#aestheticmornings', '#thisweekrituals', '#softlivingaesthetic'],
@@ -322,9 +360,16 @@ function maya_competitorScan(t: NicheTokens, ctx: PersonalContext | null) {
     kind: 'competitor_scan',
     generatedAt: new Date().toISOString(),
     headline: ig?.handle
-      ? `Top 3 competitors for @${ig.handle} — sized to your tier`
-      : `Top 3 competitors in ${t.label} — what is working this month`,
+      ? `3 competitor archetypes for @${ig.handle} — sized to your tier`
+      : `3 competitor archetypes in ${t.label}`,
     forCreator: ig ? `${fmtFollowers(myFollowers)} followers · ${followerTier(myFollowers)}` : null,
+    // Honesty caveat — we do NOT have a live competitor scraper. These
+    // are pattern archetypes the CEO maps to real accounts they already
+    // know. As soon as we wire a comps lookup (Phyllo Search or similar)
+    // we'll swap real handles in.
+    dataSource: 'pattern_archetypes',
+    disclaimer: 'These are archetypes, not specific accounts. Map each one to the real competitor you actually study — names belong to you. (We will pull live competitor lookups once that integration ships.)',
+    addYourComps: 'Reply with the handles of three real competitors and I will run the same analysis against them.',
     competitors: [
       {
         name: competitors[0],
@@ -1064,12 +1109,15 @@ function presentBrief(opts: {
       const trends = get<Array<Record<string, unknown>>>(c, 'trends', [])
       const top = trends[0]
       const topic = top ? String(top.topic) : 'this week\'s top movement'
-      const growth = top ? String(top.growth) : ''
       const window = top ? String(top.window) : ''
       const urgency = top ? String(top.urgency) : ''
+      // Honest framing — we don't have a live trend scraper yet. The
+      // numbers in the structured output are illustrative pattern data
+      // for this niche, not freshly-pulled research. The CEO needs to
+      // know which is which.
       return {
-        opening: `I scanned ${opts.ctx?.niche || 'your niche'} this week — three trends moved. The one to act on is **${topic}** at ${growth} over ${window}. ${urgency === 'act_now' ? 'Window closes in 4-6 days. I can brief Alex on hooks and Riley on the shot list right now if you want to ship by Friday.' : 'Slower burn — better as a 2-week mini-series.'}`,
-        suggestedReplies: ['Brief Alex on hooks for it', 'Why this trend over the others?', 'Show me the data'],
+        opening: `**Patterns to watch in ${opts.ctx?.niche || 'your niche'} this week — illustrative, not freshly-scraped.** Once we wire a live trend feed (Google Trends + niche scrapers), the numbers below will be real-time. For now treat them as the *kind* of trend we'd flag.\n\nThe pattern most worth acting on: **${topic}**, window ${window}. ${urgency === 'act_now' ? 'When a trend like this hits, the move is to ship within 4-6 days.' : 'When a trend like this hits, build a 2-week mini-series instead of a one-off.'}\n\n**Want me to brief Alex + Riley on this kind of opportunity, or wait for the live feed?**`,
+        suggestedReplies: ['Brief Alex + Riley on this pattern', 'Why this pattern over the others?', 'When does the live feed ship?'],
         viewLabel: 'Open full report',
       }
     }
@@ -1079,8 +1127,8 @@ function presentBrief(opts: {
       const closestName = closest ? String(closest.name) : 'the closest comp'
       const insight = closest ? String(closest.copyFromThem || '') : ''
       return {
-        opening: `I scanned the three accounts above your tier in ${opts.ctx?.niche || 'your niche'}. The closest comp to you is **${closestName}**${insight ? ` — biggest copy-from-them: ${insight.split('.')[0]}.` : '.'} Want me to dig deeper into any one?`,
-        suggestedReplies: [`Why ${closestName}?`, 'What should we copy first?', 'How big is the gap?'],
+        opening: `**3 competitor archetypes mapped to your tier.** I do not have live scraping yet, so these are patterns — map each one to the real account you already study.\n\n- Closest archetype: **${closestName}**${insight ? `\n- Biggest copy-from-them: ${insight.split('.')[0]}` : ''}\n\n**Reply with three real competitor handles and I will run the same analysis on them.**`,
+        suggestedReplies: [`Walk me through the closest archetype`, 'What should we copy first?', 'I will paste my real comps'],
         viewLabel: 'Open full scan',
       }
     }
@@ -1089,8 +1137,8 @@ function presentBrief(opts: {
       const mid = buckets.find((b) => /mid/i.test(String(b.label || '')))
       const midTags = mid ? get<string[]>(mid as Record<string, unknown>, 'tags', []) : []
       return {
-        opening: `Rebuilt your hashtag set. Mid-tier is your sweet spot at your size — ${midTags.slice(0, 3).join(', ')}. Use 3-5 per post, one from each bucket. Want me to map them to your next 3 scheduled posts?`,
-        suggestedReplies: ['Map to my next posts', 'Which to drop?', 'Why mid-tier wins'],
+        opening: `**Hashtag pattern for ${opts.ctx?.niche || 'your niche'}.** I do not have a live hashtag-volume API yet — the tags below are starting points for your size, not freshly-pulled rankings. Verify the post counts in Instagram Search before locking them.\n\n- Mid-tier is your sweet spot: **${midTags.slice(0, 3).join(', ')}**\n- Use 3-5 per post, one from each bucket\n\n**Want me to draft a tag set for your next 3 scheduled posts?**`,
+        suggestedReplies: ['Draft tags for my next posts', 'Which bucket should I lean on?', 'When does live hashtag data ship?'],
         viewLabel: 'Open full hashtag report',
       }
     }
