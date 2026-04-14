@@ -34,9 +34,28 @@ if (!process.env.SESSION_SECRET) {
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
 
+// CORS — accept any origin in CORS_ORIGINS (comma-separated), plus the
+// legacy single-origin NEXT_PUBLIC_APP_URL. Also auto-allows Vercel
+// preview deployments (*.vercel.app) so PR previews work without
+// reconfig. Localhost stays open for dev.
+const allowedOrigins = (process.env.CORS_ORIGINS ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 app.use(
   cors({
-    origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    origin: (origin, cb) => {
+      // Same-origin / curl / server-to-server requests have no Origin header
+      if (!origin) return cb(null, true)
+      if (allowedOrigins.includes(origin)) return cb(null, true)
+      // Allow any Vercel preview / production subdomain
+      try {
+        const host = new URL(origin).hostname
+        if (host.endsWith('.vercel.app')) return cb(null, true)
+        if (host === 'localhost' || host === '127.0.0.1') return cb(null, true)
+      } catch { /* fallthrough */ }
+      cb(new Error(`Origin ${origin} not allowed by CORS`))
+    },
     credentials: true,
   }),
 )

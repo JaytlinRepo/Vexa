@@ -2,7 +2,10 @@
 // Database: PostgreSQL on AWS RDS
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // openssl-3 covers Railway's Nixpacks image and current Render images.
+  // debian-openssl-1.1.x is for older Lambda / Amazon Linux 2 paths.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-1.1.x"]
 }
 
 datasource db {
