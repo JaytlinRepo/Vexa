@@ -72,9 +72,18 @@
         console.log('[phyllo] sync result', ok)
         if (ok && typeof onConnected === 'function') onConnected(accountId)
       })
-      phyllo.on('accountDisconnected', (a, w, u) => console.log('[phyllo] disconnected', a, w, u))
-      phyllo.on('tokenExpired', () => console.warn('[phyllo] token expired'))
-      phyllo.on('exit', (reason, userId) => console.log('[phyllo] exit', reason, userId))
+      phyllo.on('accountDisconnected', (accountId, workplatformId, userId) => {
+        console.log('[phyllo] disconnected', { accountId, workplatformId, userId })
+      })
+      phyllo.on('tokenExpired', (userId) => {
+        console.warn('[phyllo] token expired for', userId)
+      })
+      phyllo.on('exit', (reason, userId) => {
+        console.log('[phyllo] exit', { reason, userId })
+      })
+      phyllo.on('connectionFailure', (reason, workplatformId, userId) => {
+        console.warn('[phyllo] connectionFailure', { reason, workplatformId, userId })
+      })
       phyllo.open()
       console.log('[phyllo] open() called')
     } catch (err) {
