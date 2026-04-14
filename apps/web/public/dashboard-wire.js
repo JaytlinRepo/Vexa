@@ -180,10 +180,20 @@
 
   // ── Override enterDashboard so it uses real data ─────────────────────────
   const originalEnter = window.enterDashboard
+  function safeOriginalEnter() {
+    try {
+      if (typeof originalEnter === 'function') originalEnter()
+    } catch (err) {
+      // prototype.js's enterDashboard hard-codes getElementById('db-greeting')
+      // etc. Once dashboard-v2 replaces the view, those elements are gone on
+      // subsequent invocations. Safe to swallow — v2's render produces its
+      // own greeting.
+      console.warn('[dashboard-wire] original enterDashboard threw (v2 now owns dashboard DOM):', err.message)
+    }
+  }
   window.enterDashboard = async function () {
     const me = await fetchMe()
-    // Call original to flip UI chrome (hide marketing nav, show app nav, etc.)
-    if (typeof originalEnter === 'function') originalEnter()
+    safeOriginalEnter()
     if (me?.user) {
       const company = me.companies?.[0]
       await refreshDashboardFor(me.user, company)
@@ -197,7 +207,7 @@
     const company = me.companies?.[0]
     if (!company) return
     // Skip marketing — jump straight to the dashboard
-    if (typeof originalEnter === 'function') originalEnter()
+    safeOriginalEnter()
     await refreshDashboardFor(me.user, company)
   }
 
