@@ -220,6 +220,16 @@
     return res.json()
   }
 
+  // Sidebar "Vexa" title: dashboard when session exists, else marketing home.
+  window.navigateVexaLogo = async function () {
+    const me = await fetchMe()
+    if (me?.user?.id) {
+      if (typeof window.navigate === 'function') window.navigate('db-dashboard')
+    } else {
+      if (typeof window.navigate === 'function') window.navigate('home')
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // ONBOARDING — three steps total: name → niche → Instagram, then reveal.
   // The agents derive sub-niche / audience / goals / tool sources themselves

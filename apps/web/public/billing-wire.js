@@ -153,8 +153,22 @@
     // (team strip, review queue, outputs library, calendar) can re-fetch
     // and surface the brief that just landed delivered.
     refresh()
-    window.dispatchEvent(new CustomEvent('vx-task-changed', { detail: { task: json.task } }))
-    return { ok: true, task: json.task }
+    window.dispatchEvent(
+      new CustomEvent('vx-task-changed', {
+        detail: { task: json.task, deliveryMode: json.deliveryMode, chain: json.chain },
+      })
+    )
+    if (json.deliveryMode === 'auto_approved') {
+      const tip = document.createElement('div')
+      tip.setAttribute('role', 'status')
+      tip.style.cssText =
+        'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9300;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t2);font-size:12px;line-height:1.45;font-family:inherit;box-shadow:0 8px 28px rgba(0,0,0,.2)'
+      tip.textContent =
+        'This deliverable cleared on your defaults (hooks & captions ship without a pen stop). Big moves still land in review.'
+      document.body.appendChild(tip)
+      setTimeout(() => tip.remove(), 5200)
+    }
+    return { ok: true, task: json.task, deliveryMode: json.deliveryMode, chain: json.chain }
   }
 
   const prevEnter = window.enterDashboard

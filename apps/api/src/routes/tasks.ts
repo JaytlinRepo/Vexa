@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { PrismaClient, TaskStatus } from '@prisma/client'
+import { PrismaClient, TaskStatus, type OutputType } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { createNotification } from '../services/notifications/notification.service'
@@ -7,9 +7,39 @@ import { assertTaskQuota, computeUsage } from '../lib/usage'
 import { recordTaskApproved, recordTaskRejected } from '../lib/brandMemory'
 import { executeAndStore } from '../services/agentExecutor'
 import { AgentRole } from '../lib/nicheKnowledge'
+import { triggerNextAgentAfterApproval, type AgentPipelineChainResult } from '../agents/task-orchestrator'
+import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 
 const prisma = new PrismaClient()
 const router = Router()
+
+const emojiByRole: Record<string, string> = {
+  analyst: '📊',
+  strategist: '🗺️',
+  copywriter: '✍️',
+  creative_director: '🎬',
+}
+
+function chainProgressBody(taskTitle: string, chain: AgentPipelineChainResult, tone: 'manual' | 'auto'): string {
+  if (chain.ok === true) {
+    return tone === 'auto'
+      ? `${chain.nextEmployeeName} picked up "${chain.title}" — lighter deliverables ship on your defaults; this is your next stop.`
+      : `${chain.nextEmployeeName} picked up "${chain.title}" — it is in your queue now.`
+  }
+  if (chain.reason === 'quota_exceeded') {
+    return tone === 'auto'
+      ? `"${taskTitle}" cleared on defaults, but the plan task limit blocked the next role — upgrade or wait for reset.`
+      : `You approved "${taskTitle}". Plan task limit reached — upgrade or wait for reset to auto-chain the next role.`
+  }
+  if (chain.reason === 'end_of_pipeline') {
+    return tone === 'auto'
+      ? `"${taskTitle}" cleared on defaults — that was the last role in this pipeline.`
+      : `You approved "${taskTitle}". That was the last role in this pipeline.`
+  }
+  return tone === 'auto'
+    ? `"${taskTitle}" cleared on defaults — the next step will start when the team has capacity.`
+    : `You approved "${taskTitle}". The next step will start when the team has capacity.`
+}
 
 const createSchema = z.object({
   companyId: z.string().uuid(),
@@ -67,6 +97,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     // "real work in your queue within seconds" promise.
     let knowledgeUsed = 0
     let executionSource: 'bedrock' | 'mock' | null = null
+    let deliveryMode: 'awaiting_review' | 'auto_approved' = 'awaiting_review'
+    let postDeliveryChain: AgentPipelineChainResult | undefined
     try {
       const role = task.employee.role as AgentRole
       const result = await executeAndStore(prisma, {
@@ -81,6 +113,48 @@ router.post('/', requireAuth, async (req, res, next) => {
       })
       knowledgeUsed = result.knowledgeUsed
       executionSource = result.source
+
+      const auto = await tryAutoApproveDeliveredTask(prisma, {
+        companyId: company.id,
+        taskId: task.id,
+        outputType: data.type as OutputType,
+        agentTools: company.agentTools,
+      })
+      if (auto.didAuto) {
+        deliveryMode = 'auto_approved'
+        const closed = await prisma.task.findUnique({
+          where: { id: task.id },
+          include: { employee: true, outputs: true },
+        })
+        if (closed) {
+          try {
+            postDeliveryChain = await triggerNextAgentAfterApproval(prisma, {
+              companyId: company.id,
+              employee: closed.employee,
+            })
+            const body = chainProgressBody(closed.title, postDeliveryChain, 'auto')
+            const emoji = emojiByRole[closed.employee.role] ?? '✅'
+            await createNotification({
+              userId,
+              companyId: company.id,
+              type: 'task_approved',
+              emoji,
+              title: `${closed.employee.name}'s work shipped on defaults`,
+              body,
+              actionLabel: postDeliveryChain.ok === true ? 'Open next deliverable' : 'Open queue',
+              metadata: {
+                taskId: closed.id,
+                autoShip: true,
+                ...(postDeliveryChain.ok === true
+                  ? { nextTaskId: postDeliveryChain.nextTaskId, nextTaskTitle: postDeliveryChain.title }
+                  : {}),
+              },
+            })
+          } catch (e) {
+            console.warn('[tasks] auto-ship chain failed', e)
+          }
+        }
+      }
     } catch (err) {
       // Don't leave the task stuck in 'in_progress' — the CEO would see
       // an endlessly-loading card and never know the run failed. Flip to
@@ -122,6 +196,8 @@ router.post('/', requireAuth, async (req, res, next) => {
       task: fresh ?? task,
       usage: await computeUsage(prisma, userId),
       execution: { knowledgeUsed, source: executionSource },
+      deliveryMode,
+      ...(postDeliveryChain !== undefined ? { chain: postDeliveryChain } : {}),
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -202,26 +278,24 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
       include: { employee: true, outputs: true },
     })
 
+    let chain: AgentPipelineChainResult | undefined
+
     // Fire a notification so the bell + SSE stream picks it up.
     try {
-      const emojiByRole: Record<string, string> = {
-        analyst: '📊',
-        strategist: '🗺️',
-        copywriter: '✍️',
-        creative_director: '🎬',
-      }
       const employeeName = updated.employee.name
       const emoji = emojiByRole[updated.employee.role] ?? '✅'
       if (data.action === 'approve') {
-        await createNotification({
-          userId,
-          companyId: updated.companyId,
-          type: 'task_approved',
-          emoji,
-          title: `${employeeName}'s work approved`,
-          body: `You approved "${updated.title}". The next step auto-kicks off.`,
-          metadata: { taskId: updated.id },
-        })
+        const outputs = updated.outputs ?? []
+        const latestOutput =
+          outputs.length === 0
+            ? null
+            : outputs.reduce((a, b) => (a.createdAt > b.createdAt ? a : b))
+        if (latestOutput) {
+          await prisma.output.update({
+            where: { id: latestOutput.id },
+            data: { status: 'approved' },
+          })
+        }
         await recordTaskApproved(prisma, {
           companyId: updated.companyId,
           taskId: updated.id,
@@ -229,14 +303,42 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
           taskType: updated.type,
           employeeName,
         })
+        try {
+          chain = await triggerNextAgentAfterApproval(prisma, {
+            companyId: updated.companyId,
+            employee: updated.employee,
+          })
+        } catch (e) {
+          console.warn('[tasks] triggerNextAgentAfterApproval failed', e)
+          chain = { ok: false, reason: 'bad_config' }
+        }
+
+        const chainBody = chainProgressBody(updated.title, chain, 'manual')
+
+        await createNotification({
+          userId,
+          companyId: updated.companyId,
+          type: 'task_approved',
+          emoji,
+          title: `${employeeName}'s work approved`,
+          body: chainBody,
+          actionLabel: chain.ok === true ? 'Open next deliverable' : 'Open queue',
+          metadata: {
+            taskId: updated.id,
+            ...(chain.ok === true ? { nextTaskId: chain.nextTaskId, nextTaskTitle: chain.title } : {}),
+          },
+        })
       } else if (data.action === 'reject') {
         await createNotification({
           userId,
           companyId: updated.companyId,
           type: 'team_update',
           emoji: '↩️',
-          title: `${employeeName} will rework "${updated.title}"`,
-          body: 'Feedback noted. A revised version will be ready shortly.',
+          title: `${employeeName} is revising "${updated.title}"`,
+          body: data.feedback
+            ? `Revision requested: "${String(data.feedback).slice(0, 180)}${String(data.feedback).length > 180 ? '…' : ''}"`
+            : 'Revision requested — they will rework from your last review.',
+          actionLabel: 'Open queue',
           metadata: { taskId: updated.id },
         })
         await recordTaskRejected(prisma, {
@@ -253,7 +355,7 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
       console.warn('[tasks] notification/memory emit failed', e)
     }
 
-    res.json({ task: updated })
+    res.json({ task: updated, ...(chain !== undefined ? { chain } : {}) })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })

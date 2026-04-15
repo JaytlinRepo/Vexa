@@ -45,12 +45,14 @@
     }
   }
 
-  async function sendAction(taskId, action) {
+  async function sendAction(taskId, actionType, feedback) {
+    const body = { action: actionType }
+    if (feedback) body.feedback = feedback
     const res = await fetch('/api/tasks/' + taskId + '/action', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify(body),
     })
     return res.ok
   }
@@ -140,11 +142,35 @@
       card.querySelectorAll('[data-action]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           btn.disabled = true
-          const ok = await sendAction(id, btn.dataset.action)
+          let feedback
+          if (btn.dataset.action === 'reject') {
+            feedback = window.prompt('What should change? (optional but helps the revision)', '')
+            if (feedback === null) {
+              btn.disabled = false
+              return
+            }
+          }
+          const ok = await sendAction(id, btn.dataset.action, feedback || undefined)
           if (ok) render()
         })
       })
     })
+
+    const focusId = sessionStorage.getItem('vxFocusTaskId')
+    if (focusId) {
+      sessionStorage.removeItem('vxFocusTaskId')
+      if (typeof window.switchTasksView === 'function') window.switchTasksView('list')
+      const el = listHost.querySelector('.out-card[data-task-id="' + focusId + '"]')
+      if (el) {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          el.style.boxShadow = '0 0 0 2px var(--t1)'
+          setTimeout(() => {
+            el.style.boxShadow = ''
+          }, 4500)
+        })
+      }
+    }
   }
 
   // Pre-render the list so when the CEO toggles to it (or work-wire stacks

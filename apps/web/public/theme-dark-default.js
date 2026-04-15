@@ -1,13 +1,25 @@
-/* Force dark theme as the default if the user has never toggled it.
- * The prototype's JS respects localStorage.vx-t; we only override when that
- * key is absent. Users who explicitly pick light via the topbar toggle still
- * get remembered.
- */
+/* Runs in root layout (beforeInteractive) so theme + toggle exist before React. */
 ;(function () {
-  try {
-    if (!localStorage.getItem('vx-t')) {
-      localStorage.setItem('vx-t', 'dark')
-      document.documentElement.setAttribute('data-theme', 'dark')
+  var html = document.documentElement
+  function sync() {
+    try {
+      var t = localStorage.getItem('vx-t')
+      if (t === 'light' || t === 'dark') {
+        html.setAttribute('data-theme', t)
+      } else {
+        localStorage.setItem('vx-t', 'dark')
+        html.setAttribute('data-theme', 'dark')
+      }
+    } catch (_) {
+      html.setAttribute('data-theme', 'dark')
     }
-  } catch {}
+  }
+  sync()
+  window.toggleTheme = function vexaToggleTheme() {
+    var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+    html.setAttribute('data-theme', next)
+    try {
+      localStorage.setItem('vx-t', next)
+    } catch (_) {}
+  }
 })()

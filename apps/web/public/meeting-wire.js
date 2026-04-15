@@ -30,6 +30,7 @@
     document.getElementById('vx-mtg-knowledge')?.remove()
     document.getElementById('vx-mtg-quickreplies')?.remove()
     document.getElementById('vx-mtg-viewbrief')?.remove()
+    document.getElementById('vx-mtg-review-actions')?.remove()
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
       msgs.innerHTML = `
@@ -46,7 +47,7 @@
   // suggested follow-ups, and a "View brief" button opens the structured
   // output detail. Used by team-wire when a brief is freshly delivered.
   window.openMeetingWithPresentation = function (opts) {
-    const { name, role, init, presentation, output } = opts
+    const { name, role, init, presentation, output, task } = opts
     if (typeof window.openMeeting !== 'function') return
     window.openMeeting(name, role, init)
     // openMeeting reset the messages — give it a tick, then replace the
@@ -69,7 +70,160 @@
       ]
       renderQuickReplies(presentation.suggestedReplies || [])
       renderViewBriefButton(presentation.viewLabel || 'Open the brief', output)
+      if (task) renderMeetingReviewBar(task)
     }, 60)
+  }
+
+  function buildSyntheticOpening(name, task, output) {
+    const pres = output?.content?.presentation
+    if (pres?.opening) return pres.opening
+    const title = task?.title || 'this deliverable'
+    return (
+      `Hey — ${name} here. I just wrapped **${title}**. It is on the table below — open the full output if you want detail, then **approve**, ask for a **revision**, or type a **suggestion** and hit Send.`
+    )
+  }
+
+  function appendMeetingBubble(markdownText, isUser) {
+    const msgs = document.getElementById('mr-msgs')
+    if (!msgs) return
+    const div = document.createElement('div')
+    div.className = 'mr-msg' + (isUser ? ' user' : '')
+    const inner = document.createElement('div')
+    inner.className = 'mr-bubble'
+    inner.innerHTML = isUser ? escapeHtml(markdownText) : renderAgentMarkdown(markdownText)
+    div.appendChild(inner)
+    msgs.appendChild(div)
+    msgs.scrollTop = msgs.scrollHeight
+  }
+
+  async function meetingTaskApprove(taskId) {
+    const res = await fetch(`/api/tasks/${taskId}/action`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve' }),
+    })
+    if (!res.ok) {
+      appendMeetingBubble('Could not record approval — try again from the queue.', false)
+      return
+    }
+    const data = await res.json().catch(() => ({}))
+    document.getElementById('vx-mtg-review-actions')?.remove()
+    appendMeetingBubble('**Recorded — approved.** Moving this forward.', false)
+    const chain = data.chain
+    if (chain && chain.ok === true) {
+      appendMeetingBubble(
+        `**${chain.nextEmployeeName}** picked up **"${chain.title}"** — it is in your queue when you are ready.`,
+        false
+      )
+    } else if (chain && chain.reason === 'end_of_pipeline') {
+      appendMeetingBubble('That was the last step in this pipeline for this run.', false)
+    } else if (chain && chain.reason === 'quota_exceeded') {
+      appendMeetingBubble('Plan task limit blocked the next role — check usage or wait for reset.', false)
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('vx-task-changed', { detail: { task: data.task } }))
+    } catch {}
+    history.push({ role: 'user', content: '[Approved in meeting.]' })
+    history.push({ role: 'assistant', content: 'Approval recorded in the system.' })
+  }
+
+  async function meetingTaskReject(taskId) {
+    const fb = window.prompt('What should change? (optional — helps the revision)')
+    if (fb === null) return
+    const res = await fetch(`/api/tasks/${taskId}/action`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject', feedback: fb || undefined }),
+    })
+    if (!res.ok) {
+      appendMeetingBubble('Could not record rejection — try again from the queue.', false)
+      return
+    }
+    document.getElementById('vx-mtg-review-actions')?.remove()
+    appendMeetingBubble('**Understood — revision requested.** I will rework from your note.', false)
+    try {
+      window.dispatchEvent(new CustomEvent('vx-task-changed', {}))
+    } catch {}
+    history.push({ role: 'user', content: fb ? `Reject: ${fb}` : '[Rejected in meeting.]' })
+    history.push({ role: 'assistant', content: 'Revision request recorded.' })
+  }
+
+  function meetingTaskSuggest() {
+    const inp = document.getElementById('mr-input-field')
+    if (!inp) return
+    inp.placeholder = 'Type your suggestion, then Send…'
+    inp.value = ''
+    inp.focus()
+    appendMeetingBubble('Use the field below — **type your suggestion** and press Send. I will fold it into the next pass.', false)
+  }
+
+  function renderMeetingReviewBar(task) {
+    document.getElementById('vx-mtg-review-actions')?.remove()
+    const wrapInput = document.querySelector('#meeting-room .mr-input-wrap')
+    if (!wrapInput || !task?.id) return
+    if (task.status !== 'delivered') return
+    const host = wrapInput.parentElement
+    const bar = document.createElement('div')
+    bar.id = 'vx-mtg-review-actions'
+    bar.style.cssText =
+      'margin-bottom:14px;padding:14px 0 0;border-top:1px solid var(--b1);max-width:800px;width:100%;margin-left:auto;margin-right:auto'
+    bar.innerHTML = `
+      <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;font-family:DM Sans,sans-serif">Your decision</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <button type="button" class="vx-mtg-ap" style="background:var(--t1);color:var(--bg);border:none;padding:8px 18px;border-radius:999px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer">Approve</button>
+        <button type="button" class="vx-mtg-rj" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Reject</button>
+        <button type="button" class="vx-mtg-sg" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Suggestion</button>
+      </div>
+    `
+    host.insertBefore(bar, wrapInput)
+    const tid = task.id
+    bar.querySelector('.vx-mtg-ap')?.addEventListener('click', () => meetingTaskApprove(tid))
+    bar.querySelector('.vx-mtg-rj')?.addEventListener('click', () => meetingTaskReject(tid))
+    bar.querySelector('.vx-mtg-sg')?.addEventListener('click', () => meetingTaskSuggest())
+  }
+
+  /**
+   * From a team card or review row: open the room with the agent’s greeting,
+   * the structured output on the table (View full output), and approve / reject / suggestion.
+   */
+  window.openMeetingWithTaskOutput = function (opts) {
+    const { name, role, init, task, output } = opts
+    currentRole = ROLE_BY_NAME[name] || 'copywriter'
+    currentName = name
+    history = []
+    document.getElementById('vx-mtg-knowledge')?.remove()
+    document.getElementById('vx-mtg-quickreplies')?.remove()
+    document.getElementById('vx-mtg-viewbrief')?.remove()
+    document.getElementById('vx-mtg-review-actions')?.remove()
+
+    if (typeof originalOpen === 'function') originalOpen(name, role, init)
+
+    const inp0 = document.getElementById('mr-input-field')
+    if (inp0) {
+      inp0.placeholder = `Reply to ${name}…`
+    }
+
+    const presentation = output?.content?.presentation
+    const opening = presentation?.opening || buildSyntheticOpening(name, task, output)
+    const msgs = document.getElementById('mr-msgs')
+    if (msgs) {
+      msgs.innerHTML = `
+        <div class="mr-msg">
+          <div class="mr-bubble" id="vx-mtg-opener"></div>
+        </div>
+      `
+      const bubble = document.getElementById('vx-mtg-opener')
+      if (bubble) bubble.innerHTML = renderAgentMarkdown(opening)
+    }
+    history = [
+      { role: 'user', content: '[Review this deliverable.]' },
+      { role: 'assistant', content: opening.replace(/\*\*([^*]+)\*\*/g, '$1') },
+    ]
+    renderQuickReplies(presentation?.suggestedReplies || [])
+    renderViewBriefButton(presentation?.viewLabel || 'View full output', output)
+    renderMeetingReviewBar(task)
   }
 
   function renderQuickReplies(replies) {
@@ -258,6 +412,12 @@
       })
       if (!res.ok) return
       const data = await res.json()
+      if (typeof window.vxCalendarAddMeetingRecap === 'function') {
+        window.vxCalendarAddMeetingRecap({ name, employeeRole: currentRole, summary: data.summary })
+      }
+      if (typeof window.vxSyncCalendarFromTasks === 'function') {
+        setTimeout(() => window.vxSyncCalendarFromTasks(), 400)
+      }
       showSummaryModal(name, data)
     } catch (e) {
       // Silent — meeting is already closed, no need to surface an error.

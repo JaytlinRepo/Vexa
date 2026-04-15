@@ -166,7 +166,6 @@ export async function notifyOutputDelivered(params: {
     emoji: params.employeeEmoji,
     title: `${params.employeeName} delivered`,
     body: `New ${params.outputType} is ready for your review.`,
-    actionUrl: `/dashboard/tasks/${params.taskId}`,
     actionLabel: 'Review',
     metadata: { taskId: params.taskId, employeeName: params.employeeName },
   })

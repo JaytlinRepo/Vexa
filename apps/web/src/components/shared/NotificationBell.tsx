@@ -92,6 +92,24 @@ export default function NotificationBell({ userId }: { userId: string }) {
     setUnreadCount(0)
   }
 
+  function openNotificationTarget(notification: Notification) {
+    const meta = notification.metadata as Record<string, unknown> | undefined
+    const nextId = meta?.nextTaskId ?? meta?.next_task_id ?? meta?.taskId
+    if (nextId && typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('vxFocusTaskId', String(nextId))
+      } catch { /* ignore */ }
+      const nav = (window as unknown as { navigate?: (id: string) => void }).navigate
+      if (typeof nav === 'function') {
+        nav('db-tasks')
+        return
+      }
+    }
+    if (notification.actionUrl) {
+      window.location.href = notification.actionUrl
+    }
+  }
+
   async function handleNotificationClick(notification: Notification) {
     // Mark as read
     if (!notification.isRead) {
@@ -102,10 +120,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       setUnreadCount(prev => Math.max(0, prev - 1))
     }
 
-    // Navigate to action URL
-    if (notification.actionUrl) {
-      window.location.href = notification.actionUrl
-    }
+    openNotificationTarget(notification)
 
     setIsOpen(false)
   }
@@ -221,6 +236,17 @@ export default function NotificationBell({ userId }: { userId: string }) {
                   key={n.id}
                   notification={n}
                   onClick={() => handleNotificationClick(n)}
+                  onOpenTarget={async (item) => {
+                    if (!item.isRead) {
+                      await fetch(`/api/notifications/${item.id}/read`, { method: 'POST' })
+                      setNotifications(prev => prev.map(x =>
+                        x.id === item.id ? { ...x, isRead: true } : x
+                      ))
+                      setUnreadCount(prev => Math.max(0, prev - 1))
+                    }
+                    openNotificationTarget(item)
+                    setIsOpen(false)
+                  }}
                 />
               ))
             )}
@@ -237,13 +263,26 @@ export default function NotificationBell({ userId }: { userId: string }) {
 function NotificationItem({
   notification: n,
   onClick,
+  onOpenTarget,
 }: {
   notification: Notification
   onClick: () => void
+  onOpenTarget: (n: Notification) => void
 }) {
+  const meta = n.metadata as Record<string, unknown> | undefined
+  const hasTarget = Boolean(n.actionLabel && (meta?.nextTaskId || meta?.next_task_id || meta?.taskId || n.actionUrl))
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
       style={{
         width: '100%',
         padding: '14px 20px',
@@ -298,9 +337,34 @@ function NotificationItem({
         }}>
           {n.body}
         </p>
-        <p style={{ margin: 0, fontSize: 11, color: 'var(--text-3)' }}>
+        <p style={{ margin: '0 0 8px', fontSize: 11, color: 'var(--text-3)' }}>
           {getRelativeTime(new Date(n.createdAt))}
         </p>
+        {hasTarget && n.actionLabel && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              void onOpenTarget(n)
+            }}
+            style={{
+              display: 'inline-block',
+              marginTop: 2,
+              padding: '6px 12px',
+              borderRadius: 6,
+              background: 'var(--text)',
+              color: 'var(--text-inv)',
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: "'Syne', sans-serif",
+              border: 'none',
+            }}
+          >
+            {n.actionLabel}
+          </button>
+        )}
       </div>
 
       {/* Unread dot */}
@@ -314,7 +378,7 @@ function NotificationItem({
           marginTop: 4,
         }} />
       )}
-    </button>
+    </div>
   )
 }
 

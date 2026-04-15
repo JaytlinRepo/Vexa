@@ -260,11 +260,11 @@ input,textarea{cursor:text}
 .home-carousel-title{font-size:clamp(32px,4.2vw,52px);font-weight:300;letter-spacing:-.02em;line-height:1.08;margin:12px 0 16px}
 .home-carousel-lead{margin:0 auto;max-width:440px}
 .home-carousel-shell{
-  position:relative;display:flex;align-items:stretch;gap:8px;
+  position:relative;display:block;
 }
 .home-carousel-viewport{
-  flex:1;min-width:0;width:100%;overflow:hidden;border-radius:16px;border:1px solid var(--b1);
-  background:var(--s1);
+  flex:1;min-width:0;width:100%;overflow:hidden;border-radius:0;border:none;
+  background:transparent;
   position:relative;
 }
 .home-carousel-track{
@@ -276,36 +276,26 @@ input,textarea{cursor:text}
 .home-carousel-slide{
   flex-shrink:0;
   box-sizing:border-box;
-  display:flex;flex-direction:column;gap:20px;padding:28px 24px 32px;
+  display:flex;flex-direction:column;gap:18px;padding:16px 0 28px;
 }
 .home-carousel-fig{
-  border-radius:12px;border:1px solid var(--b1);background:var(--s2);
-  overflow:hidden;aspect-ratio:5/3;max-height:min(52vh,360px);
+  border-radius:0;border:none;background:transparent;
+  overflow:hidden;aspect-ratio:auto;height:clamp(320px,58vh,520px);max-height:none;
   display:flex;align-items:center;justify-content:center;
 }
 .home-carousel-img{
   width:100%;
   height:100%;
-  object-fit:contain;
-  object-position:top center;
+  object-fit:cover;
+  object-position:var(--carousel-img-pos,50% 0%);
   display:block;
 }
-/* Onboarding strip: one asset, three slides — crop to approximate each step */
-.home-carousel-fig--strip{
-  aspect-ratio:4/5;
-  max-height:min(62vh,480px);
-}
-.home-carousel-img--strip{
-  object-fit:cover;
-}
-.home-carousel-img--strip-top{object-position:50% 10%}
-.home-carousel-img--strip-mid{object-position:50% 46%}
-.home-carousel-img--strip-bot{object-position:50% 84%}
-@media (max-width:640px){
-  .home-carousel-img--strip-top{object-position:50% 8%}
-  .home-carousel-img--strip-mid{object-position:50% 48%}
-  .home-carousel-img--strip-bot{object-position:50% 86%}
-}
+.home-carousel-slide:nth-of-type(1){--carousel-img-pos:50% 0%}
+.home-carousel-slide:nth-of-type(2){--carousel-img-pos:50% 6%}
+.home-carousel-slide:nth-of-type(3){--carousel-img-pos:50% 2%}
+.home-carousel-slide:nth-of-type(4){--carousel-img-pos:50% 10%}
+.home-carousel-slide:nth-of-type(5){--carousel-img-pos:50% 14%}
+.home-carousel-slide:nth-of-type(6){--carousel-img-pos:50% 4%}
 .home-carousel-cap{text-align:center;padding:0 8px}
 .home-carousel-h3{
   font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
@@ -313,11 +303,15 @@ input,textarea{cursor:text}
 }
 .home-carousel-desc{font-size:14px;color:var(--t2);line-height:1.75;max-width:420px;margin:0 auto}
 .home-carousel-arrow{
-  flex-shrink:0;width:44px;border:1px solid var(--b1);border-radius:12px;background:var(--s2);
-  color:var(--t1);font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
-  transition:background .2s,border-color .2s,opacity .2s;
+  position:absolute;top:40%;transform:translateY(-50%);z-index:4;
+  width:44px;height:64px;border:none;border-radius:999px;background:transparent;
+  color:var(--t1);font-size:32px;line-height:1;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,opacity .2s,color .2s;
+  opacity:.62;
 }
-.home-carousel-arrow:hover{background:var(--s3);border-color:var(--b2)}
+.home-carousel-prev{left:6px}
+.home-carousel-next{right:6px}
+.home-carousel-arrow:hover{background:color-mix(in srgb, var(--bg) 28%, transparent);opacity:1}
 .home-carousel-arrow:focus-visible{outline:2px solid var(--t2);outline-offset:2px}
 .home-carousel-arrow:disabled{opacity:.35;pointer-events:none}
 .home-carousel-dots{
@@ -331,8 +325,7 @@ input,textarea{cursor:text}
 .home-carousel-dot:focus-visible{outline:2px solid var(--t2);outline-offset:2px}
 @media (max-width:640px){
   .home-carousel{padding-left:20px;padding-right:20px;padding-bottom:72px}
-  .home-carousel-shell{gap:4px}
-  .home-carousel-arrow{width:38px;font-size:18px}
+  .home-carousel-arrow{width:38px;height:54px;font-size:26px}
 }
 @media (prefers-reduced-motion:reduce){
   .home-carousel-track{transition:none}

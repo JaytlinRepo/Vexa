@@ -80,24 +80,58 @@
     list.innerHTML = ''
     if (state.items.length === 0) {
       const empty = document.createElement('div')
-      empty.style.cssText = 'padding:24px 18px;color:var(--t3);font-size:13px;text-align:center'
-      empty.textContent = "You're all caught up."
+      empty.style.cssText = 'padding:24px 18px;color:var(--t2);font-size:13px;text-align:center;line-height:1.5'
+      empty.innerHTML =
+        '<p style="margin:0 0 12px">No alerts yet — open the queue to move work forward.</p>' +
+        '<button type="button" id="vx-notif-empty-queue" style="background:var(--t1);color:var(--bg);border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Open work queue</button>'
       list.appendChild(empty)
+      const b = empty.querySelector('#vx-notif-empty-queue')
+      if (b) {
+        b.addEventListener('click', (e) => {
+          e.stopPropagation()
+          if (typeof window.navigate === 'function') window.navigate('db-tasks')
+          setOpen(false)
+        })
+      }
       return
     }
     for (const n of state.items.slice(0, 20)) {
       const row = document.createElement('div')
       row.style.cssText = `
-        display:flex;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--b1);
+        display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-bottom:1px solid var(--b1);
         ${n.isRead ? 'opacity:.55' : ''}
       `
+      const meta = n.metadata || {}
+      const nextId = meta.nextTaskId || meta.next_task_id || meta.taskId
+      const hasAction = Boolean(n.actionLabel && (nextId || n.actionUrl))
       row.innerHTML = `
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px">${escapeHtml(n.title)}</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.45">${escapeHtml(n.body)}</div>
+        <div style="display:flex;gap:12px;cursor:default">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px">${escapeHtml(n.title)}</div>
+            <div style="font-size:12px;color:var(--t2);line-height:1.45">${escapeHtml(n.body)}</div>
+          </div>
+          ${!n.isRead ? '<div style="width:8px;height:8px;border-radius:50%;background:#ff5858;margin-top:4px;flex-shrink:0"></div>' : ''}
         </div>
-        ${!n.isRead ? '<div style="width:8px;height:8px;border-radius:50%;background:#ff5858;margin-top:4px;flex-shrink:0"></div>' : ''}
+        ${
+          hasAction
+            ? `<button type="button" class="vx-notif-primary" style="align-self:flex-start;background:var(--t1);color:var(--bg);border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">${escapeHtml(n.actionLabel)}</button>`
+            : ''
+        }
       `
+      row.querySelector('.vx-notif-primary')?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        markRead(n)
+        if (nextId) {
+          try {
+            sessionStorage.setItem('vxFocusTaskId', String(nextId))
+          } catch {}
+          if (typeof window.navigate === 'function') window.navigate('db-tasks')
+        } else if (n.actionUrl) {
+          window.location.href = n.actionUrl
+        }
+        setOpen(false)
+        renderList()
+      })
       row.addEventListener('click', () => markRead(n))
       list.appendChild(row)
     }

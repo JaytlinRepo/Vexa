@@ -178,6 +178,13 @@
     }
   }
 
+  function fireDashboardReady(user, company) {
+    if (!user || !company) return
+    try {
+      window.dispatchEvent(new CustomEvent('vx-dashboard-ready', { detail: { user, company } }))
+    } catch {}
+  }
+
   // ── Override enterDashboard so it uses real data ─────────────────────────
   const originalEnter = window.enterDashboard
   function safeOriginalEnter() {
@@ -197,6 +204,7 @@
     if (me?.user) {
       const company = me.companies?.[0]
       await refreshDashboardFor(me.user, company)
+      if (company) fireDashboardReady(me.user, company)
     }
   }
 
@@ -228,6 +236,7 @@
     // elapsed, in case our early call lost the race with the animated swap.
     setTimeout(forceDashboardVisible, 320)
     await refreshDashboardFor(me.user, company)
+    fireDashboardReady(me.user, company)
   }
 
   if (document.readyState === 'loading') {

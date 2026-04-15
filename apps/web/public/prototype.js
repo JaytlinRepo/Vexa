@@ -1,8 +1,15 @@
+/* Theme: root layout (theme-dark-default.js + VexaThemeBridge.tsx) owns
+   data-theme and window.toggleTheme so hydration cannot clobber the toggle. */
+
 /* ── CURSOR ─────────────────────────────────────────── */
 const cd=document.getElementById('cd'),cr=document.getElementById('cr')
 let mx=0,my=0,rx=0,ry=0
-document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cd.style.left=mx+'px';cd.style.top=my+'px'})
-;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
+if(cd){
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cd.style.left=mx+'px';cd.style.top=my+'px'})
+}
+if(cd&&cr){
+  ;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
+}
 document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.ob-card,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
   el.addEventListener('mouseenter',()=>document.body.classList.add('ch'))
   el.addEventListener('mouseleave',()=>document.body.classList.remove('ch'))
@@ -15,15 +22,6 @@ let currentView='home'
 let isLoggedIn=false
 let selectedNiche=''
 let companyName=''
-
-/* ── THEME ──────────────────────────────────────────── */
-const html=document.documentElement
-const saved=localStorage.getItem('vx-t')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')
-html.setAttribute('data-theme',saved)
-function toggleTheme(){
-  const n=html.getAttribute('data-theme')==='dark'?'light':'dark'
-  html.setAttribute('data-theme',n);localStorage.setItem('vx-t',n)
-}
 
 /* ── NAVIGATION ─────────────────────────────────────── */
 const sectionNames={
@@ -44,27 +42,35 @@ function navigate(id){
   const navEl=document.getElementById('nav-'+id)
   if(navEl)navEl.classList.add('active')
 
-  // Animate transition
   const pt=document.getElementById('page-trans')
+  const topbar=document.getElementById('topbar-section')
+  const doSwap=()=>{
+    if(prev)prev.classList.remove('active')
+    next.classList.add('active')
+    if(topbar)topbar.textContent=sectionNames[id]||id
+    currentView=id
+    if(pt){
+      pt.classList.remove('in')
+      pt.classList.add('out')
+      setTimeout(()=>pt.classList.remove('out'),500)
+    }
+  }
+
+  if(!pt){
+    doSwap()
+    return
+  }
   pt.style.transition='transform .45s cubic-bezier(.76,0,.24,1)'
   pt.classList.remove('out')
   pt.classList.add('in')
-
-  setTimeout(()=>{
-    if(prev){prev.classList.remove('active')}
-    next.classList.add('active')
-    document.getElementById('topbar-section').textContent=sectionNames[id]||id
-    currentView=id
-    pt.classList.remove('in')
-    pt.classList.add('out')
-    setTimeout(()=>pt.classList.remove('out'),500)
-  },280)
+  setTimeout(doSwap,280)
 }
 
 /* ── NAV COLLAPSE ───────────────────────────────────── */
 function toggleNav(){
   const nav=document.getElementById('sidenav')
   const btn=document.getElementById('collapseBtn')
+  if(!nav||!btn)return
   nav.classList.toggle('collapsed')
   btn.textContent=nav.classList.contains('collapsed')?'›':'‹'
 }
@@ -90,10 +96,6 @@ function obNext(step){
   } else if(step===2){
     if(!selectedNiche)return
     document.getElementById('ob-2').classList.remove('active')
-    document.getElementById('ob-3').classList.add('active')
-    document.getElementById('ob-prog').style.width='60%'
-  } else if(step===3){
-    document.getElementById('ob-3').classList.remove('active')
     document.getElementById('ob-4').classList.add('active')
     document.getElementById('ob-prog').style.width='80%'
     document.getElementById('ob-reveal-title').textContent=companyName+' is open for business.'
@@ -107,7 +109,7 @@ function obPrev(step){
     document.getElementById('ob-1').classList.add('active')
     document.getElementById('ob-prog').style.width='20%'
   } else if(step===3){
-    document.getElementById('ob-3').classList.remove('active')
+    document.getElementById('ob-4').classList.remove('active')
     document.getElementById('ob-2').classList.add('active')
     document.getElementById('ob-prog').style.width='40%'
   }
@@ -692,9 +694,15 @@ function initInsights() {
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     closeMeeting()
-    document.getElementById('onboarding').classList.remove('active')
+    document.getElementById('onboarding')?.classList.remove('active')
   }
 })
+
+// Sidebar logo: welcome when logged out; auth-ui replaces with /api/auth/me.
+window.navigateVexaLogo = function () {
+  if (typeof isLoggedIn !== 'undefined' && isLoggedIn) navigate('db-dashboard')
+  else navigate('home')
+}
 
 // Expose calendar state so companion scripts (idea-wire.js) can read
 // calDate (current visible month) and push into calEntries when the CEO

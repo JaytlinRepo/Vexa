@@ -14,6 +14,39 @@
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   }
 
+  function pickLatestOutput(task) {
+    const outs = task?.outputs
+    if (!outs || outs.length === 0) return null
+    return outs.reduce((a, b) => (new Date(a.createdAt) > new Date(b.createdAt) ? a : b))
+  }
+
+  async function openTeamMeetingForRole(role) {
+    const emp = EMPLOYEES.find((e) => e.role === role)
+    if (!emp) return
+    const tasks = await fetchTasks()
+    const mine = tasks.filter((t) => t.employee?.role === role)
+    const delivered = mine.find((t) => t.status === 'delivered')
+    if (delivered && typeof window.openMeetingWithTaskOutput === 'function') {
+      window.openMeetingWithTaskOutput({
+        name: emp.name,
+        role: emp.short,
+        init: emp.init,
+        task: delivered,
+        output: pickLatestOutput(delivered),
+      })
+    } else if (typeof window.openMeeting === 'function') {
+      window.openMeeting(emp.name, emp.short, emp.init)
+    }
+  }
+
+  function wireMeetingButtons() {
+    document.querySelectorAll('[data-team-meeting-role]').forEach((btn) => {
+      if (btn.dataset.vxMeetingWired) return
+      btn.dataset.vxMeetingWired = '1'
+      btn.addEventListener('click', () => openTeamMeetingForRole(btn.dataset.teamMeetingRole))
+    })
+  }
+
   async function fetchTasks() {
     try {
       const res = await fetch('/api/tasks', { credentials: 'include' })
@@ -57,7 +90,7 @@
         <div class="emp-card-actions">
           <button class="emp-card-btn view" onclick="navigate('db-tasks')">View work</button>
           <button class="emp-card-btn view" data-assign-role="${emp.role}" data-assign-name="${emp.name}">Assign task</button>
-          <button class="emp-card-btn meeting" onclick="openMeeting('${emp.name}','${emp.short}','${emp.init}')">Call meeting</button>
+          <button type="button" class="emp-card-btn meeting" data-team-meeting-role="${emp.role}">Call meeting</button>
         </div>
       </div>
     `
@@ -176,6 +209,7 @@
               init,
               presentation,
               output,
+              task: result.task,
             })
           } else if (typeof window.navigate === 'function') {
             window.navigate('db-tasks')
@@ -215,6 +249,7 @@
     const html = EMPLOYEES.map((e) => cardHTML(e, byRole[e.role] || [])).join('')
     hosts.forEach((host) => { host.innerHTML = html })
     wireAssignButtons()
+    wireMeetingButtons()
   }
 
   const origNavigate = window.navigate

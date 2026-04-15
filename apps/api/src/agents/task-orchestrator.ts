@@ -1,8 +1,12 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
 import { buildMayaSystemPrompt, buildMayaTaskPrompt } from './maya/system-prompt'
 import { buildJordanSystemPrompt, buildAlexSystemPrompt, buildRileySystemPrompt } from './jordan-alex-riley-prompts'
 import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, OutputType } from '@vexa/types'
+import { executeAndStore } from '../services/agentExecutor'
+import { assertTaskQuota } from '../lib/usage'
+import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
+import { AgentRole } from '../lib/nicheKnowledge'
 
 const prisma = new PrismaClient()
 
@@ -272,7 +276,7 @@ export async function handleTaskAction(
     }
 
     // Trigger next agent in pipeline if applicable
-    await triggerNextAgent(task)
+    await triggerNextAgentAfterApproval(prisma, task)
 
   } else if (isReject) {
     await prisma.task.update({ where: { id: taskId }, data: { status: 'rejected', userAction: action as never } })
@@ -349,47 +353,146 @@ async function regenerateWithFeedback(
 
 // ─── PIPELINE TRIGGERS ────────────────────────────────────────────────────────
 
+const PIPELINE_OUTPUT_TYPE: Record<string, PrismaOutputType> = {
+  strategist: 'content_plan',
+  copywriter: 'hooks',
+  creative_director: 'shot_list',
+}
+
+/** Result of trying to run the next pipeline step after an approval. */
+export type AgentPipelineChainResult =
+  | { ok: false; reason: 'end_of_pipeline' | 'no_company' | 'quota_exceeded' | 'no_next_employee' | 'bad_config' }
+  | {
+      ok: true
+      nextTaskId: string
+      title: string
+      outputType: PrismaOutputType
+      nextRole: string
+      nextEmployeeName: string
+    }
+
 /**
- * After an output is approved, automatically trigger the next agent in the pipeline.
- * Analyst approval → Strategist plans
- * Strategist approval → Copywriter writes
- * Copywriter (script) approval → Riley directs
- * Riley approval → Video generation
+ * After an output is approved, create the next role's task and run the same
+ * execution path as POST /api/tasks (`executeAndStore`), so chained work
+ * matches manual briefs (Bedrock / mocks, niche RAG, brand memory).
  */
-async function triggerNextAgent(task: {
-  companyId: string
-  type: string
-  employee: { role: string }
-}): Promise<void> {
+export async function triggerNextAgentAfterApproval(
+  db: PrismaClient,
+  task: { companyId: string; employee: { role: string } },
+): Promise<AgentPipelineChainResult> {
   const nextRoleMap: Record<string, string | null> = {
     analyst: 'strategist',
     strategist: 'copywriter',
     copywriter: 'creative_director',
-    creative_director: null, // triggers video generation instead
+    creative_director: null,
   }
 
-  const nextRole = nextRoleMap[task.employee.role]
-  if (!nextRole) return
+  const currentRole = task.employee.role
+  const nextRoleStr = nextRoleMap[currentRole]
+  if (!nextRoleStr) return { ok: false, reason: 'end_of_pipeline' }
 
-  const nextEmployee = await prisma.employee.findFirst({
-    where: { companyId: task.companyId, role: nextRole as never, isActive: true },
+  const company = await db.company.findUnique({
+    where: { id: task.companyId },
+    select: { niche: true, userId: true, agentTools: true },
   })
+  if (!company) return { ok: false, reason: 'no_company' }
 
-  if (!nextEmployee) return
+  try {
+    await assertTaskQuota(db, company.userId)
+  } catch (err) {
+    const e = err as Error & { code?: string }
+    if (e.code === 'plan_limit_exceeded') {
+      console.warn('[triggerNextAgentAfterApproval] plan limit exceeded; skipping chained task')
+      return { ok: false, reason: 'quota_exceeded' }
+    }
+    throw err
+  }
 
-  const nextTask = await prisma.task.create({
+  const nextEmployee = await db.employee.findFirst({
+    where: { companyId: task.companyId, role: nextRoleStr as never, isActive: true },
+  })
+  if (!nextEmployee) return { ok: false, reason: 'no_next_employee' }
+
+  const outputType = PIPELINE_OUTPUT_TYPE[nextRoleStr]
+  if (!outputType) return { ok: false, reason: 'bad_config' }
+
+  const title = getAutoTaskTitle(nextRoleStr)
+  const description = `Auto-triggered after ${currentRole.replace(/_/g, ' ')} work was approved.`
+
+  const nextTask = await db.task.create({
     data: {
       companyId: task.companyId,
       employeeId: nextEmployee.id,
-      title: getAutoTaskTitle(nextRole),
-      type: getAutoTaskType(nextRole),
-      status: 'pending',
-      description: `Auto-triggered after ${task.employee.role} output was approved.`,
+      title,
+      type: outputType,
+      status: 'in_progress',
+      description,
     },
   })
 
-  // Kick off in background
-  orchestrateTask(nextTask.id).catch(console.error)
+  try {
+    await executeAndStore(db, {
+      taskId: nextTask.id,
+      companyId: task.companyId,
+      niche: company.niche,
+      role: nextRoleStr as AgentRole,
+      type: outputType,
+      title,
+      description,
+    })
+  } catch (err) {
+    console.warn('[triggerNextAgentAfterApproval] executeAndStore failed', err)
+    try {
+      await db.output.create({
+        data: {
+          taskId: nextTask.id,
+          companyId: task.companyId,
+          employeeId: nextEmployee.id,
+          type: outputType,
+          content: {
+            error: 'execution_failed',
+            note: 'The agent could not complete this chained brief. Re-brief to try again.',
+            message: (err as Error)?.message?.slice(0, 500) || null,
+          } as unknown as Prisma.InputJsonObject,
+          status: 'draft',
+        },
+      })
+      await db.task.update({
+        where: { id: nextTask.id },
+        data: { status: 'revision' },
+      })
+    } catch (e2) {
+      console.warn('[triggerNextAgentAfterApproval] failed to persist error stub', e2)
+    }
+  }
+
+  let chainResult: AgentPipelineChainResult = {
+    ok: true,
+    nextTaskId: nextTask.id,
+    title,
+    outputType,
+    nextRole: nextRoleStr,
+    nextEmployeeName: nextEmployee.name,
+  }
+
+  const afterRun = await db.task.findUnique({ where: { id: nextTask.id } })
+  if (afterRun?.status === 'delivered') {
+    const auto = await tryAutoApproveDeliveredTask(db, {
+      companyId: task.companyId,
+      taskId: nextTask.id,
+      outputType,
+      agentTools: company.agentTools,
+    })
+    if (auto.didAuto) {
+      const inner = await triggerNextAgentAfterApproval(db, {
+        companyId: task.companyId,
+        employee: nextEmployee,
+      })
+      chainResult = inner
+    }
+  }
+
+  return chainResult
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -433,11 +536,3 @@ function getAutoTaskTitle(role: string): string {
   return map[role] || 'New task'
 }
 
-function getAutoTaskType(role: string): string {
-  const map: Record<string, string> = {
-    strategist: 'content_planning',
-    copywriter: 'hook_writing',
-    creative_director: 'shot_list',
-  }
-  return map[role] || 'general'
-}

@@ -15,6 +15,7 @@
  */
 import { PrismaClient, OutputType, Prisma } from '@prisma/client'
 import { retrieveNicheKnowledge, bucketForNiche, AgentRole } from '../lib/nicheKnowledge'
+import { readTopMemories, formatMemoryForPrompt } from '../lib/brandMemory'
 import { invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
 import { isTestMode } from '../lib/mode'
 import {
@@ -1351,10 +1352,28 @@ function bedrockUserPrompt(opts: ExecuteOpts): string {
 }
 
 export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Promise<ExecutionResult> {
-  const query = [opts.title, opts.description].filter(Boolean).join(' ')
+  let execOpts = opts
+  if (opts.companyId && opts.companyId !== 'test') {
+    try {
+      const memories = await readTopMemories(prisma, opts.companyId, 12)
+      if (memories.length > 0) {
+        const memoryBlock = formatMemoryForPrompt(
+          memories.map((m) => ({ type: m.type, content: m.content })),
+        )
+        if (memoryBlock.trim()) {
+          const mergedDescription = [memoryBlock.trim(), opts.description].filter(Boolean).join('\n\n')
+          execOpts = { ...opts, description: mergedDescription || opts.description }
+        }
+      }
+    } catch (e) {
+      console.warn('[agentExecutor] readTopMemories failed', e)
+    }
+  }
+
+  const query = [execOpts.title, execOpts.description].filter(Boolean).join(' ')
   const knowledge = await retrieveNicheKnowledge(prisma, {
-    niche: opts.niche,
-    role: opts.role,
+    niche: execOpts.niche,
+    role: execOpts.role,
     query,
     limit: 8,
     fallbackToDefault: true,
@@ -1367,19 +1386,19 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
   // harness, etc.). Treat the DB load as best-effort — if anything
   // fails we continue with null and the generators fall back to
   // token-only defaults.
-  let personal: PersonalContext | null = opts.personal ?? null
-  if (personal === null && opts.companyId && opts.companyId !== 'test') {
+  let personal: PersonalContext | null = execOpts.personal ?? null
+  if (personal === null && execOpts.companyId && execOpts.companyId !== 'test') {
     try {
-      personal = await loadPersonalContext(prisma, opts.companyId)
+      personal = await loadPersonalContext(prisma, execOpts.companyId)
     } catch (e) {
       console.warn('[agentExecutor] loadPersonalContext failed', e)
     }
   }
 
-  const tokens = tokensFor(opts.niche)
+  const tokens = tokensFor(execOpts.niche)
   // Prefer briefKind routing; fall back to OutputType generator.
-  const byKind = opts.briefKind ? BRIEF_GENERATORS[opts.briefKind] : undefined
-  const generator = byKind || TYPE_FALLBACK[opts.type]
+  const byKind = execOpts.briefKind ? BRIEF_GENERATORS[execOpts.briefKind] : undefined
+  const generator = byKind || TYPE_FALLBACK[execOpts.type]
 
   // Bedrock is ONLY used when we don't have a curated generator for this
   // brief. The hand-crafted mocks produce more niche-accurate output than
@@ -1390,12 +1409,12 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
   const shouldTryBedrock = hasBedrockCreds() && !byKind
   if (shouldTryBedrock) {
     const knowledgeBlock = knowledgeRows.length
-      ? `\n\n--- Niche knowledge (${opts.niche}) ---\n${knowledgeRows.map((k) => `[${k.kind}] ${k.title}: ${k.body}`).join('\n')}\n--- End knowledge ---`
+      ? `\n\n--- Niche knowledge (${execOpts.niche}) ---\n${knowledgeRows.map((k) => `[${k.kind}] ${k.title}: ${k.body}`).join('\n')}\n--- End knowledge ---`
       : ''
     const bedrockCall = (async () => {
       const raw = await invokeAgent({
-        systemPrompt: bedrockSystemPrompt(opts, knowledgeBlock),
-        messages: [{ role: 'user', content: bedrockUserPrompt(opts) }],
+        systemPrompt: bedrockSystemPrompt(execOpts, knowledgeBlock),
+        messages: [{ role: 'user', content: bedrockUserPrompt(execOpts) }],
         maxTokens: 1500,
         temperature: 0.7,
       })
@@ -1407,14 +1426,14 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
       if (bedrockResult) {
         return { content: bedrockResult, knowledgeUsed: knowledgeRows.length, source: 'bedrock' }
       }
-      console.warn(`[agentExecutor] bedrock exceeded ${BEDROCK_TIMEOUT_MS}ms, falling back to mock for task ${opts.taskId}`)
+      console.warn(`[agentExecutor] bedrock exceeded ${BEDROCK_TIMEOUT_MS}ms, falling back to mock for task ${execOpts.taskId}`)
     } catch (err) {
       console.warn('[agentExecutor] bedrock path failed, falling back to mock', err)
     }
   }
   if (!generator) {
     return {
-      content: { note: `No generator wired for type "${opts.type}" / kind "${opts.briefKind ?? 'none'}".` },
+      content: { note: `No generator wired for type "${execOpts.type}" / kind "${execOpts.briefKind ?? 'none'}".` },
       knowledgeUsed: knowledgeRows.length, source: 'mock',
     }
   }
@@ -1426,9 +1445,9 @@ export async function executeBrief(prisma: PrismaClient, opts: ExecuteOpts): Pro
   // CEO replies — so the frontend can launch a meeting room around the
   // brief instead of just dropping the file in the library.
   const presentation = presentBrief({
-    briefKind: opts.briefKind,
+    briefKind: execOpts.briefKind,
     content,
-    role: opts.role,
+    role: execOpts.role,
     ctx: personal,
   })
   if (presentation) {
