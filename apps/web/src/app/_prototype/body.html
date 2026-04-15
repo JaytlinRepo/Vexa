@@ -134,8 +134,8 @@
     <button class="nav-collapse-btn" id="collapseBtn" onclick="toggleNav()">&#8249;</button>
 
     <div class="nav-logo-wrap">
-      <a href="#" class="nav-logo" onclick="navigate('home');return false">Vexa</a>
-      <span class="nav-logo-mark">V</span>
+      <a href="#" class="nav-logo" onclick="navigateVexaLogo();return false">Vexa</a>
+      <a href="#" class="nav-logo-mark" onclick="navigateVexaLogo();return false" aria-label="Vexa home">V</a>
     </div>
 
     <!-- Marketing nav (shown when not logged in) -->
@@ -247,6 +247,176 @@
           <span class="scroll-hint-label">Explore</span>
           <div class="scroll-hint-line"></div>
         </div>
+
+        <section class="home-carousel" id="home-carousel" aria-roledescription="carousel" aria-label="How Vexa works">
+          <div class="home-carousel-head">
+            <span class="eyebrow">From signup to shipping</span>
+            <h2 class="home-carousel-title serif">See how Vexa works.</h2>
+            <p class="home-carousel-lead body">Three quick steps to launch your team — then the workspace you use every day.</p>
+          </div>
+          <div class="home-carousel-shell">
+            <button type="button" class="home-carousel-arrow home-carousel-prev" data-carousel-prev aria-label="Previous slide">&#8249;</button>
+            <div class="home-carousel-viewport" id="home-carousel-viewport">
+              <div class="home-carousel-track" id="home-carousel-track" role="group">
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="1 of 9">
+                  <div class="home-carousel-fig home-carousel-fig--strip">
+                    <img
+                      class="home-carousel-img home-carousel-img--strip home-carousel-img--strip-top"
+                      src="/marketing/carousel-onboarding-strip.png"
+                      alt="Onboarding: name your company and continue."
+                      width="1024"
+                      height="853"
+                      loading="eager"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Name your company</h3>
+                    <p class="home-carousel-desc">Define the brand Vexa builds content for. Your AI team uses this identity so everything stays on-brand and consistent.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="2 of 9">
+                  <div class="home-carousel-fig home-carousel-fig--strip">
+                    <img
+                      class="home-carousel-img home-carousel-img--strip home-carousel-img--strip-mid"
+                      src="/marketing/carousel-onboarding-strip.png"
+                      alt="Onboarding: choose your niche from category cards."
+                      width="1024"
+                      height="853"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">What do you create?</h3>
+                    <p class="home-carousel-desc">Tell your team which niche to own. Language, strategy, and trend analysis adapt to match your industry’s voice.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="3 of 9">
+                  <div class="home-carousel-fig home-carousel-fig--strip">
+                    <img
+                      class="home-carousel-img home-carousel-img--strip home-carousel-img--strip-bot"
+                      src="/marketing/carousel-onboarding-strip.png"
+                      alt="Onboarding: your AI team is ready — Maya, Jordan, Alex, Riley."
+                      width="1024"
+                      height="853"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Meet your 24/7 AI team</h3>
+                    <p class="home-carousel-desc">Once your niche is set, specialized agents start immediately — from trends and planning to copy and production.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="4 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-01-dashboard.png"
+                      alt="Vexa dashboard with next actions, follower goal, and Maya knowledge feed sidebar."
+                      width="1024"
+                      height="691"
+                      loading="eager"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Dashboard</h3>
+                    <p class="home-carousel-desc">See what to do next, track goals, and skim Maya’s curated niche feed — without leaving the home view.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="5 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-02-work-calendar.png"
+                      alt="Work calendar: team color-coding, reel and shoot tasks, month view."
+                      width="1024"
+                      height="768"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Work calendar</h3>
+                    <p class="home-carousel-desc">Everything shipping on one calendar — who owns what, format labels, and status from planned to approved.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="6 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-03-knowledge-feed.png"
+                      alt="Knowledge Feed: filters, curated cards, Maya’s take, and content potential scores."
+                      width="1024"
+                      height="707"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Knowledge feed</h3>
+                    <p class="home-carousel-desc">Maya scans articles, research, and community threads daily — then scores what is worth turning into content.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="7 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-04-review-queue.png"
+                      alt="Dashboard stats and awaiting review card with Approve, Reject, and Call meeting."
+                      width="1024"
+                      height="546"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Review queue</h3>
+                    <p class="home-carousel-desc">Triage deliverables from the dashboard: approve, reject, or jump into a meeting when you need a real conversation.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="8 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-05-meeting-review.png"
+                      alt="Meeting overlay with Riley: Approve, Reject, Suggestion, and reply field."
+                      width="1024"
+                      height="765"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Meetings &amp; decisions</h3>
+                    <p class="home-carousel-desc">When context matters, meet in-product — then approve, reject, or suggest a change with a clear next step.</p>
+                  </div>
+                </article>
+                <article class="home-carousel-slide" aria-roledescription="slide" aria-label="9 of 9">
+                  <div class="home-carousel-fig">
+                    <img
+                      class="home-carousel-img"
+                      src="/marketing/carousel-06-insights.png"
+                      alt="Dashboard insights: growth, consistency, and trend charts beside the knowledge feed."
+                      width="1024"
+                      height="715"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <div class="home-carousel-cap">
+                    <h3 class="home-carousel-h3">Insights</h3>
+                    <p class="home-carousel-desc">Growth, consistency, and momentum in one glance — next to the feed so strategy and performance stay connected.</p>
+                  </div>
+                </article>
+              </div>
+            </div>
+            <button type="button" class="home-carousel-arrow home-carousel-next" data-carousel-next aria-label="Next slide">&#8250;</button>
+          </div>
+          <div class="home-carousel-dots" id="home-carousel-dots" role="tablist" aria-label="Slide"></div>
+        </section>
       </div>
     </div>
 
@@ -1110,7 +1280,7 @@
     <div class="view" id="view-db-tasks">
       <div class="view-inner">
         <div class="db-section-title">Tasks &amp; Calendar</div>
-        <div class="db-section-sub">Your team's work, organized in time. Agents update the calendar automatically when you approve.</div>
+        <div class="db-section-sub">Your team's work, organized in time. The calendar pulls approved work, content-plan slots, and meeting recaps from live tasks — refresh the view or switch months to see updates.</div>
 
         <!-- View toggle: List / Calendar -->
         <div class="tasks-view-toggle">
@@ -1337,6 +1507,7 @@
                 <div class="settings-field"><span class="settings-label">Full name</span><input class="settings-input" value="Marcus Thomas"></div>
                 <div class="settings-field"><span class="settings-label">Email</span><input class="settings-input" value="marcus@marcusfitness.com"></div>
                 <button class="settings-save">Save changes</button>
+                <p style="margin-top:16px;font-size:12px;color:var(--t3);line-height:1.5">Need a refresher on the dashboard? <button type="button" class="vx-replay-tips" onclick="if(typeof window.vxReplayTutorial==='function')window.vxReplayTutorial()" style="background:none;border:none;color:var(--t2);cursor:pointer;text-decoration:underline;padding:0;font:inherit">Replay quick tips</button></p>
               </div>
             </div>
             <div class="settings-panel" id="settings-brand">

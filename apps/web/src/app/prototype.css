@@ -71,7 +71,8 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 .nav-logo-wrap{padding:0 24px 28px;border-bottom:1px solid var(--b1);margin-bottom:16px;overflow:hidden;white-space:nowrap}
 .nav-logo{font-family:'Cormorant Garamond',serif;font-weight:400;font-size:22px;letter-spacing:.06em;color:var(--t1);transition:opacity .2s}
 .nav-logo:hover{opacity:.6}
-.nav-logo-mark{display:none;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:var(--t1)}
+.nav-logo-mark{display:none;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:var(--t1);text-decoration:none;cursor:pointer}
+.nav-logo-mark:hover{opacity:.6}
 #sidenav.collapsed .nav-logo{display:none}
 #sidenav.collapsed .nav-logo-mark{display:block}
 #sidenav.collapsed .nav-logo-wrap{padding:0 20px 24px;text-align:center}
@@ -249,6 +250,94 @@ input,textarea{cursor:text}
   align-items:center;
   justify-content:center;
 }
+
+/* Home — product screenshot carousel */
+.home-carousel{
+  position:relative;z-index:2;align-self:stretch;width:100%;max-width:920px;margin:0 auto;
+  padding:48px 32px 100px;box-sizing:border-box;
+}
+.home-carousel-head{text-align:center;margin-bottom:40px}
+.home-carousel-title{font-size:clamp(32px,4.2vw,52px);font-weight:300;letter-spacing:-.02em;line-height:1.08;margin:12px 0 16px}
+.home-carousel-lead{margin:0 auto;max-width:440px}
+.home-carousel-shell{
+  position:relative;display:flex;align-items:stretch;gap:8px;
+}
+.home-carousel-viewport{
+  flex:1;min-width:0;width:100%;overflow:hidden;border-radius:16px;border:1px solid var(--b1);
+  background:var(--s1);
+  position:relative;
+}
+.home-carousel-track{
+  display:flex;flex-direction:row;flex-wrap:nowrap;
+  transition:transform .5s cubic-bezier(.16,1,.3,1);
+  will-change:transform;
+}
+/* Slide widths are set in px by home-merge.js so one slide fills the viewport */
+.home-carousel-slide{
+  flex-shrink:0;
+  box-sizing:border-box;
+  display:flex;flex-direction:column;gap:20px;padding:28px 24px 32px;
+}
+.home-carousel-fig{
+  border-radius:12px;border:1px solid var(--b1);background:var(--s2);
+  overflow:hidden;aspect-ratio:5/3;max-height:min(52vh,360px);
+  display:flex;align-items:center;justify-content:center;
+}
+.home-carousel-img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:top center;
+  display:block;
+}
+/* Onboarding strip: one asset, three slides — crop to approximate each step */
+.home-carousel-fig--strip{
+  aspect-ratio:4/5;
+  max-height:min(62vh,480px);
+}
+.home-carousel-img--strip{
+  object-fit:cover;
+}
+.home-carousel-img--strip-top{object-position:50% 10%}
+.home-carousel-img--strip-mid{object-position:50% 46%}
+.home-carousel-img--strip-bot{object-position:50% 84%}
+@media (max-width:640px){
+  .home-carousel-img--strip-top{object-position:50% 8%}
+  .home-carousel-img--strip-mid{object-position:50% 48%}
+  .home-carousel-img--strip-bot{object-position:50% 86%}
+}
+.home-carousel-cap{text-align:center;padding:0 8px}
+.home-carousel-h3{
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--t1);margin-bottom:10px;
+}
+.home-carousel-desc{font-size:14px;color:var(--t2);line-height:1.75;max-width:420px;margin:0 auto}
+.home-carousel-arrow{
+  flex-shrink:0;width:44px;border:1px solid var(--b1);border-radius:12px;background:var(--s2);
+  color:var(--t1);font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,border-color .2s,opacity .2s;
+}
+.home-carousel-arrow:hover{background:var(--s3);border-color:var(--b2)}
+.home-carousel-arrow:focus-visible{outline:2px solid var(--t2);outline-offset:2px}
+.home-carousel-arrow:disabled{opacity:.35;pointer-events:none}
+.home-carousel-dots{
+  display:flex;justify-content:center;gap:8px;margin-top:24px;flex-wrap:wrap;
+}
+.home-carousel-dot{
+  width:8px;height:8px;border-radius:50%;border:1px solid var(--b2);background:transparent;padding:0;
+  cursor:pointer;transition:background .2s,transform .2s;
+}
+.home-carousel-dot.on{background:var(--t1);border-color:var(--t1);transform:scale(1.15)}
+.home-carousel-dot:focus-visible{outline:2px solid var(--t2);outline-offset:2px}
+@media (max-width:640px){
+  .home-carousel{padding-left:20px;padding-right:20px;padding-bottom:72px}
+  .home-carousel-shell{gap:4px}
+  .home-carousel-arrow{width:38px;font-size:18px}
+}
+@media (prefers-reduced-motion:reduce){
+  .home-carousel-track{transition:none}
+}
+
 #view-db-dashboard { overflow: hidden; }
 #view-db-dashboard > .db-layout { height: 100%; }
 

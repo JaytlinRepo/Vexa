@@ -373,6 +373,30 @@
       </div>
     `
 
+    body.querySelectorAll('[data-toggle]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const connected = btn.dataset.connected === '1'
+        const platformId = btn.dataset.toggle
+        const accountId = btn.dataset.accountId
+        if (!connected) {
+          openConnect({
+            companyId: company?.id,
+            workPlatformId: platformId,
+            onConnected: async () => {
+              await refreshConnectionState()
+              renderIntegrationsState()
+            },
+          })
+          return
+        }
+        if (!accountId) return
+        if (!confirm('Disconnect this platform?')) return
+        btn.disabled = true
+        await fetch(`/api/phyllo/accounts/${accountId}/disconnect`, { method: 'POST', credentials: 'include' })
+        await refreshConnectionState()
+        renderIntegrationsState()
+      })
+    })
     body.querySelectorAll('[data-connect]').forEach((btn) => {
       btn.addEventListener('click', () => {
         openConnect({
@@ -430,37 +454,74 @@
   }
 
   function platformRow(platform, account, igConn) {
-    const isConnected = !!account && account.status !== 'NOT_CONNECTED'
-    const statusDot = isConnected
-      ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--t1);display:inline-block"></span>'
-      : '<span style="width:7px;height:7px;border-radius:50%;background:var(--t3);display:inline-block;opacity:.6"></span>'
-    const label = isConnected ? 'Connected' : 'Not connected'
+    const isConnected = !!account && account.status === 'CONNECTED'
+    const isExpired = !!account && account.status === 'SESSION_EXPIRED'
+    const IG_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
+    const isIG = platform.id === IG_ID
 
+    // Status line: handle + follower count + sync state. For connected
+    // accounts without local persistence yet, say "syncing" rather than
+    // silently showing no detail.
     let detail = ''
     if (isConnected) {
       const handle = account.platform_username ? `@${account.platform_username}` : 'Active'
-      detail = `<span style="color:var(--t3);font-size:11px">· ${escapeHtml(handle)}</span>`
-      // Add follower count + last sync if we have local data (Instagram only for now).
-      if (platform.id === '9bb8913b-ddd9-430b-a66a-d74d846e6c66' && igConn?.source === 'phyllo') {
-        detail += ` <span style="color:var(--t3);font-size:11px">· ${Number(igConn.followerCount).toLocaleString()} followers · last synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}</span>`
+      const parts = [handle]
+      if (isIG) {
+        if (igConn?.source === 'phyllo' && Number(igConn.followerCount) > 0) {
+          parts.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
+          parts.push(`synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}`)
+        } else {
+          parts.push('syncing data…')
+        }
+      } else {
+        parts.push('data not pulled into Vexa yet')
       }
+      detail = parts.map(escapeHtml).join(' · ')
+    } else if (isExpired) {
+      detail = 'Session expired — reconnect to resume'
+    } else {
+      detail = 'Click the toggle to connect'
     }
 
-    const actions = isConnected
-      ? `${platform.id === '9bb8913b-ddd9-430b-a66a-d74d846e6c66' ? `<button data-resync="${account.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Resync</button>` : ''}
-         <button data-disconnect="${account.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Disconnect</button>`
-      : `<button data-connect="${platform.id}" style="background:var(--t1);color:var(--bg);border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Connect</button>`
+    // Visual toggle: green fill + right-slid knob when connected, gray +
+    // left-slid when not. Role=switch for a11y.
+    const knobSide = isConnected ? 'right:2px' : 'left:2px'
+    const trackBg = isConnected ? 'background:#22c55e' : isExpired ? 'background:#e8c87a' : 'background:var(--s3);border:1px solid var(--b1)'
+    const knobColor = isConnected ? 'background:#fff' : 'background:var(--t3)'
+    const toggle = `
+      <button
+        data-toggle="${platform.id}"
+        data-account-id="${account?.id || ''}"
+        data-connected="${isConnected ? '1' : '0'}"
+        role="switch"
+        aria-checked="${isConnected ? 'true' : 'false'}"
+        aria-label="${escapeHtml(platform.name)} — ${isConnected ? 'connected' : isExpired ? 'session expired' : 'not connected'}"
+        style="position:relative;width:44px;height:24px;border-radius:999px;${trackBg};border:none;cursor:pointer;transition:background .2s;padding:0;flex-shrink:0">
+        <span style="position:absolute;top:2px;${knobSide};width:20px;height:20px;border-radius:50%;${knobColor};transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.35)"></span>
+      </button>
+    `
+
+    const resyncBtn = isConnected && isIG
+      ? `<button data-resync="${account.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Resync</button>`
+      : ''
+    const reconnectBtn = isExpired
+      ? `<button data-connect="${platform.id}" style="background:#e8c87a;color:var(--bg);border:none;padding:6px 12px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Reconnect</button>`
+      : ''
+
+    const labelColor = isConnected ? 'color:#22c55e' : isExpired ? 'color:#e8c87a' : 'color:var(--t3)'
+    const labelText = isConnected ? 'Connected' : isExpired ? 'Session expired' : 'Not connected'
 
     return `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
         <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--t1);font-family:'Syne',sans-serif;flex-shrink:0">${esc(initials(platform.name))}</div>
         <div style="flex:1;min-width:0">
-          <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">${escapeHtml(platform.name)}</div>
-          <div style="color:var(--t2);font-size:11px;display:flex;align-items:center;gap:8px">
-            ${statusDot}<span>${escapeHtml(label)}</span>${detail}
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:2px">
+            <div style="color:var(--t1);font-size:13px;font-weight:600">${escapeHtml(platform.name)}</div>
+            <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;${labelColor}">${labelText}</div>
           </div>
+          <div style="color:var(--t2);font-size:11px">${detail}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">${actions}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">${resyncBtn}${reconnectBtn}${toggle}</div>
       </div>
     `
   }

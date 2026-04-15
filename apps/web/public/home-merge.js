@@ -80,9 +80,121 @@
   }
 
   // Must run AFTER prototype.js defines navigate globally, so defer by a tick.
+  function initHomeCarousel() {
+    var root = document.getElementById('home-carousel')
+    if (!root || root.dataset.vxCarousel) return
+    root.dataset.vxCarousel = '1'
+    var viewport = document.getElementById('home-carousel-viewport')
+    var track = document.getElementById('home-carousel-track')
+    var dotsWrap = document.getElementById('home-carousel-dots')
+    var prev = root.querySelector('[data-carousel-prev]')
+    var next = root.querySelector('[data-carousel-next]')
+    var slides = root.querySelectorAll('.home-carousel-slide')
+    var n = slides.length
+    if (!track || !viewport || n === 0) return
+
+    var i = 0
+    var timer = null
+    var reduce =
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    function measureSlides() {
+      var w = viewport.offsetWidth
+      if (!w) return
+      slides.forEach(function (s) {
+        s.style.flex = '0 0 ' + w + 'px'
+        s.style.width = w + 'px'
+        s.style.minWidth = w + 'px'
+        s.style.maxWidth = w + 'px'
+      })
+    }
+
+    function go(ix) {
+      i = ((ix % n) + n) % n
+      measureSlides()
+      var w = viewport.offsetWidth
+      track.style.transform = 'translateX(' + -i * w + 'px)'
+      if (dotsWrap) {
+        var dots = dotsWrap.querySelectorAll('.home-carousel-dot')
+        dots.forEach(function (d, j) {
+          d.classList.toggle('on', j === i)
+          d.setAttribute('aria-selected', j === i ? 'true' : 'false')
+        })
+      }
+    }
+
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(function () {
+        go(i)
+      })
+      ro.observe(viewport)
+    } else {
+      window.addEventListener('resize', function () {
+        go(i)
+      })
+    }
+
+    if (dotsWrap && dotsWrap.children.length === 0) {
+      for (var d = 0; d < n; d++) {
+        ;(function (idx) {
+          var b = document.createElement('button')
+          b.type = 'button'
+          b.className = 'home-carousel-dot' + (idx === 0 ? ' on' : '')
+          b.setAttribute('role', 'tab')
+          b.setAttribute('aria-selected', idx === 0 ? 'true' : 'false')
+          b.setAttribute('aria-label', 'Slide ' + (idx + 1) + ' of ' + n)
+          b.addEventListener('click', function () {
+            go(idx)
+            resetTimer()
+          })
+          dotsWrap.appendChild(b)
+        })(d)
+      }
+    }
+
+    function resetTimer() {
+      if (timer) clearInterval(timer)
+      timer = null
+      if (reduce || n <= 1) return
+      timer = setInterval(function () {
+        go(i + 1)
+      }, 8000)
+    }
+
+    root.addEventListener('mouseenter', function () {
+      if (timer) clearInterval(timer)
+      timer = null
+    })
+    root.addEventListener('mouseleave', function () {
+      resetTimer()
+    })
+
+    if (prev) prev.addEventListener('click', function () { go(i - 1); resetTimer() })
+    if (next) next.addEventListener('click', function () { go(i + 1); resetTimer() })
+
+    root.tabIndex = 0
+    root.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') {
+        go(i - 1)
+        resetTimer()
+      } else if (e.key === 'ArrowRight') {
+        go(i + 1)
+        resetTimer()
+      }
+    })
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        go(0)
+        resetTimer()
+      })
+    })
+  }
+
   function boot() {
     installNavigateOverride()
     run()
+    initHomeCarousel()
   }
 
   if (document.readyState === 'loading') {
