@@ -108,13 +108,14 @@ model Company {
   agentTools Json     @default("{}") @map("agent_tools")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employees Employee[]
-  tasks     Task[]
-  outputs   Output[]
-  meetings  Meeting[]
-  memory    BrandMemory[]
-  instagram InstagramConnection?
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employees        Employee[]
+  tasks            Task[]
+  outputs          Output[]
+  meetings         Meeting[]
+  memory           BrandMemory[]
+  instagram        InstagramConnection?
+  tiktok           TiktokConnection?
   platformAccounts PlatformAccount[]
 
   @@map("companies")
@@ -176,15 +177,15 @@ model Output {
 }
 
 model Meeting {
-  id         String    @id @default(uuid())
-  companyId  String    @map("company_id")
-  employeeId String    @map("employee_id")
-  messages   Json      @default("[]")
-  summary    String?
-  decisions  Json?
-  tasksCreated Json?   @map("tasks_created")
-  startedAt  DateTime  @default(now()) @map("started_at")
-  endedAt    DateTime? @map("ended_at")
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  employeeId   String    @map("employee_id")
+  messages     Json      @default("[]")
+  summary      String?
+  decisions    Json?
+  tasksCreated Json?     @map("tasks_created")
+  startedAt    DateTime  @default(now()) @map("started_at")
+  endedAt      DateTime? @map("ended_at")
 
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id])
@@ -193,12 +194,12 @@ model Meeting {
 }
 
 model BrandMemory {
-  id          String     @id @default(uuid())
-  companyId   String     @map("company_id")
-  memoryType  MemoryType @map("memory_type")
-  content     Json
-  weight      Float      @default(1.0)
-  createdAt   DateTime   @default(now()) @map("created_at")
+  id         String     @id @default(uuid())
+  companyId  String     @map("company_id")
+  memoryType MemoryType @map("memory_type")
+  content    Json
+  weight     Float      @default(1.0)
+  createdAt  DateTime   @default(now()) @map("created_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -228,27 +229,27 @@ enum SocialPlatform {
 }
 
 model PlatformAccount {
-  id                String    @id @default(uuid())
-  companyId         String    @map("company_id")
-  platform          SocialPlatform
-  platformUserId    String?   @map("platform_user_id")  // e.g. Instagram user id
-  handle            String
-  displayName       String?   @map("display_name")
-  profileUrl        String?   @map("profile_url")
-  profileImageUrl   String?   @map("profile_image_url")
-  bio               String?
-  accountType       String?   @map("account_type")       // CREATOR / BUSINESS / PERSONAL
-  phylloAccountId   String?   @unique @map("phyllo_account_id")
-  phylloUserId      String?   @map("phyllo_user_id")
-  status            String    @default("connected")      // connected / disconnected / expired
-  connectedAt       DateTime  @default(now()) @map("connected_at")
-  lastSyncedAt      DateTime  @default(now()) @map("last_synced_at")
-  disconnectedAt    DateTime? @map("disconnected_at")
+  id              String         @id @default(uuid())
+  companyId       String         @map("company_id")
+  platform        SocialPlatform
+  platformUserId  String?        @map("platform_user_id") // e.g. Instagram user id
+  handle          String
+  displayName     String?        @map("display_name")
+  profileUrl      String?        @map("profile_url")
+  profileImageUrl String?        @map("profile_image_url")
+  bio             String?
+  accountType     String?        @map("account_type") // CREATOR / BUSINESS / PERSONAL
+  phylloAccountId String?        @unique @map("phyllo_account_id")
+  phylloUserId    String?        @map("phyllo_user_id")
+  status          String         @default("connected") // connected / disconnected / expired
+  connectedAt     DateTime       @default(now()) @map("connected_at")
+  lastSyncedAt    DateTime       @default(now()) @map("last_synced_at")
+  disconnectedAt  DateTime?      @map("disconnected_at")
 
-  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  snapshots  PlatformSnapshot[]
-  posts      PlatformPost[]
-  audiences  PlatformAudience[]
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  snapshots PlatformSnapshot[]
+  posts     PlatformPost[]
+  audiences PlatformAudience[]
 
   @@unique([companyId, platform, handle])
   @@index([companyId])
@@ -256,15 +257,15 @@ model PlatformAccount {
 }
 
 model PlatformSnapshot {
-  id              String   @id @default(uuid())
-  accountId       String   @map("account_id")
-  capturedAt      DateTime @default(now()) @map("captured_at")
-  followerCount   Int      @default(0) @map("follower_count")
-  followingCount  Int      @default(0) @map("following_count")
-  postCount       Int      @default(0) @map("post_count")
-  avgReach        Int      @default(0) @map("avg_reach")
-  avgImpressions  Int      @default(0) @map("avg_impressions")
-  engagementRate  Float    @default(0) @map("engagement_rate")
+  id             String   @id @default(uuid())
+  accountId      String   @map("account_id")
+  capturedAt     DateTime @default(now()) @map("captured_at")
+  followerCount  Int      @default(0) @map("follower_count")
+  followingCount Int      @default(0) @map("following_count")
+  postCount      Int      @default(0) @map("post_count")
+  avgReach       Int      @default(0) @map("avg_reach")
+  avgImpressions Int      @default(0) @map("avg_impressions")
+  engagementRate Float    @default(0) @map("engagement_rate")
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -273,22 +274,22 @@ model PlatformSnapshot {
 }
 
 model PlatformPost {
-  id               String    @id @default(uuid())
-  accountId        String    @map("account_id")
-  platformPostId   String    @map("platform_post_id")
-  mediaType        String    @map("media_type")          // REEL / CAROUSEL_ALBUM / IMAGE / VIDEO
-  caption          String?
-  url              String?
-  thumbnailUrl     String?   @map("thumbnail_url")
-  publishedAt      DateTime? @map("published_at")
-  likeCount        Int       @default(0) @map("like_count")
-  commentCount     Int       @default(0) @map("comment_count")
-  shareCount       Int       @default(0) @map("share_count")
-  saveCount        Int       @default(0) @map("save_count")
-  viewCount        Int       @default(0) @map("view_count")
-  reachCount       Int       @default(0) @map("reach_count")
-  impressionCount  Int       @default(0) @map("impression_count")
-  lastSyncedAt     DateTime  @default(now()) @map("last_synced_at")
+  id              String    @id @default(uuid())
+  accountId       String    @map("account_id")
+  platformPostId  String    @map("platform_post_id")
+  mediaType       String    @map("media_type") // REEL / CAROUSEL_ALBUM / IMAGE / VIDEO
+  caption         String?
+  url             String?
+  thumbnailUrl    String?   @map("thumbnail_url")
+  publishedAt     DateTime? @map("published_at")
+  likeCount       Int       @default(0) @map("like_count")
+  commentCount    Int       @default(0) @map("comment_count")
+  shareCount      Int       @default(0) @map("share_count")
+  saveCount       Int       @default(0) @map("save_count")
+  viewCount       Int       @default(0) @map("view_count")
+  reachCount      Int       @default(0) @map("reach_count")
+  impressionCount Int       @default(0) @map("impression_count")
+  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -298,17 +299,17 @@ model PlatformPost {
 }
 
 model PlatformAudience {
-  id             String   @id @default(uuid())
-  accountId      String   @map("account_id")
-  capturedAt     DateTime @default(now()) @map("captured_at")
+  id              String   @id @default(uuid())
+  accountId       String   @map("account_id")
+  capturedAt      DateTime @default(now()) @map("captured_at")
   // Age buckets: [{bucket:'18-24', share:0.114}, ...]
-  ageBreakdown   Json     @default("[]") @map("age_breakdown")
+  ageBreakdown    Json     @default("[]") @map("age_breakdown")
   // Gender buckets: [{bucket:'MALE', share:0.38}, {bucket:'FEMALE', share:0.40}, ...]
-  genderBreakdown Json    @default("[]") @map("gender_breakdown")
+  genderBreakdown Json     @default("[]") @map("gender_breakdown")
   // [{bucket:'US', share:0.518}, {bucket:'BR', share:0.105}, ...]
-  topCountries   Json     @default("[]") @map("top_countries")
+  topCountries    Json     @default("[]") @map("top_countries")
   // [{bucket:'Atlanta, Georgia', share:0.139}, ...]
-  topCities      Json     @default("[]") @map("top_cities")
+  topCities       Json     @default("[]") @map("top_cities")
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -317,37 +318,75 @@ model PlatformAudience {
 }
 
 model InstagramConnection {
-  id             String   @id @default(uuid())
-  companyId      String   @unique @map("company_id")
-  handle         String
-  profileUrl     String?  @map("profile_url")
-  accountType    String   @default("CREATOR") @map("account_type")
-  bio            String?
-  followerCount  Int      @default(0) @map("follower_count")
-  followingCount Int      @default(0) @map("following_count")
-  postCount      Int      @default(0) @map("post_count")
-  engagementRate Float    @default(0) @map("engagement_rate")
-  avgReach       Int      @default(0) @map("avg_reach")
-  avgImpressions Int      @default(0) @map("avg_impressions")
-  topPosts       Json     @default("[]") @map("top_posts")
-  recentMedia    Json     @default("[]") @map("recent_media")
-  followerSeries Json     @default("[]") @map("follower_series")
-  audienceAge    Json     @default("{}") @map("audience_age")
-  audienceGender Json     @default("{}") @map("audience_gender")
-  audienceTop    Json     @default("[]") @map("audience_top_countries")
-  audienceCities Json     @default("[]") @map("audience_top_cities")
-  accessToken    String?  @map("access_token")
-  tokenExpiresAt DateTime? @map("token_expires_at")
-  igUserId       String?  @map("ig_user_id")
-  phylloAccountId String? @unique @map("phyllo_account_id")
-  platform       String   @default("instagram")
-  source         String   @default("stub")
-  connectedAt    DateTime @default(now()) @map("connected_at")
-  lastSyncedAt   DateTime @default(now()) @map("last_synced_at")
+  id              String    @id @default(uuid())
+  companyId       String    @unique @map("company_id")
+  handle          String
+  profileUrl      String?   @map("profile_url")
+  accountType     String    @default("CREATOR") @map("account_type")
+  bio             String?
+  followerCount   Int       @default(0) @map("follower_count")
+  followingCount  Int       @default(0) @map("following_count")
+  postCount       Int       @default(0) @map("post_count")
+  engagementRate  Float     @default(0) @map("engagement_rate")
+  avgReach        Int       @default(0) @map("avg_reach")
+  avgImpressions  Int       @default(0) @map("avg_impressions")
+  topPosts        Json      @default("[]") @map("top_posts")
+  recentMedia     Json      @default("[]") @map("recent_media")
+  followerSeries  Json      @default("[]") @map("follower_series")
+  audienceAge     Json      @default("{}") @map("audience_age")
+  audienceGender  Json      @default("{}") @map("audience_gender")
+  audienceTop     Json      @default("[]") @map("audience_top_countries")
+  audienceCities  Json      @default("[]") @map("audience_top_cities")
+  accessToken     String?   @map("access_token")
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  igUserId        String?   @map("ig_user_id")
+  phylloAccountId String?   @unique @map("phyllo_account_id")
+  platform        String    @default("instagram")
+  source          String    @default("stub")
+  connectedAt     DateTime  @default(now()) @map("connected_at")
+  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("instagram_connections")
+}
+
+// TikTok Login Kit connection. Mirrors InstagramConnection's shape where the
+// fields overlap; TikTok-specific identifiers (open_id / union_id) and the
+// video list replace IG's recentMedia. `source` is 'tiktok' when written by
+// the Login Kit handshake; 'stub' is reserved for future demo-data paths.
+model TiktokConnection {
+  id             String    @id @default(uuid())
+  companyId      String    @unique @map("company_id")
+  handle         String // @username
+  displayName    String?   @map("display_name")
+  bio            String?
+  avatarUrl      String?   @map("avatar_url")
+  profileUrl     String?   @map("profile_url") // TikTok deep link
+  isVerified     Boolean   @default(false) @map("is_verified")
+  followerCount  Int       @default(0) @map("follower_count")
+  followingCount Int       @default(0) @map("following_count")
+  videoCount     Int       @default(0) @map("video_count")
+  likesCount     Int       @default(0) @map("likes_count")
+  avgViews       Int       @default(0) @map("avg_views")
+  avgLikes       Int       @default(0) @map("avg_likes")
+  engagementRate Float     @default(0) @map("engagement_rate")
+  reachRate      Float     @default(0) @map("reach_rate")
+  topVideos      Json      @default("[]") @map("top_videos")
+  recentVideos   Json      @default("[]") @map("recent_videos")
+  openId         String    @map("open_id")
+  unionId        String?   @map("union_id")
+  accessToken    String?   @map("access_token")
+  refreshToken   String?   @map("refresh_token")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  scopes         String?
+  source         String    @default("tiktok")
+  connectedAt    DateTime  @default(now()) @map("connected_at")
+  lastSyncedAt   DateTime  @default(now()) @map("last_synced_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("tiktok_connections")
 }
 
 // ─── NICHE KNOWLEDGE (RAG) ─────────────────────────────────────────────────
@@ -375,18 +414,18 @@ enum NicheKnowledgeKind {
 }
 
 model NicheKnowledge {
-  id        String              @id @default(uuid())
-  niche     String                                            // 'fitness' | 'finance' | 'food' | 'coaching' | 'lifestyle' | 'default'
+  id        String             @id @default(uuid())
+  niche     String // 'fitness' | 'finance' | 'food' | 'coaching' | 'lifestyle' | 'default'
   kind      NicheKnowledgeKind
   title     String
   body      String
-  tags      String[]            @default([])                  // keywords for retrieval
-  forRoles  String[]            @default([])                  // 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
-  weight    Float               @default(1.0)
-  source    String?                                           // attribution / provenance
-  embedding Json?                                             // reserved for vector search later
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  tags      String[]           @default([]) // keywords for retrieval
+  forRoles  String[]           @default([]) // 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
+  weight    Float              @default(1.0)
+  source    String? // attribution / provenance
+  embedding Json? // reserved for vector search later
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
 
   @@index([niche, kind])
   @@index([niche])

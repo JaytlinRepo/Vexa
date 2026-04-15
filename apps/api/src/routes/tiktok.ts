@@ -1,7 +1,17 @@
 import { Router } from 'express'
 import crypto from 'crypto'
+import { PrismaClient } from '@prisma/client'
+import { requireAuth, AuthedRequest } from '../middleware/auth'
 
+const prisma = new PrismaClient()
 const router = Router()
+
+function appUrl(): string {
+  const first = (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    .split(',')[0]
+    .trim()
+  return first.replace(/\/$/, '')
+}
 
 /**
  * Minimal TikTok OAuth handshake — verifies the sandbox app is wired up
@@ -63,8 +73,14 @@ router.get('/auth/start', (req, res) => {
     return
   }
 
-  // CSRF state — opaque token stored in an httpOnly cookie and echoed
-  // back by TikTok in the callback. Any mismatch = reject.
+  // Optional companyId — when present, the callback persists the
+  // TiktokConnection and redirects back to the web app's dashboard.
+  // When absent, the callback falls through to the sandbox debug page.
+  const companyId =
+    typeof req.query.companyId === 'string' && /^[0-9a-f-]{10,}$/i.test(req.query.companyId)
+      ? req.query.companyId
+      : ''
+
   const state = crypto.randomBytes(16).toString('hex')
   const codeVerifier = makeCodeVerifier()
   const codeChallenge = codeChallengeFor(codeVerifier)
@@ -79,6 +95,7 @@ router.get('/auth/start', (req, res) => {
   }
   res.cookie('tiktok_state', state, cookieOpts)
   res.cookie('tiktok_verifier', codeVerifier, cookieOpts)
+  if (companyId) res.cookie('tiktok_company', companyId, cookieOpts)
 
   const params = new URLSearchParams({
     client_key: clientKey,
@@ -222,6 +239,32 @@ router.get('/callback', async (req, res) => {
     videoCount: videos.length,
   })
 
+  // If a companyId was set at /auth/start, persist the connection and send
+  // the user back to the web dashboard. Otherwise (sandbox smoke test), fall
+  // through to the debug success page below.
+  const companyId = typeof req.cookies?.tiktok_company === 'string' ? req.cookies.tiktok_company : ''
+  if (companyId) {
+    res.clearCookie('tiktok_company', { path: '/' })
+    try {
+      await persistConnection({
+        companyId,
+        profile,
+        videos,
+        openId,
+        unionId: String(tokenJson.open_id_hash || tokenJson.union_id || ''),
+        accessToken,
+        refreshToken: typeof tokenJson.refresh_token === 'string' ? tokenJson.refresh_token : null,
+        expiresIn,
+        grantedScopes,
+      })
+    } catch (e) {
+      console.warn('[tiktok] persist failed', e)
+    }
+    const back = `${appUrl()}/?tiktokConnected=1#tiktok`
+    res.redirect(back)
+    return
+  }
+
   res.type('html').send(successPage({
     openId,
     grantedScopes,
@@ -230,6 +273,132 @@ router.get('/callback', async (req, res) => {
     profile,
     videos,
   }))
+})
+
+/**
+ * Write / upsert the TiktokConnection for the given company from a fresh
+ * Login Kit handshake. We compute aggregate engagement here so the dashboard
+ * doesn't have to recalculate on every render.
+ */
+async function persistConnection(opts: {
+  companyId: string
+  profile: Record<string, unknown> | null
+  videos: Array<Record<string, unknown>>
+  openId: string
+  unionId: string
+  accessToken: string
+  refreshToken: string | null
+  expiresIn: number
+  grantedScopes: string
+}): Promise<void> {
+  const p = opts.profile || {}
+  const engagement = summarizeEngagement(opts.videos)
+
+  const handleRaw = typeof p.username === 'string' ? p.username : ''
+  const handle = handleRaw ? `@${handleRaw}` : (typeof p.display_name === 'string' ? p.display_name : opts.openId.slice(0, 10))
+  const followerCount = Number(p.follower_count ?? 0)
+  const followingCount = Number(p.following_count ?? 0)
+  const videoCount = Number(p.video_count ?? 0)
+  const likesCount = Number(p.likes_count ?? 0)
+  const avatarUrl =
+    (typeof p.avatar_url_100 === 'string' && p.avatar_url_100) ||
+    (typeof p.avatar_url === 'string' && p.avatar_url) ||
+    null
+  const profileUrl = typeof p.profile_deep_link === 'string' ? p.profile_deep_link : null
+  const bio = typeof p.bio_description === 'string' ? p.bio_description : null
+  const displayName = typeof p.display_name === 'string' ? p.display_name : null
+  const isVerified = Boolean(p.is_verified)
+
+  // Top 3 by views (mapped down to stable fields the UI consumes).
+  const videoForCard = (v: Record<string, unknown>) => ({
+    id: String(v.id || ''),
+    title:
+      (typeof v.title === 'string' && v.title.trim()) ||
+      (typeof v.video_description === 'string' && v.video_description.trim()) ||
+      '',
+    cover: typeof v.cover_image_url === 'string' ? v.cover_image_url : '',
+    shareUrl: typeof v.share_url === 'string' ? v.share_url : '',
+    createdAt: Number(v.create_time || 0),
+    duration: Number(v.duration || 0),
+    views: Number(v.view_count || 0),
+    likes: Number(v.like_count || 0),
+    comments: Number(v.comment_count || 0),
+    shares: Number(v.share_count || 0),
+  })
+  const recentMapped = opts.videos.map(videoForCard)
+  const topVideos = [...recentMapped].sort((a, b) => b.views - a.views).slice(0, 3)
+
+  const data = {
+    handle,
+    displayName,
+    bio,
+    avatarUrl,
+    profileUrl,
+    isVerified,
+    followerCount,
+    followingCount,
+    videoCount,
+    likesCount,
+    avgViews: engagement.avgViews,
+    avgLikes: engagement.avgLikes,
+    engagementRate: engagement.engagementRate,
+    reachRate: followerCount > 0 ? engagement.avgViews / followerCount : 0,
+    topVideos,
+    recentVideos: recentMapped,
+    openId: opts.openId,
+    unionId: opts.unionId || null,
+    accessToken: opts.accessToken,
+    refreshToken: opts.refreshToken,
+    tokenExpiresAt: opts.expiresIn > 0 ? new Date(Date.now() + opts.expiresIn * 1000) : null,
+    scopes: opts.grantedScopes || null,
+    source: 'tiktok',
+    lastSyncedAt: new Date(),
+  }
+
+  await prisma.tiktokConnection.upsert({
+    where: { companyId: opts.companyId },
+    create: { companyId: opts.companyId, ...data },
+    update: data,
+  })
+  console.log('[tiktok] connection saved', { companyId: opts.companyId, handle, followerCount, videoCount })
+}
+
+/** GET /api/tiktok/insights?companyId=X — dashboard read path. */
+router.get('/insights', requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).session
+  const companyId = typeof req.query.companyId === 'string' ? req.query.companyId : ''
+  if (!companyId) {
+    res.status(400).json({ error: 'missing_company_id' })
+    return
+  }
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+  if (!company) {
+    res.status(404).json({ error: 'company_not_found' })
+    return
+  }
+  const conn = await prisma.tiktokConnection.findUnique({ where: { companyId } })
+  // Strip tokens before returning to the client.
+  if (!conn) {
+    res.json({ connection: null })
+    return
+  }
+  const { accessToken: _t, refreshToken: _rt, ...safe } = conn
+  void _t
+  void _rt
+  res.json({ connection: safe })
+})
+
+/** DELETE /api/tiktok/connections/:companyId — sign out of TikTok. */
+router.delete('/connections/:companyId', requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).session
+  const { companyId } = req.params
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+  if (!company) {
+    res.status(404).json({ error: 'company_not_found' })
+    return
+  }
+  await prisma.tiktokConnection.deleteMany({ where: { companyId } })
+  res.json({ ok: true })
 })
 
 function escapeHtml(s: string): string {

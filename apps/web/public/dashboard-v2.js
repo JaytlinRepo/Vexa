@@ -17,7 +17,8 @@
     me: null,
     tasks: [],
     usage: null,
-    insights: null,
+    insights: null,        // Instagram insights (InstagramConnection)
+    tiktok: null,          // TikTok connection (TiktokConnection)
     feed: [],
     notifs: [],
     phylloAccounts: [], // raw Phyllo account list (multi-platform)
@@ -38,12 +39,14 @@
     STATE.notifs = notifs?.items || []
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
-      const [insights, feed, phylloAccounts] = await Promise.all([
+      const [insights, tiktok, feed, phylloAccounts] = await Promise.all([
         get(`/api/instagram/insights?companyId=${companyId}`),
+        get(`/api/tiktok/insights?companyId=${companyId}`),
         get('/api/feed'),
         get('/api/phyllo/accounts'),
       ])
       STATE.insights = insights?.connection || null
+      STATE.tiktok = tiktok?.connection || null
       STATE.feed = feed?.items || []
       STATE.phylloAccounts = phylloAccounts?.accounts || []
     }
@@ -497,7 +500,7 @@
     if (!ig) {
       return `
         <section style="margin-bottom:26px">
-          ${sectionLabel('Performance — last 30 days')}
+          ${sectionLabel('Instagram — last 30 days')}
           <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
             Connect Instagram to unlock follower, engagement, and audience charts.
             <div style="margin-top:16px">
@@ -509,7 +512,7 @@
     }
     return `
       <section style="margin-bottom:26px">
-        ${sectionLabel('Performance — last 30 days')}
+        ${sectionLabel('Instagram — last 30 days')}
         <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
@@ -781,6 +784,117 @@
     `
   }
 
+  // ── TikTok section ───────────────────────────────────────────────
+  //
+  // Separate from Instagram so each platform owns its dashboard location.
+  // TikTok Login Kit doesn't expose profile-view / traffic-source insights
+  // in sandbox, so we surface what we CAN derive: identity + the four
+  // aggregate counts + engagement + top 3 videos by views.
+  function sectionTiktok() {
+    const companyId = STATE.me?.companies?.[0]?.id || ''
+    const tt = STATE.tiktok
+    if (!tt) {
+      const href = companyId
+        ? `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+        : '/api/tiktok/auth/start'
+      return `
+        <section id="tiktok" style="margin-bottom:26px">
+          ${sectionLabel('TikTok — not connected')}
+          <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
+            Connect TikTok to pull your profile, engagement, and recent videos into the workspace.
+            <div style="margin-top:16px">
+              <a href="${esc(href)}" style="display:inline-block;background:var(--accent,var(--t1));color:var(--accent-text,var(--inv,var(--bg)));border:none;padding:10px 20px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;text-decoration:none;cursor:pointer">Connect TikTok</a>
+            </div>
+          </div>
+        </section>
+      `
+    }
+
+    const engagementPct = ((tt.engagementRate || 0) * 100).toFixed(2) + '%'
+    const reachPct = ((tt.reachRate || 0) * 100).toFixed(2) + '%'
+    const topVideos = Array.isArray(tt.topVideos) ? tt.topVideos.slice(0, 3) : []
+
+    const tiles = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+        ${kvTile('Followers', shortNum(tt.followerCount))}
+        ${kvTile('Videos', shortNum(tt.videoCount))}
+        ${kvTile('Avg views', shortNum(tt.avgViews))}
+        ${kvTile('Engagement rate', engagementPct, '(likes+comments+shares)/views')}
+        ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, 'avg views / followers') : ''}
+        ${kvTile('Total likes', shortNum(tt.likesCount))}
+      </div>
+    `
+
+    const topRow = topVideos.length === 0
+      ? ''
+      : `
+        <div style="margin-top:16px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;font-family:'Syne',sans-serif">Top 3 by views</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+            ${topVideos.map(tiktokVideoCard).join('')}
+          </div>
+        </div>
+      `
+
+    const avatar = tt.avatarUrl || ''
+    const handle = tt.handle || ''
+    const displayName = tt.displayName || ''
+    const profileUrl = tt.profileUrl || ''
+
+    return `
+      <section id="tiktok" style="margin-bottom:26px">
+        ${sectionLabel('TikTok — last 20 videos')}
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+          ${avatar ? `<img src="${esc(avatar)}" alt="" width="48" height="48" style="border-radius:12px;flex-shrink:0">` : ''}
+          <div style="min-width:0;flex:1">
+            <div style="color:var(--t1);font-size:14px;font-weight:500">${esc(displayName) || esc(handle) || 'TikTok account'} ${handle && handle !== displayName ? `<span style="color:var(--t3);font-weight:400;margin-left:6px">${esc(handle)}</span>` : ''}</div>
+            ${tt.bio ? `<div style="color:var(--t2);font-size:12px;line-height:1.4;margin-top:2px;max-width:560px">${esc(String(tt.bio).slice(0, 140))}${String(tt.bio).length > 140 ? '…' : ''}</div>` : ''}
+          </div>
+          ${profileUrl ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:6px 12px;border:1px solid var(--b2);border-radius:999px;text-decoration:none">Open profile</a>` : ''}
+          <button type="button" data-v2-tiktok-disconnect style="color:var(--t3);font-size:11px;padding:6px 12px;border:1px solid var(--b2);background:transparent;border-radius:999px;cursor:pointer;font-family:inherit">Disconnect</button>
+        </div>
+        ${tiles}
+        ${topRow}
+      </section>
+    `
+  }
+
+  function kvTile(label, value, hint) {
+    return `
+      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">${esc(label)}</div>
+        <div style="color:var(--t1);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-top:4px">${esc(String(value))}</div>
+        ${hint ? `<div style="color:var(--t3);font-size:10px;margin-top:2px">${esc(hint)}</div>` : ''}
+      </div>
+    `
+  }
+
+  function shortNum(n) {
+    const v = Number(n || 0)
+    if (!isFinite(v)) return '—'
+    return short(v)
+  }
+
+  function tiktokVideoCard(v) {
+    const title = String(v.title || '').trim() || '(untitled)'
+    const cover = String(v.cover || '')
+    const url = String(v.shareUrl || '')
+    const views = Number(v.views || 0)
+    const likes = Number(v.likes || 0)
+    const comments = Number(v.comments || 0)
+    return `
+      <a href="${esc(url || '#')}" target="_blank" rel="noopener" class="vx-dcard" style="display:flex;gap:10px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-decoration:none;color:inherit">
+        ${cover
+          ? `<img src="${esc(cover)}" alt="" width="54" height="74" style="border-radius:6px;object-fit:cover;background:var(--s3);flex-shrink:0" loading="lazy" onerror="this.style.display='none'">`
+          : `<div style="width:54px;height:74px;border-radius:6px;background:var(--s3);flex-shrink:0"></div>`}
+        <div style="min-width:0;flex:1">
+          <div style="color:var(--t1);font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(title.slice(0, 140))}${title.length > 140 ? '…' : ''}</div>
+          <div style="color:var(--t3);font-size:10.5px;margin-top:4px">👁 ${shortNum(views)} · ❤ ${shortNum(likes)} · 💬 ${shortNum(comments)}</div>
+        </div>
+      </a>
+    `
+  }
+
   function sectionActivity() {
     // Build a timeline from notifications (most recent 8).
     const items = STATE.notifs.slice(0, 8)
@@ -884,6 +998,20 @@
       const soft = e.target.closest('[data-v2-soft-refresh]')
       if (soft) {
         e.preventDefault()
+        await refresh()
+        return
+      }
+      const ttDisc = e.target.closest('[data-v2-tiktok-disconnect]')
+      if (ttDisc) {
+        e.preventDefault()
+        if (!window.confirm('Disconnect TikTok? We\'ll drop the token and stop syncing.')) return
+        const companyId = STATE.me?.companies?.[0]?.id
+        if (!companyId) return
+        ttDisc.disabled = true
+        ttDisc.textContent = 'Disconnecting…'
+        try {
+          await fetch(`/api/tiktok/connections/${companyId}`, { method: 'DELETE', credentials: 'include' })
+        } catch {}
         await refresh()
         return
       }
@@ -1093,6 +1221,7 @@
           ${sectionReviewQueue()}
           ${sectionTeam()}
           ${sectionPerformance()}
+          ${sectionTiktok()}
           ${sectionActivity()}
         </main>
         <aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
@@ -1130,4 +1259,25 @@
   // strip flips from "Working" to "Output ready" without the CEO
   // having to reload.
   window.addEventListener('vx-task-changed', () => { setTimeout(render, 80) })
+
+  // When the user returns from the TikTok OAuth callback (?tiktokConnected=1),
+  // jump straight to the dashboard and scroll the TikTok section into view.
+  function maybeHandleTiktokReturn() {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('tiktokConnected') !== '1') return
+      // Clear the query param so a refresh doesn't re-trigger.
+      const clean = window.location.pathname + (window.location.hash || '')
+      window.history.replaceState({}, '', clean)
+      setTimeout(async () => {
+        if (typeof window.navigate === 'function') window.navigate('db-dashboard')
+        await refresh()
+        setTimeout(() => {
+          document.getElementById('tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 250)
+      }, 400)
+    } catch { /* noop */ }
+  }
+  if (document.readyState !== 'loading') maybeHandleTiktokReturn()
+  document.addEventListener('DOMContentLoaded', maybeHandleTiktokReturn)
 })()
