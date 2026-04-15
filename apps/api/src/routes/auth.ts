@@ -86,6 +86,41 @@ router.post('/logout', (_req, res) => {
   res.json({ ok: true })
 })
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(200),
+})
+
+router.post('/change-password', async (req, res, next) => {
+  try {
+    const session = await readSession(req)
+    if (!session) {
+      res.status(401).json({ error: 'unauthorized' })
+      return
+    }
+    const data = changePasswordSchema.parse(req.body)
+    const user = await prisma.user.findUnique({ where: { id: session.userId } })
+    if (!user || !user.passwordHash) {
+      res.status(404).json({ error: 'user_not_found' })
+      return
+    }
+    const ok = await bcrypt.compare(data.currentPassword, user.passwordHash)
+    if (!ok) {
+      res.status(403).json({ error: 'wrong_current_password' })
+      return
+    }
+    const passwordHash = await bcrypt.hash(data.newPassword, 10)
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
+    res.json({ ok: true })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
+    next(err)
+  }
+})
+
 router.get('/me', async (req, res, next) => {
   try {
     const session = await readSession(req)
