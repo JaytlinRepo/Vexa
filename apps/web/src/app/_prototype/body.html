@@ -129,65 +129,15 @@
 <!-- APP SHELL -->
 <div id="app">
 
-  <!-- SIDE NAV -->
-  <nav id="sidenav">
-    <button class="nav-collapse-btn" id="collapseBtn" onclick="toggleNav()">&#8249;</button>
-
-    <div class="nav-logo-wrap">
-      <a href="#" class="nav-logo" onclick="navigateVexaLogo();return false">Vexa</a>
-      <a href="#" class="nav-logo-mark" onclick="navigateVexaLogo();return false" aria-label="Vexa home">V</a>
-    </div>
-
-    <!-- Marketing nav (shown when not logged in) -->
-    <div class="nav-section" id="nav-marketing">
-      <div class="nav-label">Explore</div>
-      <a class="nav-item active" id="nav-home" onclick="navigate('home')">
-        <span class="nav-item-icon">H</span><span class="nav-item-label">Home</span>
-      </a>
-      <a class="nav-item" id="nav-team" onclick="navigate('team')">
-        <span class="nav-item-icon">T</span><span class="nav-item-label">The Team</span>
-      </a>
-      <a class="nav-item" id="nav-how" onclick="navigate('how')">
-        <span class="nav-item-icon">P</span><span class="nav-item-label">How It Works</span>
-      </a>
-      <a class="nav-item" id="nav-outputs" onclick="navigate('outputs')">
-        <span class="nav-item-icon">O</span><span class="nav-item-label">See Outputs</span>
-      </a>
-      <a class="nav-item" id="nav-knowledge" onclick="navigate('knowledge')">
-        <span class="nav-item-icon">K</span><span class="nav-item-label">Knowledge Feed</span>
-      </a>
-      <a class="nav-item" id="nav-pricing" onclick="navigate('pricing')">
-        <span class="nav-item-icon">$</span><span class="nav-item-label">Pricing</span>
-      </a>
-      <a class="nav-item" id="nav-faq" onclick="navigate('faq')">
-        <span class="nav-item-icon">?</span><span class="nav-item-label">FAQ</span>
-      </a>
-    </div>
-
-    <!-- App nav (shown when logged in) -->
-    <div class="nav-section" id="nav-app" style="display:none">
-      <div class="nav-label">Workspace</div>
-      <a class="nav-item" id="nav-db-dashboard" onclick="navigate('db-dashboard')">
-        <span class="nav-item-icon">D</span><span class="nav-item-label">Dashboard</span>
-      </a>
-      <a class="nav-item" id="nav-db-tasks" onclick="goToTasks()">
-        <span class="nav-item-icon">W</span><span class="nav-item-label">Work</span>
-      </a>
-      <a class="nav-item" id="nav-db-knowledge" onclick="navigate('db-knowledge')">
-        <span class="nav-item-icon">K</span><span class="nav-item-label">Knowledge Feed</span>
-      </a>
-      <a class="nav-item" id="nav-db-settings" onclick="navigate('db-settings')">
-        <span class="nav-item-icon">S</span><span class="nav-item-label">Settings</span>
-      </a>
-    </div>
-
-    <div class="nav-bottom">
-      <div class="nav-user" id="nav-user-area">
-        <div class="nav-user-avatar" id="nav-avatar">V</div>
-        <div class="nav-user-info">
-          <div class="nav-user-name" id="nav-username">Guest</div>
-          <div class="nav-user-plan" id="nav-userplan">Marketing</div>
-        </div>
+  <!-- Sidenav kept in the DOM (display:none in CSS) so any code still
+       referencing #sidenav / #collapseBtn doesn't crash. Nav items have
+       moved into the horizontal top nav below. -->
+  <nav id="sidenav" aria-hidden="true">
+    <div class="nav-user" id="nav-user-area">
+      <div class="nav-user-avatar" id="nav-avatar">V</div>
+      <div class="nav-user-info">
+        <div class="nav-user-name" id="nav-username">Guest</div>
+        <div class="nav-user-plan" id="nav-userplan">Marketing</div>
       </div>
     </div>
   </nav>
@@ -195,12 +145,35 @@
   <!-- MAIN -->
   <div id="main">
 
-    <!-- TOP BAR -->
+    <!-- TOP BAR — Apple-style: logo left, section nav center, auth right -->
     <div id="topbar">
       <div class="topbar-left">
-        <span class="topbar-section" id="topbar-section">Home</span>
+        <a href="#" class="topnav-logo" onclick="navigateVexaLogo();return false">Vexa</a>
       </div>
+
+      <nav class="topnav" aria-label="Primary">
+        <!-- Marketing nav (shown when not logged in) -->
+        <div class="topnav-group" id="nav-marketing">
+          <a class="topnav-link active" id="nav-home" onclick="navigate('home')">Home</a>
+          <a class="topnav-link" id="nav-team" onclick="navigate('team')">Team</a>
+          <a class="topnav-link" id="nav-how" onclick="navigate('how')">How it works</a>
+          <a class="topnav-link" id="nav-outputs" onclick="navigate('outputs')">Outputs</a>
+          <a class="topnav-link" id="nav-knowledge" onclick="navigate('knowledge')">Knowledge</a>
+          <a class="topnav-link" id="nav-pricing" onclick="navigate('pricing')">Pricing</a>
+          <a class="topnav-link" id="nav-faq" onclick="navigate('faq')">FAQ</a>
+          <a class="topnav-link" id="nav-contact" onclick="navigate('contact')">Contact</a>
+        </div>
+        <!-- App nav (shown when logged in) -->
+        <div class="topnav-group" id="nav-app" style="display:none">
+          <a class="topnav-link" id="nav-db-dashboard" onclick="navigate('db-dashboard')">Dashboard</a>
+          <a class="topnav-link" id="nav-db-tasks" onclick="goToTasks()">Work</a>
+          <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')">Knowledge</a>
+          <a class="topnav-link" id="nav-db-settings" onclick="navigate('db-settings')">Settings</a>
+        </div>
+      </nav>
+
       <div class="topbar-right">
+        <span class="topbar-section" id="topbar-section" aria-live="polite"></span>
         <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9679;</button>
         <div class="notif-btn" id="notif-btn" style="display:none"><span>&#9679;</span><span class="notif-dot"></span></div>
         <button class="topbar-btn ghost" id="topbar-login" onclick="showLogin()">Log in</button>
@@ -691,6 +664,70 @@
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my brand data private?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. Your niche, brand voice, and outputs are private to your workspace. We do not use your data to train models. Encrypted at rest and in transit. Export or delete anytime.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the free trial?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">The full product. No restricted features, no trial mode. Cancel before day 7 and you won't be charged. Your outputs stay in your library regardless.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Can I cancel or change my plan anytime?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. No contracts, no cancellation fees. Upgrade, downgrade, or cancel from your billing dashboard. You keep full access until the end of your current billing period.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ CONTACT ═════════════════════════════════════ -->
+    <div class="view" id="view-contact">
+      <div class="mkt-view">
+        <div class="mkt-head">
+          <span class="eyebrow">Contact</span>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Tell us <em style="color:var(--t2)">what you need.</em></h2>
+          <p class="body">Sales, support, partnership — send it over. A real person replies within one business day.</p>
+        </div>
+
+        <div class="contact-grid">
+          <form class="contact-form" id="vx-contact-form" novalidate>
+            <div class="contact-field">
+              <label for="vx-c-name">Name</label>
+              <input id="vx-c-name" name="name" type="text" autocomplete="name" required />
+            </div>
+            <div class="contact-field">
+              <label for="vx-c-email">Email</label>
+              <input id="vx-c-email" name="email" type="email" autocomplete="email" required />
+            </div>
+            <div class="contact-field">
+              <label for="vx-c-reason">Reason</label>
+              <select id="vx-c-reason" name="reason">
+                <option value="sales">Sales &mdash; interested in a plan</option>
+                <option value="support">Support &mdash; something broken</option>
+                <option value="partnership">Partnership or press</option>
+                <option value="other">Something else</option>
+              </select>
+            </div>
+            <div class="contact-field">
+              <label for="vx-c-message">Message</label>
+              <textarea id="vx-c-message" name="message" rows="5" required></textarea>
+            </div>
+            <div class="contact-actions">
+              <button type="submit" class="btn-fill" id="vx-contact-submit">Send message</button>
+              <span class="contact-hint" id="vx-contact-hint"></span>
+            </div>
+          </form>
+
+          <aside class="contact-aside">
+            <div class="contact-aside-block">
+              <div class="eyebrow">Direct</div>
+              <a href="mailto:support@vexa.ai" class="contact-link">support@vexa.ai</a>
+              <p class="body">For account, billing, and technical issues.</p>
+            </div>
+            <div class="contact-aside-block">
+              <div class="eyebrow">Sales</div>
+              <a href="mailto:sales@vexa.ai" class="contact-link">sales@vexa.ai</a>
+              <p class="body">Team plans, annual pricing, white-label.</p>
+            </div>
+            <div class="contact-aside-block">
+              <div class="eyebrow">Response time</div>
+              <p class="body" style="margin-top:4px">Within one business day. Weekends we read but don't reply &mdash; sorry.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="contact-success" id="vx-contact-success" hidden>
+          <div class="eyebrow">Sent</div>
+          <h3 class="serif" style="font-size:clamp(28px,3.6vw,44px);margin:10px 0 14px">Got it &mdash; talk soon.</h3>
+          <p class="body">We'll reply to the email you entered. If you don't hear from us within one business day, reach out directly at <a href="mailto:support@vexa.ai" class="contact-link">support@vexa.ai</a>.</p>
         </div>
       </div>
     </div>

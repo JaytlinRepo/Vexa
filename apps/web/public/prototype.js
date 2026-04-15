@@ -1,31 +1,44 @@
 /* Theme: root layout (theme-dark-default.js + VexaThemeBridge.tsx) owns
    data-theme and window.toggleTheme so hydration cannot clobber the toggle. */
 
+/* ── GUARD — the script can be re-evaluated by dev HMR or a <Script> remount.
+   Classic-script `const`/`let` clash globally on a second run, so we use
+   `var` at the top level (var tolerates redeclaration) and skip the
+   side-effect wiring if we've already bootstrapped once. */
+if (window.__vxPrototypeSideEffectsDone) {
+  // Declarations below still re-run (harmless with var), but listeners
+  // etc. don't double-bind.
+}
+var __vxPrototypeBoot = !window.__vxPrototypeSideEffectsDone
+window.__vxPrototypeSideEffectsDone = true
+
 /* ── CURSOR ─────────────────────────────────────────── */
-const cd=document.getElementById('cd'),cr=document.getElementById('cr')
-let mx=0,my=0,rx=0,ry=0
-if(cd){
-  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cd.style.left=mx+'px';cd.style.top=my+'px'})
+var cd=document.getElementById('cd'),cr=document.getElementById('cr')
+var mx=0,my=0,rx=0,ry=0
+if(__vxPrototypeBoot){
+  if(cd){
+    document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cd.style.left=mx+'px';cd.style.top=my+'px'})
+  }
+  if(cd&&cr){
+    ;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
+  }
+  document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.ob-card,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
+    el.addEventListener('mouseenter',()=>document.body.classList.add('ch'))
+    el.addEventListener('mouseleave',()=>document.body.classList.remove('ch'))
+  })
+  document.addEventListener('mousedown',()=>document.body.classList.add('cp'))
+  document.addEventListener('mouseup',()=>document.body.classList.remove('cp'))
 }
-if(cd&&cr){
-  ;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
-}
-document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.ob-card,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
-  el.addEventListener('mouseenter',()=>document.body.classList.add('ch'))
-  el.addEventListener('mouseleave',()=>document.body.classList.remove('ch'))
-})
-document.addEventListener('mousedown',()=>document.body.classList.add('cp'))
-document.addEventListener('mouseup',()=>document.body.classList.remove('cp'))
 
 /* ── STATE ──────────────────────────────────────────── */
-let currentView='home'
-let isLoggedIn=false
-let selectedNiche=''
-let companyName=''
+var currentView='home'
+var isLoggedIn=false
+var selectedNiche=''
+var companyName=''
 
 /* ── NAVIGATION ─────────────────────────────────────── */
-const sectionNames={
-  home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',
+var sectionNames={
+  home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',contact:'Contact',
   knowledge:'Knowledge Feed',pricing:'Pricing',faq:'FAQ',
   'db-dashboard':'Dashboard','db-team':'My Team','db-tasks':'Tasks',
   'db-outputs':'Outputs','db-knowledge':'Knowledge Feed','db-settings':'Settings'
@@ -37,8 +50,8 @@ function navigate(id){
   const next=document.getElementById('view-'+id)
   if(!next)return
 
-  // Update nav active states
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'))
+  // Update nav active states (legacy sidebar + new horizontal top nav)
+  document.querySelectorAll('.nav-item,.topnav-link').forEach(el=>el.classList.remove('active'))
   const navEl=document.getElementById('nav-'+id)
   if(navEl)navEl.classList.add('active')
 
@@ -143,9 +156,9 @@ function enterDashboard(){
   isLoggedIn=true
   document.getElementById('onboarding').classList.remove('active')
 
-  // Switch nav
+  // Switch nav — nav-app is a .topnav-group (flex), so use 'flex' not 'block'.
   document.getElementById('nav-marketing').style.display='none'
-  document.getElementById('nav-app').style.display='block'
+  document.getElementById('nav-app').style.display='flex'
   document.getElementById('topbar-login').style.display='none'
   document.getElementById('topbar-cta').style.display='none'
   document.getElementById('notif-btn').style.display='flex'
@@ -205,8 +218,8 @@ function filterFeed(gridSel,attr,type){
 }
 
 /* ── PRICING TOGGLE ─────────────────────────────────── */
-let annual=false
-const pp={starter:[14.99,11],pro:[49.99,37],agency:[99.99,74]}
+var annual=false
+var pp={starter:[14.99,11],pro:[49.99,37],agency:[99.99,74]}
 function togglePrice(){
   annual=!annual
   document.getElementById('priceToggle').classList.toggle('on',annual)
@@ -260,14 +273,14 @@ function switchSettings(btn,panel){
 /* ── CALENDAR ENGINE ─────────────────────────────────── */
 
 // Calendar state
-let calViewMode = 'month' // 'month' | 'week'
+var calViewMode = 'month' // 'month' | 'week'
 // Always open on the current month — the demo entries are dated to Jan 2025
 // so they only render when the user navigates there, but the CEO should
 // land on a calendar that reflects today.
-let calDate = new Date()
+var calDate = new Date()
 
 // Data model — each entry has: date(YYYY-MM-DD), type, title, who, status
-let calEntries = [
+var calEntries = [
   // Jordan's week plan (pending)
   {id:'e1', date:'2025-01-13', type:'Reel',     title:'Weighted walking',    who:'jordan', status:'planned',   label:'Jordan'},
   {id:'e2', date:'2025-01-14', type:'Carousel', title:'Myth-busting splits', who:'jordan', status:'planned',   label:'Jordan'},
@@ -284,9 +297,9 @@ let calEntries = [
   {id:'e12', date:'2025-01-09', type:'Reel',    title:'Morning Routine',     who:'alex',   status:'approved',  label:'Alex'},
 ]
 
-const MONTH_NAMES = ['January','February','March','April','May','June',
+var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December']
-const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+var DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
 function fmtDate(d) {
   const y = d.getFullYear()
@@ -561,8 +574,8 @@ function approveCalendarPlan() {
 }
 
 /* ── AGENT TOAST ────────────────────────────────────── */
-let toastTimer = null
-let toastEntryId = null
+var toastTimer = null
+var toastEntryId = null
 
 function showToast(init, name, role, msg, entryId) {
   toastEntryId = entryId
@@ -601,7 +614,7 @@ function goToTasks() {
 
 /* ── INSIGHTS CHARTS ─────────────────────────────────── */
 
-const insightsData = {
+var insightsData = {
   '7d': {
     followers:'12.4K', followersDelta:'+210 this period',
     reach:'6,840', reachDelta:'+8% vs prior',
@@ -628,9 +641,9 @@ const insightsData = {
   }
 }
 
-const dayLabels  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-const saveLabels = ['Transform.','Education','Motivation','BTS']
-let currentPeriod = '30d'
+var dayLabels  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+var saveLabels = ['Transform.','Education','Motivation','BTS']
+var currentPeriod = '30d'
 
 function switchPeriod(btn, period) {
   document.querySelectorAll('.ins-period-btn').forEach(b=>b.classList.remove('active'))
@@ -706,11 +719,8 @@ window.navigateVexaLogo = function () {
 
 // Expose calendar state so companion scripts (idea-wire.js) can read
 // calDate (current visible month) and push into calEntries when the CEO
-// adds an idea. Array reference is shared, so push() mutates the same
-// underlying list prototype.js renders from. calDate uses a getter
-// because calNav() reassigns the local binding.
-window.calEntries = calEntries
-Object.defineProperty(window, 'calDate', {
-  get: () => calDate,
-  configurable: true,
-})
+// adds an idea. `var` at the top level already publishes both bindings
+// on window, and calNav()'s `calDate = new Date(...)` flows through —
+// so no defineProperty needed. The earlier getter approach tripped the
+// "Cannot redefine property" error on HMR re-eval because `var` pins the
+// property as non-configurable.

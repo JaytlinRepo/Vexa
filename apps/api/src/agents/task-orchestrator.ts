@@ -417,7 +417,7 @@ export async function triggerNextAgentAfterApproval(
   if (!outputType) return { ok: false, reason: 'bad_config' }
 
   const title = getAutoTaskTitle(nextRoleStr)
-  const description = `Auto-triggered after ${currentRole.replace(/_/g, ' ')} work was approved.`
+  const description = ''
 
   const nextTask = await db.task.create({
     data: {

@@ -67,6 +67,17 @@
 
   // ─────────────── helpers ─────────────────────────────────────────
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  // Some feed sources ship titles with embedded HTML (e.g. "<strong>Wait!
+  // Do I Need a Statin Now?</strong>"). Strip tags + decode entities before
+  // passing to esc() so the card doesn't show raw markup.
+  const stripTags = (s) => {
+    const str = String(s ?? '')
+    const noTags = str.replace(/<[^>]*>/g, '')
+    const ta = typeof document !== 'undefined' ? document.createElement('textarea') : null
+    if (!ta) return noTags
+    ta.innerHTML = noTags
+    return ta.value
+  }
 
   function pickLatestOutput(task) {
     const outs = task?.outputs
@@ -324,7 +335,7 @@
   function tile(label, value, sub, navId, progressPct) {
     const action = navId ? `data-v2-nav="${navId}" style="cursor:pointer"` : ''
     return `
-      <div ${action} style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;${navId ? 'transition:border-color .2s' : ''}">
+      <div ${action} class="vx-dcard${navId ? ' vx-dcard-nav' : ''}" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">${esc(label)}</div>
         <div class="vx-tile-value" style="color:var(--t1);margin-bottom:4px;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:500;font-size:26px;letter-spacing:-.01em;line-height:1;font-style:normal">${esc(value)}</div>
         <div style="color:var(--t2);font-size:11px">${esc(sub)}</div>
@@ -361,7 +372,7 @@
   function reviewCard(t) {
     const role = ROLE[t.employee?.role] || { name: t.employee?.name || 'Vexa', title: '', init: 'V' }
     return `
-      <article data-task-id="${t.id}" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px">
+      <article data-task-id="${t.id}" class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px">
         <header style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px">
           <div>
             <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">${esc(role.name)} · ${esc(formatType(t.type))}</div>
@@ -460,7 +471,7 @@
     const avClass = avatarRing ? 'vx-team-avatar-ring' : ''
 
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div class="${avClass}" style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
           <div style="min-width:0">
@@ -1042,7 +1053,7 @@
       ? `<span style="color:var(--t1);font-weight:600;margin-left:auto">${item.score}</span>`
       : ''
     return `
-      <li style="padding:14px 20px;border-bottom:1px solid var(--b1)">
+      <li class="vx-dcard-row" style="padding:14px 20px;border-bottom:1px solid var(--b1)">
         <a href="${esc(item.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;gap:12px;align-items:flex-start">
           ${thumb}
           <div style="flex:1;min-width:0">
@@ -1052,8 +1063,8 @@
               <span>${esc(when)}</span>
               ${scoreTag}
             </div>
-            <div style="color:var(--t1);font-size:13px;font-weight:500;line-height:1.35;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(item.title)}</div>
-            <div style="color:var(--t2);font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(item.mayaTake || item.summary)}</div>
+            <div style="color:var(--t1);font-size:13px;font-weight:500;line-height:1.35;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(stripTags(item.title))}</div>
+            <div style="color:var(--t2);font-size:11px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(stripTags(item.mayaTake || item.summary))}</div>
           </div>
         </a>
       </li>

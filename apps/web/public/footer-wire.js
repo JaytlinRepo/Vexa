@@ -46,7 +46,7 @@
 
           <div class="vx-footer-col">
             <div class="vx-footer-label">Company</div>
-            <a href="mailto:hello@vexa.ai">Contact</a>
+            <a href="#" data-vx-nav="contact">Contact</a>
             <a href="#" data-vx-modal="terms">Terms</a>
             <a href="#" data-vx-modal="privacy">Privacy</a>
             <a href="#" data-vx-modal="security">Security</a>

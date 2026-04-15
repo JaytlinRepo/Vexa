@@ -14,6 +14,14 @@
   --sh:      rgba(0,0,0,.7);
   --grain:   .03;
   --r:       12px;
+  /* Brand accent — warm amber. Slightly brighter in dark mode so it still
+     pops against near-black. Buttons / focus rings / badges use this.
+     --accent-text is the readable foreground on an accent fill. */
+  --accent:      #d4a574;
+  --accent-hov:  #e0b486;
+  --accent-text: #1a0f06;
+  --accent-soft: rgba(212,165,116,.16);
+  --accent-glow: rgba(212,165,116,.28);
 }
 [data-theme="light"] {
   --bg:      #f3f0eb;
@@ -29,6 +37,11 @@
   --nav:     rgba(243,240,235,.94);
   --sh:      rgba(0,0,0,.1);
   --grain:   .02;
+  --accent:      #b8834a;
+  --accent-hov:  #a77239;
+  --accent-text: #f7f3ec;
+  --accent-soft: rgba(184,131,74,.16);
+  --accent-glow: rgba(184,131,74,.22);
 }
 /* ══ RESET ══════════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -57,7 +70,11 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 /* ══ APP SHELL ══════════════════════════════════════════ */
 #app{width:100%;height:100%;display:flex;overflow:hidden}
 
-/* ══ SIDE NAV ════════════════════════════════════════════ */
+/* ══ SIDE NAV ════════════════════════════════════════════
+   The horizontal top nav replaced the left rail. We keep `#sidenav` in
+   the DOM so scripts still find #nav-username / #nav-avatar, but the
+   rail itself is visually hidden. */
+#sidenav{display:none !important}
 #sidenav{
   width:220px;flex-shrink:0;height:100%;
   background:var(--s1);border-right:1px solid var(--b1);
@@ -89,7 +106,7 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 #sidenav.collapsed .nav-item{padding:10px 20px;justify-content:center;gap:0}
 #sidenav.collapsed .nav-item-label{display:none}
 .nav-item:hover{color:var(--t1);background:var(--s2)}
-.nav-item.active{color:var(--t1);background:var(--s2);border-right-color:var(--t1)}
+.nav-item.active{color:var(--t1);background:var(--s2);border-right-color:var(--accent)}
 .nav-item-icon{
   width:20px;height:20px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
@@ -116,28 +133,75 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
   flex:1;height:100%;overflow:hidden;position:relative;
 }
 
-/* ══ TOP BAR ════════════════════════════════════════════ */
+/* ══ TOP BAR ════════════════════════════════════════════
+   Three columns: logo (left), primary nav (center), auth + chrome (right).
+   Apple-style: logo is serif wordmark, nav items are lightweight pills
+   that get an amber underline when active. */
 #topbar{
   position:absolute;top:0;left:0;right:0;z-index:50;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:18px 40px;
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;
+  padding:14px 40px;
   background:var(--nav);backdrop-filter:blur(24px);
   border-bottom:1px solid var(--b1);
   transition:background .4s;
 }
 .topbar-left{display:flex;align-items:center;gap:12px}
-.topbar-section{font-size:13px;color:var(--t2);letter-spacing:.04em}
+.topnav-logo{
+  font-family:'Cormorant Garamond',serif;font-weight:400;font-size:24px;
+  letter-spacing:.05em;color:var(--t1);text-decoration:none;
+  transition:opacity .2s;
+}
+.topnav-logo:hover{opacity:.6}
+.topnav{
+  display:flex;align-items:center;justify-content:center;
+  min-width:0;
+}
+.topnav-group{
+  display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center;
+}
+.topnav-link{
+  position:relative;
+  padding:8px 14px;border-radius:8px;
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:400;
+  letter-spacing:.01em;color:var(--t2);
+  cursor:pointer;white-space:nowrap;
+  transition:color .2s ease, background .2s ease;
+}
+.topnav-link:hover{color:var(--t1);background:var(--s2)}
+.topnav-link.active{color:var(--t1)}
+.topnav-link.active::after{
+  content:'';
+  position:absolute;left:14px;right:14px;bottom:2px;height:2px;
+  background:var(--accent);border-radius:2px;
+}
+.topbar-section{
+  font-size:11px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;
+  font-family:'Syne',sans-serif;font-weight:600;
+}
+.topbar-section:empty{display:none}
 .topbar-right{display:flex;align-items:center;gap:10px}
+@media (max-width:1100px){
+  #topbar{padding:12px 24px;gap:16px}
+  .topnav-link{padding:7px 10px;font-size:12px}
+  .topbar-section{display:none}
+}
+@media (max-width:820px){
+  #topbar{grid-template-columns:auto 1fr auto;padding:10px 16px;gap:10px}
+  .topnav{justify-content:flex-start;overflow-x:auto;scrollbar-width:none}
+  .topnav::-webkit-scrollbar{display:none}
+  .topnav-link{padding:6px 10px;font-size:12px}
+  .topbar-btn.ghost{display:none}
+}
 .topbar-btn{padding:7px 16px;border-radius:100px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
 .topbar-btn.ghost{border:1px solid var(--b2);background:transparent;color:var(--t2)}
 .topbar-btn.ghost:hover{color:var(--t1);border-color:var(--t2)}
-.topbar-btn.solid{border:none;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-weight:700}
-.topbar-btn.solid:hover{opacity:.84}
+.topbar-btn.solid{border:none;background:var(--accent);color:var(--accent-text);font-family:'Syne',sans-serif;font-weight:700;transition:background .22s ease, box-shadow .22s ease}
+.topbar-btn.solid:hover{background:var(--accent-hov);box-shadow:0 6px 20px var(--accent-glow)}
 .theme-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s}
 .theme-btn:hover{color:var(--t1);border-color:var(--t2)}
 .notif-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:11px;position:relative;transition:all .2s}
 .notif-btn:hover{color:var(--t1)}
-.notif-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--t1);border:1.5px solid var(--bg)}
+.notif-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent);border:1.5px solid var(--bg);box-shadow:0 0 0 3px var(--accent-soft)}
 
 /* ══ VIEWS ══════════════════════════════════════════════ */
 .view{
@@ -364,8 +428,8 @@ input,textarea{cursor:text}
 .wi{display:block;transform:translateY(108%);opacity:0;animation:wup .95s cubic-bezier(.16,1,.3,1) forwards}
 .hero-sub{font-size:clamp(15px,1.6vw,18px);color:var(--t2);max-width:480px;line-height:1.82;margin:0 auto 52px;opacity:0;animation:up .8s 1.2s ease forwards}
 .hero-ctas{display:flex;gap:14px;justify-content:center;opacity:0;animation:up .8s 1.4s ease forwards}
-.btn-fill{padding:15px 40px;border:none;border-radius:100px;background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .28s;display:inline-block}
-.btn-fill:hover{opacity:.84;transform:translateY(-2px);box-shadow:0 18px 44px var(--sh)}
+.btn-fill{padding:15px 40px;border:none;border-radius:100px;background:var(--accent);color:var(--accent-text);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:all .28s;display:inline-block}
+.btn-fill:hover{background:var(--accent-hov);transform:translateY(-2px);box-shadow:0 18px 44px var(--accent-glow)}
 .btn-outline{padding:15px 40px;border:1px solid var(--b2);border-radius:100px;background:transparent;color:var(--t1);font-size:13px;letter-spacing:.06em;transition:all .28s;display:inline-block}
 .btn-outline:hover{border-color:var(--t2)}
 .hero-meta{margin-top:60px;display:flex;align-items:center;gap:24px;justify-content:center;opacity:0;animation:up .8s 1.65s ease forwards;font-size:12px;color:var(--t3);letter-spacing:.06em}
@@ -378,8 +442,15 @@ input,textarea{cursor:text}
 @keyframes linefall{0%{transform:scaleY(0);transform-origin:top;opacity:0}40%{transform:scaleY(1);transform-origin:top;opacity:1}60%{transform:scaleY(1);transform-origin:bottom;opacity:1}100%{transform:scaleY(0);transform-origin:bottom;opacity:0}}
 
 /* ══ MARKETING SECTIONS ══════════════════════════════════ */
-.mkt-view{padding:100px 56px 80px;overflow-y:auto;height:100%;position:relative}
-.mkt-head{margin-bottom:64px}
+/* Marketing views share one container — narrower cap + more generous
+   side gutters so content never feels pressed against the viewport edge. */
+.mkt-view{
+  max-width:1120px;margin:0 auto;
+  padding:clamp(88px,10vw,140px) clamp(40px,7vw,112px) clamp(96px,10vw,140px);
+  overflow-y:auto;height:100%;position:relative;
+  box-sizing:border-box;
+}
+.mkt-head{margin-bottom:clamp(56px,7vw,96px)}
 .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:18px}
 .serif{font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:-.02em;line-height:1.04}
 .body{font-size:15px;color:var(--t2);line-height:1.82;max-width:460px}
@@ -481,18 +552,18 @@ input,textarea{cursor:text}
 .ab.rej:hover{border-color:var(--b2);color:var(--t2)}
 
 /* Knowledge feed */
-.feed-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:16px}
+.feed-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:20px}
 .feed-tabs{display:flex;gap:2px;background:var(--s2);border:1px solid var(--b1);border-radius:100px;padding:3px}
 .feed-tab{padding:7px 16px;border-radius:100px;border:none;background:transparent;color:var(--t3);font-size:11px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
 .feed-tab.active{background:var(--s1);color:var(--t1)}
 .feed-tab:hover:not(.active){color:var(--t2)}
-.feed-bar{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 20px;margin-bottom:16px}
+.feed-bar{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 22px;margin-bottom:28px}
 .feed-bar-left{display:flex;flex-direction:column;gap:2px}
 .feed-bar-name{font-size:13px;font-weight:500;color:var(--t1);letter-spacing:.02em}
 .feed-bar-desc{font-size:11px;color:var(--t3);letter-spacing:.04em}
 .feed-bar-right{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);display:flex;align-items:center;gap:7px}
 .feed-pulse{width:4px;height:4px;border-radius:50%;background:var(--t2);animation:blink 2.5s infinite}
-.feed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.feed-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .feed-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;transition:border-color .3s,transform .3s}
 .feed-card:hover{border-color:var(--b2);transform:translateY(-2px)}
 .feed-card.tall{grid-row:span 2}
@@ -521,15 +592,15 @@ input,textarea{cursor:text}
 .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
 .pc{background:var(--s1);border:1px solid var(--b1);border-radius:18px;padding:36px 30px;position:relative;transition:all .3s}
 .pc:hover{transform:translateY(-3px);box-shadow:0 24px 60px var(--sh)}
-.pc.featured{border-color:var(--b2)}
-.pc-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--t1);color:var(--inv);font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:4px 14px;border-radius:100px;white-space:nowrap}
+.pc.featured{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 20px 56px var(--accent-glow)}
+.pc-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-text);font-family:'Syne',sans-serif;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:4px 14px;border-radius:100px;white-space:nowrap}
 .pc-tier{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
-.pc-price{font-family:'Cormorant Garamond',serif;font-size:60px;font-weight:300;letter-spacing:-.03em;line-height:1;margin-bottom:4px}
-.pc-price sup{font-size:24px;vertical-align:super}
-.pc-price .mo{font-size:16px;color:var(--t2);font-family:'DM Sans',sans-serif;font-weight:300}
-.pc-desc{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--b1)}
+.pc-price{font-family:'DM Sans',sans-serif;font-size:56px;font-weight:500;letter-spacing:-.025em;line-height:1;margin-bottom:6px;color:var(--t1)}
+.pc-price sup{font-size:22px;vertical-align:super;font-weight:500;margin-right:2px}
+.pc-price .mo{font-size:15px;color:var(--t2);font-family:'DM Sans',sans-serif;font-weight:400;letter-spacing:0}
+.pc-desc{font-size:14px;color:var(--t2);line-height:1.65;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--b1)}
 .pc-feats{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
-.pc-feats li{font-size:13px;display:flex;gap:9px;line-height:1.5}
+.pc-feats li{font-size:14px;display:flex;gap:9px;line-height:1.55;color:var(--t1)}
 .pc-feats li::before{content:'—';color:var(--t3);flex-shrink:0;margin-top:2px}
 .pc-feats li.y::before{content:'\2713';color:var(--t1)}
 .pc-feats li.dim{color:var(--t3)}
@@ -796,10 +867,19 @@ input,textarea{cursor:text}
   width:10px;height:10px;border-radius:2px;flex-shrink:0;
 }
 
-/* Month grid */
+/* Month grid — overflow:visible so the hover-action popovers above each
+   entry aren't clipped by the grid's rounded edge. Corner cells below pick
+   up the matching border-radius so the rounded look is preserved. */
+.cal-day:first-child { border-top-left-radius: 14px; }
+.cal-day:nth-child(7) { border-top-right-radius: 14px; }
+.cal-day:nth-last-child(7) { border-bottom-left-radius: 14px; }
+.cal-day:last-child { border-bottom-right-radius: 14px; }
+.cal-day:hover { z-index: 12; }
+.cal-entry-actions { z-index: 30 !important; }
+
 .cal-month-grid {
   display:grid;grid-template-columns:repeat(7,1fr);
-  border:1px solid var(--b1);border-radius:14px;overflow:hidden;
+  border:1px solid var(--b1);border-radius:14px;overflow:visible;
 }
 .cal-month-header {
   background:var(--s2);padding:10px;text-align:center;
@@ -1485,14 +1565,26 @@ input,textarea{cursor:text}
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
     gap: 14px;
   }
-  /* Dashboard v2 stacks: 2-pane → single column */
+  /* Dashboard v2 stacks: 2-pane → single column.
+     The height:100% + overflow:hidden from desktop squashes <main> when
+     the inner flex switches to column, so we let the whole view scroll
+     normally once we're stacked. */
+  #view-db-dashboard { overflow-y: auto !important; }
+  #view-db-dashboard .db-layout { height: auto !important; overflow: visible !important; }
   #view-db-dashboard .db-layout > div[style*="display:flex"] {
     flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  #view-db-dashboard .db-layout > div[style*="display:flex"] > main {
+    overflow: visible !important;
+    flex: 0 0 auto !important;
   }
   #view-db-dashboard aside {
     width: 100% !important;
     border-left: none !important;
     border-top: 1px solid var(--b1) !important;
+    overflow: visible !important;
   }
   /* Calendar shrinks day cells */
   .cal-month-grid { font-size: 11px; }
@@ -1573,3 +1665,207 @@ input,textarea{cursor:text}
   /* H1 in hero — clamp lower bound is small enough already, no further
      change needed */
 }
+
+/* ══ CONTACT PAGE ════════════════════════════════════════════════════════ */
+.contact-grid{
+  display:grid;grid-template-columns:1.6fr 1fr;gap:56px;align-items:flex-start;
+  margin-top:40px;
+}
+.contact-form{display:flex;flex-direction:column;gap:20px;max-width:520px}
+.contact-field{display:flex;flex-direction:column;gap:8px}
+.contact-field label{
+  font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);
+  font-family:'Syne',sans-serif;font-weight:600;
+}
+.contact-field input,
+.contact-field select,
+.contact-field textarea{
+  background:var(--s1);border:1px solid var(--b1);border-radius:10px;
+  padding:14px 16px;color:var(--t1);font-family:'DM Sans',sans-serif;font-size:14px;
+  transition:border-color .2s ease, box-shadow .2s ease;
+  width:100%;
+}
+.contact-field textarea{resize:vertical;min-height:120px;line-height:1.55}
+.contact-field input:focus,
+.contact-field select:focus,
+.contact-field textarea:focus{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+}
+.contact-field input:invalid:not(:placeholder-shown),
+.contact-field textarea:invalid:not(:placeholder-shown){
+  border-color:#c0604c;
+}
+.contact-actions{display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap}
+.contact-hint{font-size:12px;color:var(--t3)}
+.contact-hint.err{color:#c0604c}
+.contact-aside{display:flex;flex-direction:column;gap:28px;padding-left:8px;border-left:1px solid var(--b1);padding:4px 0 4px 40px}
+.contact-aside-block{display:flex;flex-direction:column;gap:6px}
+.contact-aside-block .eyebrow{margin-bottom:2px}
+.contact-aside-block .body{max-width:none}
+.contact-link{color:var(--t1);text-decoration:none;font-size:15px;border-bottom:1px solid var(--accent);padding-bottom:1px;width:fit-content;transition:color .2s ease}
+.contact-link:hover{color:var(--accent)}
+.contact-success{
+  max-width:640px;margin-top:40px;padding:36px 32px;
+  background:var(--s1);border:1px solid var(--b1);border-radius:16px;
+}
+.contact-success .eyebrow{color:var(--accent)}
+@media (max-width:900px){
+  .contact-grid{grid-template-columns:1fr;gap:36px}
+  .contact-aside{padding:28px 0 0;border-left:none;border-top:1px solid var(--b1)}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   APPLE-STYLE POLISH LAYER
+   Scroll reveals, hero depth, card lifts. reveal-wire.js tags elements
+   with .vx-reveal; IntersectionObserver flips them to .is-in.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vx-reveal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity .95s cubic-bezier(.16,1,.3,1),
+    transform .95s cubic-bezier(.16,1,.3,1);
+  will-change: opacity, transform;
+}
+.vx-reveal.is-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vx-reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* ── Hero ambient depth ───────────────────────────────────────────────────
+   The stock hero-light is a single 3%-opacity radial. Apple hero rooms layer
+   a cooler ambient behind a warmer foreground glow and let both breathe very
+   slowly so the background never feels frozen. */
+.hero-light {
+  background:
+    radial-gradient(ellipse 50% 60% at 50% 32%, var(--accent-soft) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 50% 45%, rgba(237,235,230,.04) 0%, transparent 66%),
+    radial-gradient(ellipse 90% 90% at 50% 50%, rgba(237,235,230,.02) 0%, transparent 70%);
+  width: 1000px;
+  height: 760px;
+  filter: blur(4px);
+  animation: heroBreathe 14s ease-in-out infinite;
+}
+[data-theme="light"] .hero-light {
+  background:
+    radial-gradient(ellipse 50% 60% at 50% 32%, var(--accent-soft) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 50% 45%, rgba(17,17,16,.028) 0%, transparent 66%),
+    radial-gradient(ellipse 90% 90% at 50% 50%, rgba(17,17,16,.014) 0%, transparent 72%);
+}
+.hero-bg-grid {
+  transition: opacity .6s ease;
+}
+@keyframes heroBreathe {
+  0%, 100% { opacity: .88; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 1;   transform: translateX(-50%) scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-light { animation: none; }
+}
+
+/* ── Card hover lifts ────────────────────────────────────────────────────
+   Cards that previously only changed border on hover now rise slightly and
+   get a soft shadow. Matches the existing .pc / .feed-card behaviour. */
+.out-card {
+  transition: transform .35s cubic-bezier(.16,1,.3,1),
+              box-shadow .35s cubic-bezier(.16,1,.3,1),
+              border-color .25s ease;
+}
+.out-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 44px var(--sh);
+  border-color: var(--b2);
+}
+.how-cell {
+  transition: background .25s ease,
+              transform .35s cubic-bezier(.16,1,.3,1),
+              box-shadow .35s cubic-bezier(.16,1,.3,1);
+}
+.how-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px var(--sh);
+}
+.emp-card {
+  transition: all .3s cubic-bezier(.16,1,.3,1);
+}
+.emp-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px var(--sh);
+}
+.faq-item {
+  transition: border-color .25s ease,
+              transform .35s cubic-bezier(.16,1,.3,1);
+}
+.faq-item:hover {
+  transform: translateY(-1px);
+}
+.team-row {
+  transition: background .25s ease, transform .35s cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Carousel figure: gentle zoom on viewport hover ─────────────────────── */
+.home-carousel-fig {
+  transition: transform .6s cubic-bezier(.16,1,.3,1);
+}
+.home-carousel-shell:hover .home-carousel-fig {
+  transform: scale(1.012);
+}
+.home-carousel-img {
+  transition: transform .8s cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Buttons: softer press ───────────────────────────────────────────────
+   Filled pill already has translateY(-2px) on hover; add a matching active
+   compression so clicks feel tactile. */
+.btn-fill:active { transform: translateY(0); box-shadow: 0 6px 18px var(--sh); }
+.btn-outline:active { transform: translateY(0); }
+
+/* Focus ring — Apple-style tight 2px in the brand accent. */
+.btn-fill:focus-visible,
+.btn-outline:focus-visible,
+.pc-btn:focus-visible,
+.emp-card-btn:focus-visible,
+.topbar-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Dashboard cards — matching hover lifts for the v2 dashboard. vx-dcard
+   is added in dashboard-v2.js; vx-dcard-nav marks ones that also click
+   through (KPI tiles with data-v2-nav) so we can give them a touch more
+   lift. vx-dcard-row is for feed items in the aside. */
+.vx-dcard{
+  transition:
+    transform .35s cubic-bezier(.16,1,.3,1),
+    box-shadow .3s ease,
+    border-color .2s ease;
+  will-change:transform;
+}
+.vx-dcard:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 34px var(--sh),0 2px 12px var(--accent-soft);
+  border-color:var(--b2);
+}
+.vx-dcard-nav{cursor:pointer}
+.vx-dcard-nav:hover{box-shadow:0 16px 38px var(--sh),0 3px 16px var(--accent-glow)}
+.vx-dcard-row{transition:background .2s ease}
+.vx-dcard-row:hover{background:var(--s2)}
+
+/* Card hover shadows pick up a faint amber tint instead of flat black,
+   so the lift reads as lit rather than shadowed. */
+.out-card:hover,
+.how-cell:hover,
+.emp-card:hover {
+  box-shadow: 0 14px 34px var(--sh), 0 2px 12px var(--accent-soft);
+}
+.pc:hover {
+  box-shadow: 0 24px 60px var(--sh), 0 4px 22px var(--accent-soft);
+}
+.feed-card:hover {
+  box-shadow: 0 12px 28px var(--sh), 0 2px 10px var(--accent-soft);
+}
+

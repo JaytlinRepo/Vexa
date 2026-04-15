@@ -52,21 +52,71 @@
     }
   }
 
-  function ensureLogoutButton() {
-    const area = document.getElementById('nav-user-area')
-    if (!area || area.querySelector('.vx-logout')) return
-    const btn = document.createElement('button')
-    btn.className = 'vx-logout'
-    btn.textContent = 'Log out'
-    btn.title = 'Log out'
-    btn.setAttribute('aria-label', 'Log out')
-    btn.style.cssText =
-      'margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:6px 10px;border-radius:6px;cursor:pointer;font-family:inherit'
-    btn.addEventListener('click', async () => {
-      await fetch(API + '/api/auth/logout', { method: 'POST', credentials: 'include' })
-      location.reload()
-    })
-    area.appendChild(btn)
+  // Top-right profile chip + dropdown (Name · Plan · Settings · Sign out).
+  // Replaces the old sidebar logout button — the sidebar itself is gone now.
+  function ensureProfileMenu(user, company) {
+    const host = document.querySelector('#topbar .topbar-right')
+    if (!host) return
+    let chip = document.getElementById('vx-profile-chip')
+    const displayName = company?.name || user?.fullName || user?.username || 'Account'
+    const planLabel = (user?.plan || 'starter').replace(/^./, (c) => c.toUpperCase()) + ' plan'
+    const initial = displayName.charAt(0).toUpperCase()
+
+    if (!chip) {
+      chip = document.createElement('div')
+      chip.id = 'vx-profile-chip'
+      chip.style.cssText = 'position:relative;margin-left:2px'
+      chip.innerHTML = `
+        <button type="button" id="vx-profile-btn" aria-haspopup="true" aria-expanded="false" title="Account"
+          style="width:32px;height:32px;border-radius:50%;background:var(--s3);border:1px solid var(--b2);color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .2s"></button>
+        <div id="vx-profile-menu" role="menu" aria-hidden="true"
+          style="display:none;position:absolute;top:calc(100% + 10px);right:0;min-width:220px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;box-shadow:0 18px 44px var(--sh);overflow:hidden;z-index:120;font-family:'DM Sans',sans-serif">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--b1)">
+            <div id="vx-profile-name" style="font-size:13px;color:var(--t1);font-weight:500"></div>
+            <div id="vx-profile-plan" style="font-size:11px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-top:2px"></div>
+          </div>
+          <button type="button" id="vx-profile-settings" role="menuitem"
+            style="display:block;width:100%;text-align:left;background:transparent;border:none;padding:12px 16px;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit">Settings</button>
+          <button type="button" id="vx-profile-signout" role="menuitem"
+            style="display:block;width:100%;text-align:left;background:transparent;border:none;padding:12px 16px;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;border-top:1px solid var(--b1)">Sign out</button>
+        </div>
+      `
+      host.appendChild(chip)
+
+      const btn = chip.querySelector('#vx-profile-btn')
+      const menu = chip.querySelector('#vx-profile-menu')
+      const setOpen = (open) => {
+        menu.style.display = open ? 'block' : 'none'
+        btn.setAttribute('aria-expanded', String(open))
+        menu.setAttribute('aria-hidden', String(!open))
+      }
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setOpen(menu.style.display !== 'block')
+      })
+      document.addEventListener('click', (e) => {
+        if (!chip.contains(e.target)) setOpen(false)
+      })
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setOpen(false)
+      })
+      chip.querySelector('#vx-profile-settings').addEventListener('click', () => {
+        setOpen(false)
+        if (typeof window.navigate === 'function') window.navigate('db-settings')
+      })
+      chip.querySelector('#vx-profile-signout').addEventListener('click', async () => {
+        setOpen(false)
+        try {
+          await fetch(API + '/api/auth/logout', { method: 'POST', credentials: 'include' })
+        } catch { /* proceed to reload even if the request fails */ }
+        location.reload()
+      })
+    }
+
+    chip.querySelector('#vx-profile-btn').textContent = initial
+    chip.querySelector('#vx-profile-name').textContent = displayName
+    chip.querySelector('#vx-profile-plan').textContent = planLabel
+    chip.style.display = ''
   }
 
   function renderInstagramWidget(conn) {
@@ -170,7 +220,7 @@
 
   async function refreshDashboardFor(user, company) {
     populateNav(user, company)
-    ensureLogoutButton()
+    ensureProfileMenu(user, company)
     window.__vxCompany = company || null
     if (company) {
       const conn = await fetchInsights(company.id)
