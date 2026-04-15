@@ -63,6 +63,43 @@ function codeChallengeFor(verifier: string): string {
   return crypto.createHash('sha256').update(verifier).digest('base64url')
 }
 
+// Stateless state: we used to stash nonce + verifier + companyId in cookies,
+// but the cookies are set on whatever origin the browser saw on /auth/start
+// (Vercel, via rewrite) while TikTok's redirect_uri points at Railway — so
+// the cookies never make it to /callback. Encoding everything into the
+// signed `state` param sidesteps that entirely.
+function stateSecret(): string {
+  return process.env.SESSION_SECRET || 'dev-local-session-secret-change-for-prod'
+}
+function encodeState(payload: { nonce: string; v: string; c: string; ts: number }): string {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  const sig = crypto.createHmac('sha256', stateSecret()).update(body).digest('base64url')
+  return `${body}.${sig}`
+}
+function decodeState(
+  raw: string | undefined,
+): { nonce: string; v: string; c: string; ts: number } | null {
+  if (!raw || typeof raw !== 'string') return null
+  const parts = raw.split('.')
+  if (parts.length !== 2) return null
+  const [body, sig] = parts
+  const expected = crypto.createHmac('sha256', stateSecret()).update(body).digest('base64url')
+  if (
+    sig.length !== expected.length ||
+    !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
+  ) {
+    return null
+  }
+  try {
+    const obj = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+    if (!obj || typeof obj.nonce !== 'string' || typeof obj.v !== 'string') return null
+    if (typeof obj.ts !== 'number' || Date.now() - obj.ts > 15 * 60 * 1000) return null
+    return { nonce: obj.nonce, v: obj.v, c: String(obj.c || ''), ts: obj.ts }
+  } catch {
+    return null
+  }
+}
+
 router.get('/auth/start', (req, res) => {
   const { clientKey, redirectUri } = readConfig()
   const missing: string[] = []
@@ -81,21 +118,10 @@ router.get('/auth/start', (req, res) => {
       ? req.query.companyId
       : ''
 
-  const state = crypto.randomBytes(16).toString('hex')
+  const nonce = crypto.randomBytes(16).toString('hex')
   const codeVerifier = makeCodeVerifier()
   const codeChallenge = codeChallengeFor(codeVerifier)
-
-  const secure = req.secure || req.get('x-forwarded-proto') === 'https'
-  const cookieOpts = {
-    httpOnly: true,
-    secure,
-    sameSite: 'lax' as const,
-    maxAge: 10 * 60 * 1000,
-    path: '/',
-  }
-  res.cookie('tiktok_state', state, cookieOpts)
-  res.cookie('tiktok_verifier', codeVerifier, cookieOpts)
-  if (companyId) res.cookie('tiktok_company', companyId, cookieOpts)
+  const state = encodeState({ nonce, v: codeVerifier, c: companyId, ts: Date.now() })
 
   const params = new URLSearchParams({
     client_key: clientKey,
@@ -130,20 +156,14 @@ router.get('/callback', async (req, res) => {
     return
   }
 
-  const cookieState = req.cookies?.tiktok_state
-  const codeVerifier = req.cookies?.tiktok_verifier
-  if (!state || !cookieState || state !== cookieState) {
-    console.warn('[tiktok] state mismatch', { cookieState, state })
-    res.status(400).type('html').send('<h1>State mismatch</h1><p>Refresh and try again.</p>')
+  const decoded = decodeState(state)
+  if (!decoded) {
+    console.warn('[tiktok] state verify failed', { statePreview: (state || '').slice(0, 16) })
+    res.status(400).type('html').send('<h1>State mismatch</h1><p>Refresh and click Connect TikTok again.</p>')
     return
   }
-  if (!codeVerifier) {
-    console.warn('[tiktok] missing code_verifier cookie')
-    res.status(400).type('html').send('<h1>Missing PKCE verifier</h1><p>Start the flow again — cookie expired.</p>')
-    return
-  }
-  res.clearCookie('tiktok_state', { path: '/' })
-  res.clearCookie('tiktok_verifier', { path: '/' })
+  const codeVerifier = decoded.v
+  const stateCompanyId = decoded.c
 
   if (!code) {
     res.status(400).type('html').send('<h1>No code returned</h1>')
@@ -242,9 +262,8 @@ router.get('/callback', async (req, res) => {
   // If a companyId was set at /auth/start, persist the connection and send
   // the user back to the web dashboard. Otherwise (sandbox smoke test), fall
   // through to the debug success page below.
-  const companyId = typeof req.cookies?.tiktok_company === 'string' ? req.cookies.tiktok_company : ''
+  const companyId = stateCompanyId
   if (companyId) {
-    res.clearCookie('tiktok_company', { path: '/' })
     try {
       await persistConnection({
         companyId,

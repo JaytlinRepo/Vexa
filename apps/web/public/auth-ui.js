@@ -281,7 +281,7 @@
       result.textContent = 'Checking Instagram connection…'
       btn.disabled = true
       try {
-        const r = await fetch(API + '/api/phyllo/sdk-token', { credentials: 'include' })
+        const r = await fetch(API + '/api/phyllo/sdk-token', { method: 'POST', credentials: 'include' })
         if (!r.ok) {
           const j = await r.json().catch(() => null)
           const msg = (j && (j.error || j.message)) || ('HTTP ' + r.status)
