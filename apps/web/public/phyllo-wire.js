@@ -165,8 +165,6 @@
   const DASH_CURATED = [
     { id: '9bb8913b-ddd9-430b-a66a-d74d846e6c66', name: 'Instagram' },
     { id: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987', name: 'TikTok' },
-    { id: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054', name: 'YouTube' },
-    { id: '7645460a-96e0-4192-a3ce-a1fc30641f72', name: 'X' },
   ]
 
   async function injectDashboardConnectButton() {
@@ -282,18 +280,15 @@
    }
   }
 
-  // ── Inject a multi-platform Integrations panel on Settings ──
-  // The curated list below is shown in order. Anything Phyllo returns that
-  // isn't here gets appended under "Other connections."
+  // ── Inject a platform Integrations panel on Settings ──
+  // Scoped to Instagram + TikTok while those are the only platforms we
+  // actually do anything with. TikTok uses our own OAuth (not Phyllo) —
+  // the `tiktokNative` flag routes the row accordingly.
+  const IG_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
+  const TIKTOK_ROW_ID = 'vexa-tiktok-native'
   const CURATED = [
-    { id: '9bb8913b-ddd9-430b-a66a-d74d846e6c66', name: 'Instagram' },
-    { id: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987', name: 'TikTok' },
-    { id: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054', name: 'YouTube' },
-    { id: '7645460a-96e0-4192-a3ce-a1fc30641f72', name: 'X' },
-    { id: 'ad2fec62-2987-40a0-89fb-23485972598c', name: 'Facebook' },
-    { id: 'e4de6c01-5b78-4fc0-a651-24f44134457b', name: 'Twitch' },
-    { id: 'fbf76083-710b-439a-8b8c-956f607ef2c1', name: 'Substack' },
-    { id: 'ee3c8d7a-3207-4f56-945f-f942b34c96e1', name: 'Snapchat' },
+    { id: IG_ID, name: 'Instagram' },
+    { id: TIKTOK_ROW_ID, name: 'TikTok', tiktokNative: true },
   ]
 
   async function injectSettingsIntegrationsPanel() {
@@ -332,11 +327,12 @@
     if (!body) return
     body.innerHTML = '<div style="padding:16px;color:var(--t3);font-size:12px">Loading connections…</div>'
 
-    // Pull: our user + company + IG connection state, plus Phyllo's list of
-    // accounts (source of truth for multi-platform status).
-    const [me, igConn, phylloRes] = await Promise.all([
+    // Pull: our user + company + IG connection state + TikTok connection
+    // state + Phyllo's list of accounts (source of truth for IG).
+    const [me, igConn, ttConn, phylloRes] = await Promise.all([
       fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetchIgConnection(),
+      fetchTiktokConnection(),
       fetch('/api/phyllo/accounts', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
     const company = me?.companies?.[0]
@@ -350,27 +346,12 @@
       if (pid && !byPlatform.has(pid)) byPlatform.set(pid, a)
     }
 
-    // Build row list: curated first, then anything non-curated Phyllo returned.
-    const seen = new Set()
-    const rows = []
-    for (const p of CURATED) {
-      rows.push(platformRow(p, byPlatform.get(p.id), igConn))
-      seen.add(p.id)
-    }
-    const extras = accounts.filter((a) => a.work_platform?.id && !seen.has(a.work_platform.id))
-    for (const a of extras) {
-      rows.push(platformRow({ id: a.work_platform.id, name: a.work_platform.name || 'Connection' }, a, igConn))
-    }
+    // Render only the curated (Instagram + TikTok). Anything else Phyllo
+    // returns is intentionally ignored until we wire it up properly.
+    const rows = CURATED.map((p) => platformRow(p, byPlatform.get(p.id), igConn, ttConn, company))
 
     body.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:8px">${rows.join('')}</div>
-      <div style="margin-top:18px;padding:14px 16px;background:var(--s2);border:1px dashed var(--b1);border-radius:10px;display:flex;align-items:center;gap:12px">
-        <div style="flex:1">
-          <div style="color:var(--t1);font-size:13px;font-weight:600;margin-bottom:2px">Don't see your platform?</div>
-          <div style="color:var(--t2);font-size:11px">Open the full picker — Phyllo supports 20+ platforms.</div>
-        </div>
-        <button id="vx-integ-browse" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Browse all</button>
-      </div>
     `
 
     body.querySelectorAll('[data-toggle]').forEach((btn) => {
@@ -378,6 +359,21 @@
         const connected = btn.dataset.connected === '1'
         const platformId = btn.dataset.toggle
         const accountId = btn.dataset.accountId
+
+        // TikTok bypasses Phyllo — our own OAuth handles connect/disconnect.
+        if (platformId === TIKTOK_ROW_ID) {
+          if (!company?.id) return
+          if (!connected) {
+            window.location.href = `/api/tiktok/auth/start?companyId=${encodeURIComponent(company.id)}`
+            return
+          }
+          if (!confirm('Disconnect TikTok?')) return
+          btn.disabled = true
+          await fetch(`/api/tiktok/connections/${company.id}`, { method: 'DELETE', credentials: 'include' })
+          renderIntegrationsState()
+          return
+        }
+
         if (!connected) {
           openConnect({
             companyId: company?.id,
@@ -426,17 +422,18 @@
         renderIntegrationsState()
       })
     })
-    const browse = body.querySelector('#vx-integ-browse')
-    if (browse) {
-      browse.addEventListener('click', () => {
-        openConnect({
-          companyId: company?.id,
-          onConnected: async () => {
-            await refreshConnectionState()
-            renderIntegrationsState()
-          },
-        })
-      })
+  }
+
+  async function fetchTiktokConnection() {
+    try {
+      const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null))
+      const companyId = me?.companies?.[0]?.id
+      if (!companyId) return null
+      const res = await fetch(`/api/tiktok/insights?companyId=${companyId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return (await res.json()).connection
+    } catch {
+      return null
     }
   }
 
@@ -453,30 +450,39 @@
     }
   }
 
-  function platformRow(platform, account, igConn) {
-    const isConnected = !!account && account.status === 'CONNECTED'
-    const isExpired = !!account && account.status === 'SESSION_EXPIRED'
-    const IG_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
+  function platformRow(platform, account, igConn, ttConn, _company) {
+    const isTiktok = platform.tiktokNative === true
+    // TikTok runs through our own OAuth; 'connected' comes from TiktokConnection.
+    const ttOk = isTiktok && !!ttConn
+    const isConnected = ttOk || (!!account && account.status === 'CONNECTED')
+    const isExpired = !isTiktok && !!account && account.status === 'SESSION_EXPIRED'
     const isIG = platform.id === IG_ID
 
-    // Status line: handle + follower count + sync state. For connected
-    // accounts without local persistence yet, say "syncing" rather than
-    // silently showing no detail.
+    // Status line: handle + follower count + sync state.
     let detail = ''
     if (isConnected) {
-      const handle = account.platform_username ? `@${account.platform_username}` : 'Active'
-      const parts = [handle]
-      if (isIG) {
-        if (igConn?.source === 'phyllo' && Number(igConn.followerCount) > 0) {
-          parts.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
-          parts.push(`synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}`)
-        } else {
-          parts.push('syncing data…')
+      if (isTiktok) {
+        const parts = [ttConn.handle || 'Active']
+        if (Number(ttConn.followerCount) > 0) {
+          parts.push(`${Number(ttConn.followerCount).toLocaleString()} followers`)
         }
+        parts.push(`synced ${timeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)}`)
+        detail = parts.map(escapeHtml).join(' · ')
       } else {
-        parts.push('data not pulled into Vexa yet')
+        const handle = account.platform_username ? `@${account.platform_username}` : 'Active'
+        const parts = [handle]
+        if (isIG) {
+          if (igConn?.source === 'phyllo' && Number(igConn.followerCount) > 0) {
+            parts.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
+            parts.push(`synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}`)
+          } else {
+            parts.push('syncing data…')
+          }
+        } else {
+          parts.push('data not pulled into Vexa yet')
+        }
+        detail = parts.map(escapeHtml).join(' · ')
       }
-      detail = parts.map(escapeHtml).join(' · ')
     } else if (isExpired) {
       detail = 'Session expired — reconnect to resume'
     } else {
