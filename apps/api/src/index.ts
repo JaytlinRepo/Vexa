@@ -68,6 +68,13 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
 })
 
+// TikTok URL-prefix verification. TikTok hands out a token file (e.g.
+// tiktokWwYdOs...txt) that must be reachable at the root of the domain
+// we claim as a redirect URI. Content is a single-line key=value string.
+app.get('/tiktokWwYdOsLEOC046Qb2SzdF0zIXg6GIQrVK.txt', (_req, res) => {
+  res.type('text/plain').send('tiktok-developers-site-verification=WwYdOsLEOC046Qb2SzdF0zIXg6GIQrVK')
+})
+
 app.get('/api/mode', (_req, res) => {
   res.json({ mode: getMode() })
 })
