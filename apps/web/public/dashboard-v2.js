@@ -4,16 +4,24 @@
  * purposeful layout. All data comes from the same endpoints; the goal is
  * readability, not feature density. No emojis. Typography-driven.
  *
- * Sections (top to bottom):
- *   1. Header — greeting + plan chip
- *   2. Overview — 4 stat tiles (review queue / followers / engagement / plan usage)
- *   3. Awaiting your review — big task cards with output preview + approve/reject
- *   4. Team — 4 employee cards with status + meeting button
- *   5. Performance — follower growth + engagement-by-weekday + top post
- *   6. Activity — timeline of last 10 events
+ * Sections (top to bottom) — growth-first: agents own tactics toward a bigger
+ * platform; the CEO sees outcomes and weighs in when it matters.
+ *   1. Header — greeting + plan chip + how the day should feel (one line)
+ *   2. Next for you + team pulse + queue nav + overview tiles
+ *   3. When you weigh in — only items that need a human decision
+ *   4. Team — always-on workforce cards
+ *   5. Performance + outcomes-style activity
  */
 ;(function () {
-  const STATE = { me: null, tasks: [], usage: null, insights: null, feed: [], notifs: [] }
+  const STATE = {
+    me: null,
+    tasks: [],
+    usage: null,
+    insights: null,
+    feed: [],
+    notifs: [],
+    phylloAccounts: [], // raw Phyllo account list (multi-platform)
+  }
 
   // ─────────────── data ────────────────────────────────────────────
   async function fetchAll() {
@@ -30,17 +38,41 @@
     STATE.notifs = notifs?.items || []
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
-      const [insights, feed] = await Promise.all([
+      const [insights, feed, phylloAccounts] = await Promise.all([
         get(`/api/instagram/insights?companyId=${companyId}`),
         get('/api/feed'),
+        get('/api/phyllo/accounts'),
       ])
       STATE.insights = insights?.connection || null
       STATE.feed = feed?.items || []
+      STATE.phylloAccounts = phylloAccounts?.accounts || []
     }
+  }
+
+  // Returns the connection state the overview tiles should show for IG:
+  //   'ready'      — real numbers in STATE.insights
+  //   'syncing'    — Phyllo says CONNECTED but InstagramConnection is empty/stub
+  //                  (Meta 24-48h propagation is the usual cause)
+  //   'none'       — no IG connection at all
+  function instagramState() {
+    const ig = STATE.insights
+    const phylloIg = STATE.phylloAccounts.find(
+      (a) => (a.work_platform?.name || '').toLowerCase() === 'instagram' && a.status === 'CONNECTED',
+    )
+    if (ig && ig.source === 'phyllo' && Number(ig.followerCount) > 0) return 'ready'
+    if (phylloIg) return 'syncing'
+    if (ig && ig.source === 'stub') return 'demo'
+    return 'none'
   }
 
   // ─────────────── helpers ─────────────────────────────────────────
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+  function pickLatestOutput(task) {
+    const outs = task?.outputs
+    if (!outs || outs.length === 0) return null
+    return outs.reduce((a, b) => (new Date(a.createdAt) > new Date(b.createdAt) ? a : b))
+  }
 
   const short = (n) => {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
@@ -74,6 +106,69 @@
 
   const EMPLOYEE_ROLES = ['strategist', 'analyst', 'copywriter', 'creative_director']
 
+  /** When there is no open task, rotate slow “always working” copy per role. */
+  const AMBIENT_BY_ROLE = {
+    analyst: [
+      'Scanning niche signals and velocity in the feed.',
+      'Cross-checking trends against your last wins.',
+      'Watching competitor moves in your category.',
+      'Refreshing the insight window for the next read.',
+    ],
+    strategist: [
+      'Reconciling pillars with live trends Maya flagged.',
+      'Pulling next-week slots against growth signals.',
+      'Tuning cadence to when your audience peaks.',
+      'Stress-testing hooks Alex will inherit.',
+    ],
+    copywriter: [
+      "Drafting variants against Jordan's plan.",
+      'Sharpening saves and CTAs for your voice.',
+      'Pulling hook patterns from top performers.',
+      'Aligning captions with what Riley can shoot.',
+    ],
+    creative_director: [
+      'Storyboarding shots that match the script.',
+      'Locking pacing and cut points for the edit.',
+      'Sourcing visual references for the next reel.',
+      'Checking production feasibility for cold opens.',
+    ],
+  }
+
+  function ambientLine(role) {
+    const lines = AMBIENT_BY_ROLE[role] || ['Standing watch on your lane.']
+    const i = (Math.floor(Date.now() / 90000) + role.length * 7) % lines.length
+    return lines[i]
+  }
+
+  const TASK_FOCUS_ORDER = { in_progress: 0, revision: 1, pending: 2, delivered: 3, approved: 4, rejected: 5 }
+
+  function sortTasksForFocus(tasks) {
+    return tasks.slice().sort((a, b) => {
+      const pa = TASK_FOCUS_ORDER[a.status] ?? 9
+      const pb = TASK_FOCUS_ORDER[b.status] ?? 9
+      if (pa !== pb) return pa - pb
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+  }
+
+  function injectMotionStyles() {
+    if (document.getElementById('vx-dash-v2-motion')) return
+    const st = document.createElement('style')
+    st.id = 'vx-dash-v2-motion'
+    st.textContent = `
+      @keyframes vx-pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(0.92)} }
+      .vx-pulse-dot { animation: vx-pulse-dot 2.4s ease-in-out infinite; }
+      .vx-team-avatar-ring { position: relative; }
+      .vx-team-avatar-ring::after {
+        content: ''; position: absolute; inset: -3px; border-radius: 9px;
+        border: 1px solid var(--b2);
+        opacity: 0.9; pointer-events: none;
+        animation: vx-pulse-dot 2.8s ease-in-out infinite;
+      }
+    `
+    document.head.appendChild(st)
+  }
+
   // ─────────────── sections ────────────────────────────────────────
   function sectionHeader() {
     const me = STATE.me
@@ -92,10 +187,97 @@
           <div>
             <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(26px,3vw,38px);font-weight:500;line-height:1.1;color:var(--t1);margin:0 0 4px">${esc(greetingFor(user?.fullName || user?.username))}</h1>
             <div style="color:var(--t2);font-size:12px">${esc(company?.name || 'Your company')} · ${esc(formatNiche(company?.niche))}</div>
+            <p style="margin:10px 0 0;color:var(--t3);font-size:11px;max-width:680px;line-height:1.5">Everyone here is trying to <span style="color:var(--t2)">grow the platform</span> — the team figures the best moves from signals, memory, and performance. Your day should skew to <span style="color:var(--t2)">what shipped and what worked</span>; you only need to step in when something is worth a real decision, not every micro-step.</p>
           </div>
           <button data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 14px;border-radius:999px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${esc(chipLabel)}</button>
         </div>
       </section>
+    `
+  }
+
+  /** One line under the header: the workforce is never framed as “idle”. */
+  function sectionTeamPulseBanner() {
+    const live = EMPLOYEE_ROLES.filter((role) => {
+      const ts = STATE.tasks.filter((t) => t.employee?.role === role)
+      return ts.some((t) => t.status === 'in_progress' || t.status === 'revision' || t.status === 'pending')
+    }).length
+    const awaiting = STATE.tasks.filter((t) => t.status === 'delivered').length
+    let body
+    if (awaiting > 0 && live > 0) {
+      body = `${awaiting} deliverable${awaiting > 1 ? 's' : ''} need your sign-off — and ${live} teammate${live > 1 ? 's are' : ' is'} still executing in parallel.`
+    } else if (awaiting > 0) {
+      body = `${awaiting} deliverable${awaiting > 1 ? 's' : ''} need your sign-off. The rest of the team stays on watch for the next move.`
+    } else if (live > 0) {
+      body = `${live} teammate${live > 1 ? 's are' : ' is'} live on briefs. Nothing is waiting on you right now — they keep the lane warm until the next drop.`
+    } else {
+      body = 'Your team is on watch: scanning signals, keeping plans aligned, and staged for the next brief — even when the queue is quiet.'
+    }
+    return `
+      <div style="margin:-4px 0 20px;padding:12px 16px;border:1px solid var(--b1);border-radius:10px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.5">
+        <span style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:4px">Team pulse</span>
+        ${esc(body)}
+      </div>
+    `
+  }
+
+  /** Single hero CTA — inbox-first, not “dashboard wallpaper”. */
+  function sectionCeoNextAction() {
+    const delivered = STATE.tasks
+      .filter((t) => t.status === 'delivered')
+      .slice()
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    if (delivered.length === 0) {
+      return `
+        <section style="margin-bottom:18px">
+          <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:var(--s1)">
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
+            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">Nothing is blocked on your pen.</div>
+            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">Queue a brief or connect data so the team has something to ship back.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Create brief</button>
+              <button type="button" data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Connect account</button>
+              <button type="button" data-v2-nav="db-tasks" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Open queue</button>
+            </div>
+          </div>
+        </section>
+      `
+    }
+    const first = delivered[0]
+    const role = ROLE[first.employee?.role] || { name: 'Your teammate', title: '', init: '?' }
+    const n = delivered.length
+    const headline =
+      n === 1
+        ? `One deliverable is waiting — start with ${role.name}.`
+        : `You have ${n} deliverables waiting — start with ${role.name}'s first.`
+    return `
+      <section style="margin-bottom:18px">
+        <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
+          <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px">
+            <div style="min-width:0;flex:1">
+              <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.6vw,28px);line-height:1.15;font-weight:500">${esc(headline)}</div>
+              <div style="color:var(--t2);font-size:12px;margin-top:8px;line-height:1.45">${esc(first.title)} · ${esc(formatType(first.type))}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:140px">
+              <button type="button" data-v2-focus-task="${first.id}" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Open & decide</button>
+              <button type="button" data-v2-scroll-review="${first.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer">Scroll to card</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    `
+  }
+
+  function sectionQueueNav() {
+    return `
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:-6px 0 22px;padding-bottom:14px;border-bottom:1px solid var(--b1)">
+        <span style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-family:'Syne',sans-serif">Operating mode</span>
+        <strong style="color:var(--t1);font-size:12px">Queue first</strong>
+        <span style="color:var(--t3)">·</span>
+        <button type="button" data-v2-nav="db-tasks" style="background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0">Work queue</button>
+        <button type="button" data-v2-nav="db-knowledge" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;padding:0">Explore feed</button>
+        <button type="button" data-v2-nav="db-outputs" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;padding:0">Outputs</button>
+      </div>
     `
   }
 
@@ -113,11 +295,28 @@
     const engRate = ig?.engagementRate ?? 0
 
     return `
-      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:26px">
-        ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'All caught up', awaiting > 0 ? 'db-tasks' : null)}
-        ${tile('Followers', ig ? short(ig.followerCount) : '—', ig ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d` : 'Not connected')}
-        ${tile('Engagement', ig ? engRate.toFixed(1) + '%' : '—', ig ? `Avg across ${ig.recentMedia?.length || 0} posts` : '—')}
-        ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
+      <section style="margin-bottom:26px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+          ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'Smaller assets clear on defaults — big moves land here', awaiting > 0 ? 'db-tasks' : 'db-tasks')}
+          ${(() => {
+            const st = instagramState()
+            const fVal = st === 'ready' ? short(ig.followerCount) : st === 'syncing' ? '…' : '—'
+            const fSub = st === 'ready'
+              ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d`
+              : st === 'syncing' ? 'Syncing — Meta may take 24-48h' : 'Not connected'
+            const eVal = st === 'ready' ? engRate.toFixed(1) + '%' : st === 'syncing' ? '…' : '—'
+            const eSub = st === 'ready' ? `Avg across ${ig.recentMedia?.length || 0} posts` : st === 'syncing' ? 'Data propagating' : '—'
+            return `${tile('Followers', fVal, fSub)}${tile('Engagement', eVal, eSub)}`
+          })()}
+          ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--b1)">
+          <button type="button" data-v2-soft-refresh style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh dashboard</button>
+          ${ig
+            ? `<button type="button" data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See data in Settings</button>
+               <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See what shipped</button>`
+            : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Connect Instagram</button>`}
+        </div>
       </section>
     `
   }
@@ -140,7 +339,12 @@
       return `
         <section style="margin-bottom:26px">
           ${sectionLabel('Awaiting your review')}
-          <div style="padding:22px;text-align:center;color:var(--t3);font-size:12px;border:1px dashed var(--b1);border-radius:10px">Your team is working. New deliveries will surface here.</div>
+          <div style="padding:22px;text-align:center;color:var(--t2);font-size:12px;line-height:1.55;border:1px dashed var(--b1);border-radius:10px">
+            Nothing needs your pen right now. The team is still running — scans, calendar checks, and staged briefs — so the next delivery can land without you babysitting the board.
+            <div style="margin-top:14px">
+              <button type="button" data-v2-nav="db-tasks" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 18px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Open full queue</button>
+            </div>
+          </div>
         </section>
       `
     }
@@ -170,7 +374,7 @@
         <footer style="display:flex;gap:8px;margin-top:12px">
           <button data-v2-action="approve" data-task-id="${t.id}" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Approve</button>
           <button data-v2-action="reject" data-task-id="${t.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-weight:500;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Reject</button>
-          <button data-v2-meeting="${role.name}" data-v2-role="${role.title}" data-v2-init="${role.init}" style="margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Call meeting</button>
+          <button type="button" data-v2-meeting="${role.name}" data-v2-role="${role.title}" data-v2-init="${role.init}" data-v2-task-id="${t.id}" style="margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Call meeting</button>
         </footer>
       </article>
     `
@@ -219,26 +423,59 @@
     const r = ROLE[role]
     const delivered = tasks.find((t) => t.status === 'delivered')
     const working = tasks.find((t) => t.status === 'pending' || t.status === 'in_progress' || t.status === 'revision')
-    const status = delivered ? 'Output ready' : working ? 'Working' : tasks.length ? 'Done' : 'Idle'
-    const latest = tasks[0]
+    const sorted = sortTasksForFocus(tasks)
+    const primary = sorted[0]
+
+    let statusLabel
+    let detailLine
+    let dotColor
+    let pulseDot = true
+    let avatarRing = false
+
+    if (delivered) {
+      statusLabel = 'Needs your sign-off'
+      detailLine = `${delivered.title} — ready when you open review.`
+      dotColor = 'var(--t1)'
+    } else if (working) {
+      statusLabel = 'Live on a brief'
+      detailLine = working.title
+      dotColor = '#e8c87a'
+      avatarRing = true
+    } else if (tasks.some((t) => t.status === 'approved' || t.status === 'rejected')) {
+      statusLabel = 'Clearing the deck'
+      detailLine = primary ? `${primary.title} — lining up what is next.` : 'Prepping the next move for your queue.'
+      dotColor = 'var(--t2)'
+    } else if (primary) {
+      statusLabel = 'On watch'
+      detailLine = primary.title
+      dotColor = 'var(--t2)'
+    } else {
+      statusLabel = 'On watch'
+      detailLine = ambientLine(role)
+      dotColor = 'var(--t2)'
+      avatarRing = true
+    }
+
+    const dotClass = pulseDot ? 'vx-pulse-dot' : ''
+    const avClass = avatarRing ? 'vx-team-avatar-ring' : ''
 
     return `
       <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif">${r.init}</div>
+          <div class="${avClass}" style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
           <div style="min-width:0">
             <div style="color:var(--t1);font-size:12px;font-weight:600;line-height:1.2">${esc(r.name)}</div>
             <div style="color:var(--t3);font-size:9px;letter-spacing:.06em;text-transform:uppercase">${esc(r.title)}</div>
           </div>
         </div>
         <div style="color:var(--t2);font-size:10px;margin-bottom:4px;display:flex;align-items:center;gap:6px">
-          <span style="width:5px;height:5px;border-radius:50%;background:${delivered ? 'var(--t1)' : working ? '#e8c87a' : 'var(--t3)'}"></span>
-          ${esc(status)}
+          <span class="${dotClass}" style="width:6px;height:6px;border-radius:50%;background:${dotColor};flex-shrink:0"></span>
+          ${esc(statusLabel)}
         </div>
-        <div style="color:var(--t2);font-size:11px;line-height:1.4;margin-bottom:10px;min-height:28px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(latest ? latest.title : 'Getting ready.')}</div>
+        <div style="color:var(--t2);font-size:11px;line-height:1.4;margin-bottom:10px;min-height:32px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(detailLine)}</div>
         <div style="display:flex;gap:6px">
           <button data-v2-brief="${role}" data-v2-brief-name="${r.name}" style="flex:1;background:var(--t1);color:var(--bg);border:none;padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;font-weight:600;cursor:pointer">Brief</button>
-          <button data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" style="flex:1;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Meeting</button>
+          <button type="button" data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" data-v2-task-id="${delivered ? delivered.id : ''}" style="flex:1;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Meeting</button>
         </div>
       </div>
     `
@@ -250,7 +487,12 @@
       return `
         <section style="margin-bottom:26px">
           ${sectionLabel('Performance — last 30 days')}
-          <div style="padding:32px;text-align:center;color:var(--t3);font-size:13px;border:1px dashed var(--b1);border-radius:12px">Connect Instagram to see performance charts.</div>
+          <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
+            Connect Instagram to unlock follower, engagement, and audience charts.
+            <div style="margin-top:16px">
+              <button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:10px 20px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Connect Instagram</button>
+            </div>
+          </div>
         </section>
       `
     }
@@ -262,6 +504,16 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
             ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender))}
             ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null)}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+            ${chartCard('Format mix', formatDonutSvg(ig.recentMedia), null)}
+            ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null)}
+          </div>
+          ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
+          <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px">
+            <button type="button" data-v2-brief="copywriter" data-v2-brief-name="Alex" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Brief Alex on captions</button>
+            <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Copy talking points from outputs</button>
+            <button type="button" data-v2-soft-refresh style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh this view</button>
           </div>
         </div>
       </section>
@@ -525,7 +777,9 @@
       return `
         <section>
           ${sectionLabel('Activity')}
-          <div style="padding:24px;color:var(--t3);font-size:13px;text-align:center;border:1px dashed var(--b1);border-radius:12px">Nothing yet.</div>
+          <div style="padding:24px;color:var(--t2);font-size:12px;line-height:1.55;text-align:center;border:1px dashed var(--b1);border-radius:12px">
+            No notifications in the last little while — the team is still running scans and keeping deliverables warm in the background.
+          </div>
         </section>
       `
     }
@@ -564,27 +818,147 @@
   }
 
   // ─────────────── actions ─────────────────────────────────────────
-  async function taskAction(id, action) {
+  function removeOutcomeModal() {
+    document.getElementById('vx-outcome-modal')?.remove()
+  }
+
+  function showOutcomeModal(opts) {
+    removeOutcomeModal()
+    const wrap = document.createElement('div')
+    wrap.id = 'vx-outcome-modal'
+    wrap.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px;font-family:DM Sans,system-ui,sans-serif'
+    const title = opts.title || 'Done'
+    const body = opts.body || ''
+    const primary = opts.primaryLabel || 'OK'
+    const secondary = opts.secondaryLabel
+    wrap.innerHTML = `
+      <div style="max-width:420px;width:100%;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:22px 24px;box-shadow:0 24px 80px rgba(0,0,0,.45)">
+        <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;margin-bottom:10px;line-height:1.2">${esc(title)}</div>
+        <p style="color:var(--t2);font-size:13px;line-height:1.55;margin:0 0 18px">${esc(body)}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end">
+          ${secondary ? `<button type="button" data-vx-sec style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">${esc(secondary)}</button>` : ''}
+          <button type="button" data-vx-pri style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">${esc(primary)}</button>
+        </div>
+      </div>
+    `
+    wrap.addEventListener('click', (ev) => {
+      if (ev.target === wrap) removeOutcomeModal()
+    })
+    wrap.querySelector('[data-vx-pri]')?.addEventListener('click', () => {
+      removeOutcomeModal()
+      opts.onPrimary?.()
+    })
+    wrap.querySelector('[data-vx-sec]')?.addEventListener('click', () => {
+      removeOutcomeModal()
+      opts.onSecondary?.()
+    })
+    document.body.appendChild(wrap)
+  }
+
+  async function taskAction(id, actionType, feedback) {
     const res = await fetch(`/api/tasks/${id}/action`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action: actionType, ...(feedback ? { feedback } : {}) }),
     })
-    return res.ok
+    if (!res.ok) return { ok: false }
+    const data = await res.json().catch(() => ({}))
+    return { ok: true, data }
   }
 
   function wireEvents(host) {
     host.addEventListener('click', async (e) => {
+      const soft = e.target.closest('[data-v2-soft-refresh]')
+      if (soft) {
+        e.preventDefault()
+        await refresh()
+        return
+      }
+      const ft = e.target.closest('[data-v2-focus-task]')
+      if (ft) {
+        e.preventDefault()
+        const tid = ft.dataset.v2FocusTask
+        try {
+          if (tid) sessionStorage.setItem('vxFocusTaskId', tid)
+        } catch {}
+        if (typeof window.navigate === 'function') window.navigate('db-tasks')
+        return
+      }
+      const sr = e.target.closest('[data-v2-scroll-review]')
+      if (sr) {
+        e.preventDefault()
+        const tid = sr.dataset.v2ScrollReview
+        const el = host.querySelector(`article[data-task-id="${tid}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
       const tgt = e.target.closest('[data-v2-action]')
       if (tgt) {
         const id = tgt.dataset.taskId
         const action = tgt.dataset.v2Action
         if (!id) return
+        let feedback
+        if (action === 'reject') {
+          feedback = window.prompt('What should change? (optional — helps the revision)', '')
+          if (feedback === null) return
+        }
+        const prev = tgt.textContent
         tgt.disabled = true
-        tgt.textContent = '...'
-        const ok = await taskAction(id, action)
-        if (ok) refresh()
+        tgt.textContent = '…'
+        const result = await taskAction(id, action, feedback || undefined)
+        tgt.disabled = false
+        tgt.textContent = prev
+        if (!result.ok) return
+        await refresh()
+        const chain = result.data?.chain
+        if (action === 'approve' && chain?.ok === true) {
+          const who = chain.nextEmployeeName || 'Your teammate'
+          showOutcomeModal({
+            title: `${who} picked up the next step`,
+            body: `“${chain.title}” is in your queue now — open it to review what they shipped.`,
+            primaryLabel: 'Open next deliverable',
+            onPrimary: () => {
+              try {
+                sessionStorage.setItem('vxFocusTaskId', chain.nextTaskId)
+              } catch {}
+              if (typeof window.navigate === 'function') window.navigate('db-tasks')
+            },
+            secondaryLabel: 'Stay on dashboard',
+            onSecondary: () => {
+              refresh()
+            },
+          })
+        } else if (action === 'approve') {
+          showOutcomeModal({
+            title: 'Approved',
+            body:
+              chain?.reason === 'quota_exceeded'
+                ? 'Plan task limit reached — the next role did not auto-start. Check usage in Settings or wait for your monthly reset.'
+                : chain?.reason === 'end_of_pipeline'
+                  ? 'That was the last step in this pipeline. Nothing else auto-chained.'
+                  : 'Your approval is saved. Refresh the queue when you are ready for the next move.',
+            primaryLabel: 'Open queue',
+            onPrimary: () => {
+              if (typeof window.navigate === 'function') window.navigate('db-tasks')
+            },
+          })
+        } else if (action === 'reject') {
+          showOutcomeModal({
+            title: 'Revision requested',
+            body: feedback
+              ? 'Your note was sent with the rejection so the teammate can rework with context.'
+              : 'Rejection recorded — they will rework from your last review.',
+            primaryLabel: 'Open queue',
+            onPrimary: () => {
+              if (typeof window.navigate === 'function') window.navigate('db-tasks')
+            },
+          })
+        }
+        try {
+          window.dispatchEvent(new CustomEvent('vx-task-changed'))
+        } catch {}
         return
       }
       const nav = e.target.closest('[data-v2-nav]')
@@ -598,6 +972,15 @@
         const name = mt.dataset.v2Meeting
         const role = mt.dataset.v2Role
         const init = mt.dataset.v2Init
+        const tid = mt.dataset.v2TaskId
+        if (tid && typeof window.openMeetingWithTaskOutput === 'function') {
+          const task = STATE.tasks.find((t) => t.id === tid)
+          if (task && task.status === 'delivered') {
+            const output = pickLatestOutput(task)
+            window.openMeetingWithTaskOutput({ name, role, init, task, output })
+            return
+          }
+        }
         if (typeof window.openMeeting === 'function') window.openMeeting(name, role, init)
         return
       }
@@ -626,13 +1009,27 @@
     if (items.length === 0) {
       return `
         ${header}
-        <div style="padding:40px 20px;text-align:center;color:var(--t3);font-size:12px">Pulling fresh signals…</div>
+        <div style="padding:32px 20px;text-align:center;color:var(--t2);font-size:12px;line-height:1.55">
+          Signals are still wiring up — open the full feed or brief Maya while we pull the next batch.
+          <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+            <button type="button" data-v2-nav="db-knowledge" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">Open full feed</button>
+            <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Turn into brief</button>
+          </div>
+        </div>
       `
     }
     const list = items.map(feedItemHTML).join('')
+    const feedFooter = `
+      <div style="padding:12px 16px;border-top:1px solid var(--b1);display:flex;flex-wrap:wrap;gap:8px">
+        <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 12px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Turn signal into brief</button>
+        <button type="button" data-v2-brief="strategist" data-v2-brief-name="Jordan" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Schedule for Jordan</button>
+        <button type="button" data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Ask Maya to go deeper</button>
+      </div>
+    `
     return `
       ${header}
       <ol style="list-style:none;padding:0;margin:0">${list}</ol>
+      ${feedFooter}
     `
   }
 
@@ -668,6 +1065,7 @@
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
     await fetchAll()
+    injectMotionStyles()
     const root = view.querySelector('.db-layout') || view
     // The prototype's .db-layout is a grid (1fr 280px); our flex pane was
     // being clipped into just the first column. Reset to a plain block so
@@ -677,6 +1075,9 @@
       <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
         <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 40px 60px">
           ${sectionHeader()}
+          ${sectionCeoNextAction()}
+          ${sectionTeamPulseBanner()}
+          ${sectionQueueNav()}
           ${sectionOverview()}
           ${sectionReviewQueue()}
           ${sectionTeam()}
@@ -694,6 +1095,8 @@
   async function refresh() {
     await render()
   }
+
+  window.vxDashboardRefresh = refresh
 
   const prevEnter = window.enterDashboard
   window.enterDashboard = async function () {
