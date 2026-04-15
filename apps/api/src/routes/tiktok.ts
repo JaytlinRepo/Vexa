@@ -24,9 +24,11 @@ const USER_INFO_URL =
   'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,avatar_url_100,display_name,bio_description,profile_deep_link,is_verified,follower_count,following_count,likes_count,video_count'
 
 function readConfig() {
-  const clientKey = process.env.TIKTOK_CLIENT_KEY || ''
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET || ''
-  const redirectUri = process.env.TIKTOK_REDIRECT_URI || ''
+  // Trim — Railway's variable UI sometimes stores a trailing newline which
+  // fails TikTok's byte-for-byte redirect_uri match.
+  const clientKey = (process.env.TIKTOK_CLIENT_KEY || '').trim()
+  const clientSecret = (process.env.TIKTOK_CLIENT_SECRET || '').trim()
+  const redirectUri = (process.env.TIKTOK_REDIRECT_URI || '').trim()
   return { clientKey, clientSecret, redirectUri }
 }
 
