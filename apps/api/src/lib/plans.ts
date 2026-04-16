@@ -25,12 +25,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
-    bedrockCallsPerMonth: 50,
+    bedrockCallsPerMonth: 60,
     briefCooldownMin: 10,
-    proactiveAnalysis: false,
-    weeklyPulse: false,
-    nicheDetection: false,
-    syncOnLogin: false,
+    proactiveAnalysis: true,       // agents need data at every tier
+    weeklyPulse: false,            // weekly pulse is a pro perk
+    nicheDetection: true,          // core — agents need the right niche
+    syncOnLogin: true,             // core — agents need fresh data
     employees: ['analyst', 'copywriter'],
     revisionsPerOutput: 2,
   },
