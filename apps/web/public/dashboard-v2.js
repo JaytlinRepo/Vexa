@@ -281,11 +281,11 @@
 
       .vx-reveal {
         opacity: 0;
-        filter: blur(6px);
-        transform: translateY(16px);
-        transition: opacity 0.65s cubic-bezier(.16,1,.3,1),
-                    filter 0.65s cubic-bezier(.16,1,.3,1),
-                    transform 0.65s cubic-bezier(.16,1,.3,1);
+        filter: blur(10px);
+        transform: translateY(28px);
+        transition: opacity 0.8s cubic-bezier(.16,1,.3,1),
+                    filter 0.8s cubic-bezier(.16,1,.3,1),
+                    transform 0.8s cubic-bezier(.16,1,.3,1);
       }
       .vx-reveal.vx-visible {
         opacity: 1;
@@ -348,16 +348,21 @@
         observer.unobserve(e.target)
       })
     }, { root: scrollParent, threshold: 0.05 })
+    var sectionIdx = 0
     scrollParent.querySelectorAll('section').forEach(function (s) {
       s.classList.add('vx-reveal')
+      s.style.transitionDelay = (sectionIdx * 0.15) + 's'
       s.querySelectorAll('.vx-dcard').forEach(function (c) { c.classList.add('vx-reveal') })
       observer.observe(s)
+      sectionIdx++
     })
     // Also reveal non-section direct children (pulse banner, next-action)
     scrollParent.querySelectorAll(':scope > div').forEach(function (d) {
-      if (d.querySelector('section')) return // skip the wrapper
+      if (d.querySelector('section')) return
       d.classList.add('vx-reveal')
+      d.style.transitionDelay = (sectionIdx * 0.1) + 's'
       observer.observe(d)
+      sectionIdx++
     })
   }
 

@@ -1869,3 +1869,50 @@ input,textarea{cursor:text}
   box-shadow: 0 12px 28px var(--sh), 0 2px 10px var(--accent-soft);
 }
 
+/* ══ GLOBAL REVEAL ANIMATIONS ════════════════════════════ */
+/* Harry George–style blur-fade entrance for all pages */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.vx-g-reveal {
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateY(28px);
+  transition: opacity 0.8s cubic-bezier(.16,1,.3,1),
+              filter 0.8s cubic-bezier(.16,1,.3,1),
+              transform 0.8s cubic-bezier(.16,1,.3,1);
+}
+.vx-g-reveal.vx-g-visible {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+/* Cards/tiles get hover lift */
+.brief-card,
+.out-card,
+.how-cell,
+.emp-card,
+.pc,
+.feed-card,
+.faq-row {
+  transition: transform 0.25s cubic-bezier(.16,1,.3,1),
+              border-color 0.25s ease,
+              box-shadow 0.3s ease;
+}
+.brief-card:hover,
+.out-card:hover,
+.how-cell:hover,
+.emp-card:hover,
+.feed-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .vx-g-reveal { opacity: 1; filter: none; transform: none; transition: none; }
+}
+
