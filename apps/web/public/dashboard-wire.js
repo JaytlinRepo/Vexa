@@ -106,6 +106,7 @@
       })
       chip.querySelector('#vx-profile-signout').addEventListener('click', async () => {
         setOpen(false)
+        try { localStorage.removeItem('vx-authed') } catch {}
         try {
           await fetch(API + '/api/auth/logout', { method: 'POST', credentials: 'include' })
         } catch { /* proceed to reload even if the request fails */ }

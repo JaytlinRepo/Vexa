@@ -13,9 +13,15 @@
  *   5. Performance + outcomes-style activity
  */
 ;(function () {
-  // Immediately hide the prototype layout to prevent the old dashboard
-  // flashing on page refresh. V2 replaces it entirely once render() runs.
+  // If the user has an active session, immediately flip to the dashboard
+  // view so the home/marketing page never flashes on refresh.
   try {
+    if (localStorage.getItem('vx-authed') === '1') {
+      document.querySelectorAll('.view').forEach((v) => {
+        if (v.id === 'view-db-dashboard') v.classList.add('active')
+        else v.classList.remove('active')
+      })
+    }
     const oldLayout = document.querySelector('#view-db-dashboard .db-layout')
     if (oldLayout) oldLayout.style.opacity = '0'
   } catch {}
@@ -45,6 +51,8 @@
     STATE.me = me
     STATE.tasks = tasks?.tasks || []
     STATE.usage = usage
+    // Persist auth state so next page load skips the home view flash
+    try { if (me?.user) localStorage.setItem('vx-authed', '1'); else localStorage.removeItem('vx-authed') } catch {}
 
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
