@@ -33,50 +33,59 @@
   }
 
   // ─────────────── data ────────────────────────────────────────────
+  const get = (u) => fetch(u, { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
+
   async function fetchAll() {
-    const get = (u) => fetch(u, { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
-    const [me, tasks, usage, notifs] = await Promise.all([
+    // Critical path: auth + tasks + usage — enough to render the layout
+    const [me, tasks, usage] = await Promise.all([
       get('/api/auth/me'),
       get('/api/tasks'),
       get('/api/usage'),
-      get('/api/notifications'),
     ])
     STATE.me = me
     STATE.tasks = tasks?.tasks || []
     STATE.usage = usage
-    STATE.notifs = notifs?.items || []
+
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
-      const [insights, tiktok, feed, phylloAccounts, overview] = await Promise.all([
+      // Platform data — needed for overview tiles. Notifications + feed
+      // are supplementary and fetched in parallel but don't block render.
+      const [insights, tiktok, overview, notifs] = await Promise.all([
         get(`/api/instagram/insights?companyId=${companyId}`),
         get(`/api/tiktok/insights?companyId=${companyId}`),
-        get('/api/feed'),
-        get('/api/phyllo/accounts'),
         get('/api/platform/overview'),
+        get('/api/notifications'),
       ])
       STATE.insights = insights?.connection || null
       STATE.tiktok = tiktok?.connection || null
       STATE.overview = overview || null
-      STATE.feed = feed?.items || []
-      STATE.phylloAccounts = phylloAccounts?.accounts || []
+      STATE.notifs = notifs?.items || []
 
-      // Background: refresh TikTok data so agents see latest posts
-      if (STATE.tiktok) {
-        fetch('/api/tiktok/sync', {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ companyId }),
-        }).then((r) => r.ok ? r.json() : null).then((result) => {
-          if (result?.synced && result.newPosts > 0) {
-            console.log(`[v2] TikTok sync found ${result.newPosts} new posts`)
-            // Re-fetch overview to update dashboard tiles
-            get('/api/platform/overview').then((ov) => {
-              if (ov) { STATE.overview = ov; if (typeof render === 'function') render() }
-            })
-          }
-        }).catch(() => {})
-      }
+      // Supplementary: feed + phyllo are slow (RSS timeouts, Phyllo 429s).
+      // Fetch after render so they don't delay the dashboard.
+      void Promise.all([
+        get('/api/feed').then((f) => { STATE.feed = f?.items || [] }),
+        get('/api/phyllo/accounts').then((p) => { STATE.phylloAccounts = p?.accounts || [] }),
+      ])
     }
+  }
+
+  // Background TikTok sync — runs AFTER the first render, not during fetchAll
+  function backgroundTiktokSync() {
+    const companyId = STATE.me?.companies?.[0]?.id
+    if (!companyId || !STATE.tiktok) return
+    fetch('/api/tiktok/sync', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId }),
+    }).then((r) => r.ok ? r.json() : null).then((result) => {
+      if (result?.synced && result.newPosts > 0) {
+        console.log(`[v2] TikTok sync found ${result.newPosts} new posts`)
+        get(`/api/platform/overview`).then((ov) => {
+          if (ov) { STATE.overview = ov; if (typeof render === 'function') render() }
+        })
+      }
+    }).catch(() => {})
   }
 
   // Returns the connection state the overview tiles should show for IG:
@@ -1375,6 +1384,8 @@
       </div>
     `
     wireEvents(root)
+    // Kick off background sync AFTER rendering — doesn't delay the UI
+    backgroundTiktokSync()
   }
 
   async function refresh() {
