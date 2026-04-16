@@ -5,7 +5,7 @@ export type Plan = 'starter' | 'pro' | 'agency'
 export type Platform = 'instagram'
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
-export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video'
+export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review'
 export type OutputStatus = 'draft' | 'approved' | 'rejected'
 export type MemoryType = 'feedback' | 'preference' | 'performance' | 'voice'
 
@@ -234,6 +234,54 @@ export interface ShotListOutput {
   rileyNote: string
 }
 
+export interface PerformanceReview {
+  accountHandle: string
+  platform: 'tiktok'
+  snapshotDate: string
+  accountHealth: {
+    followerCount: number
+    totalLikes: number
+    totalVideos: number
+    avgViews: number
+    engagementRate: number
+    reachRate: number
+    overallAssessment: string
+  }
+  whatsWorking: Array<{
+    videoTitle: string
+    url: string | null
+    viewCount: number
+    likeCount: number
+    engagementScore: number
+    whyItWorked: string
+  }>
+  whatsNotWorking: Array<{
+    videoTitle: string
+    url: string | null
+    viewCount: number
+    likeCount: number
+    engagementScore: number
+    whyItUnderperformed: string
+  }>
+  recentActivity: Array<{
+    videoTitle: string
+    url: string | null
+    publishedAt: string
+    viewCount: number
+    likeCount: number
+    vsAverage: string
+  }>
+  trajectory: 'improving' | 'stable' | 'declining'
+  postingFrequency: {
+    postsPerWeek: number
+    assessment: string
+    bestDayPattern: string
+  }
+  keyInsights: string[]
+  topRecommendation: string
+  generatedAt: string
+}
+
 export interface OutputContent {
   trend_report: TrendReport
   content_plan: ContentPlan
@@ -242,6 +290,7 @@ export interface OutputContent {
   script: ScriptOutput
   shot_list: ShotListOutput
   video: { url: string; s3Key: string; duration: string; thumbnailUrl: string }
+  performance_review: PerformanceReview
 }
 
 export interface Output {
@@ -354,6 +403,11 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
     { id: 'approve', label: 'Approve for posting', emoji: '✅', variant: 'approve' },
     { id: 'revise', label: 'Revise the edit', emoji: '✂️', variant: 'reconsider' },
     { id: 'regenerate', label: 'Regenerate completely', emoji: '🔄', variant: 'reject' },
+  ],
+  performance_review: [
+    { id: 'acknowledge', label: 'Got it — brief the team', emoji: '✅', variant: 'approve' },
+    { id: 'deep_dive', label: 'Deep dive on this', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Not useful', emoji: '⏭', variant: 'reject' },
   ],
 }
 

@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
+import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -280,6 +281,11 @@ router.get('/callback', async (req, res) => {
     } catch (e) {
       console.warn('[tiktok] persist failed', e)
     }
+    // Fire-and-forget: Maya analyzes the newly connected TikTok data
+    void triggerProactiveMayaAnalysis(prisma, companyId).catch((err) =>
+      console.warn('[tiktok] proactive Maya analysis failed (non-blocking)', err),
+    )
+
     const back = `${appUrl()}/?tiktokConnected=1#tiktok`
     res.redirect(back)
     return

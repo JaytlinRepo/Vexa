@@ -1052,6 +1052,7 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
   caption: (t, ctx) => alex_captionNextPost(t, ctx),
   shot_list: (t, ctx) => riley_reelShotList(t, ctx),
   video: () => ({ status: 'pending', note: 'Video generation is briefed to Creatomate once a shot list is approved.' }),
+  performance_review: () => ({ status: 'pending', note: 'Performance reviews always use Bedrock — no mock fallback.' }),
 }
 
 // ─────────────────────────────────────────────────────────────────────

@@ -34,6 +34,30 @@ export interface PersonalIgSnapshot {
   lastSyncedAt: Date
 }
 
+export interface PersonalTiktokVideo {
+  caption: string | null
+  url: string | null
+  publishedAt: string | null
+  viewCount: number
+  likeCount: number
+  commentCount: number
+  shareCount: number
+}
+
+export interface PersonalTiktokSnapshot {
+  handle: string
+  displayName: string | null
+  followerCount: number
+  followingCount: number
+  videoCount: number
+  likesCount: number
+  avgViews: number
+  engagementRate: number
+  reachRate: number
+  recentVideos: PersonalTiktokVideo[]
+  lastSyncedAt: Date
+}
+
 export interface PersonalGoal {
   type: string
   target: number
@@ -58,6 +82,7 @@ export interface PersonalContext {
   audience: Record<string, unknown>
   goals: Record<string, unknown>
   instagram: PersonalIgSnapshot | null
+  tiktok: PersonalTiktokSnapshot | null
   activeGoal: PersonalGoal | null
   recentMemories: PersonalMemory[]
   /** Deterministic seed derived from companyId — use for stable per-user
@@ -91,7 +116,7 @@ export async function loadPersonalContext(
 ): Promise<PersonalContext | null> {
   const company = await prisma.company.findUnique({
     where: { id: companyId },
-    include: { instagram: true },
+    include: { instagram: true, tiktok: true },
   })
   if (!company) return null
 
@@ -148,6 +173,34 @@ export async function loadPersonalContext(
     }
   }
 
+  // TikTok — map the JSON video arrays into typed snapshots
+  let tiktok: PersonalTiktokSnapshot | null = null
+  if (company.tiktok) {
+    const tt = company.tiktok
+    const vidsRaw = toArr<Record<string, unknown>>(tt.recentVideos)
+    tiktok = {
+      handle: tt.handle,
+      displayName: tt.displayName,
+      followerCount: tt.followerCount,
+      followingCount: tt.followingCount,
+      videoCount: tt.videoCount,
+      likesCount: tt.likesCount,
+      avgViews: tt.avgViews,
+      engagementRate: tt.engagementRate,
+      reachRate: tt.reachRate,
+      recentVideos: vidsRaw.slice(0, 20).map((v) => ({
+        caption: ((v.title as string) || '').trim() || null,
+        url: (v.shareUrl as string) || null,
+        publishedAt: v.createdAt ? new Date(Number(v.createdAt) * 1000).toISOString() : null,
+        viewCount: Number(v.views || 0),
+        likeCount: Number(v.likes || 0),
+        commentCount: Number(v.comments || 0),
+        shareCount: Number(v.shares || 0),
+      })),
+      lastSyncedAt: tt.lastSyncedAt,
+    }
+  }
+
   return {
     companyId: company.id,
     companyName: company.name,
@@ -157,6 +210,7 @@ export async function loadPersonalContext(
     audience: toObj(company.audience),
     goals: goalsJson,
     instagram,
+    tiktok,
     activeGoal,
     recentMemories: memories.map((m) => ({
       type: String(m.memoryType),

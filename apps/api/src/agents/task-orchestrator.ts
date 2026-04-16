@@ -1,8 +1,8 @@
 import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
-import { buildMayaSystemPrompt, buildMayaTaskPrompt } from './maya/system-prompt'
+import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt } from './maya/system-prompt'
 import { buildJordanSystemPrompt, buildAlexSystemPrompt, buildRileySystemPrompt } from './jordan-alex-riley-prompts'
-import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, OutputType } from '@vexa/types'
+import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, OutputType } from '@vexa/types'
 import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -66,6 +66,7 @@ export async function orchestrateTask(taskId: string): Promise<void> {
 
 async function executeAgentTask(task: {
   id: string
+  companyId: string
   type: string
   description: string | null
   employee: { role: string; name: string }
@@ -91,7 +92,7 @@ async function executeAgentTask(task: {
 
   switch (employee.role) {
     case 'analyst':
-      return executeMayaTask({ niche, brandVoice, nicheContext, brandMemory, description })
+      return executeMayaTask({ niche, brandVoice, nicheContext, brandMemory, description, taskType: task.type, companyId: task.companyId })
 
     case 'strategist':
       return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, description })
@@ -115,7 +116,13 @@ async function executeMayaTask(ctx: {
   nicheContext: string
   brandMemory: string
   description: string | null
-}): Promise<TrendReport> {
+  taskType?: string
+  companyId?: string
+}): Promise<TrendReport | PerformanceReview> {
+  if (ctx.taskType === 'performance_review' && ctx.companyId) {
+    return executeMayaPerformanceReview({ ...ctx, companyId: ctx.companyId })
+  }
+
   const basePrompt = buildMayaSystemPrompt({
     niche: ctx.niche,
     brandVoice: ctx.brandVoice,
@@ -135,6 +142,61 @@ async function executeMayaTask(ctx: {
   })
 
   return parseAgentOutput<TrendReport>(raw)
+}
+
+async function executeMayaPerformanceReview(ctx: {
+  niche: string
+  brandVoice: string
+  nicheContext: string
+  brandMemory: string
+  companyId: string
+}): Promise<PerformanceReview> {
+  const { loadPersonalContext } = await import('../lib/personalContext')
+  const personal = await loadPersonalContext(prisma, ctx.companyId)
+  const tt = personal?.tiktok
+  if (!tt || tt.recentVideos.length === 0) {
+    throw new Error('No TikTok data available for performance review')
+  }
+
+  const basePrompt = buildMayaPerformanceSystemPrompt({
+    niche: ctx.niche,
+    brandVoice: ctx.brandVoice,
+    platform: 'tiktok',
+  })
+
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt,
+    nicheContext: ctx.nicheContext,
+    brandMemory: ctx.brandMemory,
+  })
+
+  const taskPrompt = buildMayaPerformanceTaskPrompt({
+    handle: tt.handle,
+    followerCount: tt.followerCount,
+    totalLikes: tt.likesCount,
+    totalVideos: tt.videoCount,
+    avgViews: tt.avgViews,
+    engagementRate: tt.engagementRate,
+    reachRate: tt.reachRate,
+    videos: tt.recentVideos.map((v) => ({
+      caption: v.caption,
+      url: v.url,
+      publishedAt: v.publishedAt,
+      viewCount: v.viewCount,
+      likeCount: v.likeCount,
+      commentCount: v.commentCount,
+      shareCount: v.shareCount,
+    })),
+  })
+
+  const raw = await invokeAgent({
+    systemPrompt,
+    messages: [{ role: 'user', content: taskPrompt }],
+    maxTokens: 3072,
+    temperature: 0.5,
+  })
+
+  return parseAgentOutput<PerformanceReview>(raw)
 }
 
 async function executeJordanTask(ctx: {
@@ -523,8 +585,9 @@ function getOutputTypeForTask(taskType: string): string {
     script_writing: 'script',
     shot_list: 'shot_list',
     video_production: 'video',
+    performance_review: 'performance_review',
   }
-  return map[taskType] || 'hooks'
+  return map[taskType] || taskType || 'hooks'
 }
 
 function getAutoTaskTitle(role: string): string {

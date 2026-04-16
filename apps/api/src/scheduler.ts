@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
+import { triggerWeeklyPerformanceReviews } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 
 /**
@@ -55,6 +56,30 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
   })
 
   console.log(`[scheduler] registered phyllo sync on '${expr}' (UTC)`)
+
+  // Weekly Monday 08:00 UTC — Maya proactive TikTok performance analysis.
+  // Runs 1 hour before Phyllo sync; aligns with CLAUDE.md's "Monday
+  // morning trend report" cadence.
+  let mayaRunning = false
+  const mayaExpr = process.env.VEXA_MAYA_CRON || '0 8 * * 1'
+  cron.schedule(cron.validate(mayaExpr) ? mayaExpr : '0 8 * * 1', async () => {
+    if (mayaRunning) {
+      console.log('[scheduler] maya skip — previous run still in flight')
+      return
+    }
+    mayaRunning = true
+    const started = Date.now()
+    console.log('[scheduler] maya weekly performance review starting')
+    try {
+      const result = await triggerWeeklyPerformanceReviews(prisma)
+      console.log(`[scheduler] maya weekly done in ${Date.now() - started}ms:`, result)
+    } catch (err) {
+      console.error('[scheduler] maya weekly threw', err)
+    } finally {
+      mayaRunning = false
+    }
+  })
+  console.log(`[scheduler] registered maya weekly review on '${mayaExpr}' (UTC)`)
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {

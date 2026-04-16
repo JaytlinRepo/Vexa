@@ -19,6 +19,7 @@
     usage: null,
     insights: null,        // Instagram insights (InstagramConnection)
     tiktok: null,          // TikTok connection (TiktokConnection)
+    overview: null,        // combined platform overview (PlatformAccount + snapshots)
     feed: [],
     notifs: [],
     phylloAccounts: [], // raw Phyllo account list (multi-platform)
@@ -39,14 +40,16 @@
     STATE.notifs = notifs?.items || []
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
-      const [insights, tiktok, feed, phylloAccounts] = await Promise.all([
+      const [insights, tiktok, feed, phylloAccounts, overview] = await Promise.all([
         get(`/api/instagram/insights?companyId=${companyId}`),
         get(`/api/tiktok/insights?companyId=${companyId}`),
         get('/api/feed'),
         get('/api/phyllo/accounts'),
+        get('/api/platform/overview'),
       ])
       STATE.insights = insights?.connection || null
       STATE.tiktok = tiktok?.connection || null
+      STATE.overview = overview || null
       STATE.feed = feed?.items || []
       STATE.phylloAccounts = phylloAccounts?.accounts || []
     }
@@ -179,6 +182,26 @@
         opacity: 0.9; pointer-events: none;
         animation: vx-pulse-dot 2.8s ease-in-out infinite;
       }
+      .vx-hint {
+        position: relative; cursor: help; color: var(--t3); font-size: 11px;
+        opacity: 0.5; transition: opacity .15s;
+      }
+      .vx-hint:hover { opacity: 1; z-index: 10000; }
+      .vx-dcard { overflow: visible !important; position: relative; }
+      .vx-dcard:has(.vx-hint:hover) { z-index: 10000; }
+      .vx-hint-tip {
+        display: none; position: absolute; top: 50%; left: calc(100% + 8px);
+        transform: translateY(-50%); width: 240px; padding: 10px 14px;
+        border-radius: 10px; background: var(--t1); color: var(--inv, var(--bg));
+        font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none;
+        line-height: 1.5; z-index: 9999;
+        box-shadow: 0 8px 24px rgba(0,0,0,.35);
+        pointer-events: none;
+      }
+      .vx-hint-tip.vx-tip-left {
+        left: auto; right: calc(100% + 8px);
+      }
+      .vx-hint:hover .vx-hint-tip { display: block; }
     `
     document.head.appendChild(st)
   }
@@ -297,49 +320,141 @@
 
   function sectionOverview() {
     const u = STATE.usage
-    const ig = STATE.insights
+    const ov = STATE.overview
     const awaiting = STATE.tasks.filter((t) => t.status === 'delivered').length
+    const hasAccounts = ov && ov.accounts && ov.accounts.length > 0
 
     const tasksLimit = u?.tasks?.limit ?? 30
     const tasksUsed = u?.tasks?.used ?? 0
     const pct = Math.min(100, Math.round((tasksUsed / Math.max(1, tasksLimit)) * 100))
 
-    const series = ig?.followerSeries || []
-    const followerDelta = series.length >= 2 ? series[series.length - 1].followers - series[0].followers : 0
-    const engRate = ig?.engagementRate ?? 0
+    // Followers tile
+    const fVal = hasAccounts ? short(ov.combinedFollowers) : '—'
+    const fSub = hasAccounts
+      ? ov.accounts.map((a) => `${platformBadge(a.platform)} ${short(a.latestFollowers)}`).join(' · ')
+      : 'Not connected'
+    const fDelta = hasAccounts && ov.combinedFollowersDelta !== 0
+      ? `${ov.combinedFollowersDelta >= 0 ? '+' : ''}${short(Math.abs(ov.combinedFollowersDelta))} this week`
+      : ''
+
+    // Top post tile
+    const tp = ov?.topPost
+    const tpVal = tp ? short(tp.engagementScore) : '—'
+    const tpSub = tp
+      ? `${platformBadge(tp.platform)} ${esc((tp.caption || '').slice(0, 40))}${(tp.caption || '').length > 40 ? '…' : ''}`
+      : 'No posts synced yet'
 
     return `
       <section style="margin-bottom:26px">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-          ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'Smaller assets clear on defaults — big moves land here', awaiting > 0 ? 'db-tasks' : 'db-tasks')}
-          ${(() => {
-            const st = instagramState()
-            const fVal = st === 'ready' ? short(ig.followerCount) : st === 'syncing' ? '…' : '—'
-            const fSub = st === 'ready'
-              ? `${followerDelta >= 0 ? '+' : ''}${short(Math.abs(followerDelta))} in 30d`
-              : st === 'syncing' ? 'Syncing — Meta may take 24-48h' : 'Not connected'
-            const eVal = st === 'ready' ? engRate.toFixed(1) + '%' : st === 'syncing' ? '…' : '—'
-            const eSub = st === 'ready' ? `Avg across ${ig.recentMedia?.length || 0} posts` : st === 'syncing' ? 'Data propagating' : '—'
-            return `${tile('Followers', fVal, fSub)}${tile('Engagement', eVal, eSub)}`
-          })()}
+          ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'Smaller assets clear on defaults — big moves land here', 'db-tasks')}
+          ${tile('Followers', fVal, fDelta || fSub)}
+          ${tile('Top post', tpVal, tpSub, null, null, 'Engagement score: likes + comments×2 + shares×3. Higher weight on comments and shares because they signal deeper intent.')}
           ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
         </div>
+
+        ${overviewSparkline(ov)}
+        ${overviewAudiencePeek(ov)}
+
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--b1)">
           <button type="button" data-v2-soft-refresh style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh dashboard</button>
-          ${ig
+          ${hasAccounts
             ? `<button type="button" data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See data in Settings</button>
                <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See what shipped</button>`
-            : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Connect Instagram</button>`}
+            : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Connect a platform</button>`}
         </div>
       </section>
     `
   }
 
-  function tile(label, value, sub, navId, progressPct) {
+  function platformBadge(platform) {
+    const labels = { instagram: 'IG', tiktok: 'TT', youtube: 'YT', twitter_x: 'X' }
+    return labels[platform] || platform
+  }
+
+  function overviewSparkline(ov) {
+    if (!ov || !ov.sparkline || ov.sparkline.length === 0) return ''
+    const spark = ov.sparkline
+    if (spark.length < 2) {
+      return `
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;margin-top:12px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">FOLLOWER TRAJECTORY — 30D</div>
+          <div style="height:80px;display:grid;place-items:center;color:var(--t3);font-size:12px">Trajectory builds as your team syncs data</div>
+        </div>`
+    }
+    const ys = spark.map((s) => s.total)
+    const min = Math.min(...ys), max = Math.max(...ys)
+    const range = Math.max(1, max - min)
+    const W = 600, H = 110, top = 10, bottom = H - 24
+    const step = W / (spark.length - 1)
+    const pts = spark.map((s, i) => `${(i * step).toFixed(1)},${(bottom - ((s.total - min) / range) * (bottom - top)).toFixed(1)}`).join(' ')
+    const areaPts = `0,${H} ${pts} ${W},${H}`
+    const delta = ov.combinedFollowersDelta
+    const deltaBadge = delta !== 0
+      ? `<span style="color:${delta > 0 ? '#34d27a' : '#ff6b6b'};font-size:12px;font-weight:600;margin-left:10px">${delta > 0 ? '+' : ''}${short(Math.abs(delta))} this week</span>`
+      : ''
+    const firstDate = spark[0].date.slice(5)
+    const midDate = spark[Math.floor(spark.length / 2)].date.slice(5)
+    const lastDate = spark[spark.length - 1].date.slice(5)
+    const startY = bottom - ((ys[0] - min) / range) * (bottom - top)
+
+    return `
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;margin-top:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">FOLLOWER TRAJECTORY — 30D${deltaBadge}</div>
+          <div style="color:var(--t1);font-size:13px;font-weight:600">${short(ys[ys.length - 1])}</div>
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">
+          <line x1="0" y1="${startY.toFixed(1)}" x2="${W}" y2="${startY.toFixed(1)}" stroke="var(--b2)" stroke-width="1" stroke-dasharray="4,4" />
+          <polygon points="${areaPts}" fill="var(--t1)" fill-opacity="0.08" />
+          <polyline points="${pts}" fill="none" stroke="var(--t1)" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+        <div style="display:flex;justify-content:space-between;color:var(--t3);font-size:9px;margin-top:4px">
+          <span>${firstDate}</span><span>${midDate}</span><span>${lastDate}</span>
+        </div>
+      </div>`
+  }
+
+  function overviewAudiencePeek(ov) {
+    if (!ov || !ov.audience) return ''
+    const a = ov.audience
+    const topAge = (a.ageBreakdown || []).slice().sort((x, y) => y.share - x.share)[0]
+    const topCountry = (a.topCountries || []).slice().sort((x, y) => y.share - x.share)[0]
+    const genders = (a.genderBreakdown || []).slice().sort((x, y) => y.share - x.share)
+    const topGender = genders[0]
+
+    if (!topAge && !topCountry && !topGender) return ''
+
+    const mini = (label, value, hint) => {
+      const hintEl = hint
+        ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
+        : ''
+      return `
+      <div style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+        <div style="color:var(--t3);font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px">${esc(label)}${hintEl}</div>
+        <div style="color:var(--t1);font-size:16px;font-weight:500;letter-spacing:-.01em">${esc(value)}</div>
+      </div>`
+    }
+
+    return `
+      <div style="margin-top:12px">
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">AUDIENCE — ${platformBadge(a.platform)} @${esc(a.handle)}</div>
+        <div style="display:flex;gap:10px">
+          ${topAge ? mini('Top age', `${topAge.bucket} · ${Math.round(topAge.share * 100)}%`) : ''}
+          ${topCountry ? mini('Top country', `${topCountry.bucket} · ${Math.round(topCountry.share * 100)}%`) : ''}
+          ${topGender ? mini('Gender split', `${Math.round(topGender.share * 100)}% ${topGender.bucket}`) : ''}
+        </div>
+      </div>`
+  }
+
+  function tile(label, value, sub, navId, progressPct, hint) {
     const action = navId ? `data-v2-nav="${navId}" style="cursor:pointer"` : ''
+    const hintEl = hint
+      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
+      : ''
     return `
       <div ${action} class="vx-dcard${navId ? ' vx-dcard-nav' : ''}" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px">
-        <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">${esc(label)}</div>
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">${esc(label)}${hintEl}</div>
         <div class="vx-tile-value" style="color:var(--t1);margin-bottom:4px;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:500;font-size:26px;letter-spacing:-.01em;line-height:1;font-style:normal">${esc(value)}</div>
         <div style="color:var(--t2);font-size:11px">${esc(sub)}</div>
         ${progressPct != null ? `<div style="height:2px;border-radius:2px;background:var(--s3);margin-top:8px;overflow:hidden"><div style="width:${progressPct}%;height:100%;background:var(--t1);transition:width .4s ease"></div></div>` : ''}
@@ -516,12 +631,12 @@
         <div style="display:flex;flex-direction:column;gap:14px">
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-            ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender))}
-            ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null)}
+            ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender), 'Gender and age breakdown of your followers. Helps tailor content voice and topics.')}
+            ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null, 'Cities where your followers are concentrated. Useful for timing posts and localizing content.')}
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-            ${chartCard('Format mix', formatDonutSvg(ig.recentMedia), null)}
-            ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null)}
+            ${chartCard('Format mix', formatDonutSvg(ig.recentMedia), null, 'Breakdown of your recent posts by format. Helps identify which formats you rely on most vs. what performs.')}
+            ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null, 'Average engagement rate per weekday across recent posts. Tells you which days your audience is most active.')}
           </div>
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
           <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px">
@@ -685,11 +800,14 @@
     return (delta >= 0 ? '+' : '') + delta + '%'
   }
 
-  function chartCard(title, body, statRight) {
+  function chartCard(title, body, statRight, hint) {
+    const hintEl = hint
+      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
+      : ''
     return `
       <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">${esc(title)}</div>
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">${esc(title)}${hintEl}</div>
           ${statRight ? `<div style="color:var(--t1);font-size:13px;font-weight:600">${esc(statRight)}</div>` : ''}
         </div>
         ${body}
@@ -818,9 +936,9 @@
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
         ${kvTile('Followers', shortNum(tt.followerCount))}
         ${kvTile('Videos', shortNum(tt.videoCount))}
-        ${kvTile('Avg views', shortNum(tt.avgViews))}
-        ${kvTile('Engagement rate', engagementPct, '(likes+comments+shares)/views')}
-        ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, 'avg views / followers') : ''}
+        ${kvTile('Avg views', shortNum(tt.avgViews), 'Average view count per video. Views are the primary reach metric on TikTok since every video goes into the For You feed.')}
+        ${kvTile('Engagement rate', engagementPct, 'Total (likes + comments + shares) divided by total views across your videos. Above 5% is strong on TikTok.', 'left')}
+        ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, 'Average views per video divided by follower count. Above 100% means your content reaches beyond your followers via the For You feed.') : ''}
         ${kvTile('Total likes', shortNum(tt.likesCount))}
       </div>
     `
@@ -859,12 +977,15 @@
     `
   }
 
-  function kvTile(label, value, hint) {
+  function kvTile(label, value, hint, tipDir) {
+    const tipCls = tipDir === 'left' ? ' vx-tip-left' : ''
+    const hintEl = hint
+      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip${tipCls}">${esc(hint)}</span></span>`
+      : ''
     return `
       <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
-        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">${esc(label)}</div>
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">${esc(label)}${hintEl}</div>
         <div style="color:var(--t1);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-top:4px">${esc(String(value))}</div>
-        ${hint ? `<div style="color:var(--t3);font-size:10px;margin-top:2px">${esc(hint)}</div>` : ''}
       </div>
     `
   }
