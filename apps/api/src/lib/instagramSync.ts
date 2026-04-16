@@ -62,7 +62,7 @@ export async function syncInstagramAccount(
     const insightsMap = new Map<string, meta.IGMediaInsight>()
     await Promise.allSettled(
       media.slice(0, 20).map(async (m) => {
-        insightsMap.set(m.id, await meta.getMediaInsights(m.id, token))
+        insightsMap.set(m.id, await meta.getMediaInsights(m.id, m.media_type, token))
       }),
     )
 

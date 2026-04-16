@@ -7,6 +7,8 @@
  * pages_show_list, business_management.
  */
 
+import axios, { AxiosError } from 'axios'
+
 const API_VERSION = 'v21.0'
 const GRAPH_URL = `https://graph.facebook.com/${API_VERSION}`
 
@@ -18,46 +20,47 @@ export function hasMetaCreds(): boolean {
 }
 
 async function graphGet<T = unknown>(path: string, token: string, params: Record<string, string> = {}): Promise<T> {
-  const url = new URL(`${GRAPH_URL}${path}`)
-  url.searchParams.set('access_token', token)
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  const res = await fetch(url.toString(), { timeout: 15000 } as RequestInit)
-  const body = await res.json().catch(() => null)
-  if (!res.ok) {
-    const msg = (body as { error?: { message?: string } })?.error?.message || res.statusText
-    throw new Error(`Meta ${path} → ${res.status}: ${msg}`)
+  try {
+    const res = await axios.get<T>(`${GRAPH_URL}${path}`, {
+      params: { access_token: token, ...params },
+      timeout: 30000,
+    })
+    return res.data
+  } catch (err) {
+    const ax = err as AxiosError
+    const msg = (ax.response?.data as { error?: { message?: string } })?.error?.message || ax.message
+    throw new Error(`Meta ${path} → ${ax.response?.status ?? 0}: ${msg}`)
   }
-  return body as T
 }
 
 // ── OAuth token exchange ────────────────────────────────────────────
 
 export async function exchangeCodeForToken(code: string, redirectUri: string): Promise<{ accessToken: string; expiresIn: number }> {
-  const res = await fetch(`${GRAPH_URL}/oauth/access_token?` + new URLSearchParams({
-    client_id: appId(),
-    client_secret: appSecret(),
-    redirect_uri: redirectUri,
-    code,
-  }))
-  const body = await res.json().catch(() => null) as Record<string, unknown> | null
-  if (!res.ok || !body?.access_token) {
-    throw new Error(`Meta token exchange failed: ${res.status} ${JSON.stringify(body)}`)
+  try {
+    const res = await axios.get<Record<string, unknown>>(`${GRAPH_URL}/oauth/access_token`, {
+      params: { client_id: appId(), client_secret: appSecret(), redirect_uri: redirectUri, code },
+      timeout: 15000,
+    })
+    if (!res.data?.access_token) throw new Error('No access_token in response')
+    return { accessToken: String(res.data.access_token), expiresIn: Number(res.data.expires_in || 3600) }
+  } catch (err) {
+    const ax = err as AxiosError
+    throw new Error(`Meta token exchange failed: ${ax.response?.status ?? 0} ${JSON.stringify(ax.response?.data ?? ax.message)}`)
   }
-  return { accessToken: String(body.access_token), expiresIn: Number(body.expires_in || 3600) }
 }
 
 export async function getLongLivedToken(shortToken: string): Promise<{ accessToken: string; expiresIn: number }> {
-  const res = await fetch(`${GRAPH_URL}/oauth/access_token?` + new URLSearchParams({
-    grant_type: 'fb_exchange_token',
-    client_id: appId(),
-    client_secret: appSecret(),
-    fb_exchange_token: shortToken,
-  }))
-  const body = await res.json().catch(() => null) as Record<string, unknown> | null
-  if (!res.ok || !body?.access_token) {
-    throw new Error(`Meta long-lived token exchange failed: ${res.status} ${JSON.stringify(body)}`)
+  try {
+    const res = await axios.get<Record<string, unknown>>(`${GRAPH_URL}/oauth/access_token`, {
+      params: { grant_type: 'fb_exchange_token', client_id: appId(), client_secret: appSecret(), fb_exchange_token: shortToken },
+      timeout: 15000,
+    })
+    if (!res.data?.access_token) throw new Error('No access_token in response')
+    return { accessToken: String(res.data.access_token), expiresIn: Number(res.data.expires_in || 5184000) }
+  } catch (err) {
+    const ax = err as AxiosError
+    throw new Error(`Meta long-lived token failed: ${ax.response?.status ?? 0} ${JSON.stringify(ax.response?.data ?? ax.message)}`)
   }
-  return { accessToken: String(body.access_token), expiresIn: Number(body.expires_in || 5184000) }
 }
 
 export async function refreshLongLivedToken(token: string): Promise<{ accessToken: string; expiresIn: number }> {
@@ -142,25 +145,28 @@ export interface IGMediaInsight {
   saved: number
 }
 
-export async function getMediaInsights(mediaId: string, token: string): Promise<IGMediaInsight> {
+export async function getMediaInsights(mediaId: string, _mediaType: string, token: string): Promise<IGMediaInsight> {
   try {
+    // Only 'reach' and 'saved' are universally supported across all media
+    // types in Meta's current API. 'impressions' and 'plays' are deprecated.
+    // Likes + comments come from the media list endpoint, not insights.
     const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
       `/${mediaId}/insights`,
       token,
-      { metric: 'impressions,reach,saved' },
+      { metric: 'reach,saved' },
     )
     const byName: Record<string, number> = {}
     for (const m of res.data || []) {
       byName[m.name] = m.values?.[0]?.value ?? 0
     }
     return {
-      impressions: byName.impressions || 0,
+      impressions: byName.reach || 0, // reach is the best remaining proxy
       reach: byName.reach || 0,
-      engagement: (byName.impressions || 0) > 0 ? 0 : 0, // computed from likes+comments later
+      engagement: 0,
       saved: byName.saved || 0,
     }
-  } catch {
-    // Insights unavailable for this media (e.g., story, or account too new)
+  } catch (err) {
+    console.warn(`[meta] insights failed for ${mediaId}:`, (err as Error).message?.slice(0, 100))
     return { impressions: 0, reach: 0, engagement: 0, saved: 0 }
   }
 }
@@ -175,34 +181,65 @@ export interface IGAudienceInsights {
 
 export async function getIGAudienceInsights(igId: string, token: string): Promise<IGAudienceInsights | null> {
   try {
-    const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: Record<string, number> }> }> }>(
-      `/${igId}/insights`,
-      token,
-      { metric: 'audience_gender_age,audience_country,audience_city', period: 'lifetime' },
-    )
-    const byName: Record<string, Record<string, number>> = {}
-    for (const m of res.data || []) {
-      byName[m.name] = m.values?.[0]?.value ?? {}
-    }
-
-    // audience_gender_age keys look like "F.18-24", "M.25-34"
+    // Meta renamed audience metrics. New names:
+    // follower_demographics → replaces audience_gender_age/audience_country/audience_city
+    // Breakdown by age, gender, city, country via the 'breakdown' param.
     const genderAge: IGAudienceInsights['genderAge'] = []
-    for (const [key, value] of Object.entries(byName.audience_gender_age || {})) {
-      const [gender, ageRange] = key.split('.')
-      genderAge.push({ gender, ageRange, value })
+    const countries: IGAudienceInsights['countries'] = []
+    const cities: IGAudienceInsights['cities'] = []
+
+    // Age + gender breakdown
+    try {
+      const ageRes = await graphGet<{ data: Array<{ total_value: { breakdowns: Array<{ results: Array<{ dimension_values: string[]; value: number }> }> } }> }>(
+        `/${igId}/insights`,
+        token,
+        { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: 'age,gender' },
+      )
+      const results = ageRes.data?.[0]?.total_value?.breakdowns?.[0]?.results || []
+      for (const r of results) {
+        const [age, gender] = r.dimension_values || []
+        if (age && gender) genderAge.push({ gender, ageRange: age, value: r.value })
+      }
+    } catch (e) {
+      console.warn('[meta] follower_demographics (age,gender) failed:', (e as Error).message?.slice(0, 100))
     }
 
-    const countries = Object.entries(byName.audience_country || {})
-      .map(([code, value]) => ({ code, value }))
-      .sort((a, b) => b.value - a.value)
+    // Country breakdown
+    try {
+      const countryRes = await graphGet<{ data: Array<{ total_value: { breakdowns: Array<{ results: Array<{ dimension_values: string[]; value: number }> }> } }> }>(
+        `/${igId}/insights`,
+        token,
+        { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: 'country' },
+      )
+      const results = countryRes.data?.[0]?.total_value?.breakdowns?.[0]?.results || []
+      for (const r of results) {
+        countries.push({ code: r.dimension_values?.[0] || '', value: r.value })
+      }
+      countries.sort((a, b) => b.value - a.value)
+    } catch (e) {
+      console.warn('[meta] follower_demographics (country) failed:', (e as Error).message?.slice(0, 100))
+    }
 
-    const cities = Object.entries(byName.audience_city || {})
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+    // City breakdown
+    try {
+      const cityRes = await graphGet<{ data: Array<{ total_value: { breakdowns: Array<{ results: Array<{ dimension_values: string[]; value: number }> }> } }> }>(
+        `/${igId}/insights`,
+        token,
+        { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: 'city' },
+      )
+      const results = cityRes.data?.[0]?.total_value?.breakdowns?.[0]?.results || []
+      for (const r of results) {
+        cities.push({ name: r.dimension_values?.[0] || '', value: r.value })
+      }
+      cities.sort((a, b) => b.value - a.value)
+    } catch (e) {
+      console.warn('[meta] follower_demographics (city) failed:', (e as Error).message?.slice(0, 100))
+    }
 
+    if (genderAge.length === 0 && countries.length === 0 && cities.length === 0) return null
     return { genderAge, countries, cities }
-  } catch {
-    // Audience insights require 100+ followers and a Business account
+  } catch (err) {
+    console.warn('[meta] audience insights failed entirely:', (err as Error).message?.slice(0, 100))
     return null
   }
 }

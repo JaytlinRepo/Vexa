@@ -14,7 +14,7 @@ import { PLAN_LIMITS } from '../lib/plans'
 const prisma = new PrismaClient()
 const router = Router()
 
-const SCOPES = 'instagram_basic,pages_read_engagement,pages_show_list,business_management'
+const SCOPES = 'instagram_basic,instagram_manage_insights,pages_read_engagement,pages_show_list,business_management'
 
 function appUrl(): string {
   return (process.env.CORS_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
@@ -116,22 +116,28 @@ router.get('/auth/callback', async (req, res) => {
     }
     console.log('[instagram] found IG Business Account:', igBiz.igBusinessId, 'on page', igBiz.pageName)
 
-    // Fetch profile + media + insights in parallel
-    const [profile, media] = await Promise.all([
-      meta.getIGProfile(igBiz.igBusinessId, accessToken),
-      meta.getIGMedia(igBiz.igBusinessId, accessToken, 30),
-    ])
+    // Fetch profile (required) + media/audience (best-effort)
+    const profile = await meta.getIGProfile(igBiz.igBusinessId, accessToken)
+    console.log('[instagram] profile fetched:', profile.username, profile.followers_count, 'followers')
+
+    const media = await meta.getIGMedia(igBiz.igBusinessId, accessToken, 30).catch((err) => {
+      console.warn('[instagram] media fetch failed (continuing without posts):', err.message)
+      return [] as meta.IGMedia[]
+    })
+    console.log('[instagram] media fetched:', media.length, 'posts')
 
     // Fetch per-post insights (best-effort, parallel, cap at 20)
     const insightsMap = new Map<string, meta.IGMediaInsight>()
-    const insightBatch = media.slice(0, 20).map(async (m) => {
-      const ins = await meta.getMediaInsights(m.id, accessToken)
-      insightsMap.set(m.id, ins)
-    })
-    await Promise.allSettled(insightBatch)
+    if (media.length > 0) {
+      await Promise.allSettled(
+        media.slice(0, 20).map(async (m) => {
+          insightsMap.set(m.id, await meta.getMediaInsights(m.id, m.media_type, accessToken))
+        }),
+      )
+    }
 
     // Audience (best-effort — requires 100+ followers)
-    const audience = await meta.getIGAudienceInsights(igBiz.igBusinessId, accessToken)
+    const audience = await meta.getIGAudienceInsights(igBiz.igBusinessId, accessToken).catch(() => null)
 
     // Map to IgStub
     const stub = mapMetaToStub({ profile, media, mediaInsights: insightsMap, audience })
