@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
+import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { triggerWeeklyPulses } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 
@@ -48,6 +49,21 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
       const ok = results.filter((r) => !r.error).length
       const failed = results.length - ok
       console.log(`[scheduler] phyllo sync done in ${Date.now() - started}ms: ${ok} ok, ${failed} failed`)
+
+      // Also refresh all TikTok connections (token refresh + data pull)
+      try {
+        const ttCompanies = await prisma.tiktokConnection.findMany({ select: { companyId: true } })
+        let ttOk = 0, ttFail = 0
+        for (const { companyId } of ttCompanies) {
+          try {
+            await syncTiktokAccount(prisma, companyId)
+            ttOk++
+          } catch { ttFail++ }
+        }
+        if (ttCompanies.length > 0) console.log(`[scheduler] tiktok sync: ${ttOk} ok, ${ttFail} failed`)
+      } catch (err) {
+        console.error('[scheduler] tiktok sync threw', err)
+      }
     } catch (err) {
       console.error('[scheduler] phyllo sync threw', err)
     } finally {

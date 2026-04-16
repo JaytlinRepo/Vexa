@@ -59,6 +59,23 @@
       STATE.overview = overview || null
       STATE.feed = feed?.items || []
       STATE.phylloAccounts = phylloAccounts?.accounts || []
+
+      // Background: refresh TikTok data so agents see latest posts
+      if (STATE.tiktok) {
+        fetch('/api/tiktok/sync', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId }),
+        }).then((r) => r.ok ? r.json() : null).then((result) => {
+          if (result?.synced && result.newPosts > 0) {
+            console.log(`[v2] TikTok sync found ${result.newPosts} new posts`)
+            // Re-fetch overview to update dashboard tiles
+            get('/api/platform/overview').then((ov) => {
+              if (ov) { STATE.overview = ov; if (typeof render === 'function') render() }
+            })
+          }
+        }).catch(() => {})
+      }
     }
   }
 

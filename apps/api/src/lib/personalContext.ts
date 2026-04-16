@@ -44,6 +44,13 @@ export interface PersonalTiktokVideo {
   shareCount: number
 }
 
+export interface PersonalTiktokPostedToday {
+  caption: string | null
+  publishedAt: string
+  viewCount: number
+  hoursAgo: number
+}
+
 export interface PersonalTiktokSnapshot {
   handle: string
   displayName: string | null
@@ -55,6 +62,8 @@ export interface PersonalTiktokSnapshot {
   engagementRate: number
   reachRate: number
   recentVideos: PersonalTiktokVideo[]
+  postedToday: PersonalTiktokPostedToday[]
+  daysSinceLastPost: number | null
   lastSyncedAt: Date
 }
 
@@ -178,6 +187,56 @@ export async function loadPersonalContext(
   if (company.tiktok) {
     const tt = company.tiktok
     const vidsRaw = toArr<Record<string, unknown>>(tt.recentVideos)
+    const mappedVids = vidsRaw.slice(0, 20).map((v) => ({
+      caption: ((v.title as string) || '').trim() || null,
+      url: (v.shareUrl as string) || null,
+      publishedAt: v.createdAt ? new Date(Number(v.createdAt) * 1000).toISOString() : null,
+      viewCount: Number(v.views || 0),
+      likeCount: Number(v.likes || 0),
+      commentCount: Number(v.comments || 0),
+      shareCount: Number(v.shares || 0),
+    }))
+
+    // Detect posts from today + days since last post
+    const now = Date.now()
+    const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0)
+    const postedToday: PersonalTiktokPostedToday[] = []
+    let latestPostMs = 0
+    for (const v of mappedVids) {
+      if (!v.publishedAt) continue
+      const pubMs = new Date(v.publishedAt).getTime()
+      if (pubMs > latestPostMs) latestPostMs = pubMs
+      if (pubMs >= todayStart.getTime()) {
+        postedToday.push({
+          caption: v.caption,
+          publishedAt: v.publishedAt,
+          viewCount: v.viewCount,
+          hoursAgo: Math.round((now - pubMs) / 3600000),
+        })
+      }
+    }
+    // Also check PlatformPost for today's posts (more reliable after sync)
+    const ttAccount = await prisma.platformAccount.findFirst({ where: { companyId: company.id, platform: 'tiktok' } })
+    if (ttAccount && postedToday.length === 0) {
+      const todayPosts = await prisma.platformPost.findMany({
+        where: { accountId: ttAccount.id, publishedAt: { gte: todayStart } },
+        orderBy: { publishedAt: 'desc' },
+        take: 5,
+      })
+      for (const p of todayPosts) {
+        if (p.publishedAt) {
+          postedToday.push({
+            caption: p.caption,
+            publishedAt: p.publishedAt.toISOString(),
+            viewCount: p.viewCount,
+            hoursAgo: Math.round((now - p.publishedAt.getTime()) / 3600000),
+          })
+        }
+      }
+    }
+
+    const daysSinceLastPost = latestPostMs > 0 ? Math.floor((now - latestPostMs) / 86400000) : null
+
     tiktok = {
       handle: tt.handle,
       displayName: tt.displayName,
@@ -188,15 +247,9 @@ export async function loadPersonalContext(
       avgViews: tt.avgViews,
       engagementRate: tt.engagementRate,
       reachRate: tt.reachRate,
-      recentVideos: vidsRaw.slice(0, 20).map((v) => ({
-        caption: ((v.title as string) || '').trim() || null,
-        url: (v.shareUrl as string) || null,
-        publishedAt: v.createdAt ? new Date(Number(v.createdAt) * 1000).toISOString() : null,
-        viewCount: Number(v.views || 0),
-        likeCount: Number(v.likes || 0),
-        commentCount: Number(v.comments || 0),
-        shareCount: Number(v.shares || 0),
-      })),
+      recentVideos: mappedVids,
+      postedToday,
+      daysSinceLastPost,
       lastSyncedAt: tt.lastSyncedAt,
     }
   }
@@ -283,6 +336,13 @@ export function buildPlatformDataSummary(ctx: PersonalContext | null): string {
       if (worst !== best) {
         parts.push(`  Weakest TT video: "${(worst.caption || '').slice(0, 80)}" — ${worst.viewCount} views, ${worst.likeCount} likes.`)
       }
+    }
+    // Posting activity signal
+    if (tt.postedToday.length > 0) {
+      const latest = tt.postedToday[0]
+      parts.push(`  Posted today: "${(latest.caption || '').slice(0, 60)}" (${latest.hoursAgo}h ago, ${latest.viewCount} views so far). ${tt.postedToday.length > 1 ? `${tt.postedToday.length} posts today total.` : ''}`)
+    } else if (tt.daysSinceLastPost != null) {
+      parts.push(`  No posts today. Last post was ${tt.daysSinceLastPost === 0 ? 'earlier today' : tt.daysSinceLastPost === 1 ? 'yesterday' : `${tt.daysSinceLastPost} days ago`}.`)
     }
   }
 

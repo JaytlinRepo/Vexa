@@ -5,6 +5,7 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
+import { syncTiktokAccount } from '../lib/tiktokRefreshSync'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -460,6 +461,28 @@ router.get('/insights', requireAuth, async (req, res) => {
   void _t
   void _rt
   res.json({ connection: safe })
+})
+
+/** POST /api/tiktok/sync — refresh TikTok data using stored token. */
+router.post('/sync', requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).session
+  const companyId = typeof req.body?.companyId === 'string' ? req.body.companyId : ''
+  if (!companyId) {
+    res.status(400).json({ error: 'missing_company_id' })
+    return
+  }
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+  if (!company) {
+    res.status(404).json({ error: 'company_not_found' })
+    return
+  }
+  try {
+    const result = await syncTiktokAccount(prisma, companyId)
+    res.json(result)
+  } catch (err) {
+    console.warn('[tiktok] sync error', err)
+    res.status(500).json({ synced: false, error: 'sync_failed' })
+  }
 })
 
 /** DELETE /api/tiktok/connections/:companyId — sign out of TikTok. */
