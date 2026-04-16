@@ -1317,8 +1317,90 @@
         </div>
         ${tiles}
         ${postsGrid}
+        ${ttInsightCharts(tt)}
       </section>
     `
+  }
+
+  function ttInsightCharts(tt) {
+    var vids = Array.isArray(tt.recentVideos) ? tt.recentVideos : []
+    if (vids.length < 3) return ''
+
+    // Top post by engagement
+    var sorted = vids.slice().sort(function (a, b) {
+      return (Number(b.likes||0) + Number(b.comments||0)*2 + Number(b.shares||0)*3)
+           - (Number(a.likes||0) + Number(a.comments||0)*2 + Number(a.shares||0)*3)
+    })
+    var top = sorted[0]
+    var topEng = Number(top.likes||0) + Number(top.comments||0)*2 + Number(top.shares||0)*3
+    var topTitle = String(top.title || '').slice(0, 80)
+
+    // Views distribution bar chart (top 10 videos)
+    var chartVids = vids.slice(0, 10)
+    var maxViews = Math.max.apply(null, chartVids.map(function(v){ return Number(v.views||0) }))
+    var barsHtml = chartVids.map(function(v) {
+      var views = Number(v.views || 0)
+      var h = Math.max(4, Math.round((views / Math.max(1, maxViews)) * 90))
+      var isTop = views === maxViews
+      var label = String(v.title || '').slice(0, 12)
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px">'
+        + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.4') + ';height:' + h + 'px;border-radius:3px"></div>'
+        + '<div style="color:var(--t3);font-size:8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(String(v.title || '')) + '">' + esc(label) + '</div>'
+        + '</div>'
+    }).join('')
+
+    // Engagement by day (same as IG pattern)
+    var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    var dayEng = [0,0,0,0,0,0,0]
+    var dayCounts = [0,0,0,0,0,0,0]
+    vids.forEach(function(v) {
+      if (!v.createdAt) return
+      var dow = (new Date(v.createdAt * 1000).getUTCDay() + 6) % 7
+      dayEng[dow] += Number(v.likes||0) + Number(v.comments||0)*2 + Number(v.shares||0)*3
+      dayCounts[dow]++
+    })
+    var dayAvg = dayEng.map(function(e, i) { return dayCounts[i] > 0 ? e / dayCounts[i] : 0 })
+    var peakDayVal = Math.max.apply(null, dayAvg)
+    var peakDayIdx = dayAvg.indexOf(peakDayVal)
+    var peakLabel = dayCounts[peakDayIdx] > 0 ? days[peakDayIdx] : ''
+    var dayBarsHtml = dayAvg.map(function(v, i) {
+      var h = Math.max(4, Math.round((v / Math.max(1, peakDayVal)) * 90))
+      var isTop = v === peakDayVal && v > 0
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:6px">'
+        + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.45') + ';height:' + h + 'px;border-radius:3px"></div>'
+        + '<div style="color:var(--t3);font-size:9px;text-align:center;letter-spacing:.04em">' + days[i] + '</div>'
+        + '</div>'
+    }).join('')
+
+    return '<div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">'
+      // Top post
+      + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">Top video</div>'
+      + '<div style="color:var(--t1);font-size:13px;font-weight:600">' + shortNum(topEng) + '</div>'
+      + '</div>'
+      + '<div style="color:var(--t1);font-size:13px;line-height:1.5;margin-bottom:8px">' + esc(topTitle) + '</div>'
+      + '<div style="color:var(--t3);font-size:11px;display:flex;gap:12px">'
+      + '<span>' + shortNum(top.views) + ' views</span>'
+      + '<span>' + shortNum(top.likes) + ' likes</span>'
+      + '<span>' + shortNum(top.comments) + ' comments</span>'
+      + '<span>' + shortNum(top.shares) + ' shares</span>'
+      + '</div></div>'
+      // Views chart
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">'
+      + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px">Views by video</div>'
+      + '<div style="display:flex;align-items:flex-end;gap:4px;height:110px;padding:4px 0 6px">' + barsHtml + '</div>'
+      + '</div>'
+      // Engagement by day
+      + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Engagement by day<span class="vx-hint" aria-label="Average engagement per day of the week across your videos.">ⓘ<span class="vx-hint-tip">Average engagement per day of the week across your videos. Tells you which days your audience interacts most.</span></span></div>'
+      + (peakLabel ? '<div style="color:var(--t1);font-size:13px;font-weight:600">Peak: ' + peakLabel + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:4px 0 6px">' + dayBarsHtml + '</div>'
+      + '</div></div>'
+      + '</div>'
   }
 
   function kvTile(label, value, hint, tipDir) {
