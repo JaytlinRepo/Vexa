@@ -55,17 +55,15 @@
             <div style="color:var(--t1);font-size:15px;font-weight:600;margin-bottom:4px">No goal yet.</div>
             <div style="color:var(--t3);font-size:12px;line-height:1.5">Connect your account so Jordan has real numbers to build your first goal against.</div>
           </div>
-          <button data-v2-nav="db-settings" style="background:var(--t1);color:var(--bg);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap">Connect account</button>
         </div>
       `
     }
+    // Auto-generate: don't wait for user to click — Jordan picks immediately
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px">
-        <div style="min-width:0">
-          <div style="color:var(--t1);font-size:15px;font-weight:600;margin-bottom:4px">Jordan hasn't set your first goal yet.</div>
-          <div style="color:var(--t3);font-size:12px;line-height:1.5">He'll propose something realistic based on where your account is today. Small, incremental — real wins, not wishful targets.</div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px">
+        <div style="min-width:0;flex:1">
+          <div style="color:var(--t2);font-size:13px;font-style:italic" id="vx-goal-autogen">Jordan is picking a goal based on your numbers…</div>
         </div>
-        <button id="vx-goal-gen" style="background:var(--t1);color:var(--bg);border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;white-space:nowrap">Have Jordan pick one</button>
       </div>
     `
   }
@@ -138,21 +136,16 @@
     const anchor = sections[1]
     anchor.parentNode.insertBefore(section, anchor.nextSibling)
 
-    section.querySelector('#vx-goal-gen')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget
-      btn.disabled = true
-      btn.textContent = 'Jordan is picking…'
-      const r = await generateGoal(false)
-      if (!r.ok) {
-        btn.disabled = false
-        btn.textContent = 'Have Jordan pick one'
-        if (r.status === 400 && r.data?.error === 'no_baseline') {
-          btn.textContent = 'Connect account first'
+    // Auto-generate goal if baseline exists but no goal set
+    if (!data?.goal && data?.hasBaseline) {
+      generateGoal(false).then(function (r) {
+        if (r.ok) inject()
+        else {
+          var el = document.getElementById('vx-goal-autogen')
+          if (el) el.textContent = 'Jordan couldn\'t set a goal yet — try again after the next sync.'
         }
-        return
-      }
-      inject()
-    })
+      })
+    }
     section.querySelector('#vx-goal-another')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget
       btn.disabled = true
