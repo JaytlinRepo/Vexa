@@ -1206,7 +1206,7 @@
   function igPostsGrid(media) {
     if (!media || media.length === 0) return ''
     // Show up to 9 most recent posts in a grid
-    const posts = media.slice(0, 9)
+    const posts = media.slice(0, 5)
     const cards = posts.map((m) => {
       const caption = (m.caption || '').slice(0, 60)
       const type = m.media_type === 'VIDEO' ? 'Reel' : m.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo'
@@ -1292,7 +1292,7 @@
       </div>
     `
 
-    const recentVids = Array.isArray(tt.recentVideos) ? tt.recentVideos.slice(0, 9) : topVideos
+    const recentVids = Array.isArray(tt.recentVideos) ? tt.recentVideos.slice(0, 5) : topVideos
     const postsGrid = recentVids.length === 0
       ? ''
       : '<div style="margin-top:16px">'
