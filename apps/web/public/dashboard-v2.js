@@ -945,11 +945,6 @@
           </div>
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
           ${igPostsGrid(ig.recentMedia)}
-          <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px">
-            <button type="button" data-v2-brief="copywriter" data-v2-brief-name="Alex" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Brief Alex on captions</button>
-            <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Copy talking points from outputs</button>
-            <button type="button" data-v2-soft-refresh style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh this view</button>
-          </div>
         </div>
       </section>
     `
