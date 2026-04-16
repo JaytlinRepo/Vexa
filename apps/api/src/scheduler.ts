@@ -96,6 +96,27 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
   })
   console.log(`[scheduler] registered maya weekly review on '${mayaExpr}' (UTC)`)
+
+  // Every 10 minutes: reset stuck tasks (in_progress > 10 min) so they
+  // don't block the CEO's queue forever if a Bedrock call crashed.
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      const staleThreshold = new Date(Date.now() - 10 * 60 * 1000)
+      const stuck = await prisma.task.findMany({
+        where: { status: 'in_progress', createdAt: { lt: staleThreshold } },
+        select: { id: true, title: true },
+      })
+      if (stuck.length === 0) return
+      await prisma.task.updateMany({
+        where: { id: { in: stuck.map((t) => t.id) } },
+        data: { status: 'pending' },
+      })
+      console.log(`[scheduler] reset ${stuck.length} stuck tasks:`, stuck.map((t) => t.title).join(', '))
+    } catch (err) {
+      console.error('[scheduler] stuck task cleanup threw', err)
+    }
+  })
+  console.log('[scheduler] registered stuck task cleanup (every 10 min)')
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {

@@ -3,6 +3,7 @@ import {
   InvokeModelCommand,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime'
+import { trackBedrockCall } from '../../lib/bedrockUsage'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,7 @@ interface InvokeOptions {
   messages: BedrockMessage[]
   maxTokens?: number
   temperature?: number
+  companyId?: string
 }
 
 interface StreamOptions extends InvokeOptions {
@@ -61,6 +63,13 @@ export async function invokeAgent(options: InvokeOptions): Promise<string> {
 
   const response = await client.send(command)
   const responseBody = JSON.parse(new TextDecoder().decode(response.body))
+
+  // Track usage for cost monitoring
+  trackBedrockCall(
+    options.companyId,
+    responseBody.usage?.input_tokens || 0,
+    responseBody.usage?.output_tokens || 0,
+  )
 
   return responseBody.content[0].text
 }

@@ -144,6 +144,10 @@
       showUpgradeModal(json?.usage)
       return { ok: false, limitReached: true }
     }
+    if (res.status === 429) {
+      const json = await res.json().catch(() => null)
+      return { ok: false, error: json?.message || 'This agent is still working. Try again shortly.', cooldown: true }
+    }
     if (!res.ok) {
       const json = await res.json().catch(() => null)
       return { ok: false, error: json?.error || 'failed' }

@@ -51,11 +51,26 @@ const createSchema = z.object({
   briefKind: z.string().min(1).max(60).optional(),
 })
 
+// Per-user brief cooldown: 1 brief per employee role per 5 minutes.
+// Prevents spamming Bedrock calls (each costs ~$0.01 and takes 10-17s).
+const briefCooldowns = new Map<string, number>()
+const BRIEF_COOLDOWN_MS = 5 * 60 * 1000
+
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     console.log('[tasks] POST /api/tasks received', { body: req.body?.type, briefKind: req.body?.briefKind })
     const { userId } = (req as AuthedRequest).session
     const data = createSchema.parse(req.body)
+
+    // Rate limit: 1 brief per employee per 5 minutes
+    const cooldownKey = `${userId}:${data.employeeId}`
+    const lastBrief = briefCooldowns.get(cooldownKey) || 0
+    if (Date.now() - lastBrief < BRIEF_COOLDOWN_MS) {
+      const waitSec = Math.ceil((BRIEF_COOLDOWN_MS - (Date.now() - lastBrief)) / 1000)
+      res.status(429).json({ error: 'brief_cooldown', message: `This agent is still working. Try again in ${waitSec}s.`, retryAfter: waitSec })
+      return
+    }
+    briefCooldowns.set(cooldownKey, Date.now())
 
     const company = await prisma.company.findFirst({
       where: { id: data.companyId, userId },
