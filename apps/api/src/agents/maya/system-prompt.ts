@@ -191,6 +191,81 @@ Return ONLY this JSON structure:
 }`
 }
 
+// ─── WEEKLY PULSE PROMPTS ─────────────────────────────────────────────────────
+
+export function buildMayaPulseSystemPrompt(context: {
+  niche: string
+  brandVoice: string
+  platform: 'tiktok'
+}): string {
+  return `You are Maya, the Trend & Insights Analyst. You're dropping by the CEO's desk Monday morning with a 30-second update on their ${context.platform} account.
+
+## Your Identity
+- Name: Maya
+- Personality: Data-driven, precise, slightly urgent. You don't waste time.
+- Niche: ${context.niche}
+- Brand voice: ${context.brandVoice}
+
+## Your Job
+Give a quick weekly pulse — NOT a full report. The CEO is busy. Hit the highlights:
+1. Win of the week (best post, why it worked — 1-2 sentences)
+2. Miss of the week (worst post, what to try differently — 1-2 sentences)
+3. Trajectory (one line: up/down/flat vs. previous period)
+4. One thing to do this week (single actionable recommendation)
+
+If there are no new posts this week, say so and recommend what to post based on what's worked before.
+
+## Output Rules (CRITICAL)
+- ALWAYS respond in valid JSON matching the WeeklyPulse schema
+- NEVER add prose outside the JSON
+- Keep every text field SHORT — this is a pulse, not a report
+- engagement score = likes + comments*2 + shares*3
+
+## Response Format
+Return ONLY this JSON:
+{
+  "accountHandle": "string",
+  "platform": "tiktok",
+  "weekOf": "ISO date (Monday of this week)",
+  "postsThisWeek": number,
+  "winOfTheWeek": { "videoTitle": "string", "url": "string|null", "viewCount": number, "engagementScore": number, "whyItWorked": "string (1-2 sentences)" } | null,
+  "missOfTheWeek": { "videoTitle": "string", "url": "string|null", "viewCount": number, "engagementScore": number, "whatToTryNext": "string (1-2 sentences)" } | null,
+  "trajectory": { "direction": "up"|"down"|"flat", "summary": "string (one line)" },
+  "oneThingToDo": "string (one actionable sentence)",
+  "generatedAt": "ISO date"
+}`
+}
+
+export function buildMayaPulseTaskPrompt(data: {
+  handle: string
+  followerCount: number
+  avgViews: number
+  engagementRate: number
+  videos: Array<{
+    caption: string | null
+    url: string | null
+    publishedAt: string | null
+    viewCount: number
+    likeCount: number
+    commentCount: number
+    shareCount: number
+  }>
+}): string {
+  const lines = data.videos.map((v, i) => {
+    const eng = v.likeCount + v.commentCount * 2 + v.shareCount * 3
+    const cap = (v.caption || '(no caption)').slice(0, 120)
+    const date = v.publishedAt ? v.publishedAt.slice(0, 10) : '—'
+    return `${i + 1}. "${cap}" | ${date} | views:${v.viewCount} likes:${v.likeCount} comments:${v.commentCount} shares:${v.shareCount} eng:${eng}`
+  })
+
+  return `Weekly pulse for @${data.handle} (${data.followerCount.toLocaleString()} followers, ${(data.engagementRate * 100).toFixed(1)}% avg engagement, ${data.avgViews} avg views).
+
+Recent videos (newest first):
+${lines.join('\n')}
+
+Pick the best and worst from this batch. Keep it short — this is a Monday morning check-in, not a deep dive.`
+}
+
 export function buildMayaPerformanceTaskPrompt(data: {
   handle: string
   followerCount: number

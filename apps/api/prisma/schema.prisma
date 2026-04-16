@@ -57,6 +57,7 @@ enum OutputType {
   shot_list
   video
   performance_review
+  weekly_pulse
 }
 
 enum OutputStatus {

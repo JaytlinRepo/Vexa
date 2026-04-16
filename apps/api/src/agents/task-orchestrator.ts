@@ -1,8 +1,8 @@
 import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
-import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt } from './maya/system-prompt'
+import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt, buildMayaPulseSystemPrompt, buildMayaPulseTaskPrompt } from './maya/system-prompt'
 import { buildJordanSystemPrompt, buildAlexSystemPrompt, buildRileySystemPrompt } from './jordan-alex-riley-prompts'
-import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, OutputType } from '@vexa/types'
+import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, OutputType } from '@vexa/types'
 import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -118,9 +118,12 @@ async function executeMayaTask(ctx: {
   description: string | null
   taskType?: string
   companyId?: string
-}): Promise<TrendReport | PerformanceReview> {
+}): Promise<TrendReport | PerformanceReview | WeeklyPulse> {
   if (ctx.taskType === 'performance_review' && ctx.companyId) {
     return executeMayaPerformanceReview({ ...ctx, companyId: ctx.companyId })
+  }
+  if (ctx.taskType === 'weekly_pulse' && ctx.companyId) {
+    return executeMayaWeeklyPulse({ ...ctx, companyId: ctx.companyId })
   }
 
   const basePrompt = buildMayaSystemPrompt({
@@ -197,6 +200,58 @@ async function executeMayaPerformanceReview(ctx: {
   })
 
   return parseAgentOutput<PerformanceReview>(raw)
+}
+
+async function executeMayaWeeklyPulse(ctx: {
+  niche: string
+  brandVoice: string
+  nicheContext: string
+  brandMemory: string
+  companyId: string
+}): Promise<WeeklyPulse> {
+  const { loadPersonalContext } = await import('../lib/personalContext')
+  const personal = await loadPersonalContext(prisma, ctx.companyId)
+  const tt = personal?.tiktok
+  if (!tt || tt.recentVideos.length === 0) {
+    throw new Error('No TikTok data available for weekly pulse')
+  }
+
+  const basePrompt = buildMayaPulseSystemPrompt({
+    niche: ctx.niche,
+    brandVoice: ctx.brandVoice,
+    platform: 'tiktok',
+  })
+
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt,
+    nicheContext: ctx.nicheContext,
+    brandMemory: ctx.brandMemory,
+  })
+
+  const taskPrompt = buildMayaPulseTaskPrompt({
+    handle: tt.handle,
+    followerCount: tt.followerCount,
+    avgViews: tt.avgViews,
+    engagementRate: tt.engagementRate,
+    videos: tt.recentVideos.map((v) => ({
+      caption: v.caption,
+      url: v.url,
+      publishedAt: v.publishedAt,
+      viewCount: v.viewCount,
+      likeCount: v.likeCount,
+      commentCount: v.commentCount,
+      shareCount: v.shareCount,
+    })),
+  })
+
+  const raw = await invokeAgent({
+    systemPrompt,
+    messages: [{ role: 'user', content: taskPrompt }],
+    maxTokens: 1024,
+    temperature: 0.5,
+  })
+
+  return parseAgentOutput<WeeklyPulse>(raw)
 }
 
 async function executeJordanTask(ctx: {
@@ -586,6 +641,7 @@ function getOutputTypeForTask(taskType: string): string {
     shot_list: 'shot_list',
     video_production: 'video',
     performance_review: 'performance_review',
+    weekly_pulse: 'weekly_pulse',
   }
   return map[taskType] || taskType || 'hooks'
 }

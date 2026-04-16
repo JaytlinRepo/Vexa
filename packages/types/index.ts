@@ -5,7 +5,7 @@ export type Plan = 'starter' | 'pro' | 'agency'
 export type Platform = 'instagram'
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
-export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review'
+export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse'
 export type OutputStatus = 'draft' | 'approved' | 'rejected'
 export type MemoryType = 'feedback' | 'preference' | 'performance' | 'voice'
 
@@ -282,6 +282,33 @@ export interface PerformanceReview {
   generatedAt: string
 }
 
+export interface WeeklyPulse {
+  accountHandle: string
+  platform: 'tiktok'
+  weekOf: string
+  postsThisWeek: number
+  winOfTheWeek: {
+    videoTitle: string
+    url: string | null
+    viewCount: number
+    engagementScore: number
+    whyItWorked: string
+  } | null
+  missOfTheWeek: {
+    videoTitle: string
+    url: string | null
+    viewCount: number
+    engagementScore: number
+    whatToTryNext: string
+  } | null
+  trajectory: {
+    direction: 'up' | 'down' | 'flat'
+    summary: string
+  }
+  oneThingToDo: string
+  generatedAt: string
+}
+
 export interface OutputContent {
   trend_report: TrendReport
   content_plan: ContentPlan
@@ -291,6 +318,7 @@ export interface OutputContent {
   shot_list: ShotListOutput
   video: { url: string; s3Key: string; duration: string; thumbnailUrl: string }
   performance_review: PerformanceReview
+  weekly_pulse: WeeklyPulse
 }
 
 export interface Output {
@@ -408,6 +436,11 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
     { id: 'acknowledge', label: 'Got it — brief the team', emoji: '✅', variant: 'approve' },
     { id: 'deep_dive', label: 'Deep dive on this', emoji: '🔍', variant: 'reconsider' },
     { id: 'dismiss', label: 'Not useful', emoji: '⏭', variant: 'reject' },
+  ],
+  weekly_pulse: [
+    { id: 'acknowledge', label: 'Got it', emoji: '✅', variant: 'approve' },
+    { id: 'full_review', label: 'Run full analysis', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Skip', emoji: '⏭', variant: 'reject' },
   ],
 }
 

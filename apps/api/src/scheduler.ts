@@ -1,7 +1,7 @@
 import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
-import { triggerWeeklyPerformanceReviews } from './lib/proactiveAnalysis'
+import { triggerWeeklyPulses } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 
 /**
@@ -69,12 +69,12 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
     mayaRunning = true
     const started = Date.now()
-    console.log('[scheduler] maya weekly performance review starting')
+    console.log('[scheduler] maya weekly pulse starting')
     try {
-      const result = await triggerWeeklyPerformanceReviews(prisma)
-      console.log(`[scheduler] maya weekly done in ${Date.now() - started}ms:`, result)
+      const result = await triggerWeeklyPulses(prisma)
+      console.log(`[scheduler] maya pulse done in ${Date.now() - started}ms:`, result)
     } catch (err) {
-      console.error('[scheduler] maya weekly threw', err)
+      console.error('[scheduler] maya pulse threw', err)
     } finally {
       mayaRunning = false
     }
