@@ -206,7 +206,7 @@ export function buildLayeredPrompt({
   }
 
   if (platformData) {
-    prompt += `\n\n## Creator's Platform Data (Live Numbers)\n${platformData}`
+    prompt += `\n\n## Creator's Platform Data (Live Numbers — Use These to Drive Specific Recommendations)\n${platformData}`
   }
 
   return prompt

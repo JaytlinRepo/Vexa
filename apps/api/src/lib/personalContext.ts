@@ -531,6 +531,17 @@ export function buildPlatformDataSummary(ctx: PersonalContext | null): string {
     }
   }
 
+  // ── Instruction to agents ───────────────────────────────────────
+  if (parts.length > 0) {
+    parts.push('')
+    parts.push('IMPORTANT: Do NOT just repeat these numbers back to the CEO. Use them to make specific, actionable recommendations:')
+    parts.push('  - Reference specific posts by name when suggesting what to do more/less of')
+    parts.push('  - Tie every recommendation to a real number ("Your Carousels get 3x the engagement of Photos — lead with a carousel this week")')
+    parts.push('  - If posting frequency is low, name a specific day and topic for the next post')
+    parts.push('  - If engagement is declining, explain what changed and propose one concrete fix')
+    parts.push('  - Always end with "here is exactly what to do next" — not "consider exploring"')
+  }
+
   return parts.join('\n')
 }
 
