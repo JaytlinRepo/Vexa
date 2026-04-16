@@ -176,6 +176,7 @@ router.post('/', requireAuth, async (req, res, next) => {
           if (closed) {
             try {
               postDeliveryChain = await triggerNextAgentAfterApproval(prisma, {
+                id: closed.id,
                 companyId: company.id,
                 employee: closed.employee,
               })
@@ -333,6 +334,7 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
         })
         try {
           chain = await triggerNextAgentAfterApproval(prisma, {
+            id: updated.id,
             companyId: updated.companyId,
             employee: updated.employee,
           })

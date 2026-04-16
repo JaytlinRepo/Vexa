@@ -521,7 +521,7 @@ export type AgentPipelineChainResult =
  */
 export async function triggerNextAgentAfterApproval(
   db: PrismaClient,
-  task: { companyId: string; employee: { role: string } },
+  task: { companyId: string; employee: { role: string }; id?: string },
 ): Promise<AgentPipelineChainResult> {
   const nextRoleMap: Record<string, string | null> = {
     analyst: 'strategist',
@@ -560,16 +560,28 @@ export async function triggerNextAgentAfterApproval(
   if (!outputType) return { ok: false, reason: 'bad_config' }
 
   const title = getAutoTaskTitle(nextRoleStr)
-  const description = ''
+
+  // Build context from the previous agent's approved output so the next
+  // agent builds on their work instead of starting from scratch
+  let description = ''
+  if (task.id) {
+    const prevOutput = await db.output.findFirst({
+      where: { taskId: task.id, status: 'approved' },
+      orderBy: { version: 'desc' },
+    })
+    if (prevOutput) {
+      description = buildHandoffContext(currentRole, nextRoleStr, prevOutput.content as Record<string, unknown>)
+    }
+  }
 
   const nextTask = await db.task.create({
     data: {
       companyId: task.companyId,
       employeeId: nextEmployee.id,
       title,
+      description,
       type: outputType,
       status: 'in_progress',
-      description,
     },
   })
 
@@ -628,6 +640,7 @@ export async function triggerNextAgentAfterApproval(
     })
     if (auto.didAuto) {
       const inner = await triggerNextAgentAfterApproval(db, {
+        id: nextTask.id,
         companyId: task.companyId,
         employee: nextEmployee,
       })
@@ -670,6 +683,83 @@ function getOutputTypeForTask(taskType: string): string {
     weekly_pulse: 'weekly_pulse',
   }
   return map[taskType] || taskType || 'hooks'
+}
+
+/**
+ * Summarize the previous agent's output into context the next agent can
+ * act on. Each handoff is tailored: Maya→Jordan passes trends + insights,
+ * Jordan→Alex passes the content plan, Alex→Riley passes the script.
+ */
+function buildHandoffContext(fromRole: string, toRole: string, content: Record<string, unknown>): string {
+  const lines: string[] = []
+  lines.push(`Context from ${fromRole} (approved by the CEO):`)
+
+  if (fromRole === 'analyst' && toRole === 'strategist') {
+    // Maya → Jordan: pass trends + key recommendation
+    const trends = content.trends as Array<{ topic: string; contentOpportunity: string; urgency: string }> | undefined
+    if (trends?.length) {
+      lines.push('Top trends Maya identified:')
+      for (const t of trends.slice(0, 5)) {
+        lines.push(`  - ${t.topic} (${t.urgency}): ${t.contentOpportunity}`)
+      }
+    }
+    if (content.topOpportunity) lines.push('Maya\'s top recommendation: ' + String(content.topOpportunity))
+    if (content.topRecommendation) lines.push('Maya\'s top recommendation: ' + String(content.topRecommendation))
+    // Performance review context
+    if (content.whatsWorking) {
+      const wins = content.whatsWorking as Array<{ videoTitle: string; whyItWorked: string }>
+      lines.push('What\'s working for this creator:')
+      for (const w of wins.slice(0, 3)) lines.push(`  - "${w.videoTitle}": ${w.whyItWorked}`)
+    }
+    if (content.keyInsights) {
+      lines.push('Key insights:')
+      for (const i of content.keyInsights as string[]) lines.push(`  - ${i}`)
+    }
+    lines.push('')
+    lines.push('Build the content plan around these insights. Anchor slots on what\'s working and the trends Maya flagged.')
+  }
+
+  if (fromRole === 'strategist' && toRole === 'copywriter') {
+    // Jordan → Alex: pass the content plan with specific days/topics
+    const days = content.days as Array<{ day?: string; topic?: string; format?: string; angle?: string }> | undefined
+    if (days?.length) {
+      lines.push('Jordan\'s approved content plan:')
+      for (const d of days) {
+        lines.push(`  - ${d.day || '?'}: ${d.topic || '?'} (${d.format || '?'})${d.angle ? ' — ' + d.angle : ''}`)
+      }
+    }
+    if (content.strategyNote) lines.push('Strategy note: ' + String(content.strategyNote))
+    lines.push('')
+    lines.push('Write hooks and captions for each post in this plan. Match the format Jordan specified. Your copy should be ready to post.')
+  }
+
+  if (fromRole === 'copywriter' && toRole === 'creative_director') {
+    // Alex → Riley: pass the hooks/script
+    const hooks = content.hooks as Array<{ text?: string; hook?: string }> | undefined
+    if (hooks?.length) {
+      lines.push('Alex\'s approved hooks:')
+      for (const h of hooks.slice(0, 5)) lines.push(`  - "${h.text || h.hook || ''}"`)
+    }
+    if (content.script) {
+      lines.push('Alex\'s approved script:')
+      const script = content.script as { scenes?: Array<{ dialogue?: string }> }
+      if (script.scenes) {
+        for (const s of script.scenes.slice(0, 3)) lines.push(`  - ${s.dialogue || ''}`)
+      }
+    }
+    if (content.alexNote) lines.push('Alex\'s note: ' + String(content.alexNote))
+    lines.push('')
+    lines.push('Create the shot list and production brief based on Alex\'s copy. Match the energy and pacing to the hooks.')
+  }
+
+  // Fallback if no specific handoff
+  if (lines.length <= 1) {
+    lines.push(JSON.stringify(content).slice(0, 500))
+    lines.push('')
+    lines.push('Use the above context from the previous agent to inform your work.')
+  }
+
+  return lines.join('\n')
 }
 
 function getAutoTaskTitle(role: string): string {
