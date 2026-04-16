@@ -2,6 +2,7 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { persistTiktokSnapshot } from '../lib/tiktokSync'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -380,6 +381,50 @@ async function persistConnection(opts: {
     update: data,
   })
   console.log('[tiktok] connection saved', { companyId: opts.companyId, handle, followerCount, videoCount })
+
+  // Mirror into the generalized Platform* tables so dashboard trajectory
+  // charts and Maya's drop-detection see TikTok data alongside Instagram.
+  // Scoped to the owning userId (OAuth callback has no session) so
+  // runWatch can emit Maya notifications into the right inbox.
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: opts.companyId },
+      select: { userId: true },
+    })
+    if (!company) {
+      console.warn('[tiktok] company not found for platform-snapshot write', { companyId: opts.companyId })
+    } else {
+      await persistTiktokSnapshot(prisma, {
+        companyId: opts.companyId,
+        userId: company.userId,
+        openId: opts.openId,
+        handle: handleRaw || opts.openId.slice(0, 10),
+        displayName,
+        bio,
+        profileUrl,
+        avatarUrl,
+        isVerified,
+        followerCount,
+        followingCount,
+        postCount: videoCount,
+        avgViews: engagement.avgViews,
+        engagementRate: engagement.engagementRate,
+        videos: recentMapped.map((v) => ({
+          id: v.id,
+          caption: v.title,
+          url: v.shareUrl || null,
+          thumbnailUrl: v.cover || null,
+          publishedAt: v.createdAt > 0 ? new Date(v.createdAt * 1000) : null,
+          viewCount: v.views,
+          likeCount: v.likes,
+          commentCount: v.comments,
+          shareCount: v.shares,
+        })),
+      })
+    }
+  } catch (e) {
+    console.warn('[tiktok] platform-snapshot write failed (TiktokConnection still persisted)', e)
+  }
 }
 
 /** GET /api/tiktok/insights?companyId=X — dashboard read path. */
