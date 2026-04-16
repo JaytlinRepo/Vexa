@@ -252,8 +252,8 @@
         animation: vx-pulse-dot 2.8s ease-in-out infinite;
       }
       .vx-hint {
-        position: relative; cursor: help; color: var(--t3); font-size: 11px;
-        opacity: 0.5; transition: opacity .15s;
+        position: relative; cursor: help; color: var(--t2); font-size: 11px;
+        opacity: 0.7; transition: opacity .15s;
       }
       .vx-hint:hover { opacity: 1; z-index: 10000; }
       .vx-dcard { overflow: visible !important; position: relative; }
