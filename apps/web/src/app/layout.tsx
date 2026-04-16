@@ -26,6 +26,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         {/* beforeInteractive must live in root layout — not in page-level PrototypeShell */}
         <Script src="/theme-dark-default.js" strategy="beforeInteractive" />
+        <Script id="vx-session-gate" strategy="beforeInteractive">{`
+          try{if(localStorage.getItem('vx-authed')==='1'){
+            document.documentElement.dataset.vxAuthed='1';
+            var s=document.createElement('style');
+            s.id='vx-auth-gate';
+            s.textContent='.view{display:none!important}#view-db-dashboard{display:block!important}';
+            document.head.appendChild(s);
+          }}catch(e){}
+        `}</Script>
       </head>
       <body>
         <VexaThemeBridge />

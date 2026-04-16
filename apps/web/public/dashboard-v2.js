@@ -1393,6 +1393,8 @@
       </div>
     `
     wireEvents(root)
+    // Remove the auth gate style now that v2 owns the DOM
+    document.getElementById('vx-auth-gate')?.remove()
     // Kick off background sync AFTER rendering — doesn't delay the UI
     backgroundTiktokSync()
   }
