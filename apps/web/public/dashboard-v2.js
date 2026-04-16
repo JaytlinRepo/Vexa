@@ -1274,6 +1274,9 @@
       `
     }
 
+    var totalViews = 0, totalLikes = 0
+    var allVids = Array.isArray(tt.recentVideos) ? tt.recentVideos : []
+    allVids.forEach(function(v) { totalViews += Number(v.views||0); totalLikes += Number(v.likes||0) })
     const engagementPct = ((tt.engagementRate || 0) * 100).toFixed(2) + '%'
     const reachPct = ((tt.reachRate || 0) * 100).toFixed(2) + '%'
     const topVideos = Array.isArray(tt.topVideos) ? tt.topVideos.slice(0, 3) : []
@@ -1285,7 +1288,7 @@
         ${kvTile('Avg views', shortNum(tt.avgViews), 'Average view count per video. Views are the primary reach metric on TikTok since every video goes into the For You feed.')}
         ${kvTile('Engagement rate', engagementPct, 'Total (likes + comments + shares) divided by total views across your videos. Above 5% is strong on TikTok.', 'left')}
         ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, 'Average views per video divided by follower count. Above 100% means your content reaches beyond your followers via the For You feed.') : ''}
-        ${kvTile('Total likes', shortNum(tt.likesCount))}
+        ${kvTile('Like conversion', totalViews > 0 ? (totalLikes / totalViews * 100).toFixed(1) + '%' : '—', 'Likes ÷ views. Above 8% = strong. 4-8% = average. Below 4% = viewers watch but don\'t engage.')}
       </div>
     `
 
@@ -1370,14 +1373,6 @@
         + '</div>'
     }
 
-    // Insight card: average like-to-view conversion rate
-    var totalViews = 0, totalLikes = 0
-    vids.forEach(function(v) { totalViews += Number(v.views||0); totalLikes += Number(v.likes||0) })
-    var avgConversion = totalViews > 0 ? (totalLikes / totalViews * 100) : 0
-    var convLabel = avgConversion >= 8 ? 'Strong' : avgConversion >= 4 ? 'Average' : 'Low'
-    var convHint = 'Likes ÷ views. Above 8% = strong (content resonates). 4-8% = average. Below 4% = viewers watch but don\'t engage — improve your hooks.'
-    var convCard = kvTile('Like conversion', avgConversion.toFixed(1) + '%', convHint)
-
     // Engagement by day
     var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     var dayEng = [0,0,0,0,0,0,0]
@@ -1420,9 +1415,8 @@
       + '</div></div>'
       // Performance trend (full width)
       + trendSvg
-      // Insight cards side by side
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">'
-      + convCard
+      // Best day insight card
+      + '<div style="display:grid;grid-template-columns:1fr;gap:14px">'
       // Best day — headline first
       + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
       + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Best day to post</div>'
