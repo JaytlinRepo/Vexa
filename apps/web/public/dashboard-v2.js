@@ -1289,7 +1289,8 @@
   // ─────────────── feed strip (right rail) ────────────────────────
   function sectionFeedStrip() {
     const items = STATE.feed.slice(0, 12)
-    const niche = STATE.me?.companies?.[0]?.niche || ''
+    const company = STATE.me?.companies?.[0]
+    const niche = (company?.detectedNiche && company?.nicheConfidence >= 0.6 ? company.detectedNiche : company?.niche) || ''
     const header = `
       <div style="padding:18px 20px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div>
