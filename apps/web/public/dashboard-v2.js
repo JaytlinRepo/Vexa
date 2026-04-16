@@ -1375,11 +1375,8 @@
     vids.forEach(function(v) { totalViews += Number(v.views||0); totalLikes += Number(v.likes||0) })
     var avgConversion = totalViews > 0 ? (totalLikes / totalViews * 100) : 0
     var convLabel = avgConversion >= 8 ? 'Strong' : avgConversion >= 4 ? 'Average' : 'Low'
-    var convCard = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;justify-content:center">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Like conversion</div>'
-      + '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1">' + avgConversion.toFixed(1) + '%</div>'
-      + '<div style="color:var(--t2);font-size:11px;margin-top:6px">' + convLabel + ' — ' + (avgConversion >= 8 ? 'your content resonates with viewers' : avgConversion >= 4 ? 'room to improve hooks and first impressions' : 'viewers watch but don\'t engage — strengthen your hooks') + '</div>'
-      + '</div>'
+    var convHint = 'Likes ÷ views. Above 8% = strong (content resonates). 4-8% = average. Below 4% = viewers watch but don\'t engage — improve your hooks.'
+    var convCard = kvTile('Like conversion', avgConversion.toFixed(1) + '%', convHint)
 
     // Engagement by day
     var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
