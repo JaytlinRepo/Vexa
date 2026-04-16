@@ -1324,7 +1324,7 @@
   async function render() {
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
-    await fetchAll()
+    try { await fetchAll() } catch (e) { console.warn('[v2] fetchAll failed, rendering with partial data', e) }
     injectMotionStyles()
     const root = view.querySelector('.db-layout') || view
     // The prototype's .db-layout is a grid (1fr 280px); our flex pane was
