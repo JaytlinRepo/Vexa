@@ -231,7 +231,8 @@
 
     const main = document.querySelector('#view-db-dashboard main')
     if (!main) return
-    // Place after the Performance section (second-to-last section before Activity)
+    // Dashboard v2 handles trajectory in per-platform sections — skip standalone injection
+    if (document.querySelector('[data-v2-soft-refresh]')) return
     const sections = main.querySelectorAll('section')
     if (sections.length < 3) return
     if (document.getElementById('vx-trajectory')) return
@@ -551,7 +552,8 @@
   }
 
   function retryInject() {
-    // Dashboard-v2 rewrites the view on nav; our injection is ephemeral.
+    // Dashboard-v2 handles trajectory in per-platform sections — don't re-inject
+    if (document.querySelector('[data-v2-soft-refresh]')) return
     const has = document.getElementById('vx-trajectory')
     if (!has) inject()
   }

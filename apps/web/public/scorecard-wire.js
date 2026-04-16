@@ -48,6 +48,8 @@
     lastRender = Date.now()
     const main = document.querySelector('#view-db-dashboard main')
     if (!main) return
+    // Dashboard v2 owns the layout — skip standalone scorecard injection
+    if (document.querySelector('[data-v2-soft-refresh]')) return
     const sections = main.querySelectorAll('section')
     if (sections.length < 3) return
     document.getElementById('vx-scorecard')?.remove()
