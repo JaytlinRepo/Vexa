@@ -2,6 +2,7 @@ import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
+import { syncInstagramAccount } from './lib/instagramSync'
 import { triggerWeeklyPulses } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 
@@ -55,14 +56,26 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
         const ttCompanies = await prisma.tiktokConnection.findMany({ select: { companyId: true } })
         let ttOk = 0, ttFail = 0
         for (const { companyId } of ttCompanies) {
-          try {
-            await syncTiktokAccount(prisma, companyId)
-            ttOk++
-          } catch { ttFail++ }
+          try { await syncTiktokAccount(prisma, companyId); ttOk++ } catch { ttFail++ }
         }
         if (ttCompanies.length > 0) console.log(`[scheduler] tiktok sync: ${ttOk} ok, ${ttFail} failed`)
       } catch (err) {
         console.error('[scheduler] tiktok sync threw', err)
+      }
+
+      // Refresh Meta-connected Instagram accounts (token refresh + data pull)
+      try {
+        const igCompanies = await prisma.instagramConnection.findMany({
+          where: { source: 'meta' },
+          select: { companyId: true },
+        })
+        let igOk = 0, igFail = 0
+        for (const { companyId } of igCompanies) {
+          try { await syncInstagramAccount(prisma, companyId); igOk++ } catch { igFail++ }
+        }
+        if (igCompanies.length > 0) console.log(`[scheduler] instagram sync: ${igOk} ok, ${igFail} failed`)
+      } catch (err) {
+        console.error('[scheduler] instagram sync threw', err)
       }
     } catch (err) {
       console.error('[scheduler] phyllo sync threw', err)

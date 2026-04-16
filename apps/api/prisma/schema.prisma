@@ -343,11 +343,14 @@ model InstagramConnection {
   audienceTop     Json      @default("[]") @map("audience_top_countries")
   audienceCities  Json      @default("[]") @map("audience_top_cities")
   accessToken     String?   @map("access_token")
+  refreshToken    String?   @map("refresh_token")
   tokenExpiresAt  DateTime? @map("token_expires_at")
   igUserId        String?   @map("ig_user_id")
+  igBusinessId    String?   @map("ig_business_id")
+  pageId          String?   @map("page_id")
   phylloAccountId String?   @unique @map("phyllo_account_id")
   platform        String    @default("instagram")
-  source          String    @default("stub")
+  source          String    @default("stub") // 'stub' | 'phyllo' | 'meta'
   connectedAt     DateTime  @default(now()) @map("connected_at")
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 

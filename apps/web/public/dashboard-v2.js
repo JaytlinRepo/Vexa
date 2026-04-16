@@ -87,6 +87,25 @@
     }
   }
 
+  // Background Instagram sync — runs AFTER the first render
+  function backgroundInstagramSync() {
+    const companyId = STATE.me?.companies?.[0]?.id
+    if (!companyId || !STATE.insights) return
+    if (STATE.insights.source !== 'meta') return // only sync Meta-connected accounts
+    fetch('/api/instagram/sync', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId }),
+    }).then((r) => r.ok ? r.json() : null).then((result) => {
+      if (result?.synced && result.newPosts > 0) {
+        console.log(`[v2] IG sync found ${result.newPosts} new posts`)
+        get('/api/platform/overview').then((ov) => {
+          if (ov) { STATE.overview = ov; if (typeof render === 'function') render() }
+        })
+      }
+    }).catch(() => {})
+  }
+
   // Background TikTok sync — runs AFTER the first render, not during fetchAll
   function backgroundTiktokSync() {
     const companyId = STATE.me?.companies?.[0]?.id
@@ -1491,8 +1510,9 @@
     wireEvents(root)
     // Remove the auth gate style now that v2 owns the DOM
     document.getElementById('vx-auth-gate')?.remove()
-    // Kick off background sync AFTER rendering — doesn't delay the UI
+    // Kick off background syncs AFTER rendering — doesn't delay the UI
     backgroundTiktokSync()
+    backgroundInstagramSync()
   }
 
   async function refresh() {

@@ -260,14 +260,22 @@
       pill.addEventListener('mouseenter', () => { pill.style.borderColor = 'var(--b2)' })
       pill.addEventListener('mouseleave', () => { pill.style.borderColor = 'var(--b1)' })
       pill.addEventListener('click', () => {
+        const pid = pill.dataset.pid
+        // IG + TikTok use direct OAuth redirects, not Phyllo modal
+        if (pid === IG_ID) {
+          window.location.href = `/api/instagram/auth/start?companyId=${encodeURIComponent(company.id)}`
+          return
+        }
+        if (pid === TIKTOK_ROW_ID || pid === 'vexa-tiktok-native') {
+          window.location.href = `/api/tiktok/auth/start?companyId=${encodeURIComponent(company.id)}`
+          return
+        }
         openConnect({
           companyId: company.id,
-          workPlatformId: pill.dataset.pid,
+          workPlatformId: pid,
           onConnected: async () => {
             await refreshConnectionState()
             injectDashboardConnectButton()
-            // Re-render the dashboard data only if IG was connected, since
-            // that's the only platform we currently persist analytics for.
             setTimeout(() => location.reload(), 800)
           },
         })
@@ -365,7 +373,7 @@
         const platformId = btn.dataset.toggle
         const accountId = btn.dataset.accountId
 
-        // TikTok bypasses Phyllo — our own OAuth handles connect/disconnect.
+        // TikTok — our own OAuth
         if (platformId === TIKTOK_ROW_ID) {
           if (!company?.id) return
           if (!connected) {
@@ -379,6 +387,21 @@
           return
         }
 
+        // Instagram — direct Meta OAuth (replaces Phyllo modal)
+        if (platformId === IG_ID) {
+          if (!company?.id) return
+          if (!connected) {
+            window.location.href = `/api/instagram/auth/start?companyId=${encodeURIComponent(company.id)}`
+            return
+          }
+          if (!confirm('Disconnect Instagram?')) return
+          btn.disabled = true
+          await fetch('/api/instagram', { method: 'DELETE', credentials: 'include' })
+          renderIntegrationsState()
+          return
+        }
+
+        // Other platforms — Phyllo Connect modal (future YouTube, etc.)
         if (!connected) {
           openConnect({
             companyId: company?.id,
