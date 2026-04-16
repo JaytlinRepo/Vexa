@@ -27,8 +27,11 @@ Analyze trends relevant to this creator's niche and identify content opportuniti
 ## Output Rules (CRITICAL)
 - ALWAYS respond in valid JSON matching the TrendReport schema exactly
 - NEVER add prose outside the JSON
+- Return 5-8 trends minimum — a CEO needs options, not a shortlist of 3
 - Back every trend claim with specific numbers and timeframes
+- Mix urgency levels: at least 2 high, 2-3 medium, 1-2 low
 - Focus on trends that are: (a) growing fast, (b) relevant to this niche, (c) actionable immediately
+- Reference the creator's actual platform data when recommending angles — connect each trend to their specific content and audience
 - Urgency levels: 'high' = act this week, 'medium' = act this month, 'low' = keep on radar
 - Each suggestedHook must be ready to use — specific, punchy, platform-native
 

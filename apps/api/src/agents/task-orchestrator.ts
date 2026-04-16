@@ -132,6 +132,19 @@ async function executeMayaTask(ctx: {
     return executeMayaWeeklyPulse({ ...ctx, companyId: ctx.companyId })
   }
 
+  // Brief topics about the creator's own data should use the performance
+  // analysis prompt (which loads TikTok/IG data), not the external trend
+  // report prompt. Detect from the task description.
+  const desc = (ctx.description || '').toLowerCase()
+  const isInternalAnalysis =
+    /my.*(engagement|content|perform|posts|videos)/i.test(desc) ||
+    /audience.*(deep|dive|breakdown|demograph|where|age)/i.test(desc) ||
+    /recent.*(content|posts|performance)/i.test(desc) ||
+    /analyz.*my/i.test(desc)
+  if (isInternalAnalysis && ctx.companyId) {
+    return executeMayaPerformanceReview({ ...ctx, companyId: ctx.companyId })
+  }
+
   const basePrompt = buildMayaSystemPrompt({
     niche: ctx.niche,
     brandVoice: ctx.brandVoice,
@@ -147,7 +160,7 @@ async function executeMayaTask(ctx: {
   const raw = await invokeAgent({
     systemPrompt,
     messages: [{ role: 'user', content: buildMayaTaskPrompt(ctx.description || 'Generate weekly trend report') }],
-    maxTokens: 2048,
+    maxTokens: 4096,
     temperature: 0.6,
   })
 

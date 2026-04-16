@@ -122,28 +122,42 @@ export function parseAgentOutput<T>(rawOutput: string): T {
     .replace(/```\n?/g, '')
     .trim()
 
-  // If the LLM added prose before/after the JSON, extract the outermost { ... }
+  // Extract the outermost { ... } — LLM sometimes adds prose before/after
   const firstBrace = cleaned.indexOf('{')
   const lastBrace = cleaned.lastIndexOf('}')
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     cleaned = cleaned.slice(firstBrace, lastBrace + 1)
   }
 
-  try {
-    return JSON.parse(cleaned) as T
-  } catch (firstErr) {
-    // Common Haiku issue: trailing commas before closing brace/bracket
-    const repaired = cleaned
-      .replace(/,\s*}/g, '}')
-      .replace(/,\s*]/g, ']')
+  // Attempt parse with progressively more aggressive repair
+  const attempts: Array<[string, string]> = [
+    [cleaned, 'raw'],
+    // Fix trailing commas
+    [cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']'), 'trailing-comma'],
+    // Fix unescaped newlines inside string values
+    [cleaned.replace(/(?<=":[\s]*"[^"]*)\n/g, '\\n'), 'newlines'],
+    // Fix single quotes used as string delimiters
+    [cleaned.replace(/'/g, '"'), 'single-quotes'],
+    // Nuclear: strip all control chars inside strings
+    [cleaned.replace(/[\x00-\x1f]/g, ' ').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']'), 'control-chars'],
+  ]
+
+  let lastErr: Error | null = null
+  for (const [text, label] of attempts) {
     try {
-      return JSON.parse(repaired) as T
-    } catch {
-      // Surface the original error with context for debugging
-      const preview = cleaned.slice(0, 200)
-      throw new Error(`JSON parse failed: ${(firstErr as Error).message} — preview: ${preview}`)
+      const result = JSON.parse(text) as T
+      if (label !== 'raw') console.log(`[bedrock] JSON repaired via ${label}`)
+      return result
+    } catch (e) {
+      lastErr = e as Error
     }
   }
+
+  // Log the area around the error position for debugging
+  const posMatch = lastErr?.message?.match(/position (\d+)/)
+  const pos = posMatch ? Number(posMatch[1]) : 0
+  const around = cleaned.slice(Math.max(0, pos - 80), pos + 80)
+  throw new Error(`JSON parse failed after all repair attempts: ${lastErr?.message} — around position ${pos}: ...${around}...`)
 }
 
 // ─── PROMPT BUILDER ───────────────────────────────────────────────────────────

@@ -104,8 +104,8 @@
       { briefKind: 'weekly_trends',        title: 'Scan my niche for this week\'s trends', description: 'Pull the top 3 trends moving in my niche with growth %, window, and a verdict for each. Flag anything I should act on in the next 48 hours.', type: 'trend_report' },
       { briefKind: 'competitor_scan',      title: 'Competitor scan — top 3 in my niche', description: 'Identify the three best-performing accounts in my sub-niche right now and summarize what is working for them: post formats, pillars, posting times, hook patterns.', type: 'trend_report' },
       { briefKind: 'hashtag_report',       title: 'Which hashtags are actually working', description: 'Return 10-15 hashtags that are currently pulling reach in my niche, bucketed by size (big / mid / small). Avoid dead or oversaturated tags.', type: 'trend_report' },
-      { briefKind: 'audience_deep_dive',   title: 'Audience deep dive', description: 'Summarize what I know about my audience right now: demographics, peak engagement windows, content pillars they respond to best, and one thing I should stop posting.', type: 'trend_report' },
-      { briefKind: 'engagement_diagnosis', title: 'Why my engagement dropped', description: 'Look at the last two weeks and explain what changed. Name the posts, the formats, or the cadence shift. Propose one specific fix I can ship this week.', type: 'trend_report' },
+      { briefKind: 'audience_deep_dive',   title: 'Audience deep dive', description: 'Analyze my audience demographics, where they are, what age range, and what content pillars they respond to best. Use my actual platform data.', type: 'trend_report' },
+      { briefKind: 'engagement_diagnosis', title: 'Analyze my engagement', description: 'Look at my recent content performance and tell me what the engagement numbers say. Compare recent posts to my average, flag patterns, and recommend what to do next based on what the data shows.', type: 'trend_report' },
     ],
     strategist: [
       { briefKind: 'weekly_plan',   title: 'Plan next week\'s content', description: 'Build my weekly content calendar. 3-5 posts. Each has day, format, topic, and angle. Anchor it on my pillars and leave room for one trend-driven slot.', type: 'content_plan' },
@@ -190,10 +190,9 @@
         }) : { ok: false, error: 'not_ready' })
         if (result.ok) {
           el.remove()
-          if (typeof render === 'function') render()
-          // Open the meeting room so the agent walks the CEO through
-          // the deliverable. openMeetingWithTaskOutput handles both
-          // presentation scripts and synthetic openings from raw output.
+          // If the task already has outputs (sync path), open the meeting
+          // room immediately. Otherwise (async/Bedrock path), show a toast
+          // and wait for SSE notification when the deliverable lands.
           const output = result.task?.outputs?.[0]
           const init = (empName || '?')[0].toUpperCase()
           const roleTitle = role === 'analyst' ? 'Trend Analyst'
@@ -202,6 +201,7 @@
             : role === 'creative_director' ? 'Creative Director'
             : 'Teammate'
           if (output && typeof window.openMeetingWithTaskOutput === 'function') {
+            if (typeof render === 'function') render()
             window.openMeetingWithTaskOutput({
               name: empName,
               role: roleTitle,
@@ -209,8 +209,10 @@
               output,
               task: result.task,
             })
-          } else if (typeof window.navigate === 'function') {
-            window.navigate('db-tasks')
+          } else {
+            // Async: agent is working in background. Show toast + refresh.
+            showWorkingToast(empName, result.task?.id)
+            if (typeof render === 'function') render()
           }
         } else if (result.limitReached) {
           el.remove()
@@ -224,6 +226,51 @@
   }
 
   window.vxOpenAssignModal = openAssignModal
+
+  function showWorkingToast(empName, taskId) {
+    const existing = document.getElementById('vx-working-toast')
+    if (existing) existing.remove()
+    const toast = document.createElement('div')
+    toast.id = 'vx-working-toast'
+    toast.setAttribute('role', 'status')
+    toast.style.cssText =
+      'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9300;max-width:min(420px,92vw);padding:14px 18px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t2);font-size:13px;line-height:1.5;font-family:inherit;box-shadow:0 8px 28px rgba(0,0,0,.2)'
+    toast.innerHTML = `<strong>${escapeHtml(empName)}</strong> is working on it…`
+    document.body.appendChild(toast)
+
+    if (!taskId) { setTimeout(() => toast.remove(), 8000); return }
+
+    // Poll until the task is delivered, then open the meeting room
+    let attempts = 0
+    const poll = setInterval(async () => {
+      attempts++
+      if (attempts > 40) { clearInterval(poll); toast.remove(); return } // give up after ~2 min
+      try {
+        const res = await fetch('/api/tasks', { credentials: 'include' })
+        if (!res.ok) return
+        const json = await res.json()
+        const task = (json.tasks || []).find((t) => t.id === taskId)
+        if (!task || task.status === 'in_progress' || task.status === 'pending') return
+        clearInterval(poll)
+        toast.remove()
+        if (task.status === 'delivered') {
+          const output = task.outputs?.[0]
+          if (output && typeof window.openMeetingWithTaskOutput === 'function') {
+            const init = (empName || '?')[0].toUpperCase()
+            const emp = EMPLOYEES.find((e) => e.name === empName)
+            window.openMeetingWithTaskOutput({
+              name: empName,
+              role: emp?.short || 'Teammate',
+              init,
+              output,
+              task,
+            })
+          }
+          if (typeof render === 'function') render()
+        }
+      } catch { /* network blip, retry next tick */ }
+    }, 3000)
+  }
 
   function wireAssignButtons() {
     document.querySelectorAll('.emp-cards [data-assign-role]').forEach((btn) => {

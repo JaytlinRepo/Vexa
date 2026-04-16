@@ -53,6 +53,7 @@ const createSchema = z.object({
 
 router.post('/', requireAuth, async (req, res, next) => {
   try {
+    console.log('[tasks] POST /api/tasks received', { body: req.body?.type, briefKind: req.body?.briefKind })
     const { userId } = (req as AuthedRequest).session
     const data = createSchema.parse(req.body)
 
@@ -92,121 +93,105 @@ router.post('/', requireAuth, async (req, res, next) => {
       include: { employee: true },
     })
 
-    // Execute via orchestrateTask — routes through role-specific Bedrock
-    // prompts with live platform data (IG + TikTok numbers, brand memory,
-    // niche knowledge). Falls back to executeAndStore mock path only if
-    // Bedrock is not configured.
-    let knowledgeUsed = 0
-    let executionSource: 'bedrock' | 'mock' | null = null
-    let deliveryMode: 'awaiting_review' | 'auto_approved' = 'awaiting_review'
-    let postDeliveryChain: AgentPipelineChainResult | undefined
-    try {
-      try {
-        await orchestrateTask(task.id)
-        executionSource = 'bedrock'
-      } catch (bedrockErr) {
-        // Bedrock unavailable or errored — fall back to mock generators
-        console.warn('[tasks] orchestrateTask failed, falling back to mock', (bedrockErr as Error).message)
-        const role = task.employee.role as AgentRole
-        const result = await executeAndStore(prisma, {
-          taskId: task.id,
-          companyId: company.id,
-          niche: company.niche,
-          role,
-          type: data.type,
-          title: data.title,
-          description: data.description,
-          briefKind: data.briefKind,
-        })
-        knowledgeUsed = result.knowledgeUsed
-        executionSource = result.source
-      }
+    // Return immediately — the agent works in the background. The CEO
+    // sees the task card flip to 'delivered' via SSE when it's done.
+    res.status(201).json({
+      task,
+      usage: await computeUsage(prisma, userId),
+      execution: { knowledgeUsed: 0, source: null },
+      deliveryMode: 'awaiting_review',
+      async: true,
+    })
 
-      const auto = await tryAutoApproveDeliveredTask(prisma, {
-        companyId: company.id,
-        taskId: task.id,
-        outputType: data.type as OutputType,
-        agentTools: company.agentTools,
-      })
-      if (auto.didAuto) {
-        deliveryMode = 'auto_approved'
-        const closed = await prisma.task.findUnique({
-          where: { id: task.id },
-          include: { employee: true, outputs: true },
-        })
-        if (closed) {
-          try {
-            postDeliveryChain = await triggerNextAgentAfterApproval(prisma, {
-              companyId: company.id,
-              employee: closed.employee,
-            })
-            const body = chainProgressBody(closed.title, postDeliveryChain, 'auto')
-            const emoji = emojiByRole[closed.employee.role] ?? '✅'
-            await createNotification({
-              userId,
-              companyId: company.id,
-              type: 'task_approved',
-              emoji,
-              title: `${closed.employee.name}'s work shipped on defaults`,
-              body,
-              actionLabel: postDeliveryChain.ok === true ? 'Open next deliverable' : 'Open queue',
-              metadata: {
-                taskId: closed.id,
-                autoShip: true,
-                ...(postDeliveryChain.ok === true
-                  ? { nextTaskId: postDeliveryChain.nextTaskId, nextTaskTitle: postDeliveryChain.title }
-                  : {}),
-              },
-            })
-          } catch (e) {
-            console.warn('[tasks] auto-ship chain failed', e)
-          }
-        }
-      }
-    } catch (err) {
-      // Don't leave the task stuck in 'in_progress' — the CEO would see
-      // an endlessly-loading card and never know the run failed. Flip to
-      // 'revision' + write a small stub output explaining what happened
-      // so they can re-brief the same task.
-      console.warn('[tasks] brief execution failed; flagging task for revision', err)
+    // Fire-and-forget: run the agent in the background
+    void (async () => {
       try {
-        await prisma.output.create({
-          data: {
+        try {
+          await orchestrateTask(task.id)
+          console.log('[tasks] orchestrateTask completed for', task.id)
+        } catch (bedrockErr) {
+          console.warn('[tasks] orchestrateTask failed, falling back to mock', (bedrockErr as Error).message)
+          const role = task.employee.role as AgentRole
+          await executeAndStore(prisma, {
             taskId: task.id,
             companyId: company.id,
-            employeeId: task.employeeId,
+            niche: company.niche,
+            role,
             type: data.type,
-            content: {
-              error: 'execution_failed',
-              note: 'The agent could not complete this brief. Re-brief to try again.',
-              message: (err as Error)?.message?.slice(0, 500) || null,
-            } as unknown as import('@prisma/client').Prisma.InputJsonObject,
-            status: 'draft',
+            title: data.title,
+            description: data.description,
+            briefKind: data.briefKind,
+          })
+        }
+
+        // Auto-approve check
+        const auto = await tryAutoApproveDeliveredTask(prisma, {
+          companyId: company.id,
+          taskId: task.id,
+          outputType: data.type as OutputType,
+          agentTools: company.agentTools,
+        })
+
+        let postDeliveryChain: AgentPipelineChainResult | undefined
+        if (auto.didAuto) {
+          const closed = await prisma.task.findUnique({
+            where: { id: task.id },
+            include: { employee: true, outputs: true },
+          })
+          if (closed) {
+            try {
+              postDeliveryChain = await triggerNextAgentAfterApproval(prisma, {
+                companyId: company.id,
+                employee: closed.employee,
+              })
+            } catch (e) {
+              console.warn('[tasks] auto-ship chain failed', e)
+            }
+          }
+        }
+
+        // Notify the CEO that the deliverable is ready
+        const empName = task.employee.name || 'Your agent'
+        const emoji = emojiByRole[task.employee.role] ?? '📋'
+        await createNotification({
+          userId,
+          companyId: company.id,
+          type: 'output_delivered',
+          emoji,
+          title: `${empName} finished: ${task.title}`,
+          body: 'Ready for your review.',
+          actionLabel: 'Open deliverable',
+          metadata: {
+            taskId: task.id,
+            ...(postDeliveryChain?.ok === true ? { nextTaskId: postDeliveryChain.nextTaskId } : {}),
           },
         })
-        await prisma.task.update({
-          where: { id: task.id },
-          data: { status: 'revision' },
-        })
-      } catch (e2) {
-        console.warn('[tasks] failed to persist execution-failed stub', e2)
+      } catch (err) {
+        console.warn('[tasks] background execution failed', err)
+        try {
+          await prisma.output.create({
+            data: {
+              taskId: task.id,
+              companyId: company.id,
+              employeeId: task.employeeId,
+              type: data.type,
+              content: {
+                error: 'execution_failed',
+                note: 'The agent could not complete this brief. Re-brief to try again.',
+                message: (err as Error)?.message?.slice(0, 500) || null,
+              } as unknown as import('@prisma/client').Prisma.InputJsonObject,
+              status: 'draft',
+            },
+          })
+          await prisma.task.update({
+            where: { id: task.id },
+            data: { status: 'revision' },
+          })
+        } catch (e2) {
+          console.warn('[tasks] failed to persist execution-failed stub', e2)
+        }
       }
-    }
-
-    // Re-fetch with outputs so the client sees delivered status + content
-    // in the same response.
-    const fresh = await prisma.task.findUnique({
-      where: { id: task.id },
-      include: { employee: true, outputs: true },
-    })
-
-    res.status(201).json({
-      task: fresh ?? task,
-      usage: await computeUsage(prisma, userId),
-      execution: { knowledgeUsed, source: executionSource },
-      deliveryMode,
-      ...(postDeliveryChain !== undefined ? { chain: postDeliveryChain } : {}),
-    })
+    })()
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })
