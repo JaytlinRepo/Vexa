@@ -13,9 +13,13 @@ const client = new BedrockRuntimeClient({ region: BEDROCK_REGION })
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
+type BedrockContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+
 interface BedrockMessage {
   role: 'user' | 'assistant'
-  content: string
+  content: string | BedrockContentBlock[]
 }
 
 interface InvokeOptions {

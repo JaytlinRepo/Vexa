@@ -1,15 +1,19 @@
 /**
- * Detect the creator's actual content niche from their video captions
- * using Bedrock (Claude Haiku). Compares against the supported niches
- * and returns a primary + sub-niche with confidence score.
+ * Detect the creator's actual content niche from their video data.
+ *
+ * Strategy (in order):
+ * 1. Text-based: analyze captions, titles, hashtags via Bedrock
+ * 2. Visual fallback: if text confidence < 0.5 or too few captions,
+ *    download video thumbnails and send as images to Bedrock
  *
  * Called on TikTok connect so the knowledge feed serves relevant
- * content from day one — even if the user picked the wrong niche
- * during onboarding.
+ * content from day one.
  */
 
 import { PrismaClient } from '@prisma/client'
 import { invokeAgent, parseAgentOutput } from '../services/bedrock/bedrock.service'
+import https from 'https'
+import http from 'http'
 
 const SUPPORTED_NICHES = ['fitness', 'finance', 'food', 'coaching', 'lifestyle', 'personal_development'] as const
 
@@ -29,52 +33,12 @@ interface NicheDetectionResult {
   reasoning: string
 }
 
-export async function detectNicheFromContent(
-  prisma: PrismaClient,
-  companyId: string,
-): Promise<NicheDetectionResult | null> {
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    include: { tiktok: true, instagram: true },
-  })
-  if (!company) return null
-
-  // Gather captions from TikTok (primary source — has real video data)
-  const captions: string[] = []
-  if (company.tiktok) {
-    const vids = (company.tiktok.recentVideos as Array<{ title?: string }>) || []
-    for (const v of vids) {
-      if (v.title?.trim()) captions.push(v.title.trim())
-    }
-  }
-
-  // Also pull from PlatformPost if TikTok recentVideos is sparse
-  if (captions.length < 5) {
-    const posts = await prisma.platformPost.findMany({
-      where: { account: { companyId } },
-      orderBy: { publishedAt: 'desc' },
-      take: 20,
-      select: { caption: true },
-    })
-    for (const p of posts) {
-      if (p.caption?.trim() && !captions.includes(p.caption.trim())) {
-        captions.push(p.caption.trim())
-      }
-    }
-  }
-
-  if (captions.length < 3) return null // not enough data to detect
-
-  const captionBlock = captions
-    .slice(0, 20)
-    .map((c, i) => `${i + 1}. ${c.slice(0, 200)}`)
-    .join('\n')
-
+function buildSystemPrompt(): string {
   const subNicheList = Object.entries(SUB_NICHES)
     .map(([niche, subs]) => `  ${niche}: ${subs.join(', ')}`)
     .join('\n')
 
-  const systemPrompt = `You are a content niche classifier. Given a list of video captions from a creator's social media account, determine which content niche best describes their work.
+  return `You are a content niche classifier. Determine which content niche best describes a creator's work.
 
 Supported niches: ${SUPPORTED_NICHES.join(', ')}
 
@@ -83,46 +47,178 @@ ${subNicheList}
 
 Rules:
 - Pick the SINGLE best-matching niche from the supported list
-- Pick the closest sub-niche from the list above for that niche. If none match well, you may use a short custom label (2-3 words max)
-- Confidence: 0.0 to 1.0 — how confident are you?
+- Pick the closest sub-niche from the list above. If none match well, use a short custom label (2-3 words max)
+- Confidence: 0.0 to 1.0
 - If the content spans multiple niches, pick the dominant one
-- "lifestyle" is the catch-all — only use it when content genuinely IS lifestyle (daily routines, aesthetics, travel, personal vlogs) not as a fallback for unclear content
+- "lifestyle" is for content that genuinely IS lifestyle (daily routines, aesthetics, travel, personal vlogs) — not a fallback for unclear content
 
 Return ONLY valid JSON:
 {
   "detectedNiche": "one of: ${SUPPORTED_NICHES.join(', ')}",
-  "detectedSubNiche": "one of the sub-niches listed above, or a short custom label",
+  "detectedSubNiche": "sub-niche label",
   "confidence": 0.85,
   "reasoning": "one sentence explaining why"
 }`
+}
+
+function validateResult(result: NicheDetectionResult): NicheDetectionResult {
+  if (!SUPPORTED_NICHES.includes(result.detectedNiche as typeof SUPPORTED_NICHES[number])) {
+    result.detectedNiche = 'lifestyle'
+    result.confidence = Math.min(result.confidence, 0.5)
+  }
+  return result
+}
+
+async function persistResult(prisma: PrismaClient, companyId: string, result: NicheDetectionResult): Promise<void> {
+  await prisma.company.update({
+    where: { id: companyId },
+    data: {
+      detectedNiche: result.detectedNiche,
+      detectedSubNiche: result.detectedSubNiche,
+      nicheConfidence: result.confidence,
+    },
+  })
+  console.log(`[niche] detected ${result.detectedNiche}/${result.detectedSubNiche} (${(result.confidence * 100).toFixed(0)}%) for company ${companyId}: ${result.reasoning}`)
+}
+
+// ─── TEXT-BASED DETECTION ────────────────────────────────────────────────────
+
+async function detectFromText(captions: string[]): Promise<NicheDetectionResult | null> {
+  if (captions.length < 3) return null
+
+  const captionBlock = captions
+    .slice(0, 20)
+    .map((c, i) => `${i + 1}. ${c.slice(0, 200)}`)
+    .join('\n')
+
+  const raw = await invokeAgent({
+    systemPrompt: buildSystemPrompt(),
+    messages: [{ role: 'user', content: `Classify this creator's niche from their ${captions.length} most recent video captions:\n\n${captionBlock}` }],
+    maxTokens: 256,
+    temperature: 0.2,
+  })
+  return validateResult(parseAgentOutput<NicheDetectionResult>(raw))
+}
+
+// ─── VISUAL (THUMBNAIL) DETECTION ────────────────────────────────────────────
+
+async function downloadImageAsBase64(url: string, timeoutMs = 8000): Promise<{ data: string; mediaType: string } | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs)
+    const get = url.startsWith('https') ? https.get : http.get
+    get(url, { timeout: timeoutMs }, (res) => {
+      if (res.statusCode !== 200) { clearTimeout(timer); resolve(null); return }
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      res.on('end', () => {
+        clearTimeout(timer)
+        const buf = Buffer.concat(chunks)
+        // Cap at 1MB per image to stay within Bedrock limits
+        if (buf.length > 1_000_000) { resolve(null); return }
+        const ct = (res.headers['content-type'] || 'image/jpeg').split(';')[0].trim()
+        resolve({ data: buf.toString('base64'), mediaType: ct })
+      })
+      res.on('error', () => { clearTimeout(timer); resolve(null) })
+    }).on('error', () => { clearTimeout(timer); resolve(null) })
+  })
+}
+
+async function detectFromThumbnails(thumbnailUrls: string[]): Promise<NicheDetectionResult | null> {
+  if (thumbnailUrls.length === 0) return null
+
+  // Download up to 8 thumbnails in parallel
+  const urls = thumbnailUrls.slice(0, 8)
+  console.log(`[niche] downloading ${urls.length} thumbnails for visual detection...`)
+  const images = (await Promise.all(urls.map((u) => downloadImageAsBase64(u)))).filter(Boolean) as Array<{ data: string; mediaType: string }>
+
+  if (images.length < 2) {
+    console.log(`[niche] only ${images.length} thumbnails downloaded, skipping visual detection`)
+    return null
+  }
+
+  const contentBlocks: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = [
+    { type: 'text', text: `Classify this creator's content niche based on these ${images.length} video thumbnails. Look at the visual style, settings, subjects, and activities shown.` },
+  ]
+  for (const img of images) {
+    contentBlocks.push({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mediaType, data: img.data },
+    })
+  }
+
+  const raw = await invokeAgent({
+    systemPrompt: buildSystemPrompt(),
+    messages: [{ role: 'user', content: contentBlocks }],
+    maxTokens: 256,
+    temperature: 0.2,
+  })
+  return validateResult(parseAgentOutput<NicheDetectionResult>(raw))
+}
+
+// ─── MAIN ENTRY POINT ────────────────────────────────────────────────────────
+
+export async function detectNicheFromContent(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<NicheDetectionResult | null> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: { tiktok: true },
+  })
+  if (!company) return null
+
+  // Gather captions
+  const captions: string[] = []
+  const thumbnailUrls: string[] = []
+  if (company.tiktok) {
+    const vids = (company.tiktok.recentVideos as Array<{ title?: string; cover?: string }>) || []
+    for (const v of vids) {
+      if (v.title?.trim()) captions.push(v.title.trim())
+      if (v.cover) thumbnailUrls.push(v.cover)
+    }
+  }
+
+  // Also pull from PlatformPost
+  if (captions.length < 5 || thumbnailUrls.length < 5) {
+    const posts = await prisma.platformPost.findMany({
+      where: { account: { companyId } },
+      orderBy: { publishedAt: 'desc' },
+      take: 20,
+      select: { caption: true, thumbnailUrl: true },
+    })
+    for (const p of posts) {
+      if (p.caption?.trim() && !captions.includes(p.caption.trim())) captions.push(p.caption.trim())
+      if (p.thumbnailUrl && !thumbnailUrls.includes(p.thumbnailUrl)) thumbnailUrls.push(p.thumbnailUrl)
+    }
+  }
 
   try {
-    const raw = await invokeAgent({
-      systemPrompt,
-      messages: [{ role: 'user', content: `Classify this creator's niche from their ${captions.length} most recent video captions:\n\n${captionBlock}` }],
-      maxTokens: 256,
-      temperature: 0.2,
-    })
-    const result = parseAgentOutput<NicheDetectionResult>(raw)
+    // Step 1: try text-based detection
+    const textResult = await detectFromText(captions).catch(() => null)
 
-    // Validate the niche is one we support
-    if (!SUPPORTED_NICHES.includes(result.detectedNiche as typeof SUPPORTED_NICHES[number])) {
-      result.detectedNiche = 'lifestyle' // safe fallback
-      result.confidence = Math.min(result.confidence, 0.5)
+    if (textResult && textResult.confidence >= 0.5) {
+      await persistResult(prisma, companyId, textResult)
+      return textResult
     }
 
-    // Persist to the company
-    await prisma.company.update({
-      where: { id: companyId },
-      data: {
-        detectedNiche: result.detectedNiche,
-        detectedSubNiche: result.detectedSubNiche,
-        nicheConfidence: result.confidence,
-      },
-    })
+    // Step 2: text was low-confidence or failed — try thumbnails
+    console.log(`[niche] text detection ${textResult ? `low confidence (${(textResult.confidence * 100).toFixed(0)}%)` : 'failed'}, trying visual fallback...`)
+    const visualResult = await detectFromThumbnails(thumbnailUrls).catch(() => null)
 
-    console.log(`[niche] detected ${result.detectedNiche}/${result.detectedSubNiche} (${(result.confidence * 100).toFixed(0)}%) for company ${companyId}: ${result.reasoning}`)
-    return result
+    if (visualResult) {
+      // If we have both, pick the higher-confidence one
+      const best = textResult && textResult.confidence > visualResult.confidence ? textResult : visualResult
+      await persistResult(prisma, companyId, best)
+      return best
+    }
+
+    // Step 3: visual also failed — use text result if we have one, even if low confidence
+    if (textResult) {
+      await persistResult(prisma, companyId, textResult)
+      return textResult
+    }
+
+    return null
   } catch (err) {
     console.warn('[niche] detection failed', err)
     return null
