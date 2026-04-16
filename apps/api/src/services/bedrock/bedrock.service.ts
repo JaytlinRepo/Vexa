@@ -116,12 +116,34 @@ export async function invokeAgentStream(options: StreamOptions): Promise<void> {
  * Strips any accidental markdown code fences before parsing.
  */
 export function parseAgentOutput<T>(rawOutput: string): T {
-  const cleaned = rawOutput
+  // Strip markdown fences
+  let cleaned = rawOutput
     .replace(/```json\n?/g, '')
     .replace(/```\n?/g, '')
     .trim()
 
-  return JSON.parse(cleaned) as T
+  // If the LLM added prose before/after the JSON, extract the outermost { ... }
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1)
+  }
+
+  try {
+    return JSON.parse(cleaned) as T
+  } catch (firstErr) {
+    // Common Haiku issue: trailing commas before closing brace/bracket
+    const repaired = cleaned
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+    try {
+      return JSON.parse(repaired) as T
+    } catch {
+      // Surface the original error with context for debugging
+      const preview = cleaned.slice(0, 200)
+      throw new Error(`JSON parse failed: ${(firstErr as Error).message} — preview: ${preview}`)
+    }
+  }
 }
 
 // ─── PROMPT BUILDER ───────────────────────────────────────────────────────────

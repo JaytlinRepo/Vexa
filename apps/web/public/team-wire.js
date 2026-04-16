@@ -191,23 +191,21 @@
         if (result.ok) {
           el.remove()
           if (typeof render === 'function') render()
-          // If the brief came back with a presentation script, hand off
-          // to the meeting room so the agent walks the CEO through it
-          // live. Otherwise fall back to the old navigate-to-tasks path.
+          // Open the meeting room so the agent walks the CEO through
+          // the deliverable. openMeetingWithTaskOutput handles both
+          // presentation scripts and synthetic openings from raw output.
           const output = result.task?.outputs?.[0]
-          const presentation = output?.content?.presentation
-          if (presentation && typeof window.openMeetingWithPresentation === 'function') {
-            const init = (empName || '?')[0].toUpperCase()
-            const roleTitle = role === 'analyst' ? 'Trend Analyst'
-              : role === 'strategist' ? 'Content Strategist'
-              : role === 'copywriter' ? 'Copywriter & Script Writer'
-              : role === 'creative_director' ? 'Creative Director'
-              : 'Teammate'
-            window.openMeetingWithPresentation({
+          const init = (empName || '?')[0].toUpperCase()
+          const roleTitle = role === 'analyst' ? 'Trend Analyst'
+            : role === 'strategist' ? 'Content Strategist'
+            : role === 'copywriter' ? 'Copywriter & Script Writer'
+            : role === 'creative_director' ? 'Creative Director'
+            : 'Teammate'
+          if (output && typeof window.openMeetingWithTaskOutput === 'function') {
+            window.openMeetingWithTaskOutput({
               name: empName,
               role: roleTitle,
               init,
-              presentation,
               output,
               task: result.task,
             })
