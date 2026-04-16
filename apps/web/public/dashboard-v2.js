@@ -529,7 +529,7 @@
 
     return `
       <div style="margin-top:12px">
-        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">AUDIENCE — ${platformBadge(a.platform)} @${esc(a.handle)}</div>
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">AUDIENCE</div>
         <div style="display:flex;gap:10px">
           ${topAge ? mini('Top age', `${topAge.bucket} · ${Math.round(topAge.share * 100)}%`) : ''}
           ${topCountry ? mini('Top country', `${topCountry.bucket} · ${Math.round(topCountry.share * 100)}%`) : ''}
