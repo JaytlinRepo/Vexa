@@ -6,6 +6,7 @@ import { createNotification } from '../services/notifications/notification.servi
 import { assertTaskQuota, computeUsage } from '../lib/usage'
 import { recordTaskApproved, recordTaskRejected } from '../lib/brandMemory'
 import { executeAndStore } from '../services/agentExecutor'
+import { orchestrateTask } from '../agents/task-orchestrator'
 import { AgentRole } from '../lib/nicheKnowledge'
 import { triggerNextAgentAfterApproval, type AgentPipelineChainResult } from '../agents/task-orchestrator'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -91,28 +92,35 @@ router.post('/', requireAuth, async (req, res, next) => {
       include: { employee: true },
     })
 
-    // Execute the brief inline — pulls niche knowledge, generates the
-    // structured output (Bedrock when configured, mock otherwise), writes
-    // the Output row, and flips the task to 'delivered'. This is the
-    // "real work in your queue within seconds" promise.
+    // Execute via orchestrateTask — routes through role-specific Bedrock
+    // prompts with live platform data (IG + TikTok numbers, brand memory,
+    // niche knowledge). Falls back to executeAndStore mock path only if
+    // Bedrock is not configured.
     let knowledgeUsed = 0
     let executionSource: 'bedrock' | 'mock' | null = null
     let deliveryMode: 'awaiting_review' | 'auto_approved' = 'awaiting_review'
     let postDeliveryChain: AgentPipelineChainResult | undefined
     try {
-      const role = task.employee.role as AgentRole
-      const result = await executeAndStore(prisma, {
-        taskId: task.id,
-        companyId: company.id,
-        niche: company.niche,
-        role,
-        type: data.type,
-        title: data.title,
-        description: data.description,
-        briefKind: data.briefKind,
-      })
-      knowledgeUsed = result.knowledgeUsed
-      executionSource = result.source
+      try {
+        await orchestrateTask(task.id)
+        executionSource = 'bedrock'
+      } catch (bedrockErr) {
+        // Bedrock unavailable or errored — fall back to mock generators
+        console.warn('[tasks] orchestrateTask failed, falling back to mock', (bedrockErr as Error).message)
+        const role = task.employee.role as AgentRole
+        const result = await executeAndStore(prisma, {
+          taskId: task.id,
+          companyId: company.id,
+          niche: company.niche,
+          role,
+          type: data.type,
+          title: data.title,
+          description: data.description,
+          briefKind: data.briefKind,
+        })
+        knowledgeUsed = result.knowledgeUsed
+        executionSource = result.source
+      }
 
       const auto = await tryAutoApproveDeliveredTask(prisma, {
         companyId: company.id,
