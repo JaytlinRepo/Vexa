@@ -210,9 +210,22 @@
               task: result.task,
             })
           } else {
-            // Async: agent is working in background. Show toast + refresh.
-            showWorkingToast(empName, result.task?.id)
+            // Async: agent is working in background.
+            // Open the meeting room immediately with a "working" message,
+            // then poll for the deliverable and present it when ready.
+            if (typeof window.openMeeting === 'function') {
+              window.openMeeting(empName, roleTitle, init)
+              // Show working message in the meeting bubble
+              setTimeout(function () {
+                var msgs = document.getElementById('mr-msgs')
+                if (msgs) {
+                  msgs.innerHTML = '<div class="mr-msg"><div class="mr-bubble" style="color:var(--t2);font-style:italic">One moment — pulling that together for you now.</div></div>'
+                }
+              }, 200)
+            }
             if (typeof render === 'function') render()
+            // Poll for the deliverable, then present it in the meeting
+            pollAndPresent(empName, roleTitle, init, result.task?.id)
           }
         } else if (result.limitReached) {
           el.remove()
@@ -226,6 +239,36 @@
   }
 
   window.vxOpenAssignModal = openAssignModal
+
+  function pollAndPresent(empName, roleTitle, init, taskId) {
+    if (!taskId) return
+    var attempts = 0
+    var poll = setInterval(async function () {
+      attempts++
+      if (attempts > 40) { clearInterval(poll); return }
+      try {
+        var res = await fetch('/api/tasks', { credentials: 'include' })
+        if (!res.ok) return
+        var json = await res.json()
+        var task = (json.tasks || []).find(function (t) { return t.id === taskId })
+        if (!task || task.status === 'in_progress' || task.status === 'pending') return
+        clearInterval(poll)
+        if (task.status === 'delivered') {
+          var output = task.outputs && task.outputs[0]
+          if (output && typeof window.openMeetingWithTaskOutput === 'function') {
+            window.openMeetingWithTaskOutput({
+              name: empName,
+              role: roleTitle,
+              init: init,
+              output: output,
+              task: task,
+            })
+          }
+          if (typeof render === 'function') render()
+        }
+      } catch (e) { /* retry */ }
+    }, 3000)
+  }
 
   function showWorkingToast(empName, taskId) {
     const existing = document.getElementById('vx-working-toast')
