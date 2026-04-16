@@ -937,7 +937,7 @@
           ${igPostsGrid(ig.recentMedia)}
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
-          ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null, 'Average engagement rate per weekday across recent posts. Tells you which days your audience is most active.')}
+          ${igBestDayCard(ig.recentMedia)}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
             ${chartCard('Format mix', formatDonutSvg(ig.recentMedia), null, 'Breakdown of your recent posts by format. Helps identify which formats you rely on most vs. what performs.')}
             ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender), 'Gender and age breakdown of your followers. Helps tailor content voice and topics.')}
@@ -945,6 +945,43 @@
         </div>
       </section>
     `
+  }
+
+  function igBestDayCard(media) {
+    if (!media || media.length < 3) return ''
+    var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    var sums = Array(7).fill(0)
+    var counts = Array(7).fill(0)
+    for (var i = 0; i < media.length; i++) {
+      var m = media[i]
+      if (!m.timestamp) continue
+      var dow = (new Date(m.timestamp).getUTCDay() + 6) % 7
+      var eng = (m.insights?.engagement || 0) || (Number(m.like_count || 0) + Number(m.comments_count || 0))
+      sums[dow] += eng
+      counts[dow]++
+    }
+    var avg = sums.map(function(s, j) { return counts[j] > 0 ? s / counts[j] : 0 })
+    var peak = Math.max.apply(null, avg)
+    var peakIdx = avg.indexOf(peak)
+    var peakLabel = counts[peakIdx] > 0 ? days[peakIdx] : ''
+
+    var barsHtml = days.map(function(d, j) {
+      var w = Math.max(4, Math.round((avg[j] / Math.max(1, peak)) * 100))
+      var isTop = avg[j] === peak && avg[j] > 0
+      return '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="width:30px;color:' + (isTop ? 'var(--t1);font-weight:600' : 'var(--t3)') + ';font-size:11px">' + d + '</div>'
+        + '<div style="flex:1;height:8px;background:var(--s3);border-radius:4px;overflow:hidden">'
+        + '<div style="width:' + w + '%;height:100%;background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.35') + ';border-radius:4px"></div>'
+        + '</div></div>'
+    }).join('')
+
+    return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Best day to post</div>'
+      + (peakLabel
+        ? '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1;margin-bottom:12px">' + peakLabel + '</div>'
+        : '<div style="color:var(--t2);font-size:14px;margin-bottom:12px">Not enough data</div>')
+      + '<div style="display:flex;flex-direction:column;gap:4px">' + barsHtml + '</div>'
+      + '</div>'
   }
 
   function formatDonutSvg(media) {
