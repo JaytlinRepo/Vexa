@@ -1713,9 +1713,7 @@
           ${sectionTiktok()}
           ${sectionActivity()}
         </main>
-        ${STATE.feed.length > 0 ? `<aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
-          ${sectionFeedStrip()}
-        </aside>` : ''}
+        ${''}<!-- knowledge feed moved to its own page -->
       </div>
     `
     wireEvents(root)
