@@ -167,6 +167,56 @@
     return Number(n || 0).toLocaleString()
   }
 
+  // ── Dynamic tooltip builder — computes real insights from data ────
+  function igTip(metric, ig, ov) {
+    const delta = ov?.combinedFollowersDelta || 0
+    const accounts = ov?.accounts || []
+    const igAcct = accounts.find((a) => a.platform === 'instagram')
+    const reachPct = ig.followerCount > 0 ? Math.round(ig.avgReach / ig.followerCount * 100) : 0
+    const media = ig.recentMedia || []
+    const formats = {}
+    media.forEach((m) => { const k = m.media_type === 'VIDEO' ? 'Reels' : m.media_type === 'CAROUSEL_ALBUM' ? 'Carousels' : 'Photos'; formats[k] = (formats[k]||0)+1 })
+    const topFormat = Object.entries(formats).sort((a,b) => b[1]-a[1])[0]
+
+    switch (metric) {
+      case 'followers':
+        if (igAcct?.prevFollowers != null) {
+          const weekDelta = ig.followerCount - igAcct.prevFollowers
+          return weekDelta > 0 ? 'Up ' + short(weekDelta) + ' this week. ' + (weekDelta > 50 ? 'Strong growth — keep the momentum.' : 'Slow but steady. Post more consistently to accelerate.')
+            : weekDelta < 0 ? 'Down ' + short(Math.abs(weekDelta)) + ' this week. Check if recent content aligns with what your audience expects.'
+            : 'Flat this week. Try a new content format or collaboration to reach new people.'
+        }
+        return short(ig.followerCount) + ' followers. Connect more data sources for growth tracking.'
+      case 'posts':
+        return ig.postCount + ' posts total.' + (topFormat ? ' ' + topFormat[0] + ' make up ' + Math.round(topFormat[1]/media.length*100) + '% of your content.' : '') + (media.length < 10 ? ' Post more to give the algorithm more to work with.' : '')
+      case 'engagement':
+        return ig.engagementRate.toFixed(1) + '% engagement.' + (reachPct > 30 ? ' Your content reaches ' + reachPct + '% of followers — the algorithm is distributing it.' : ' Reaching ' + reachPct + '% of followers per post — try Reels or trending audio to expand reach.')
+      case 'reach':
+        return short(ig.avgReach) + ' people see each post on average.' + (reachPct > 50 ? ' That\'s ' + reachPct + '% of your followers — excellent distribution.' : ' That\'s ' + reachPct + '% of your followers.' + (reachPct < 20 ? ' Most followers aren\'t seeing your posts — post at peak times or use Reels.' : ''))
+      default: return ''
+    }
+  }
+
+  function ttTip(metric, tt) {
+    var vr = tt.followerCount > 0 ? (tt.avgViews / tt.followerCount * 100).toFixed(0) : 0
+    var conv = tt.avgViews > 0 ? (tt.avgLikes / tt.avgViews * 100).toFixed(1) : 0
+    switch (metric) {
+      case 'followers':
+        return short(tt.followerCount) + ' followers.' + (tt.followerCount < 1000 ? ' On TikTok, one viral video can change this overnight. Focus on hooks.' : tt.followerCount < 10000 ? ' Growing. Your reach rate of ' + vr + '% shows the algorithm is distributing your content.' : ' Solid base. Your ' + vr + '% reach rate means each video hits about ' + short(tt.avgViews) + ' people.')
+      case 'videos':
+        return tt.videoCount + ' videos posted.' + (tt.videoCount < 20 ? ' TikTok rewards volume — creators who post daily grow 3-5x faster.' : tt.videoCount < 50 ? ' Building momentum. Your best content will surface as you post more.' : ' Strong library. The algorithm has plenty to resurface.')
+      case 'views':
+        return short(tt.avgViews) + ' average views.' + (Number(vr) > 100 ? ' That\'s ' + vr + '% of your followers — the For You feed is actively pushing you.' : ' That\'s ' + vr + '% of your followers.' + (Number(vr) < 50 ? ' Your videos aren\'t escaping your follower base — stronger first 2 seconds will help.' : ' Close to breaking out — a strong hook could push this past 100%.'))
+      case 'engagement':
+        return ((tt.engagementRate || 0) * 100).toFixed(1) + '% of viewers interact.' + (tt.engagementRate >= 0.08 ? ' Well above average — the algorithm reads this as quality.' : tt.engagementRate >= 0.05 ? ' Healthy. Ask questions or use controversial hooks to push higher.' : ' Viewers watch but scroll past. Try calls-to-action or reply-to-comment videos.')
+      case 'reach':
+        return vr + '% reach rate.' + (Number(vr) >= 100 ? ' Your content reaches beyond your followers — the For You feed is your main distribution channel.' : ' Most views come from your existing followers.' + (Number(vr) < 50 ? ' Use trending sounds and hashtags to break into new audiences.' : ' You\'re close to breakout — one strong video could tip it.'))
+      case 'conversion':
+        return conv + '% of viewers like your videos.' + (Number(conv) >= 8 ? ' High conversion — your content connects emotionally on first watch.' : Number(conv) >= 4 ? ' Average. Thumbnails and opening hooks determine who likes vs scrolls.' : ' Low — viewers watch but don\'t feel compelled to like. Strengthen the emotional payoff.')
+      default: return ''
+    }
+  }
+
   const timeAgo = (iso) => {
     const diff = Math.max(0, Date.now() - new Date(iso).getTime())
     const m = Math.floor(diff / 60000)
@@ -928,34 +978,57 @@
           <a href="${esc(igProfileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:6px 12px;border:1px solid var(--b2);border-radius:999px;text-decoration:none">Open profile</a>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
-          ${kvTile('Followers', short(ig.followerCount), ig.followerCount >= 10000 ? 'You are in the micro-influencer range. Brands start paying attention here.' : ig.followerCount >= 1000 ? 'Growing steadily. Focus on consistency to break into the next tier.' : 'Early stage — every follower counts. Focus on your niche and post regularly.')}
-          ${kvTile('Posts', short(ig.postCount), ig.postCount >= 100 ? 'Strong content library. Your back catalog works for you via search and explore.' : ig.postCount >= 30 ? 'Building up. Aim for 3-5 posts per week to grow the catalog.' : 'Just getting started. More posts = more surface area for discovery.')}
-          ${kvTile('Engagement', igEngPct, Number(ig.engagementRate) >= 5 ? 'Excellent — above 5% means your audience is highly engaged. Keep this content style going.' : Number(ig.engagementRate) >= 2 ? 'Healthy engagement. Look at your top posts to see what pushes this higher.' : 'Below average for IG. Your audience sees the content but doesn\'t interact — try more questions, carousels, or personal content.')}
-          ${kvTile('Avg reach', short(ig.avgReach), ig.avgReach > ig.followerCount * 0.3 ? 'Good reach — your content is getting beyond just your followers via Explore.' : 'Reach is below 30% of followers. The algorithm isn\'t pushing your content — try Reels or trending audio.')}
+          ${kvTile('Followers', short(ig.followerCount), igTip('followers', ig, STATE.overview))}
+          ${kvTile('Posts', short(ig.postCount), igTip('posts', ig, STATE.overview))}
+          ${kvTile('Engagement', igEngPct, igTip('engagement', ig, STATE.overview))}
+          ${kvTile('Avg reach', short(ig.avgReach), igTip('reach', ig, STATE.overview))}
         </div>
         <div style="display:flex;flex-direction:column;gap:14px">
           ${igPostsGrid(ig.recentMedia)}
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
           ${(() => {
             const delta = followerDelta(ig)
-            const hint = delta && delta.startsWith('+') ? 'Growing — ' + delta + ' in 30 days. Keep the posting cadence up.' : delta && delta.startsWith('-') ? 'Losing followers. Check if recent content matches what your audience followed you for.' : 'Flat growth. Experiment with new formats or collaborate to reach new audiences.'
+            const igAcct = (STATE.overview?.accounts || []).find((a) => a.platform === 'instagram')
+            const weekDelta = igAcct?.prevFollowers != null ? ig.followerCount - igAcct.prevFollowers : null
+            const hint = weekDelta != null && weekDelta > 0 ? '+' + short(weekDelta) + ' this week (' + delta + ' in 30d). Growth is steady — consistency is compounding.'
+              : weekDelta != null && weekDelta < 0 ? short(Math.abs(weekDelta)) + ' lost this week. Review what changed in posting frequency or content style.'
+              : delta && delta.startsWith('+') ? delta + ' in 30 days. Keep this cadence going.'
+              : 'Flat growth. Try a new format or collaboration to reach new audiences.'
             return chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), delta, hint)
           })()}
           ${igBestDayCard(ig.recentMedia)}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
             ${(() => {
               const media = ig.recentMedia || []
-              const counts = {}
-              media.forEach(m => { const k = m.media_type === 'VIDEO' ? 'Reels' : m.media_type === 'CAROUSEL_ALBUM' ? 'Carousels' : 'Photos'; counts[k] = (counts[k]||0)+1 })
-              const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1])
-              const top = sorted[0]
-              const hint = top ? top[0] + ' make up ' + Math.round(top[1]/media.length*100) + '% of your content.' + (top[0] === 'Reels' ? ' Reels get the most algorithmic reach — good strategy.' : top[0] === 'Carousels' ? ' Carousels drive the deepest engagement — strong for building trust.' : ' Photos are quick to produce but get less reach than Reels.') : 'Post more to see format trends.'
-              return chartCard('Format mix', formatDonutSvg(ig.recentMedia), null, hint)
+              const fmtEng = {}; const fmtCount = {}
+              media.forEach(m => {
+                const k = m.media_type === 'VIDEO' ? 'Reels' : m.media_type === 'CAROUSEL_ALBUM' ? 'Carousels' : 'Photos'
+                fmtCount[k] = (fmtCount[k]||0)+1
+                fmtEng[k] = (fmtEng[k]||0) + (m.like_count||0) + (m.comments_count||0)
+              })
+              const sorted = Object.entries(fmtCount).sort((a,b) => b[1]-a[1])
+              const topFmt = sorted[0]
+              const bestEng = Object.entries(fmtEng).sort((a,b) => (b[1]/(fmtCount[b[0]]||1)) - (a[1]/(fmtCount[a[0]]||1)))[0]
+              let hint = ''
+              if (topFmt && bestEng) {
+                hint = topFmt[0] + ' are ' + Math.round(topFmt[1]/media.length*100) + '% of your posts.'
+                if (topFmt[0] !== bestEng[0]) hint += ' But ' + bestEng[0] + ' get higher engagement per post — consider posting more of those.'
+                else hint += ' And they\'re also your highest-engagement format — strong alignment.'
+              }
+              return chartCard('Format mix', formatDonutSvg(ig.recentMedia), null, hint || 'Post more to see format trends.')
             })()}
             ${(() => {
               const topAge = (ig.audienceAge || []).slice().sort((a,b) => b.share-a.share)[0]
               const topGender = (ig.audienceGender || []).slice().sort((a,b) => b.share-a.share)[0]
-              const hint = topAge && topGender ? 'Your core audience is ' + topAge.bucket + ' year olds (' + Math.round(topAge.share*100) + '%), mostly ' + topGender.bucket.toLowerCase() + ' (' + Math.round(topGender.share*100) + '%). Tailor your voice and topics to this demographic.' : 'Not enough audience data yet.'
+              const secondAge = (ig.audienceAge || []).slice().sort((a,b) => b.share-a.share)[1]
+              let hint = ''
+              if (topAge && topGender) {
+                hint = Math.round(topGender.share*100) + '% ' + topGender.bucket.toLowerCase() + ', ' + Math.round(topAge.share*100) + '% aged ' + topAge.bucket + '.'
+                if (secondAge) hint += ' Second largest: ' + secondAge.bucket + ' at ' + Math.round(secondAge.share*100) + '%.'
+                hint += ' Create content that speaks to this demographic\'s interests and language.'
+              } else {
+                hint = 'Audience data populates as your account grows. Requires 100+ followers.'
+              }
               return chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender), hint)
             })()}
           </div>
@@ -1334,12 +1407,12 @@
 
     const tiles = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
-        ${kvTile('Followers', shortNum(tt.followerCount), tt.followerCount >= 10000 ? 'Micro-influencer range on TikTok. Brands and the algorithm take you seriously here.' : tt.followerCount >= 1000 ? 'Growing. On TikTok, follower count matters less than views — one viral video changes everything.' : 'Early stage. Focus on posting consistently — TikTok rewards frequency over follower count.')}
-        ${kvTile('Videos', shortNum(tt.videoCount), tt.videoCount >= 50 ? 'Solid library. More videos = more chances for the algorithm to surface your content.' : 'Keep posting. TikTok creators who post daily grow 3-5x faster than weekly posters.')}
-        ${kvTile('Avg views', shortNum(tt.avgViews), tt.avgViews > tt.followerCount ? 'Your avg views exceed your follower count — the For You feed is pushing your content to new audiences.' : 'Views are below your follower count. Try stronger hooks in the first 2 seconds to improve retention.')}
-        ${kvTile('Engagement rate', engagementPct, Number(tt.engagementRate) >= 0.08 ? 'Excellent — above 8% means your audience actively interacts. This signals quality to the algorithm.' : Number(tt.engagementRate) >= 0.05 ? 'Healthy for TikTok. Push for more comments by asking questions or using controversial hooks.' : 'Below 5% — viewers watch but don\'t engage. Try calls-to-action, duets, or reply-to-comment videos.', 'left')}
-        ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, Number(tt.reachRate) >= 1 ? 'Above 100% — your content reaches beyond followers. The algorithm is distributing your videos widely.' : 'Below 100% — most views come from followers, not discovery. Use trending sounds and hashtags to break out.') : ''}
-        ${kvTile('Like conversion', totalViews > 0 ? (totalLikes / totalViews * 100).toFixed(1) + '%' : '—', totalViews > 0 && (totalLikes/totalViews) >= 0.08 ? 'Strong — ' + (totalLikes/totalViews*100).toFixed(1) + '% of viewers liked. Your content connects emotionally.' : totalViews > 0 && (totalLikes/totalViews) >= 0.04 ? 'Average. Improve thumbnails and hooks to convert more viewers into likers.' : 'Low conversion. Viewers watch but don\'t engage — strengthen your opening hook and emotional payoff.')}
+        ${kvTile('Followers', shortNum(tt.followerCount), ttTip('followers', tt))}
+        ${kvTile('Videos', shortNum(tt.videoCount), ttTip('videos', tt))}
+        ${kvTile('Avg views', shortNum(tt.avgViews), ttTip('views', tt))}
+        ${kvTile('Engagement rate', engagementPct, ttTip('engagement', tt), 'left')}
+        ${tt.followerCount > 0 ? kvTile('Reach rate', reachPct, ttTip('reach', tt)) : ''}
+        ${kvTile('Like conversion', totalViews > 0 ? (totalLikes / totalViews * 100).toFixed(1) + '%' : '—', ttTip('conversion', tt))}
       </div>
     `
 
