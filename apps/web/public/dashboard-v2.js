@@ -1708,7 +1708,7 @@
           ${sectionQueueNav()}
           ${sectionOverview()}
           ${sectionReviewQueue()}
-          ${sectionTeam()}
+          ${''}<!-- team section moved to Work page -->
           ${sectionPerformance()}
           ${sectionTiktok()}
           ${sectionActivity()}
