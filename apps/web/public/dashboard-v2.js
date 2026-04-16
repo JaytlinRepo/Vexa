@@ -13,6 +13,13 @@
  *   5. Performance + outcomes-style activity
  */
 ;(function () {
+  // Immediately hide the prototype layout to prevent the old dashboard
+  // flashing on page refresh. V2 replaces it entirely once render() runs.
+  try {
+    const oldLayout = document.querySelector('#view-db-dashboard .db-layout')
+    if (oldLayout) oldLayout.style.opacity = '0'
+  } catch {}
+
   const STATE = {
     me: null,
     tasks: [],
@@ -1372,9 +1379,9 @@
     return r
   }
 
-  // Initial render for session-restore path.
-  if (document.readyState !== 'loading') setTimeout(render, 800)
-  document.addEventListener('DOMContentLoaded', () => setTimeout(render, 850))
+  // Initial render — run as soon as possible, not after 800ms delay
+  if (document.readyState !== 'loading') setTimeout(render, 50)
+  document.addEventListener('DOMContentLoaded', () => setTimeout(render, 50))
 
   // Re-render when a task is created (brief delivered) so the team
   // strip flips from "Working" to "Output ready" without the CEO
