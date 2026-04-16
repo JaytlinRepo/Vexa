@@ -26,7 +26,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     meetingFeature: false,
     brandMemory: false,
     bedrockCallsPerMonth: 60,
-    briefCooldownMin: 10,
+    briefCooldownMin: 5,
     proactiveAnalysis: true,       // agents need data at every tier
     weeklyPulse: false,            // weekly pulse is a pro perk
     nicheDetection: true,          // core — agents need the right niche

@@ -258,6 +258,7 @@
         <button type="button" class="vx-mtg-ap" style="background:var(--t1);color:var(--bg);border:none;padding:8px 18px;border-radius:999px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer">Approve</button>
         <button type="button" class="vx-mtg-rj" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Reject</button>
         <button type="button" class="vx-mtg-sg" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Suggestion</button>
+        <button type="button" class="vx-mtg-copy" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Copy output</button>
       </div>
     `
     host.insertBefore(bar, wrapInput)
@@ -265,6 +266,29 @@
     bar.querySelector('.vx-mtg-ap')?.addEventListener('click', () => meetingTaskApprove(tid))
     bar.querySelector('.vx-mtg-rj')?.addEventListener('click', () => meetingTaskReject(tid))
     bar.querySelector('.vx-mtg-sg')?.addEventListener('click', () => meetingTaskSuggest())
+    bar.querySelector('.vx-mtg-copy')?.addEventListener('click', () => {
+      const content = output?.content
+      if (!content) return
+      // Extract the most copy-worthy text from the output
+      let text = ''
+      if (content.hooks?.length) {
+        text = content.hooks.map((h, i) => `${i + 1}. ${h.text || h.hook || h}`).join('\n')
+      } else if (content.caption) {
+        text = content.caption
+      } else if (content.script?.scenes) {
+        text = content.script.scenes.map((s) => s.dialogue || s.action || '').join('\n\n')
+      } else if (content.keyInsights) {
+        text = content.keyInsights.join('\n')
+      } else if (content.topRecommendation) {
+        text = content.topRecommendation
+      } else {
+        text = JSON.stringify(content, null, 2)
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = bar.querySelector('.vx-mtg-copy')
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy output' }, 2000) }
+      }).catch(() => {})
+    })
   }
 
   /**

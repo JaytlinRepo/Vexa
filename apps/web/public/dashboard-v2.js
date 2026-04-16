@@ -299,10 +299,29 @@
     } else {
       body = 'Your team is on watch: scanning signals, keeping plans aligned, and staged for the next brief — even when the queue is quiet.'
     }
+
+    // Posting activity nudge
+    let postingNote = ''
+    const tt = STATE.tiktok
+    if (tt) {
+      const vids = Array.isArray(tt.recentVideos) ? tt.recentVideos : []
+      const latest = vids.length > 0 ? vids.reduce((a, b) => ((b.createdAt || 0) > (a.createdAt || 0) ? b : a)) : null
+      if (latest?.createdAt) {
+        const daysAgo = Math.floor((Date.now() - latest.createdAt * 1000) / 86400000)
+        if (daysAgo === 0) {
+          postingNote = 'You posted today — nice.'
+        } else if (daysAgo === 1) {
+          postingNote = 'Last post was yesterday.'
+        } else if (daysAgo >= 3) {
+          postingNote = `You haven\u2019t posted in ${daysAgo} days. Brief Alex for a quick hook?`
+        }
+      }
+    }
+
     return `
       <div style="margin:-4px 0 20px;padding:12px 16px;border:1px solid var(--b1);border-radius:10px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.5">
         <span style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:4px">Team pulse</span>
-        ${esc(body)}
+        ${esc(body)}${postingNote ? `<br/><span style="color:var(--t1);font-weight:500">${esc(postingNote)}</span>` : ''}
       </div>
     `
   }
@@ -313,17 +332,39 @@
       .filter((t) => t.status === 'delivered')
       .slice()
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    const inProgress = STATE.tasks.filter((t) => t.status === 'in_progress')
+    if (delivered.length === 0 && inProgress.length > 0) {
+      const working = inProgress[0]
+      const workingRole = ROLE[working.employee?.role] || { name: 'Your team', init: '?' }
+      return `
+        <section style="margin-bottom:18px">
+          <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
+            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">${esc(workingRole.name)} is working on something for you.</div>
+            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">${esc(working.title)} — you'll see it here when it's ready.</p>
+          </div>
+        </section>
+      `
+    }
     if (delivered.length === 0) {
+      // Check if platforms are connected — tailor the empty state
+      const hasAccounts = STATE.overview?.accounts?.length > 0
+      const headline = hasAccounts
+        ? 'Your team is standing by.'
+        : 'Connect a platform to get started.'
+      const sub = hasAccounts
+        ? 'Brief an agent or wait for the next proactive report.'
+        : 'Once your TikTok or Instagram is connected, Maya will analyze your content automatically.'
       return `
         <section style="margin-bottom:18px">
           <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:var(--s1)">
             <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
-            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">Nothing is blocked on your pen.</div>
-            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">Queue a brief or connect data so the team has something to ship back.</p>
+            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">${esc(headline)}</div>
+            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">${esc(sub)}</p>
             <div style="display:flex;flex-wrap:wrap;gap:8px">
-              <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Create brief</button>
-              <button type="button" data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Connect account</button>
-              <button type="button" data-v2-nav="db-tasks" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Open queue</button>
+              ${hasAccounts
+                ? `<button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Brief Maya</button>`
+                : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Connect a platform</button>`}
             </div>
           </div>
         </section>
@@ -600,6 +641,30 @@
 
   function teamCard(role, tasks) {
     const r = ROLE[role]
+    // Check if this role is locked on the current plan
+    const userPlan = STATE.me?.user?.plan || 'starter'
+    const planEmployees = {
+      starter: ['analyst', 'copywriter'],
+      pro: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+      agency: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    }
+    const isLocked = !(planEmployees[userPlan] || planEmployees.starter).includes(role)
+    if (isLocked) {
+      return `
+        <div class="vx-dcard" style="background:var(--s1);border:1px dashed var(--b2);border-radius:10px;padding:12px 14px;opacity:0.6">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t3);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
+            <div>
+              <div style="color:var(--t2);font-size:12px;font-weight:600;line-height:1.2">${esc(r.name)}</div>
+              <div style="color:var(--t3);font-size:9px;letter-spacing:.06em;text-transform:uppercase">${esc(r.title)}</div>
+            </div>
+          </div>
+          <div style="color:var(--t3);font-size:11px;line-height:1.4;margin-bottom:10px">${esc(r.name)} is available on the Pro plan.</div>
+          <button type="button" data-v2-nav="db-settings" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Upgrade to unlock</button>
+        </div>
+      `
+    }
+
     const delivered = tasks.find((t) => t.status === 'delivered')
     const working = tasks.find((t) => t.status === 'pending' || t.status === 'in_progress' || t.status === 'revision')
     const sorted = sortTasksForFocus(tasks)
@@ -675,6 +740,28 @@
         </section>
       `
     }
+    // Sparse data detection — IG connected via Direct but insights haven't propagated
+    const isSparse = ig.engagementRate === 0 && (!ig.recentMedia || ig.recentMedia.length === 0)
+    if (isSparse) {
+      const platform = ig.platform === 'instagram direct' ? 'Instagram Direct' : 'Instagram'
+      return `
+        <section style="margin-bottom:26px">
+          ${sectionLabel('Instagram')}
+          <div style="padding:24px 20px;border:1px solid var(--b1);border-radius:12px;background:var(--s1)">
+            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — insights are syncing</div>
+            <div style="color:var(--t2);font-size:12px;line-height:1.55;margin-bottom:4px">
+              ${esc(platform)} shows <strong>${ig.followerCount?.toLocaleString() || 0} followers</strong> but detailed metrics (engagement, reach, post performance) aren't available yet.
+            </div>
+            <ul style="color:var(--t3);font-size:11px;line-height:1.7;margin:12px 0 0;padding-left:18px">
+              <li>Make sure your Instagram is a <strong>Professional</strong> account (Creator or Business) — personal accounts don't expose insights.</li>
+              <li>If you just switched to Professional, Meta takes 24-48 hours to start reporting data.</li>
+              <li>Try resyncing from Settings → Integrations once you've confirmed.</li>
+            </ul>
+          </div>
+        </section>
+      `
+    }
+
     return `
       <section style="margin-bottom:26px">
         ${sectionLabel('Instagram — last 30 days')}
