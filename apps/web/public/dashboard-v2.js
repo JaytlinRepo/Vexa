@@ -937,13 +937,10 @@
           ${igPostsGrid(ig.recentMedia)}
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
           ${chartCard('Follower growth', followerGrowthSvg(ig.followerSeries), followerDelta(ig))}
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-            ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender), 'Gender and age breakdown of your followers. Helps tailor content voice and topics.')}
-            ${chartCard('Top cities', topCitiesBars(ig.audienceCities || []), null, 'Cities where your followers are concentrated. Useful for timing posts and localizing content.')}
-          </div>
+          ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null, 'Average engagement rate per weekday across recent posts. Tells you which days your audience is most active.')}
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
             ${chartCard('Format mix', formatDonutSvg(ig.recentMedia), null, 'Breakdown of your recent posts by format. Helps identify which formats you rely on most vs. what performs.')}
-            ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null, 'Average engagement rate per weekday across recent posts. Tells you which days your audience is most active.')}
+            ${chartCard('Audience mix', audienceMixBars(ig.audienceGender, ig.audienceAge), dominantGenderLabel(ig.audienceGender), 'Gender and age breakdown of your followers. Helps tailor content voice and topics.')}
           </div>
         </div>
       </section>
