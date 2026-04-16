@@ -346,6 +346,40 @@ export function buildPlatformDataSummary(ctx: PersonalContext | null): string {
     }
   }
 
+  // ── IG Format analysis ──────────────────────────────────────────
+  if (ctx.instagram && ctx.instagram.topPosts.length > 2) {
+    const formats: Record<string, { count: number; totalEng: number }> = {}
+    for (const p of ctx.instagram.topPosts) {
+      const fmt = p.mediaType === 'VIDEO' || p.mediaType === 'REEL' ? 'Reel' : p.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo'
+      if (!formats[fmt]) formats[fmt] = { count: 0, totalEng: 0 }
+      formats[fmt].count++
+      formats[fmt].totalEng += p.likeCount + p.commentCount
+    }
+    const best = Object.entries(formats).sort((a, b) => (b[1].totalEng / b[1].count) - (a[1].totalEng / a[1].count))[0]
+    if (best) parts.push(`  Best IG format: ${best[0]}s (avg ${Math.round(best[1].totalEng / best[1].count)} engagement per post).`)
+  }
+
+  // (Posting day patterns computed from recentMedia at the API level,
+  // not here — topPosts doesn't carry timestamps.)
+
+  // ── Cross-platform comparison ─────────────────────────────────
+  if (ctx.instagram && ctx.tiktok) {
+    const igFollowers = ctx.instagram.followerCount
+    const ttFollowers = ctx.tiktok.followerCount
+    const bigger = igFollowers > ttFollowers ? 'Instagram' : 'TikTok'
+    const ratio = Math.max(igFollowers, ttFollowers) / Math.max(1, Math.min(igFollowers, ttFollowers))
+    parts.push(`\nCross-platform: ${bigger} is the larger audience (${ratio.toFixed(1)}x). Total reach: ${fmtFollowers(igFollowers + ttFollowers)} followers across both.`)
+    const igEng = ctx.instagram.engagementRate
+    const ttEng = ctx.tiktok.engagementRate * 100
+    if (ttEng > igEng * 1.5) {
+      parts.push(`  TikTok engagement (${ttEng.toFixed(1)}%) significantly outperforms IG (${igEng.toFixed(1)}%) — content resonates more on TikTok.`)
+    } else if (igEng > ttEng * 1.5) {
+      parts.push(`  IG engagement (${igEng.toFixed(1)}%) significantly outperforms TikTok (${ttEng.toFixed(1)}%) — IG audience is more engaged.`)
+    } else {
+      parts.push(`  Engagement is balanced across platforms: IG ${igEng.toFixed(1)}% vs TikTok ${ttEng.toFixed(1)}%.`)
+    }
+  }
+
   return parts.join('\n')
 }
 

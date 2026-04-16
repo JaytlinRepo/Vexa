@@ -795,6 +795,7 @@
             ${chartCard('Engagement by weekday', weekdayBars(ig.recentMedia), bestDayLabel(ig.recentMedia) ? `Peak: ${bestDayLabel(ig.recentMedia)}` : null, 'Average engagement rate per weekday across recent posts. Tells you which days your audience is most active.')}
           </div>
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
+          ${igPostsGrid(ig.recentMedia)}
           <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:4px">
             <button type="button" data-v2-brief="copywriter" data-v2-brief-name="Alex" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Brief Alex on captions</button>
             <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Copy talking points from outputs</button>
@@ -1053,6 +1054,51 @@
           <span>${short(topPost.like_count || 0)} likes</span>
           <span>${short(topPost.comments_count || 0)} comments</span>
           <span>${short(topPost.insights?.saved || 0)} saves</span>
+        </div>
+      </div>
+    `
+  }
+
+  function igPostsGrid(media) {
+    if (!media || media.length === 0) return ''
+    // Show up to 9 most recent posts in a grid
+    const posts = media.slice(0, 9)
+    const cards = posts.map((m) => {
+      const caption = (m.caption || '').slice(0, 60)
+      const type = m.media_type === 'VIDEO' ? 'Reel' : m.media_type === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo'
+      const reach = m.insights?.reach || 0
+      const likes = m.like_count || 0
+      const comments = m.comments_count || 0
+      const saved = m.insights?.saved || 0
+      const thumb = m.thumbnail_url || m.media_url || ''
+      const permalink = m.permalink || ''
+      const date = m.timestamp ? new Date(m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+      return `
+        <a href="${esc(permalink)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--t2)'" onmouseleave="this.style.borderColor='var(--b1)'">
+          ${thumb
+            ? `<div style="width:100%;aspect-ratio:1;background:#1a1a1a;overflow:hidden"><img src="${esc(thumb)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" /></div>`
+            : `<div style="width:100%;aspect-ratio:1;background:var(--s3);display:grid;place-items:center;color:var(--t3);font-size:10px">${esc(type)}</div>`}
+          <div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:11px;color:var(--t1);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:30px">${esc(caption) || `<span style="color:var(--t3)">(no caption)</span>`}</div>
+            <div style="font-size:10px;color:var(--t3);display:flex;flex-wrap:wrap;gap:8px;margin-top:auto">
+              <span>${likes} likes</span>
+              <span>${comments} cmts</span>
+              ${reach > 0 ? `<span>${short(reach)} reach</span>` : ''}
+              ${saved > 0 ? `<span>${saved} saves</span>` : ''}
+            </div>
+            <div style="font-size:9px;color:var(--t3);display:flex;justify-content:space-between">
+              <span>${esc(type)}</span>
+              <span>${esc(date)}</span>
+            </div>
+          </div>
+        </a>
+      `
+    }).join('')
+    return `
+      <div style="margin-top:4px">
+        <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Recent posts</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+          ${cards}
         </div>
       </div>
     `
