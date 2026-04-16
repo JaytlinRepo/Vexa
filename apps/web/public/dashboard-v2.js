@@ -271,8 +271,139 @@
         left: auto; right: calc(100% + 8px);
       }
       .vx-hint:hover .vx-hint-tip { display: block; }
+
+      /* ── Reveal animations (Harry George style) ────────────────── */
+      #view-db-dashboard main {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #view-db-dashboard section { margin-bottom: 32px; }
+
+      .vx-reveal {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translateY(16px);
+        transition: opacity 0.65s cubic-bezier(.16,1,.3,1),
+                    filter 0.65s cubic-bezier(.16,1,.3,1),
+                    transform 0.65s cubic-bezier(.16,1,.3,1);
+      }
+      .vx-reveal.vx-visible {
+        opacity: 1;
+        filter: blur(0);
+        transform: translateY(0);
+      }
+
+      /* Card hover depth */
+      .vx-dcard {
+        transition: transform 0.25s cubic-bezier(.16,1,.3,1),
+                    border-color 0.25s ease,
+                    box-shadow 0.25s ease;
+      }
+      .vx-dcard:hover {
+        transform: translateY(-2px);
+        border-color: var(--b2);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      }
+
+      /* Sparkline draw */
+      @keyframes vx-draw {
+        to { stroke-dashoffset: 0; }
+      }
+      .vx-sparkline-draw {
+        stroke-dasharray: var(--path-length);
+        stroke-dashoffset: var(--path-length);
+        animation: vx-draw 1.2s cubic-bezier(.16,1,.3,1) 0.4s forwards;
+      }
+      .vx-sparkline-fill {
+        opacity: 0;
+        animation: vx-fade-in 0.6s ease 1.2s forwards;
+      }
+      @keyframes vx-fade-in { to { opacity: 0.08; } }
+
+      /* Respect reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        .vx-reveal { opacity: 1; filter: none; transform: none; transition: none; }
+        .vx-sparkline-draw { animation: none; stroke-dashoffset: 0; }
+        .vx-sparkline-fill { animation: none; opacity: 0.08; }
+        .vx-dcard { transition: none; }
+      }
     `
     document.head.appendChild(st)
+  }
+
+  // ── Scroll reveal observer ────────────────────────────────────────
+  function animateOnReveal(root) {
+    if (typeof IntersectionObserver === 'undefined') return
+    const scrollParent = root.querySelector('main')
+    if (!scrollParent) return
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return
+        e.target.classList.add('vx-visible')
+        var cards = e.target.querySelectorAll('.vx-dcard, .vx-reveal-child')
+        cards.forEach(function (card, i) {
+          card.style.transitionDelay = (i * 0.08) + 's'
+          card.classList.add('vx-visible')
+        })
+        observer.unobserve(e.target)
+      })
+    }, { root: scrollParent, threshold: 0.05 })
+    scrollParent.querySelectorAll('section').forEach(function (s) {
+      s.classList.add('vx-reveal')
+      s.querySelectorAll('.vx-dcard').forEach(function (c) { c.classList.add('vx-reveal') })
+      observer.observe(s)
+    })
+    // Also reveal non-section direct children (pulse banner, next-action)
+    scrollParent.querySelectorAll(':scope > div').forEach(function (d) {
+      if (d.querySelector('section')) return // skip the wrapper
+      d.classList.add('vx-reveal')
+      observer.observe(d)
+    })
+  }
+
+  // ── Number count-up ───────────────────────────────────────────────
+  function animateCounters(root) {
+    root.querySelectorAll('.vx-tile-value').forEach(function (el) {
+      var text = el.textContent.trim()
+      var match = text.match(/^([0-9,.]+)(.*)$/)
+      if (!match) return
+      var target = parseFloat(match[1].replace(/,/g, ''))
+      var suffix = match[2] || ''
+      if (!target || isNaN(target)) return
+      var isDecimal = match[1].includes('.')
+      var duration = 800
+      var start = performance.now()
+      function tick(now) {
+        var t = Math.min(1, (now - start) / duration)
+        var eased = 1 - Math.pow(1 - t, 3)
+        var current = target * eased
+        if (isDecimal) {
+          el.textContent = current.toFixed(1) + suffix
+        } else if (current >= 1000) {
+          el.textContent = Math.round(current).toLocaleString() + suffix
+        } else {
+          el.textContent = Math.round(current) + suffix
+        }
+        if (t < 1) requestAnimationFrame(tick)
+        else el.textContent = text // restore exact original
+      }
+      requestAnimationFrame(tick)
+    })
+  }
+
+  // ── Sparkline draw setup ──────────────────────────────────────────
+  function animateSparklines(root) {
+    root.querySelectorAll('polyline').forEach(function (line) {
+      try {
+        var len = line.getTotalLength()
+        if (!len || len < 10) return
+        line.style.setProperty('--path-length', len)
+        line.classList.add('vx-sparkline-draw')
+      } catch (e) { /* SVG not rendered yet */ }
+    })
+    root.querySelectorAll('polygon').forEach(function (poly) {
+      poly.classList.add('vx-sparkline-fill')
+    })
   }
 
   // ─────────────── sections ────────────────────────────────────────
@@ -1577,6 +1708,12 @@
     wireEvents(root)
     // Remove the auth gate style now that v2 owns the DOM
     document.getElementById('vx-auth-gate')?.remove()
+    // Animations — staggered reveal + counters + sparkline draw
+    requestAnimationFrame(function () {
+      animateOnReveal(root)
+      animateCounters(root)
+      animateSparklines(root)
+    })
     // Kick off background syncs AFTER rendering — doesn't delay the UI
     backgroundTiktokSync()
     backgroundInstagramSync()
