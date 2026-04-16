@@ -583,19 +583,32 @@
       ? `${ov.combinedFollowersDelta >= 0 ? '+' : ''}${short(Math.abs(ov.combinedFollowersDelta))} this week`
       : ''
 
-    // Top post tile
+    // Top post tile — with thumbnail
     const tp = ov?.topPost
-    const tpVal = tp ? short(tp.engagementScore) : '—'
-    const tpSub = tp
-      ? `${platformBadge(tp.platform)} ${esc((tp.caption || '').slice(0, 40))}${(tp.caption || '').length > 40 ? '…' : ''}`
-      : 'No posts synced yet'
+
+    function topPostTile() {
+      if (!tp) return tile('Top post', '—', 'No posts synced yet')
+      var thumb = tp.thumbnailUrl || ''
+      var caption = (tp.caption || '').slice(0, 50)
+      var badge = platformBadge(tp.platform)
+      var url = tp.url || '#'
+      return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="vx-dcard" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:center">'
+        + (thumb
+          ? '<img src="' + esc(thumb) + '" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s3)" loading="lazy" onerror="this.style.display=\'none\'" />'
+          : '<div style="width:48px;height:48px;border-radius:8px;background:var(--s3);flex-shrink:0;display:grid;place-items:center;color:var(--t3);font-size:9px">' + esc(badge) + '</div>')
+        + '<div style="min-width:0;flex:1">'
+        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:5px">Top post<span class="vx-hint" aria-label="Engagement score: likes + comments×2 + shares×3">ⓘ<span class="vx-hint-tip">Engagement score: likes + comments×2 + shares×3. Higher weight on comments and shares because they signal deeper intent.</span></span></div>'
+        + '<div class="vx-tile-value" style="color:var(--t1);font-family:\'DM Sans\',system-ui;font-weight:500;font-size:20px;letter-spacing:-.01em;line-height:1;margin-bottom:4px">' + short(tp.engagementScore) + '</div>'
+        + '<div style="color:var(--t2);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(badge) + ' ' + esc(caption) + (caption.length >= 50 ? '…' : '') + '</div>'
+        + '</div></a>'
+    }
 
     return `
       <section style="margin-bottom:26px">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
           ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'Smaller assets clear on defaults — big moves land here', 'db-tasks')}
           ${tile('Followers', fVal, fDelta || fSub)}
-          ${tile('Top post', tpVal, tpSub, null, null, 'Engagement score: likes + comments×2 + shares×3. Higher weight on comments and shares because they signal deeper intent.')}
+          ${topPostTile()}
           ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
         </div>
 
