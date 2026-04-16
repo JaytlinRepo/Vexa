@@ -10,6 +10,8 @@ import { orchestrateTask } from '../agents/task-orchestrator'
 import { AgentRole } from '../lib/nicheKnowledge'
 import { triggerNextAgentAfterApproval, type AgentPipelineChainResult } from '../agents/task-orchestrator'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
+import { PLAN_LIMITS } from '../lib/plans'
+import { getBedrockUsage } from '../lib/bedrockUsage'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -51,26 +53,14 @@ const createSchema = z.object({
   briefKind: z.string().min(1).max(60).optional(),
 })
 
-// Per-user brief cooldown: 1 brief per employee role per 5 minutes.
-// Prevents spamming Bedrock calls (each costs ~$0.01 and takes 10-17s).
+// Per-user brief cooldown — duration comes from plan limits.
 const briefCooldowns = new Map<string, number>()
-const BRIEF_COOLDOWN_MS = 5 * 60 * 1000
 
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     console.log('[tasks] POST /api/tasks received', { body: req.body?.type, briefKind: req.body?.briefKind })
     const { userId } = (req as AuthedRequest).session
     const data = createSchema.parse(req.body)
-
-    // Rate limit: 1 brief per employee per 5 minutes
-    const cooldownKey = `${userId}:${data.employeeId}`
-    const lastBrief = briefCooldowns.get(cooldownKey) || 0
-    if (Date.now() - lastBrief < BRIEF_COOLDOWN_MS) {
-      const waitSec = Math.ceil((BRIEF_COOLDOWN_MS - (Date.now() - lastBrief)) / 1000)
-      res.status(429).json({ error: 'brief_cooldown', message: `This agent is still working. Try again in ${waitSec}s.`, retryAfter: waitSec })
-      return
-    }
-    briefCooldowns.set(cooldownKey, Date.now())
 
     const company = await prisma.company.findFirst({
       where: { id: data.companyId, userId },
@@ -84,6 +74,36 @@ router.post('/', requireAuth, async (req, res, next) => {
       res.status(404).json({ error: 'employee_not_found' })
       return
     }
+
+    // Plan-based enforcement
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
+    const plan = PLAN_LIMITS[user?.plan ?? 'starter']
+
+    // Cooldown: plan-based minutes between briefs per agent
+    const cooldownMs = plan.briefCooldownMin * 60 * 1000
+    const cooldownKey = `${userId}:${data.employeeId}`
+    const lastBrief = briefCooldowns.get(cooldownKey) || 0
+    if (Date.now() - lastBrief < cooldownMs) {
+      const waitSec = Math.ceil((cooldownMs - (Date.now() - lastBrief)) / 1000)
+      res.status(429).json({ error: 'brief_cooldown', message: `This agent is still working. Try again in ${waitSec}s.`, retryAfter: waitSec })
+      return
+    }
+
+    // Bedrock monthly cap
+    const bedrockUsage = getBedrockUsage(company.id)
+    if (bedrockUsage.count >= plan.bedrockCallsPerMonth) {
+      res.status(402).json({ error: 'bedrock_limit_reached', message: `Your ${user?.plan} plan allows ${plan.bedrockCallsPerMonth} AI calls per month. Upgrade for more.` })
+      return
+    }
+
+    // Employee access: check the role is available on this plan
+    const empRole = company.employees[0].role
+    if (!plan.employees.includes(empRole as typeof plan.employees[number])) {
+      res.status(403).json({ error: 'employee_locked', message: `${company.employees[0].name} is not available on your current plan. Upgrade to unlock.` })
+      return
+    }
+
+    briefCooldowns.set(cooldownKey, Date.now())
 
     try {
       await assertTaskQuota(prisma, userId)

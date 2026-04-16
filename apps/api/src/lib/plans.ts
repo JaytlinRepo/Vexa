@@ -6,6 +6,16 @@ export interface PlanLimits {
   workspaces: number
   meetingFeature: boolean
   brandMemory: boolean
+  // Agent capabilities
+  bedrockCallsPerMonth: number     // LLM invocations (briefs, proactive analysis, etc.)
+  briefCooldownMin: number         // minutes between briefs per agent
+  proactiveAnalysis: boolean       // Maya auto-analyzes on connect + weekly
+  weeklyPulse: boolean             // Monday morning pulse
+  nicheDetection: boolean          // auto-detect niche from content
+  syncOnLogin: boolean             // background TikTok refresh on dashboard load
+  // Employee access
+  employees: ('analyst' | 'strategist' | 'copywriter' | 'creative_director')[]
+  revisionsPerOutput: number       // how many times user can reconsider/regenerate
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
@@ -15,6 +25,14 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
+    bedrockCallsPerMonth: 50,
+    briefCooldownMin: 10,
+    proactiveAnalysis: false,
+    weeklyPulse: false,
+    nicheDetection: false,
+    syncOnLogin: false,
+    employees: ['analyst', 'copywriter'],
+    revisionsPerOutput: 2,
   },
   pro: {
     tasksPerMonth: 9999,
@@ -22,6 +40,14 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     workspaces: 1,
     meetingFeature: true,
     brandMemory: true,
+    bedrockCallsPerMonth: 500,
+    briefCooldownMin: 5,
+    proactiveAnalysis: true,
+    weeklyPulse: true,
+    nicheDetection: true,
+    syncOnLogin: true,
+    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    revisionsPerOutput: 10,
   },
   agency: {
     tasksPerMonth: 99999,
@@ -29,6 +55,14 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     workspaces: 5,
     meetingFeature: true,
     brandMemory: true,
+    bedrockCallsPerMonth: 2000,
+    briefCooldownMin: 2,
+    proactiveAnalysis: true,
+    weeklyPulse: true,
+    nicheDetection: true,
+    syncOnLogin: true,
+    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    revisionsPerOutput: 999,
   },
 }
 

@@ -6,6 +6,7 @@ import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
 import { syncTiktokAccount } from '../lib/tiktokRefreshSync'
+import { PLAN_LIMITS } from '../lib/plans'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -283,13 +284,19 @@ router.get('/callback', async (req, res) => {
     } catch (e) {
       console.warn('[tiktok] persist failed', e)
     }
-    // Fire-and-forget: detect niche from content + Maya analyzes the data
-    void detectNicheFromContent(prisma, companyId).catch((err) =>
-      console.warn('[tiktok] niche detection failed (non-blocking)', err),
-    )
-    void triggerProactiveMayaAnalysis(prisma, companyId).catch((err) =>
-      console.warn('[tiktok] proactive Maya analysis failed (non-blocking)', err),
-    )
+    // Fire-and-forget: plan-gated features on connect
+    const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
+    const connectPlan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'starter']
+    if (connectPlan.nicheDetection) {
+      void detectNicheFromContent(prisma, companyId).catch((err) =>
+        console.warn('[tiktok] niche detection failed (non-blocking)', err),
+      )
+    }
+    if (connectPlan.proactiveAnalysis) {
+      void triggerProactiveMayaAnalysis(prisma, companyId).catch((err) =>
+        console.warn('[tiktok] proactive Maya analysis failed (non-blocking)', err),
+      )
+    }
 
     const back = `${appUrl()}/?tiktokConnected=1#tiktok`
     res.redirect(back)
@@ -471,9 +478,15 @@ router.post('/sync', requireAuth, async (req, res) => {
     res.status(400).json({ error: 'missing_company_id' })
     return
   }
-  const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true } } } })
   if (!company) {
     res.status(404).json({ error: 'company_not_found' })
+    return
+  }
+  // Sync-on-login is a pro+ feature
+  const syncPlan = PLAN_LIMITS[company.user.plan]
+  if (!syncPlan.syncOnLogin) {
+    res.json({ synced: false, newPosts: 0, reason: 'plan_locked' })
     return
   }
   try {
