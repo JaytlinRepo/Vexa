@@ -312,10 +312,10 @@
       .vx-dcard:has(.vx-hint:hover) { z-index: 10000; }
       .vx-hint-tip {
         display: none; position: absolute; top: 50%; left: calc(100% + 8px);
-        transform: translateY(-50%); width: 240px; padding: 10px 14px;
+        transform: translateY(-50%); width: 260px; padding: 12px 14px;
         border-radius: 10px; background: var(--t1); color: var(--inv, var(--bg));
-        font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none;
-        line-height: 1.5; z-index: 9999;
+        font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none;
+        line-height: 1.65; z-index: 9999;
         box-shadow: 0 8px 24px rgba(0,0,0,.35);
         pointer-events: none;
       }
@@ -1229,7 +1229,7 @@
 
   function chartCard(title, body, statRight, hint) {
     const hintEl = hint
-      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
+      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${formatHint(hint)}</span></span>`
       : ''
     return `
       <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">
@@ -1554,10 +1554,17 @@
       + '</div>'
   }
 
+  function formatHint(hint) {
+    // Bold agent names + line break between Maya and Jordan
+    return esc(hint)
+      .replace(/Maya:/g, '<strong style="color:var(--inv,var(--bg));opacity:.7">Maya:</strong>')
+      .replace(/Jordan:/g, '<br/><strong style="color:var(--inv,var(--bg))">Jordan:</strong>')
+  }
+
   function kvTile(label, value, hint, tipDir) {
     const tipCls = tipDir === 'left' ? ' vx-tip-left' : ''
     const hintEl = hint
-      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip${tipCls}">${esc(hint)}</span></span>`
+      ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip${tipCls}">${formatHint(hint)}</span></span>`
       : ''
     return `
       <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
