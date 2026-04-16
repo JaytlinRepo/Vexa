@@ -67,6 +67,18 @@ export interface PersonalTiktokSnapshot {
   lastSyncedAt: Date
 }
 
+export interface ContentInsights {
+  bestPostingDay: string | null      // "Tuesday"
+  bestFormat: string | null          // "Carousel" or "Reel"
+  avgEngPerFormat: Record<string, number>  // { Reel: 45, Carousel: 184, Photo: 30 }
+  postsPerWeek: number
+  growthRatePerWeek: number | null   // followers gained per week
+  projectedFollowers30d: number | null
+  engagementTrend: 'improving' | 'stable' | 'declining' | null
+  topCaption: string | null          // highest-engagement caption
+  weakestCaption: string | null      // lowest-engagement caption
+}
+
 export interface PersonalGoal {
   type: string
   target: number
@@ -92,6 +104,7 @@ export interface PersonalContext {
   goals: Record<string, unknown>
   instagram: PersonalIgSnapshot | null
   tiktok: PersonalTiktokSnapshot | null
+  contentInsights: ContentInsights | null
   activeGoal: PersonalGoal | null
   recentMemories: PersonalMemory[]
   /** Deterministic seed derived from companyId — use for stable per-user
@@ -254,6 +267,9 @@ export async function loadPersonalContext(
     }
   }
 
+  // ── Computed content insights from PlatformPost + PlatformSnapshot ──
+  const contentInsights = await computeContentInsights(prisma, company.id)
+
   return {
     companyId: company.id,
     companyName: company.name,
@@ -264,6 +280,7 @@ export async function loadPersonalContext(
     goals: goalsJson,
     instagram,
     tiktok,
+    contentInsights,
     activeGoal,
     recentMemories: memories.map((m) => ({
       type: String(m.memoryType),
@@ -271,6 +288,122 @@ export async function loadPersonalContext(
       weight: m.weight,
     })),
     seed: hashString(company.id),
+  }
+}
+
+async function computeContentInsights(prisma: PrismaClient, companyId: string): Promise<ContentInsights | null> {
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { id: true, platform: true },
+  })
+  if (accounts.length === 0) return null
+  const accountIds = accounts.map((a) => a.id)
+
+  const posts = await prisma.platformPost.findMany({
+    where: { accountId: { in: accountIds } },
+    orderBy: { publishedAt: 'desc' },
+    take: 100,
+  })
+  if (posts.length < 3) return null
+
+  // Best posting day
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const dayEng: number[] = Array(7).fill(0)
+  const dayCounts: number[] = Array(7).fill(0)
+  for (const p of posts) {
+    if (!p.publishedAt) continue
+    const dow = p.publishedAt.getUTCDay()
+    dayEng[dow] += p.likeCount + p.commentCount * 2 + p.shareCount * 3
+    dayCounts[dow]++
+  }
+  const dayAvg = dayEng.map((e, i) => dayCounts[i] > 0 ? e / dayCounts[i] : 0)
+  const bestDayIdx = dayAvg.indexOf(Math.max(...dayAvg))
+  const bestPostingDay = dayCounts[bestDayIdx] > 0 ? days[bestDayIdx] : null
+
+  // Format performance
+  const formatEng: Record<string, { total: number; count: number }> = {}
+  for (const p of posts) {
+    const fmt = p.mediaType === 'VIDEO' || p.mediaType === 'REEL' ? 'Reel'
+      : p.mediaType === 'CAROUSEL_ALBUM' ? 'Carousel' : 'Photo'
+    if (!formatEng[fmt]) formatEng[fmt] = { total: 0, count: 0 }
+    formatEng[fmt].total += p.likeCount + p.commentCount * 2 + p.shareCount * 3
+    formatEng[fmt].count++
+  }
+  const avgEngPerFormat: Record<string, number> = {}
+  let bestFormat: string | null = null
+  let bestFmtAvg = 0
+  for (const [fmt, { total, count }] of Object.entries(formatEng)) {
+    const avg = Math.round(total / count)
+    avgEngPerFormat[fmt] = avg
+    if (avg > bestFmtAvg) { bestFmtAvg = avg; bestFormat = fmt }
+  }
+
+  // Posts per week
+  const postsWithDates = posts.filter((p) => p.publishedAt)
+  let postsPerWeek = 0
+  if (postsWithDates.length >= 2) {
+    const newest = postsWithDates[0].publishedAt!.getTime()
+    const oldest = postsWithDates[postsWithDates.length - 1].publishedAt!.getTime()
+    const weeks = Math.max(1, (newest - oldest) / (7 * 86400000))
+    postsPerWeek = Math.round((postsWithDates.length / weeks) * 10) / 10
+  }
+
+  // Growth rate from snapshots — computed per platform then summed
+  let growthRatePerWeek: number | null = null
+  let projectedFollowers30d: number | null = null
+  let totalCurrentFollowers = 0
+  let totalGrowthPerDay = 0
+  let hasGrowthData = false
+  for (const acct of accounts) {
+    const acctSnaps = await prisma.platformSnapshot.findMany({
+      where: { accountId: acct.id },
+      orderBy: { capturedAt: 'asc' },
+    })
+    if (acctSnaps.length < 2) {
+      totalCurrentFollowers += acctSnaps[0]?.followerCount ?? 0
+      continue
+    }
+    const first = acctSnaps[0]
+    const last = acctSnaps[acctSnaps.length - 1]
+    const daysDiff = Math.max(1, (last.capturedAt.getTime() - first.capturedAt.getTime()) / 86400000)
+    totalGrowthPerDay += (last.followerCount - first.followerCount) / daysDiff
+    totalCurrentFollowers += last.followerCount
+    hasGrowthData = true
+  }
+  if (hasGrowthData) {
+    growthRatePerWeek = Math.round(totalGrowthPerDay * 7)
+    projectedFollowers30d = totalCurrentFollowers + Math.round(totalGrowthPerDay * 30)
+  }
+
+  // Engagement trend: compare first half vs second half of posts
+  let engagementTrend: ContentInsights['engagementTrend'] = null
+  if (posts.length >= 6) {
+    const mid = Math.floor(posts.length / 2)
+    const recentHalf = posts.slice(0, mid)
+    const olderHalf = posts.slice(mid)
+    const recentAvg = recentHalf.reduce((s, p) => s + p.likeCount + p.commentCount, 0) / recentHalf.length
+    const olderAvg = olderHalf.reduce((s, p) => s + p.likeCount + p.commentCount, 0) / olderHalf.length
+    if (recentAvg > olderAvg * 1.15) engagementTrend = 'improving'
+    else if (recentAvg < olderAvg * 0.85) engagementTrend = 'declining'
+    else engagementTrend = 'stable'
+  }
+
+  // Top + weakest caption by engagement
+  const sorted = [...posts].sort((a, b) =>
+    (b.likeCount + b.commentCount * 2 + b.shareCount * 3) - (a.likeCount + a.commentCount * 2 + a.shareCount * 3))
+  const topCaption = sorted[0]?.caption?.slice(0, 80) || null
+  const weakestCaption = sorted[sorted.length - 1]?.caption?.slice(0, 80) || null
+
+  return {
+    bestPostingDay,
+    bestFormat,
+    avgEngPerFormat,
+    postsPerWeek,
+    growthRatePerWeek,
+    projectedFollowers30d,
+    engagementTrend,
+    topCaption,
+    weakestCaption,
   }
 }
 
@@ -361,6 +494,24 @@ export function buildPlatformDataSummary(ctx: PersonalContext | null): string {
 
   // (Posting day patterns computed from recentMedia at the API level,
   // not here — topPosts doesn't carry timestamps.)
+
+  // ── Computed content insights ──────────────────────────────────
+  if (ctx.contentInsights) {
+    const ci = ctx.contentInsights
+    const insightLines: string[] = []
+    if (ci.bestPostingDay) insightLines.push(`Best posting day: ${ci.bestPostingDay}`)
+    if (ci.bestFormat) insightLines.push(`Best format: ${ci.bestFormat}s (avg ${ci.avgEngPerFormat[ci.bestFormat] || 0} engagement)`)
+    if (ci.postsPerWeek > 0) insightLines.push(`Posting frequency: ${ci.postsPerWeek} posts/week`)
+    if (ci.growthRatePerWeek != null) insightLines.push(`Growth rate: ${ci.growthRatePerWeek >= 0 ? '+' : ''}${ci.growthRatePerWeek} followers/week`)
+    if (ci.projectedFollowers30d != null) insightLines.push(`Projected followers in 30d: ${fmtFollowers(ci.projectedFollowers30d)}`)
+    if (ci.engagementTrend) insightLines.push(`Engagement trend: ${ci.engagementTrend}`)
+    if (ci.topCaption) insightLines.push(`Highest-engagement caption: "${ci.topCaption}"`)
+    if (ci.weakestCaption && ci.weakestCaption !== ci.topCaption) insightLines.push(`Lowest-engagement caption: "${ci.weakestCaption}"`)
+    if (insightLines.length > 0) {
+      parts.push('\nContent insights (computed from post data):')
+      for (const line of insightLines) parts.push('  ' + line)
+    }
+  }
 
   // ── Cross-platform comparison ─────────────────────────────────
   if (ctx.instagram && ctx.tiktok) {
