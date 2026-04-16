@@ -1067,8 +1067,12 @@
         + '</div></div>'
     }).join('')
 
+    var weakIdx = dayAvg.indexOf(Math.min.apply(null, dayAvg.filter(function(v) { return v > 0 })))
+    var weakDay = dayCounts[weakIdx] > 0 ? days[weakIdx] : ''
+    var bestDayHint = peakLabel ? 'Maya: ' + peakLabel + ' gets the highest engagement on IG.' + (weakDay && weakDay !== peakLabel ? ' ' + weakDay + ' is your weakest.' : '') + ' Jordan: Schedule your most important content for ' + peakLabel + '. Save lightweight posts for slower days.' : ''
+
     return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Best day to post</div>'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">Best day to post' + (bestDayHint ? '<span class="vx-hint" aria-label="' + esc(bestDayHint) + '">ⓘ<span class="vx-hint-tip">' + formatHint(bestDayHint) + '</span></span>' : '') + '</div>'
       + (peakLabel
         ? '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1;margin-bottom:12px">' + peakLabel + '</div>'
         : '<div style="color:var(--t2);font-size:14px;margin-bottom:12px">Not enough data</div>')
@@ -1488,7 +1492,10 @@
       var trendDir = engScores[engScores.length-1] > engScores[0] ? 'Improving' : engScores[engScores.length-1] < engScores[0] * 0.8 ? 'Declining' : 'Stable'
       trendSvg = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
         + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
-        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Performance trend<span class="vx-hint" aria-label="' + esc(trendDir === 'Improving' ? 'Your recent videos are getting more engagement than older ones. Whatever you changed is working — keep it up.' : trendDir === 'Declining' ? 'Recent videos are underperforming your older content. Revisit what worked before — check your top-performing captions and formats.' : 'Engagement is steady across videos. To break out, experiment with a new format or trending topic.') + '">ⓘ<span class="vx-hint-tip">' + esc(trendDir === 'Improving' ? 'Recent videos get more engagement than older ones. Whatever you changed is working — keep it up.' : trendDir === 'Declining' ? 'Recent videos underperform older content. Revisit what worked — check your top captions and formats.' : 'Engagement is steady. To break out, experiment with a new format or trending topic.') + '</span></span></div>'
+        + (function() {
+          var hint = trendDir === 'Improving' ? 'Maya: Recent videos outperform older ones — engagement is rising. Jordan: Whatever you changed is working. Keep this format and posting cadence.' : trendDir === 'Declining' ? 'Maya: Recent videos underperform older content — engagement is falling. Jordan: Revisit your top-performing video and replicate its structure for your next post.' : 'Maya: Engagement is steady across videos — no clear upward or downward trend. Jordan: To break out, test a new format this week. Try a duet or a reply-to-comment video.'
+          return '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Performance trend<span class="vx-hint" aria-label="' + esc(hint) + '">ⓘ<span class="vx-hint-tip">' + formatHint(hint) + '</span></span></div>'
+        })()
         + '<div style="color:var(--t1);font-size:13px;font-weight:600">' + trendDir + '</div>'
         + '</div>'
         + '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" preserveAspectRatio="none" style="display:block">'
@@ -1529,7 +1536,10 @@
       // Top post
       + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">Top video</div>'
+      + (function() {
+        var topHint = 'Maya: "' + topTitle.slice(0, 40) + '" is your strongest video with ' + shortNum(top.views) + ' views and ' + shortNum(top.likes) + ' likes. Jordan: Study what made this work — the hook, the topic, the pacing. Replicate this structure for your next 3 videos.'
+        return '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Top video<span class="vx-hint" aria-label="' + esc(topHint) + '">ⓘ<span class="vx-hint-tip">' + formatHint(topHint) + '</span></span></div>'
+      })()
       + '<div style="color:var(--t1);font-size:13px;font-weight:600">' + shortNum(topEng) + '</div>'
       + '</div>'
       + '<div style="color:var(--t1);font-size:13px;line-height:1.5;margin-bottom:8px">' + esc(topTitle) + '</div>'
@@ -1544,12 +1554,17 @@
       // Best day insight card
       + '<div style="display:grid;grid-template-columns:1fr;gap:14px">'
       // Best day — headline first
-      + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Best day to post</div>'
-      + (peakLabel
-        ? '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1;margin-bottom:8px">' + peakLabel + '</div>'
-        : '<div style="color:var(--t2);font-size:14px;margin-bottom:8px">Not enough data yet</div>')
-      + '<div style="display:flex;flex-direction:column;gap:4px">' + dayBarsHtml + '</div>'
+      + (function() {
+        var ttWeakIdx = dayAvg.indexOf(Math.min.apply(null, dayAvg.filter(function(v) { return v > 0 })))
+        var ttWeakDay = dayCounts[ttWeakIdx] > 0 ? days[ttWeakIdx] : ''
+        var ttBestHint = peakLabel ? 'Maya: ' + peakLabel + ' drives the most TikTok engagement.' + (ttWeakDay && ttWeakDay !== peakLabel ? ' ' + ttWeakDay + ' is your weakest.' : '') + ' Jordan: Batch-film your best content ideas for ' + peakLabel + '. Post lighter content on off-days to stay consistent.' : ''
+        return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+          + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">Best day to post' + (ttBestHint ? '<span class="vx-hint" aria-label="' + esc(ttBestHint) + '">ⓘ<span class="vx-hint-tip">' + formatHint(ttBestHint) + '</span></span>' : '') + '</div>'
+          + (peakLabel
+            ? '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1;margin-bottom:8px">' + peakLabel + '</div>'
+            : '<div style="color:var(--t2);font-size:14px;margin-bottom:8px">Not enough data yet</div>')
+          + '<div style="display:flex;flex-direction:column;gap:4px">' + dayBarsHtml + '</div>'
+      })()
       + '</div></div>'
       + '</div>'
   }
