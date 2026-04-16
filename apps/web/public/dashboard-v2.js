@@ -1684,8 +1684,8 @@
         <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 40px 60px">
           ${sectionHeader()}
           ${sectionCeoNextAction()}
-          ${sectionTeamPulseBanner()}
           ${sectionOverview()}
+          ${sectionTeamPulseBanner()}
           ${sectionReviewQueue()}
           ${''}<!-- team section moved to Work page -->
           ${sectionPerformance()}
