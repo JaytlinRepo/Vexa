@@ -162,8 +162,13 @@
   // ── Inject a Connection-status widget on the dashboard ──
   // Shows one pill per curated platform, always visible. Green dot when
   // connected, gray when not. Replaces the old nagging CTA.
+  // Instagram Direct (d3badb09…) instead of Instagram (9bb8913b…) —
+  // Direct uses Instagram's own Login API so creators don't need a
+  // Facebook Page wired up to their IG business account. Phyllo still
+  // reports metrics the same shape; backend mapPlatformName collapses
+  // all IG variants to 'instagram' in the SocialPlatform enum.
   const DASH_CURATED = [
-    { id: '9bb8913b-ddd9-430b-a66a-d74d846e6c66', name: 'Instagram' },
+    { id: 'd3badb09-a81f-4444-bc27-1a994d939e00', name: 'Instagram' },
     { id: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987', name: 'TikTok' },
   ]
 
@@ -186,7 +191,7 @@
     // Merge by work_platform mapping: platform name lowercase → workPlatformId
     // from the DASH_CURATED list.
     const PLATFORM_NAME_TO_ID = {
-      instagram: '9bb8913b-ddd9-430b-a66a-d74d846e6c66',
+      instagram: 'd3badb09-a81f-4444-bc27-1a994d939e00',
       tiktok: 'de55aeec-0dc8-4119-bf90-16b3d1f0c987',
       youtube: '14d9ddf5-51c6-415e-bde6-f8ed36ad7054',
       twitter_x: '7645460a-96e0-4192-a3ce-a1fc30641f72',
@@ -284,7 +289,7 @@
   // Scoped to Instagram + TikTok while those are the only platforms we
   // actually do anything with. TikTok uses our own OAuth (not Phyllo) —
   // the `tiktokNative` flag routes the row accordingly.
-  const IG_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
+  const IG_ID = 'd3badb09-a81f-4444-bc27-1a994d939e00'
   const TIKTOK_ROW_ID = 'vexa-tiktok-native'
   const CURATED = [
     { id: IG_ID, name: 'Instagram' },
