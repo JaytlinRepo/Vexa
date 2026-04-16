@@ -72,43 +72,29 @@
     const badge = goal.source === 'jordan'
       ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--s3);color:var(--t2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;margin-bottom:6px">Picked by Jordan</span>`
       : ''
+    const metricLabel = goal.metricLabel || goal.type
     if (!pacing) {
       return `
-        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px">
-          ${badge}
-          <div style="color:var(--t1);font-size:14px;font-weight:600;margin-bottom:4px">${esc(goal.metricLabel || goal.type)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
-          <div style="color:var(--t3);font-size:12px">Pacing will show once a fresh sync lands.</div>
+        <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px”>
+          <div style=”color:var(--t1);font-size:13px;font-weight:500;flex:1”>${esc(metricLabel)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
+          <div style=”color:var(--t3);font-size:11px”>Syncing…</div>
         </div>
       `
     }
     const progressW = Math.min(100, Math.round(pacing.progressPct * 100))
-    const timeW = Math.min(100, Math.round(pacing.timePct * 100))
     const tint = pacing.onTrack ? 'var(--t1)' : '#ff6b6b'
     const verdict = pacing.onTrack ? 'On pace' : 'Off pace'
-    const projLine = `If the current pace holds, you'd land at ${fmt(pacing.projected, goal.type)} by ${esc(goal.byDate)}.`
-    const metricLabel = goal.metricLabel || goal.type
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
-          <div style="min-width:0">
-            ${badge}
-            <div style="color:var(--t1);font-size:14px;font-weight:600">${esc(metricLabel)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
-            <div style="color:var(--t3);font-size:11px;margin-top:2px">Started at ${fmt(goal.baseline, goal.type)} · now ${fmt(pacing.current, goal.type)} · ${pacing.daysLeft}d left</div>
-          </div>
-          <div style="color:${tint};font-size:12px;font-weight:600;white-space:nowrap">${verdict}</div>
+      <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px”>
+        <div style=”display:flex;align-items:center;gap:12px;margin-bottom:8px”>
+          <div style=”color:var(--t1);font-size:13px;font-weight:500;flex:1”>${esc(metricLabel)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
+          <div style=”color:${tint};font-size:11px;font-weight:600”>${verdict}</div>
         </div>
-        ${goal.rationale ? `<div style="color:var(--t2);font-size:12px;line-height:1.5;font-style:italic;border-left:2px solid var(--b2);padding:2px 12px;margin:0 0 14px">“${esc(goal.rationale)}” — Jordan</div>` : ''}
-        <div style="position:relative;height:10px;background:var(--s3);border-radius:999px;overflow:hidden">
-          <div style="position:absolute;inset:0;width:${progressW}%;background:${tint};border-radius:999px;transition:width .4s ease"></div>
-          <div style="position:absolute;top:-2px;bottom:-2px;left:${timeW}%;width:2px;background:var(--t2);opacity:.55" title="Time elapsed"></div>
+        <div style=”position:relative;height:6px;background:var(--s3);border-radius:999px;overflow:hidden”>
+          <div style=”position:absolute;inset:0;width:${progressW}%;background:${tint};border-radius:999px;transition:width .4s ease”></div>
         </div>
-        <div style="display:flex;justify-content:space-between;color:var(--t3);font-size:10px;margin-top:6px">
-          <span>${progressW}% of goal</span><span>${timeW}% of time used</span>
-        </div>
-        <div style="color:var(--t2);font-size:12px;margin-top:12px;line-height:1.5">${esc(projLine)}</div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
-          <button id="vx-goal-reset" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Clear</button>
-          <button id="vx-goal-another" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Try another</button>
+        <div style=”display:flex;justify-content:space-between;color:var(--t3);font-size:10px;margin-top:4px”>
+          <span>${fmt(pacing.current, goal.type)} now</span><span>${progressW}%</span><span>${pacing.daysLeft}d left</span>
         </div>
       </div>
     `
