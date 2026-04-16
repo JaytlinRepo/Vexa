@@ -77,10 +77,93 @@
   function buildSyntheticOpening(name, task, output) {
     const pres = output?.content?.presentation
     if (pres?.opening) return pres.opening
+
+    const c = output?.content || {}
+    const type = output?.type || task?.type || ''
+
+    // ── Trend report ────────────────────────────────────────────────
+    if (type === 'trend_report' && c.trends?.length) {
+      const top = c.trends[0]
+      const count = c.trends.length
+      const topOpp = c.topOpportunity || ''
+      let msg = `Hey — ${name} here. I pulled **${count} trends** relevant to your niche right now.\n\n`
+      msg += `The one I'd move on first: **${top.topic}** — ${top.whyItMatters || ''}\n\n`
+      if (top.suggestedHook) msg += `Ready-to-use hook: *"${top.suggestedHook}"*\n\n`
+      if (topOpp) msg += `**My top recommendation:** ${topOpp}\n\n`
+      msg += `The full breakdown is below. **Approve** to pass these to Jordan for planning, **revise** if you want a different angle, or type a question.`
+      return msg
+    }
+
+    // ── Performance review ──────────────────────────────────────────
+    if (type === 'performance_review' && c.accountHealth) {
+      const h = c.accountHealth
+      const wins = c.whatsWorking || []
+      const losses = c.whatsNotWorking || []
+      const traj = c.trajectory || 'stable'
+      let msg = `Hey — ${name} here. I went through your TikTok account **@${c.accountHandle || ''}** end to end.\n\n`
+      msg += `**Account snapshot:** ${fmtK(h.followerCount)} followers, ${(h.engagementRate || 0).toFixed(1)}% engagement, ${fmtK(h.avgViews)} avg views.\n\n`
+      if (wins.length > 0) {
+        msg += `**What's working:** Your top video *"${truncate(wins[0].videoTitle, 60)}"* hit ${fmtK(wins[0].viewCount)} views. ${wins[0].whyItWorked}\n\n`
+      }
+      if (losses.length > 0) {
+        msg += `**What's not:** *"${truncate(losses[0].videoTitle, 60)}"* underperformed — ${losses[0].whyItUnderperformed}\n\n`
+      }
+      msg += `**Trajectory:** ${traj}. `
+      if (c.topRecommendation) msg += c.topRecommendation
+      msg += `\n\nFull analysis is below. **Approve** to brief the team on this, or tell me what to dig deeper on.`
+      return msg
+    }
+
+    // ── Weekly pulse ────────────────────────────────────────────────
+    if (type === 'weekly_pulse') {
+      const win = c.winOfTheWeek
+      const miss = c.missOfTheWeek
+      const traj = c.trajectory || {}
+      let msg = `Morning — ${name} here with your Monday pulse for **@${c.accountHandle || ''}**.\n\n`
+      if (win) msg += `**Win of the week:** *"${truncate(win.videoTitle, 50)}"* — ${win.whyItWorked}\n\n`
+      if (miss) msg += `**Miss of the week:** *"${truncate(miss.videoTitle, 50)}"* — ${miss.whatToTryNext}\n\n`
+      if (traj.summary) msg += `**Trajectory:** ${traj.summary}\n\n`
+      if (c.oneThingToDo) msg += `**One thing to do this week:** ${c.oneThingToDo}\n\n`
+      msg += `That's the quick version. **Approve** to move on, or ask me to run a **full analysis** if something needs a deeper look.`
+      return msg
+    }
+
+    // ── Content plan ────────────────────────────────────────────────
+    if (type === 'content_plan' && c.days?.length) {
+      const dayCount = c.days.length
+      const firstDay = c.days[0]
+      let msg = `Hey — ${name} here. I built a **${dayCount}-day content plan** for this week.\n\n`
+      if (firstDay) msg += `Kicking off with: **${firstDay.topic || firstDay.title || 'Day 1'}** — ${firstDay.format || ''}\n\n`
+      if (c.strategyNote) msg += `${c.strategyNote}\n\n`
+      msg += `Full calendar is below. **Approve** to hand it to Alex for copy, or tell me what to adjust.`
+      return msg
+    }
+
+    // ── Hooks ───────────────────────────────────────────────────────
+    if (type === 'hooks' && c.hooks?.length) {
+      const count = c.hooks.length
+      const best = c.hooks[0]
+      let msg = `Hey — ${name} here. I wrote **${count} hooks**.\n\n`
+      if (best?.text || best?.hook) msg += `My pick: *"${truncate(best.text || best.hook, 80)}"*\n\n`
+      if (c.alexNote) msg += `${c.alexNote}\n\n`
+      msg += `All ${count} are below. **Approve** your favorite to send to Riley for production, or tell me to go bolder.`
+      return msg
+    }
+
+    // ── Fallback ────────────────────────────────────────────────────
     const title = task?.title || 'this deliverable'
-    return (
-      `Hey — ${name} here. I just wrapped **${title}**. It is on the table below — open the full output if you want detail, then **approve**, ask for a **revision**, or type a **suggestion** and hit Send.`
-    )
+    return `Hey — ${name} here. I just finished **${title}**. The full output is below — **approve** it, ask for a **revision**, or type a question.`
+  }
+
+  function fmtK(n) {
+    if (!n && n !== 0) return '—'
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return String(n)
+  }
+  function truncate(s, len) {
+    if (!s) return ''
+    return s.length > len ? s.slice(0, len) + '…' : s
   }
 
   function appendMeetingBubble(markdownText, isUser) {
