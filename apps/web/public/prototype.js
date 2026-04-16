@@ -280,22 +280,8 @@ var calViewMode = 'month' // 'month' | 'week'
 var calDate = new Date()
 
 // Data model — each entry has: date(YYYY-MM-DD), type, title, who, status
-var calEntries = [
-  // Jordan's week plan (pending)
-  {id:'e1', date:'2025-01-13', type:'Reel',     title:'Weighted walking',    who:'jordan', status:'planned',   label:'Jordan'},
-  {id:'e2', date:'2025-01-14', type:'Carousel', title:'Myth-busting splits', who:'jordan', status:'planned',   label:'Jordan'},
-  {id:'e3', date:'2025-01-15', type:'Story',    title:'Behind the scenes',   who:'jordan', status:'planned',   label:'Jordan'},
-  {id:'e4', date:'2025-01-16', type:'Reel',     title:'Cycle syncing',       who:'jordan', status:'planned',   label:'Jordan'},
-  {id:'e5', date:'2025-01-17', type:'Caption',  title:'Motivation post',     who:'jordan', status:'planned',   label:'Jordan'},
-  {id:'e7', date:'2025-01-19', type:'Reel',     title:'Weekly recap',        who:'jordan', status:'planned',   label:'Jordan'},
-  // Maya's trend flag
-  {id:'e8', date:'2025-01-13', type:'Trend',    title:'Weighted walking — act now', who:'maya', status:'scripted', label:'Maya'},
-  // Previous week approved
-  {id:'e9',  date:'2025-01-07', type:'Reel',    title:'5 Gym Mistakes',      who:'riley',  status:'approved',  label:'Riley'},
-  {id:'e10', date:'2025-01-07', type:'Hooks',   title:'Hook set delivered',  who:'alex',   status:'approved',  label:'Alex'},
-  {id:'e11', date:'2025-01-08', type:'Video',   title:'Reel rendered',       who:'riley',  status:'approved',  label:'Riley'},
-  {id:'e12', date:'2025-01-09', type:'Reel',    title:'Morning Routine',     who:'alex',   status:'approved',  label:'Alex'},
-]
+// Starts empty — populated by calendar-wire.js from real task data.
+var calEntries = []
 
 var MONTH_NAMES = ['January','February','March','April','May','June',
                      'July','August','September','October','November','December']
@@ -367,9 +353,11 @@ function renderMonth() {
       (isToday(dateStr) ? '<span class="today-dot"></span>' : '')
     cell.appendChild(numDiv)
 
-    // Entries for this date
+    // Entries for this date — show max 3, overflow as "+N more"
     const dayEntries = calEntries.filter(e => e.date === dateStr)
-    dayEntries.forEach(entry => {
+    const MAX_VISIBLE = 3
+    const visible = dayEntries.slice(0, MAX_VISIBLE)
+    visible.forEach(entry => {
       const el = document.createElement('div')
       el.className = `cal-entry ${entry.who}`
       el.innerHTML = `
@@ -385,6 +373,13 @@ function renderMonth() {
         </div>`
       cell.appendChild(el)
     })
+    if (dayEntries.length > MAX_VISIBLE) {
+      const more = document.createElement('div')
+      more.className = 'cal-entry-overflow'
+      more.textContent = '+' + (dayEntries.length - MAX_VISIBLE) + ' more'
+      more.style.cssText = 'font-size:10px;color:var(--t2);padding:2px 6px;cursor:pointer;letter-spacing:.04em'
+      cell.appendChild(more)
+    }
 
     grid.appendChild(cell)
   }

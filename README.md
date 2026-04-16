@@ -4,17 +4,6 @@
 
 Vexa is a SaaS platform that gives every content creator a full AI workforce — a Trend Analyst, Content Strategist, Copywriter, and Creative Director — that specializes in their niche, learns their brand, and delivers real structured work every day. You are the CEO. You approve, redirect, and call meetings. Your team does everything else.
 
-## Where it runs
-
-Two stacks. See [docs/STACKS.md](./docs/STACKS.md) for the comparison.
-
-| | Status | Stack |
-|---|---|---|
-| **Test preview** | ✅ Live | Vercel + Railway + Neon + Phyllo staging — see [docs/DEPLOY-TEST.md](./docs/DEPLOY-TEST.md) |
-| **Production** | 🟡 Architecture defined, not deployed | AWS Amplify + ECS Fargate + RDS + Phyllo prod + Bedrock — see [docs/DEPLOY-PROD.md](./docs/DEPLOY-PROD.md) |
-
-The current public URL (`https://vexa-web-chi.vercel.app`) is the **test preview**. Do not route real users or real money through it. Production migration plan is in `docs/DEPLOY-PROD.md`.
-
 ---
 
 ## What Makes Vexa Different
@@ -33,36 +22,46 @@ Most AI tools make you the prompt engineer — you still do all the thinking. Ve
 
 ## The Team
 
-| Employee | Role | Delivers |
-|---|---|---|
-| **Maya** | Trend & Insights Analyst | Monday trend report, Knowledge Feed curation, viral hook signals |
-| **Jordan** | Content Strategist | Sunday content plan, pillar strategy, briefs Alex on approval |
-| **Alex** | Copywriter & Script Writer | Hooks, Reel scripts, captions, carousel copy — in your voice |
-| **Riley** | Creative Director | Shot lists, visual direction, sends to video generation |
+| Employee | Role | Delivers | Proactive |
+|---|---|---|---|
+| **Maya** | Trend & Insights Analyst | Performance reviews, trend reports, content gap analysis | Monday morning pulse, on-connect analysis |
+| **Jordan** | Content Strategist | Weekly content plans, pillar strategy, goal setting | Sunday content plan, metric-based goals |
+| **Alex** | Copywriter & Script Writer | Hooks, Reel scripts, captions, carousel copy — in your voice | Auto-briefs from Jordan's approved plan |
+| **Riley** | Creative Director | Shot lists, visual direction, editing notes | Auto-briefs from Alex's approved copy |
 
-Pipeline: Jordan approval → Alex → Riley → Creatomate video render.
+Pipeline: Maya analysis → Jordan plan → Alex copy → Riley production.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **Next.js 14** (App Router)
-- **TailwindCSS**
-- **Zustand** (client state)
-- **TanStack Query** (server state)
+- **Next.js 14** (App Router) with prototype shell architecture
+- **TailwindCSS** + custom design system (HG-style editorial aesthetic)
+- **Zustand** (client state) + **TanStack Query** (server state)
+- **Wire files** — 25+ companion JS scripts for dashboard, calendar, meetings, etc.
 
 ### Backend
-- **Express** on **AWS Lambda** + API Gateway
-- **PostgreSQL** on AWS RDS, **Prisma** ORM
-- **Redis** via ioredis (ElastiCache)
+- **Express 4.19** — REST API on port 4000
+- **PostgreSQL** via **Prisma 5.14** ORM
+- **Redis** via ioredis (caching, rate limiting)
+- **node-cron** — proactive task scheduling
 
-### AI & Data
+### AI Layer
 - **AWS Bedrock** — Claude Haiku (`anthropic.claude-haiku-20240307-v1:0`)
 - **AWS Bedrock Knowledge Bases** — per-niche RAG
-- **AWS Cognito** via Amplify — auth
+- **Layered prompts** — base personality + niche context + brand memory + platform data + task
 
-### Integrations (all free or near-free to start)
+### Platform Integrations
+| Platform | Method | Data |
+|---|---|---|
+| **Instagram** | Meta Graph API (direct OAuth) | Profile, posts, insights, audience demographics |
+| **TikTok** | TikTok Login Kit (OAuth + PKCE) | Profile, videos, engagement, audience |
+| **Phyllo** (legacy) | Middleware | Instagram via Phyllo SDK |
+
+All platform data normalizes into `PlatformAccount` / `PlatformSnapshot` / `PlatformPost` / `PlatformAudience` tables.
+
+### Data Sources (Knowledge Feed)
 | Service | Cost | Purpose |
 |---|---|---|
 | Reddit public JSON | Free | Trend signals, hook language |
@@ -70,34 +69,22 @@ Pipeline: Jordan approval → Alex → Riley → Creatomate video render.
 | NewsAPI | Free (100 req/day) | Niche news scanning |
 | RSS feeds | Free | Industry publications |
 | YouTube Data API v3 | Free (10k units/day) | Format and trend analysis |
-| Pexels API | Free | B-roll footage for Riley |
-| Pixabay API | Free | B-roll footage for Riley |
-| Creatomate | $29/mo | Video rendering pipeline |
-
-**Total integration cost at launch: ~$29/mo**
 
 ### Payments & Email
 - **Stripe** — subscriptions, webhooks, plan management
-- **Resend** — transactional email (free to 3,000/mo)
-
-### Infrastructure
-- **AWS Amplify** — frontend hosting
-- **AWS Lambda** — backend functions
-- **AWS RDS** — PostgreSQL database
-- **AWS S3** — file storage
-- **AWS ElastiCache** — Redis (~$13/mo)
+- **Resend** — transactional email
 
 ---
 
 ## Pricing
 
-| Plan | Monthly | Annual | Includes |
-|---|---|---|---|
-| Starter | $14.99/mo | $11/mo | Maya + Alex, 30 tasks/mo, Knowledge Feed |
-| Pro | $49.99/mo | $37/mo | Full team, unlimited tasks, meetings, memory, 10 videos/mo |
-| Agency | $99.99/mo | $74/mo | 5 workspaces, 50 videos/mo, white-label |
+| Plan | Monthly | Includes |
+|---|---|---|
+| **Starter** | $29/mo | Maya + Alex, 60 Bedrock calls/mo, proactive analysis, niche detection |
+| **Pro** | $79/mo | Full team (4 agents), 500 calls/mo, meetings, weekly pulse |
+| **Agency** | $149/mo | 5 workspaces, 2000 calls/mo, 2-min cooldown, all features |
 
-All plans start with a 7-day free trial. No credit card required.
+All plans: 7-day free trial, no credit card required.
 
 ---
 
@@ -105,64 +92,59 @@ All plans start with a 7-day free trial. No credit card required.
 
 ```
 vexa/
-├── .claude/
-│   └── CLAUDE.md                    # Claude Code master instructions
 ├── apps/
 │   ├── api/
-│   │   ├── prisma/
-│   │   │   └── schema.prisma        # Full database schema
+│   │   ├── prisma/schema.prisma           # 16 models, 10 enums
 │   │   └── src/
-│   │       ├── agents/
-│   │       │   ├── maya/
-│   │       │   │   └── system-prompt.ts        # Maya's task + meeting prompts
-│   │       │   ├── jordan-alex-riley-prompts.ts # Other agent prompts
-│   │       │   └── task-orchestrator.ts         # Pipeline engine + button actions
-│   │       └── services/
-│   │           ├── bedrock/
-│   │           │   └── bedrock.service.ts       # AWS Bedrock + RAG
-│   │           ├── cache/
-│   │           │   └── cache.service.ts         # Redis cache-aside + rate limiting
-│   │           ├── email/
-│   │           │   └── email.service.ts         # Resend email templates
-│   │           ├── feed/
-│   │           │   └── feed.service.ts          # Knowledge Feed aggregation
-│   │           ├── integrations/
-│   │           │   ├── index.ts                 # Master orchestrator
-│   │           │   ├── reddit.service.ts        # Reddit public API
-│   │           │   ├── google-trends.service.ts # Google Trends (npm)
-│   │           │   ├── newsapi.service.ts       # NewsAPI
-│   │           │   ├── rss.service.ts           # RSS feed aggregator
-│   │           │   ├── youtube.service.ts       # YouTube Data API v3
-│   │           │   ├── stock-media.service.ts   # Pexels + Pixabay
-│   │           │   └── creatomate.service.ts    # Video generation
-│   │           ├── meeting.service.ts           # Meeting flow + SSE streaming
-│   │           ├── notifications/
-│   │           │   └── notification.service.ts  # SSE real-time + DB notifications
-│   │           └── stripe/
-│   │               └── stripe.service.ts        # Checkout + webhooks
+│   │       ├── agents/                    # Agent prompt builders
+│   │       │   ├── maya/system-prompt.ts   # Performance review, pulse, trend prompts
+│   │       │   ├── jordan-alex-riley-prompts.ts
+│   │       │   └── task-orchestrator.ts    # Pipeline engine + handoff
+│   │       ├── lib/                       # 25 service modules
+│   │       │   ├── personalContext.ts      # Platform data → agent context builder
+│   │       │   ├── metaGraph.ts            # Meta Graph API client
+│   │       │   ├── tiktokSync.ts           # TikTok data persistence
+│   │       │   ├── nicheDetection.ts       # Auto-niche from content
+│   │       │   ├── proactiveAnalysis.ts    # Triggered Maya analysis
+│   │       │   ├── bedrockUsage.ts         # Usage tracking + caps
+│   │       │   └── plans.ts               # Plan limits + feature gates
+│   │       ├── routes/                    # 14 REST route files
+│   │       │   ├── tasks.ts               # Task CRUD + Bedrock execution
+│   │       │   ├── meeting.ts             # Meeting flow + SSE streaming
+│   │       │   ├── instagram.ts           # Meta OAuth + sync
+│   │       │   ├── tiktok.ts              # TikTok OAuth + sync
+│   │       │   └── platformData.ts        # Cross-platform overview
+│   │       ├── scheduler.ts               # Cron: daily sync, weekly pulse, stuck tasks
+│   │       └── services/bedrock/          # AWS Bedrock + RAG integration
 │   └── web/
-│       ├── STRUCTURE.md                         # Frontend component guide
-│       └── src/
-│           ├── app/
-│           │   └── auth/
-│           │       └── onboarding/
-│           │           └── OnboardingFlow.tsx   # 4-step onboarding + team reveal
-│           └── components/
-│               └── shared/
-│                   └── NotificationBell.tsx     # Real-time SSE notification bell
-├── infrastructure/
-│   └── aws/
-│       └── cdk/
-│           └── vexa-stack.ts                    # CDK: full AWS infrastructure
-├── packages/
-│   └── types/
-│       └── index.ts                             # Shared TypeScript types
-├── .env.example                                 # All environment variables documented
-└── README.md
+│       ├── public/                        # 25+ wire.js companion scripts
+│       │   ├── prototype.js               # Core UI engine + calendar
+│       │   ├── dashboard-v2.js            # Dashboard layout + charts + tooltips
+│       │   ├── meeting-wire.js            # Meeting room interactions
+│       │   ├── calendar-wire.js           # Task → calendar sync
+│       │   └── ...                        # billing, team, outputs, etc.
+│       └── src/app/
+│           ├── prototype.css              # Design system (tokens, typography, motion)
+│           ├── _prototype/
+│           │   ├── body.html              # Full page structure
+│           │   └── PrototypeShell.tsx      # SSR wrapper
+│           └── page.tsx                   # force-dynamic entry
+├── packages/types/index.ts                # Shared TypeScript types
+├── infrastructure/aws/cdk/               # CDK stack (not deployed)
+└── docs/                                 # Deployment guides
 ```
 
-Also included:
-- `vexa-website.html` — Full interactive prototype (marketing site + onboarding + dashboard)
+---
+
+## Database Models
+
+**Core:** User, Company, Employee, Task, Output, Meeting, BrandMemory
+
+**Platform:** PlatformAccount, PlatformSnapshot, PlatformPost, PlatformAudience
+
+**Legacy:** InstagramConnection, TiktokConnection
+
+**Knowledge:** NicheKnowledge, Notification
 
 ---
 
@@ -170,9 +152,9 @@ Also included:
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-- AWS account with Bedrock access enabled
+- PostgreSQL 15+ (or Neon for cloud)
+- Redis 7+ (optional for local dev)
+- AWS account with Bedrock access
 
 ### 1. Clone and install
 
@@ -188,43 +170,29 @@ npm install
 cp .env.example .env
 ```
 
-Fill in all values. The minimum required to run locally:
-
+Minimum required:
 ```env
-# Database
 DATABASE_URL=postgresql://localhost:5432/vexa
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# AWS Bedrock (requires AWS CLI configured)
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
-
-# Auth
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=
-NEXT_PUBLIC_COGNITO_CLIENT_ID=
-
-# Stripe
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-
-# Email
-RESEND_API_KEY=
-
-# App URLs
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
 
-Optional (integrations start working without these, just degrade gracefully):
+Platform integrations (optional):
 ```env
-NEWS_API_KEY=          # newsapi.org — free 100 req/day
-YOUTUBE_API_KEY=       # Google Cloud Console — free 10k units/day
-PEXELS_API_KEY=        # pexels.com/api — free
-PIXABAY_API_KEY=       # pixabay.com/api — free
-CREATOMATE_API_KEY=    # creatomate.com — $29/mo
+# TikTok Login Kit
+TIKTOK_CLIENT_KEY=
+TIKTOK_CLIENT_SECRET=
+
+# Meta / Instagram
+META_APP_ID=
+META_APP_SECRET=
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 ```
 
 ### 3. Database setup
@@ -238,69 +206,60 @@ npx prisma generate
 ### 4. Run locally
 
 ```bash
-# Terminal 1 — API
-cd apps/api
-npm run dev
+# Terminal 1 — API (port 4000)
+cd apps/api && npm run dev
 
-# Terminal 2 — Web
-cd apps/web
-npm run dev
+# Terminal 2 — Web (port 3000)
+cd apps/web && npm run dev
 ```
 
-Frontend: http://localhost:3000  
+Frontend: http://localhost:3000
 API: http://localhost:4000
 
 ---
 
-## Build Order (for Claude Code)
+## Design System
 
-Follow `.claude/CLAUDE.md` for the full build sequence. High-level order:
+The visual language follows an editorial/minimalist aesthetic (inspired by harrygeorge.design):
 
-1. **Types** — `packages/types/index.ts`
-2. **Database** — Prisma schema + migrations
-3. **Auth** — Cognito + Amplify setup
-4. **Core services** — Bedrock, cache, email, notifications
-5. **Agent prompts** — Maya, Jordan, Alex, Riley
-6. **Task orchestrator** — Pipeline engine + button action handler
-7. **Integrations** — Reddit, Trends, NewsAPI, RSS, YouTube, Pexels, Creatomate
-8. **API routes** — Tasks, meetings, feed, outputs, stripe webhooks
-9. **Frontend** — Onboarding, dashboard, team, tasks/calendar, outputs, knowledge feed, settings
-10. **Infrastructure** — CDK stack deploy
+- **Typography:** Cormorant Garamond (italic serif headlines), Syne (bold uppercase labels), DM Sans (body)
+- **Color:** Near-black surfaces (#0a0a0a, #111, #171717), warm amber accent, monochromatic palette
+- **Motion:** Staggered fade+slide reveals, card hover lift, link underline animation, smooth scroll
+- **Layout:** Generous whitespace (96-160px section padding), 8px border-radius, rectangular buttons
+- **Borders:** Subtle rgba borders, no heavy outlines — depth through surface color differences
 
 ---
 
 ## Key Design Decisions
 
-**Button-first interaction model**  
-Users never prompt the AI. Every output surfaces with structured action buttons (Approve / Reject / Reconsider). The only free-text input is inside Meetings. This is intentional and central to the product identity.
+**Button-first interaction model**
+Users never prompt the AI. Every output surfaces with structured action buttons (Approve / Reject / Reconsider). The only free-text input is inside Meetings and the quick-brief modal.
 
-**Agent pipeline auto-triggers**  
-Approving Jordan's content plan automatically triggers Alex to receive a brief. Approving Alex's script automatically triggers Riley. Approving Riley's shot list triggers Creatomate. Users manage decisions, not workflow.
+**Agent pipeline auto-triggers**
+Approving Jordan's content plan automatically briefs Alex. Approving Alex's copy briefs Riley. Each agent builds on the previous output via `buildHandoffContext()`.
 
-**Cache-aside for external APIs**  
-All external data (Reddit, Trends, RSS, YouTube) is cached in Redis with TTLs. Trend data: 6hrs. RSS: 2hrs. Brand memory: 30min. Without this, every agent task hits 5+ external APIs simultaneously.
+**Platform data feeds agent context**
+`personalContext.ts` loads real follower counts, engagement rates, posting patterns, and content insights. Agents reference actual numbers — not generic advice.
 
-**SSE for real-time notifications**  
-Server-Sent Events for agent notifications — simpler than WebSockets and works through API Gateway without extra configuration. Falls back gracefully if disconnected.
+**Proactive delivery system**
+Maya auto-analyzes on platform connect. Weekly pulse fires Monday 8am UTC. Agents don't wait to be asked — they deliver to the CEO's inbox.
 
-**Brand memory compounds over time**  
-Every approval, rejection, and meeting decision is stored and fed back into agent prompts. The team gets better the more you use it.
+**Brand memory compounds over time**
+Every approval, rejection, and meeting decision is stored and weighted. Agent prompts include this memory so the team improves with use.
+
+**Niche detection from content**
+Captions and bios are analyzed to auto-detect niche (with confidence score). Visual thumbnail fallback for accounts with minimal text.
 
 ---
 
-## Interaction Rules (important for AI implementation)
+## Interaction Rules
 
-- Agents deliver outputs unprompted on a schedule (Maya: Monday 9am, Jordan: Sunday 7pm)
-- Agents reference previous decisions in their outputs
-- Meeting room is the ONLY place users type freely
-- Approving a plan triggers the next agent automatically — no manual assignment
+- Agents deliver outputs on schedule (Maya: Monday pulse, Jordan: Sunday plan)
+- Agents reference previous decisions and platform data in outputs
+- Meeting room is the only place users type freely
+- Approving a plan triggers the next agent automatically
 - Every rejection is stored as brand memory with the reason
-
----
-
-## Environment Variables Reference
-
-See `.env.example` for the complete documented list. All variables are grouped by service with comments explaining cost, limits, and where to sign up.
+- Internal tasks (performance_review, weekly_pulse) run silently — CEO sees results, not process
 
 ---
 

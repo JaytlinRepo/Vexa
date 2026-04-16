@@ -86,7 +86,7 @@
 
     if (t.type === 'content_plan' && Array.isArray(content.posts) && content.posts.length > 0) {
       const anchor = content.weekOf || t.createdAt || t.updatedAt
-      content.posts.forEach((p, i) => {
+      content.posts.slice(0, 5).forEach((p, i) => {
         const dayLabel = p.day || p.weekday
         const dateStr = dayLabelToYmd(String(dayLabel || ''), anchor) || ymd(t.createdAt)
         const fmt = p.format || p.type || 'Post'
@@ -166,7 +166,8 @@
         for (const t of tasks) {
           if (t && t.id && !byTaskId.has(t.id)) byTaskId.set(t.id, t)
         }
-        const uniqueTasks = [...byTaskId.values()]
+        const SKIP_TYPES = { performance_review: 1, weekly_pulse: 1 }
+        const uniqueTasks = [...byTaskId.values()].filter((t) => !SKIP_TYPES[t.type])
 
         const byEntryId = new Map()
         for (const t of uniqueTasks) {
