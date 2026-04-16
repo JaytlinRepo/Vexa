@@ -223,7 +223,7 @@
             <article style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">
               <div style="background:${u.bg};border-bottom:1px solid ${u.border};padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:14px;min-width:0">
-                  <span style="background:${u.tint};color:#fff;font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:999px;font-family:'Syne',sans-serif">${escapeHtml(u.label)}</span>
+                  <span style="background:${u.tint};color:#fff;font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;padding:4px 10px;border-radius:8px;font-family:'Syne',sans-serif">${escapeHtml(u.label)}</span>
                   <span style="color:var(--t3);font-size:11px;letter-spacing:.06em;text-transform:uppercase">Window: ${escapeHtml(t.window || '—')}</span>
                 </div>
                 <div style="display:flex;align-items:baseline;gap:6px">
@@ -285,7 +285,7 @@
       <div style="margin-bottom:18px">
         <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);font-family:'Syne',sans-serif;margin-bottom:8px">Pillars</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${pillars.map((p) => `<span style="background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;padding:5px 12px;border-radius:999px">${escapeHtml(p)}</span>`).join('')}
+          ${pillars.map((p) => `<span style="background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:12px;padding:5px 12px;border-radius:8px">${escapeHtml(p)}</span>`).join('')}
         </div>
       </div>
     ` : ''
@@ -457,7 +457,7 @@
           </div>
           ${b.purpose ? `<div style="color:var(--t3);font-size:11px;line-height:1.5;margin-bottom:8px">${escapeHtml(b.purpose)}</div>` : ''}
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-            ${(b.tags || []).map((t) => `<span style="background:var(--s3);color:var(--t1);font-size:12px;padding:5px 10px;border-radius:999px">${escapeHtml(t)}</span>`).join('')}
+            ${(b.tags || []).map((t) => `<span style="background:var(--s3);color:var(--t1);font-size:12px;padding:5px 10px;border-radius:8px">${escapeHtml(t)}</span>`).join('')}
           </div>
           ${b.note ? `<div style="color:var(--t2);font-size:11px;font-style:italic;line-height:1.5">${escapeHtml(b.note)}</div>` : ''}
         </div>

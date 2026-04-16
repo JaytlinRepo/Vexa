@@ -23,12 +23,12 @@
   }
 
   function sectionLabel(text) {
-    return `<h2 style="color:var(--t2);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0 0 10px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
+    return `<h2 style="color:var(--t2);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;margin:0 0 14px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
   }
 
   function statCard(label, big, sub, tint) {
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px 22px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">${esc(label)}</div>
         <div style="color:${tint || 'var(--t1)'};font-size:24px;font-family:'Cormorant Garamond',serif;font-weight:500;line-height:1.1;margin-bottom:4px">${big}</div>
         <div style="color:var(--t3);font-size:11px;line-height:1.4">${esc(sub)}</div>
@@ -82,10 +82,10 @@
 
     const section = document.createElement('section')
     section.id = 'vx-scorecard'
-    section.style.marginBottom = '26px'
+    section.style.marginBottom = '32px'
     section.innerHTML = `
       ${sectionLabel(`This month — ${esc(sc.monthLabel)}`)}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
         ${statCard('Outputs shipped', outputsBig, outputsSub, null)}
         ${statCard('Approval rate', approvalBig, approvalSub, null)}
         ${statCard('Engagement lift (30d)', liftBig, liftSub, liftTint)}

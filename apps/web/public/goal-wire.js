@@ -44,13 +44,13 @@
   }
 
   function sectionLabel(text) {
-    return `<h2 style="color:var(--t2);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0 0 10px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
+    return `<h2 style="color:var(--t2);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;margin:0 0 14px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
   }
 
   function emptyCard(hasBaseline) {
     if (!hasBaseline) {
       return `
-        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px">
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px">
           <div style="min-width:0">
             <div style="color:var(--t1);font-size:15px;font-weight:600;margin-bottom:4px">No goal yet.</div>
             <div style="color:var(--t3);font-size:12px;line-height:1.5">Connect your account so Jordan has real numbers to build your first goal against.</div>
@@ -60,7 +60,7 @@
     }
     // Auto-generate: don't wait for user to click — Jordan picks immediately
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:14px">
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px 22px;display:flex;align-items:center;gap:14px">
         <div style="min-width:0;flex:1">
           <div style="color:var(--t2);font-size:13px;font-style:italic" id="vx-goal-autogen">Jordan is picking a goal based on your numbers…</div>
         </div>
@@ -70,12 +70,12 @@
 
   function filledCard(goal, pacing) {
     const badge = goal.source === 'jordan'
-      ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--s3);color:var(--t2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;margin-bottom:6px">Picked by Jordan</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--s3);color:var(--t2);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:8px;margin-bottom:6px">Picked by Jordan</span>`
       : ''
     const metricLabel = goal.metricLabel || goal.type
     if (!pacing) {
       return `
-        <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px”>
+        <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px”>
           <div style=”color:var(--t1);font-size:13px;font-weight:500;flex:1”>${esc(metricLabel)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
           <div style=”color:var(--t3);font-size:11px”>Syncing…</div>
         </div>
@@ -85,13 +85,13 @@
     const tint = pacing.onTrack ? 'var(--t1)' : '#ff6b6b'
     const verdict = pacing.onTrack ? 'On pace' : 'Off pace'
     return `
-      <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px”>
+      <div style=”background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px”>
         <div style=”display:flex;align-items:center;gap:12px;margin-bottom:8px”>
           <div style=”color:var(--t1);font-size:13px;font-weight:500;flex:1”>${esc(metricLabel)}: ${fmt(goal.target, goal.type)} by ${esc(goal.byDate)}</div>
           <div style=”color:${tint};font-size:11px;font-weight:600”>${verdict}</div>
         </div>
-        <div style=”position:relative;height:6px;background:var(--s3);border-radius:999px;overflow:hidden”>
-          <div style=”position:absolute;inset:0;width:${progressW}%;background:${tint};border-radius:999px;transition:width .4s ease”></div>
+        <div style=”position:relative;height:6px;background:var(--s3);border-radius:8px;overflow:hidden”>
+          <div style=”position:absolute;inset:0;width:${progressW}%;background:${tint};border-radius:8px;transition:width .4s ease”></div>
         </div>
         <div style=”display:flex;justify-content:space-between;color:var(--t3);font-size:10px;margin-top:4px”>
           <span>${fmt(pacing.current, goal.type)} now</span><span>${progressW}%</span><span>${pacing.daysLeft}d left</span>
@@ -113,7 +113,7 @@
 
     const section = document.createElement('section')
     section.id = 'vx-goal'
-    section.style.marginBottom = '26px'
+    section.style.marginBottom = '32px'
     section.innerHTML = `
       ${sectionLabel('Goal')}
       ${data?.goal ? filledCard(data.goal, data.pacing) : emptyCard(data?.hasBaseline)}

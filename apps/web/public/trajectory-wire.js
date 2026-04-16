@@ -220,7 +220,7 @@
   function rangeSelector() {
     const btn = (label, days) => {
       const active = currentRange === days
-      return `<button data-range="${days}" style="background:${active ? 'var(--t1)' : 'transparent'};color:${active ? 'var(--bg)' : 'var(--t2)'};border:1px solid var(--b2);padding:4px 12px;border-radius:999px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${label}</button>`
+      return `<button data-range="${days}" style="background:${active ? 'var(--t1)' : 'transparent'};color:${active ? 'var(--bg)' : 'var(--t2)'};border:1px solid var(--b2);padding:4px 12px;border-radius:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${label}</button>`
     }
     return `<div style="display:flex;gap:6px">${btn('7d', 7)}${btn('30d', 30)}${btn('All', 0)}</div>`
   }
@@ -519,7 +519,7 @@
             <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px">Trajectory</div>
             <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0">${escapeHtml(title)} — @${escapeHtml(handle)}</h3>
           </div>
-          <button id="vx-traj-close" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:7px 14px;border-radius:999px;cursor:pointer;font-family:inherit;font-size:11px">Close</button>
+          <button id="vx-traj-close" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:11px">Close</button>
         </div>
         <div style="color:var(--t3);font-size:12px;margin-bottom:18px">Hover any point for the exact value. ${snapshots.length} snapshot${snapshots.length === 1 ? '' : 's'} in view.</div>
         <div id="vx-traj-chart"></div>

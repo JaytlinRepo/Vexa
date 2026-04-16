@@ -69,7 +69,7 @@
     el.style.cssText =
       'position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
     const fmtChips = FORMATS.map((f, i) =>
-      `<button type="button" data-fmt="${esc(f)}" style="background:${i === 0 ? 'var(--t1)' : 'transparent'};color:${i === 0 ? 'var(--bg)' : 'var(--t2)'};border:1px solid var(--b2);padding:6px 14px;border-radius:999px;font-size:11px;cursor:pointer;font-family:inherit">${esc(f)}</button>`
+      `<button type="button" data-fmt="${esc(f)}" style="background:${i === 0 ? 'var(--t1)' : 'transparent'};color:${i === 0 ? 'var(--bg)' : 'var(--t2)'};border:1px solid var(--b2);padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit">${esc(f)}</button>`
     ).join('')
     el.innerHTML = `
       <div style="width:100%;max-width:440px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:26px;color:var(--t1);font-family:'DM Sans',sans-serif">

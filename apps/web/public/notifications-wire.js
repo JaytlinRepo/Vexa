@@ -25,9 +25,9 @@
     panel.id = 'vx-notif-panel'
     panel.style.cssText = `
       position:fixed;top:64px;right:32px;width:360px;max-height:520px;overflow:auto;
-      background:var(--s1);border:1px solid var(--b1);border-radius:12px;
-      box-shadow:0 20px 60px rgba(0,0,0,.5);z-index:7000;display:none;padding:8px 0;
-      font-family:'DM Sans',sans-serif
+      background:var(--bg);border:1px solid var(--b1);border-radius:14px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+      z-index:7000;display:none;padding:8px 0;font-family:'DM Sans',sans-serif
     `
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px 12px;border-bottom:1px solid var(--b1)">
@@ -98,7 +98,7 @@
     for (const n of state.items.slice(0, 20)) {
       const row = document.createElement('div')
       row.style.cssText = `
-        display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-bottom:1px solid var(--b1);
+        display:flex;flex-direction:column;gap:8px;padding:14px 18px;border-bottom:1px solid var(--b1);
         ${n.isRead ? 'opacity:.55' : ''}
       `
       const meta = n.metadata || {}

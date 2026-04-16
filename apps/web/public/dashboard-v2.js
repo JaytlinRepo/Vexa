@@ -476,14 +476,14 @@
       : `${capitalize(u?.plan || 'starter')} · ${capitalize(status)}`
 
     return `
-      <section style="margin-bottom:22px">
+      <section style="margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
           <div>
-            <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(26px,3vw,38px);font-weight:500;line-height:1.1;color:var(--t1);margin:0 0 4px">${esc(greetingFor(user?.fullName || user?.username))}</h1>
+            <h1 style="font-family:'Cormorant Garamond',serif;font-size:clamp(30px,3.5vw,44px);font-weight:500;line-height:1.08;letter-spacing:-.02em;color:var(--t1);margin:0 0 6px">${esc(greetingFor(user?.fullName || user?.username))}</h1>
             <div style="color:var(--t2);font-size:12px">${esc(company?.name || 'Your company')} · ${esc(formatNiche(company?.niche))}</div>
-            <p style="margin:10px 0 0;color:var(--t3);font-size:11px;max-width:680px;line-height:1.5">Everyone here is trying to <span style="color:var(--t2)">grow the platform</span> — the team figures the best moves from signals, memory, and performance. Your day should skew to <span style="color:var(--t2)">what shipped and what worked</span>; you only need to step in when something is worth a real decision, not every micro-step.</p>
+            <p style="margin:12px 0 0;color:var(--t3);font-size:11px;max-width:680px;line-height:1.6">Everyone here is trying to <span style="color:var(--t2)">grow the platform</span> — the team figures the best moves from signals, memory, and performance. Your day should skew to <span style="color:var(--t2)">what shipped and what worked</span>; you only need to step in when something is worth a real decision, not every micro-step.</p>
           </div>
-          <button data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 14px;border-radius:999px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${esc(chipLabel)}</button>
+          <button data-v2-nav="db-settings" style="background:var(--s2);border:none;color:var(--t2);padding:7px 14px;border-radius:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:inherit">${esc(chipLabel)}</button>
         </div>
       </section>
     `
@@ -526,7 +526,7 @@
     }
 
     return `
-      <div style="margin:-4px 0 20px;padding:12px 16px;border:1px solid var(--b1);border-radius:10px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.5">
+      <div style="margin:-4px 0 24px;padding:16px 20px;border:1px solid var(--b1);border-radius:12px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.55">
         <span style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:4px">Team pulse</span>
         ${esc(body)}${postingNote ? `<br/><span style="color:var(--t1);font-weight:500">${esc(postingNote)}</span>` : ''}
       </div>
@@ -544,11 +544,11 @@
       const working = inProgress[0]
       const workingRole = ROLE[working.employee?.role] || { name: 'Your team', init: '?' }
       return `
-        <section style="margin-bottom:18px">
-          <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
-            <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
-            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">${esc(workingRole.name)} is working on something for you.</div>
-            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">${esc(working.title)} — you'll see it here when it's ready.</p>
+        <section style="margin-bottom:22px">
+          <div style="border:1px solid var(--b1);border-radius:14px;padding:22px 24px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;font-family:'Syne',sans-serif">Next for you</div>
+            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(22px,2.6vw,28px);line-height:1.15;font-weight:500;letter-spacing:-.01em;margin-bottom:8px">${esc(workingRole.name)} is working on something for you.</div>
+            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0">${esc(working.title)} — you'll see it here when it's ready.</p>
           </div>
         </section>
       `
@@ -563,15 +563,15 @@
         ? 'Brief an agent or wait for the next proactive report.'
         : 'Once your TikTok or Instagram is connected, Maya will analyze your content automatically.'
       return `
-        <section style="margin-bottom:18px">
-          <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:var(--s1)">
-            <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
-            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.4vw,26px);line-height:1.2;font-weight:500;margin-bottom:8px">${esc(headline)}</div>
-            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 14px">${esc(sub)}</p>
-            <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <section style="margin-bottom:22px">
+          <div style="border:1px solid var(--b1);border-radius:14px;padding:22px 24px;background:var(--s1)">
+            <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;font-family:'Syne',sans-serif">Next for you</div>
+            <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(22px,2.6vw,28px);line-height:1.15;font-weight:500;letter-spacing:-.01em;margin-bottom:8px">${esc(headline)}</div>
+            <p style="color:var(--t2);font-size:12px;line-height:1.55;margin:0 0 16px">${esc(sub)}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:10px">
               ${hasAccounts
-                ? `<button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Brief Maya</button>`
-                : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Connect a platform</button>`}
+                ? `<button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Brief Maya</button>`
+                : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Connect a platform</button>`}
             </div>
           </div>
         </section>
@@ -585,12 +585,12 @@
         ? `One deliverable is waiting — start with ${role.name}.`
         : `You have ${n} deliverables waiting — start with ${role.name}'s first.`
     return `
-      <section style="margin-bottom:18px">
-        <div style="border:1px solid var(--b1);border-radius:12px;padding:18px 20px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;font-family:'Syne',sans-serif">Next for you</div>
-          <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px">
+      <section style="margin-bottom:22px">
+        <div style="border:1px solid var(--b1);border-radius:14px;padding:22px 24px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px;font-family:'Syne',sans-serif">Next for you</div>
+          <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:16px">
             <div style="min-width:0;flex:1">
-              <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(20px,2.6vw,28px);line-height:1.15;font-weight:500">${esc(headline)}</div>
+              <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:clamp(22px,2.8vw,30px);line-height:1.12;font-weight:500;letter-spacing:-.01em">${esc(headline)}</div>
               <div style="color:var(--t2);font-size:12px;margin-top:8px;line-height:1.45">${esc(first.title)} · ${esc(formatType(first.type))}</div>
             </div>
             <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:140px">
@@ -605,7 +605,7 @@
 
   function sectionQueueNav() {
     return `
-      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:-6px 0 22px;padding-bottom:14px;border-bottom:1px solid var(--b1)">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:-6px 0 24px">
         <span style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-family:'Syne',sans-serif">Operating mode</span>
         <strong style="color:var(--t1);font-size:12px">Queue first</strong>
         <span style="color:var(--t3)">·</span>
@@ -644,7 +644,7 @@
       var caption = (tp.caption || '').slice(0, 50)
       var badge = platformBadge(tp.platform)
       var url = tp.url || '#'
-      return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="vx-dcard" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:center">'
+      return '<a href="' + esc(url) + '" target="_blank" rel="noopener" class="vx-dcard" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:20px 22px;display:flex;gap:14px;align-items:center">'
         + (thumb
           ? '<img src="' + esc(thumb) + '" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s3)" loading="lazy" onerror="this.style.display=\'none\'" />'
           : '<div style="width:48px;height:48px;border-radius:8px;background:var(--s3);flex-shrink:0;display:grid;place-items:center;color:var(--t3);font-size:9px">' + esc(badge) + '</div>')
@@ -656,8 +656,8 @@
     }
 
     return `
-      <section style="margin-bottom:26px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      <section style="margin-bottom:32px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
           ${''}<!-- awaiting review is now the notification list below -->
           ${tile('Followers', fVal, fDelta || fSub)}
           ${topPostTile()}
@@ -667,12 +667,12 @@
         ${overviewSparkline(ov)}
         ${overviewAudiencePeek(ov)}
 
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--b1)">
-          <button type="button" data-v2-soft-refresh style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh dashboard</button>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:18px">
+          <button type="button" data-v2-soft-refresh style="background:var(--s2);border:none;color:var(--t2);padding:7px 14px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Refresh dashboard</button>
           ${hasAccounts
-            ? `<button type="button" data-v2-nav="db-settings" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See data in Settings</button>
-               <button type="button" data-v2-nav="db-outputs" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">See what shipped</button>`
-            : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 14px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Connect a platform</button>`}
+            ? `<button type="button" data-v2-nav="db-settings" style="background:var(--s2);border:none;color:var(--t2);padding:7px 14px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">See data in Settings</button>
+               <button type="button" data-v2-nav="db-outputs" style="background:var(--s2);border:none;color:var(--t2);padding:7px 14px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">See what shipped</button>`
+            : `<button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:7px 16px;border-radius:8px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Connect a platform</button>`}
         </div>
       </section>
     `
@@ -688,8 +688,8 @@
     const spark = ov.sparkline
     if (spark.length < 2) {
       return `
-        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;margin-top:12px">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">FOLLOWER TRAJECTORY — 30D</div>
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:22px 24px;margin-top:14px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px">FOLLOWER TRAJECTORY — 30D</div>
           <div style="height:80px;display:grid;place-items:center;color:var(--t3);font-size:12px">Trajectory builds as your team syncs data</div>
         </div>`
     }
@@ -710,9 +710,9 @@
     const startY = bottom - ((ys[0] - min) / range) * (bottom - top)
 
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;margin-top:12px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase">FOLLOWER TRAJECTORY — 30D${deltaBadge}</div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:22px 24px;margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase">FOLLOWER TRAJECTORY — 30D${deltaBadge}</div>
           <div style="color:var(--t1);font-size:13px;font-weight:600">${short(ys[ys.length - 1])}</div>
         </div>
         <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="display:block">
@@ -741,8 +741,8 @@
         ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
         : ''
       return `
-      <div style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
-        <div style="color:var(--t3);font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px">${esc(label)}${hintEl}</div>
+      <div style="flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px">
+        <div style="color:var(--t3);font-size:9px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:4px">${esc(label)}${hintEl}</div>
         <div style="color:var(--t1);font-size:16px;font-weight:500;letter-spacing:-.01em">${esc(value)}</div>
       </div>`
     }
@@ -764,7 +764,7 @@
       ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${esc(hint)}</span></span>`
       : ''
     return `
-      <div ${action} class="vx-dcard${navId ? ' vx-dcard-nav' : ''}" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px">
+      <div ${action} class="vx-dcard${navId ? ' vx-dcard-nav' : ''}" style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:20px 22px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">${esc(label)}${hintEl}</div>
         <div class="vx-tile-value" style="color:var(--t1);margin-bottom:4px;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:500;font-size:26px;letter-spacing:-.01em;line-height:1;font-style:normal">${esc(value)}</div>
         <div style="color:var(--t2);font-size:11px">${esc(sub)}</div>
@@ -778,7 +778,7 @@
     if (delivered.length === 0) return ''
     return `
       <div style="margin-bottom:20px">
-        <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--b1);border-radius:10px;overflow:hidden">
+        <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--b1);border-radius:14px;overflow:hidden">
           ${delivered.map(reviewNotif).join('')}
         </div>
       </div>
@@ -787,15 +787,15 @@
 
   function reviewNotif(t) {
     const role = ROLE[t.employee?.role] || { name: 'Vexa', init: 'V' }
-    return '<div data-task-id="' + t.id + '" class="vx-dcard" style="background:var(--s1);padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background=\'var(--s2)\'" onmouseleave="this.style.background=\'var(--s1)\'">'
-      + '<div style="width:28px;height:28px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:\'Syne\',sans-serif;flex-shrink:0">' + role.init + '</div>'
+    return '<div data-task-id="' + t.id + '" class="vx-dcard" style="background:var(--s1);padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background=\'var(--s2)\'" onmouseleave="this.style.background=\'var(--s1)\'">'
+      + '<div style="width:30px;height:30px;border-radius:8px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:\'Syne\',sans-serif;flex-shrink:0">' + role.init + '</div>'
       + '<div style="flex:1;min-width:0">'
       + '<div style="color:var(--t1);font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
       + '<div style="color:var(--t3);font-size:10px">' + esc(role.name) + ' · ' + esc(formatType(t.type)) + ' · ' + esc(timeAgo(t.createdAt)) + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-shrink:0">'
-      + '<button data-v2-action="approve" data-task-id="' + t.id + '" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:5px 12px;border-radius:5px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Approve</button>'
-      + '<button data-v2-action="reject" data-task-id="' + t.id + '" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:5px 12px;border-radius:5px;font-size:10px;font-family:inherit;cursor:pointer">Reject</button>'
+      + '<button data-v2-action="approve" data-task-id="' + t.id + '" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 14px;border-radius:8px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Approve</button>'
+      + '<button data-v2-action="reject" data-task-id="' + t.id + '" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 14px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Reject</button>'
       + '</div>'
       + '</div>'
   }
@@ -830,9 +830,9 @@
       tasksByRole[r].push(t)
     }
     return `
-      <section style="margin-bottom:26px">
+      <section style="margin-bottom:32px">
         ${sectionLabel('Your team')}
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
           ${EMPLOYEE_ROLES.map((role) => teamCard(role, tasksByRole[role] || [])).join('')}
         </div>
       </section>
@@ -851,7 +851,7 @@
     const isLocked = !(planEmployees[userPlan] || planEmployees.starter).includes(role)
     if (isLocked) {
       return `
-        <div class="vx-dcard" style="background:var(--s1);border:1px dashed var(--b2);border-radius:10px;padding:12px 14px;opacity:0.6">
+        <div class="vx-dcard" style="background:var(--s1);border:1px dashed var(--b2);border-radius:12px;padding:16px 18px;opacity:0.6">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <div style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t3);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
             <div>
@@ -860,7 +860,7 @@
             </div>
           </div>
           <div style="color:var(--t3);font-size:11px;line-height:1.4;margin-bottom:10px">${esc(r.name)} is available on the Pro plan.</div>
-          <button type="button" data-v2-nav="db-settings" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Upgrade to unlock</button>
+          <button type="button" data-v2-nav="db-settings" style="width:100%;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Upgrade to unlock</button>
         </div>
       `
     }
@@ -904,7 +904,7 @@
     const avClass = avatarRing ? 'vx-team-avatar-ring' : ''
 
     return `
-      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div class="${avClass}" style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
           <div style="min-width:0">
@@ -918,8 +918,8 @@
         </div>
         <div style="color:var(--t2);font-size:11px;line-height:1.4;margin-bottom:10px;min-height:32px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(detailLine)}</div>
         <div style="display:flex;gap:6px">
-          <button data-v2-brief="${role}" data-v2-brief-name="${r.name}" style="flex:1;background:var(--t1);color:var(--bg);border:none;padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;font-weight:600;cursor:pointer">Brief</button>
-          <button type="button" data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" data-v2-task-id="${delivered ? delivered.id : ''}" style="flex:1;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Meeting</button>
+          <button data-v2-brief="${role}" data-v2-brief-name="${r.name}" style="flex:1;background:var(--t1);color:var(--bg);border:none;padding:6px 10px;border-radius:8px;font-size:10px;font-family:inherit;font-weight:600;cursor:pointer">Brief</button>
+          <button type="button" data-v2-meeting="${r.name}" data-v2-role="${r.title}" data-v2-init="${r.init}" data-v2-task-id="${delivered ? delivered.id : ''}" style="flex:1;background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 10px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Meeting</button>
         </div>
       </div>
     `
@@ -929,9 +929,9 @@
     const ig = STATE.insights
     if (!ig) {
       return `
-        <section style="margin-bottom:26px">
+        <section style="margin-bottom:32px">
           ${sectionLabel('Instagram')}
-          <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
+          <div style="padding:36px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:14px">
             Connect Instagram to unlock follower, engagement, and audience charts.
             <div style="margin-top:16px">
               <button type="button" data-v2-nav="db-settings" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:10px 20px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">Connect Instagram</button>
@@ -945,7 +945,7 @@
     if (isSparse) {
       const platform = ig.platform === 'instagram direct' ? 'Instagram Direct' : 'Instagram'
       return `
-        <section style="margin-bottom:26px">
+        <section style="margin-bottom:32px">
           ${sectionLabel('Instagram')}
           <div style="padding:24px 20px;border:1px solid var(--b1);border-radius:12px;background:var(--s1)">
             <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — insights are syncing</div>
@@ -969,17 +969,17 @@
     const igAvatar = (STATE.overview?.accounts || []).find((a) => a.platform === 'instagram')?.profileImageUrl || ''
 
     return `
-      <section style="margin-bottom:26px">
+      <section style="margin-bottom:32px">
         ${sectionLabel('Instagram')}
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:16px 18px;background:var(--s1);border:1px solid var(--b1);border-radius:14px">
           ${igAvatar ? `<img src="${esc(igAvatar)}" alt="" width="48" height="48" style="border-radius:12px;flex-shrink:0" onerror="this.style.display='none'">` : ''}
           <div style="min-width:0;flex:1">
             <div style="color:var(--t1);font-size:14px;font-weight:500">@${esc(igHandle)}</div>
             ${igBio ? `<div style="color:var(--t2);font-size:12px;line-height:1.4;margin-top:2px;max-width:560px">${esc(String(igBio).slice(0, 140))}${igBio.length > 140 ? '…' : ''}</div>` : ''}
           </div>
-          <a href="${esc(igProfileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:6px 12px;border:1px solid var(--b2);border-radius:999px;text-decoration:none">Open profile</a>
+          <a href="${esc(igProfileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:7px 14px;border:none;background:var(--s2);border-radius:8px;text-decoration:none">Open profile</a>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:16px">
           ${kvTile('Followers', short(ig.followerCount), igTip('followers', ig, STATE.overview))}
           ${kvTile('Posts', short(ig.postCount), igTip('posts', ig, STATE.overview))}
           ${kvTile('Engagement', igEngPct, igTip('engagement', ig, STATE.overview))}
@@ -1236,9 +1236,9 @@
       ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip">${formatHint(hint)}</span></span>`
       : ''
     return `
-      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">${esc(title)}${hintEl}</div>
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px 26px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+          <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:5px">${esc(title)}${hintEl}</div>
           ${statRight ? `<div style="color:var(--t1);font-size:13px;font-weight:600">${esc(statRight)}</div>` : ''}
         </div>
         ${body}
@@ -1324,7 +1324,7 @@
           <div style="color:var(--t1);font-size:13px;font-weight:600">${rate.toFixed(1)}%</div>
         </div>
         <div style="color:var(--t1);font-size:13px;line-height:1.5;margin-bottom:12px;flex:1">${esc(topPost.caption || '—')}</div>
-        <div style="color:var(--t3);font-size:11px;display:flex;gap:12px">
+        <div style="color:var(--t3);font-size:11px;display:flex;gap:14px">
           <span>${short(topPost.like_count || 0)} likes</span>
           <span>${short(topPost.comments_count || 0)} comments</span>
           <span>${short(topPost.insights?.saved || 0)} saves</span>
@@ -1348,7 +1348,7 @@
       const permalink = m.permalink || ''
       const date = m.timestamp ? new Date(m.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
       return `
-        <a href="${esc(permalink)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--t2)'" onmouseleave="this.style.borderColor='var(--b1)'">
+        <a href="${esc(permalink)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--t2)'" onmouseleave="this.style.borderColor='var(--b1)'">
           ${thumb
             ? `<div style="width:100%;aspect-ratio:1;background:#1a1a1a;overflow:hidden"><img src="${esc(thumb)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" /></div>`
             : `<div style="width:100%;aspect-ratio:1;background:var(--s3);display:grid;place-items:center;color:var(--t3);font-size:10px">${esc(type)}</div>`}
@@ -1371,7 +1371,7 @@
     return `
       <div style="margin-top:4px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Recent posts</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">
           ${cards}
         </div>
       </div>
@@ -1392,9 +1392,9 @@
         ? `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
         : '/api/tiktok/auth/start'
       return `
-        <section id="tiktok" style="margin-bottom:26px">
+        <section id="tiktok" style="margin-bottom:32px">
           ${sectionLabel('TikTok — not connected')}
-          <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
+          <div style="padding:36px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:14px">
             Connect TikTok to pull your profile, engagement, and recent videos into the workspace.
             <div style="margin-top:16px">
               <a href="${esc(href)}" style="display:inline-block;background:var(--accent,var(--t1));color:var(--accent-text,var(--inv,var(--bg)));border:none;padding:10px 20px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;text-decoration:none;cursor:pointer">Connect TikTok</a>
@@ -1412,7 +1412,7 @@
     const topVideos = Array.isArray(tt.topVideos) ? tt.topVideos.slice(0, 3) : []
 
     const tiles = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px">
         ${kvTile('Followers', shortNum(tt.followerCount), ttTip('followers', tt))}
         ${kvTile('Videos', shortNum(tt.videoCount), ttTip('videos', tt))}
         ${kvTile('Avg views', shortNum(tt.avgViews), ttTip('views', tt))}
@@ -1427,7 +1427,7 @@
       ? ''
       : '<div style="margin-top:16px">'
         + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Recent posts</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">'
         + recentVids.map(ttPostCard).join('')
         + '</div></div>'
 
@@ -1437,16 +1437,16 @@
     const profileUrl = tt.profileUrl || ''
 
     return `
-      <section id="tiktok" style="margin-bottom:26px">
+      <section id="tiktok" style="margin-bottom:32px">
         ${sectionLabel('TikTok')}
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:16px 18px;background:var(--s1);border:1px solid var(--b1);border-radius:14px">
           ${avatar ? `<img src="${esc(avatar)}" alt="" width="48" height="48" style="border-radius:12px;flex-shrink:0">` : ''}
           <div style="min-width:0;flex:1">
             <div style="color:var(--t1);font-size:14px;font-weight:500">${esc(displayName) || esc(handle) || 'TikTok account'} ${handle && handle !== displayName ? `<span style="color:var(--t3);font-weight:400;margin-left:6px">${esc(handle)}</span>` : ''}</div>
             ${tt.bio ? `<div style="color:var(--t2);font-size:12px;line-height:1.4;margin-top:2px;max-width:560px">${esc(String(tt.bio).slice(0, 140))}${String(tt.bio).length > 140 ? '…' : ''}</div>` : ''}
           </div>
-          ${profileUrl ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:6px 12px;border:1px solid var(--b2);border-radius:999px;text-decoration:none">Open profile</a>` : ''}
-          <button type="button" data-v2-tiktok-disconnect style="color:var(--t3);font-size:11px;padding:6px 12px;border:1px solid var(--b2);background:transparent;border-radius:999px;cursor:pointer;font-family:inherit">Disconnect</button>
+          ${profileUrl ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:7px 14px;border:none;background:var(--s2);border-radius:8px;text-decoration:none">Open profile</a>` : ''}
+          <button type="button" data-v2-tiktok-disconnect style="color:var(--t3);font-size:11px;padding:7px 14px;border:none;background:var(--s2);border-radius:8px;cursor:pointer;font-family:inherit">Disconnect</button>
         </div>
         ${tiles}
         ${postsGrid}
@@ -1543,7 +1543,7 @@
       + '<div style="color:var(--t1);font-size:13px;font-weight:600">' + shortNum(topEng) + '</div>'
       + '</div>'
       + '<div style="color:var(--t1);font-size:13px;line-height:1.5;margin-bottom:8px">' + esc(topTitle) + '</div>'
-      + '<div style="color:var(--t3);font-size:11px;display:flex;gap:12px">'
+      + '<div style="color:var(--t3);font-size:11px;display:flex;gap:14px">'
       + '<span>' + shortNum(top.views) + ' views</span>'
       + '<span>' + shortNum(top.likes) + ' likes</span>'
       + '<span>' + shortNum(top.comments) + ' comments</span>'
@@ -1582,9 +1582,9 @@
       ? `<span class="vx-hint" aria-label="${esc(hint)}">ⓘ<span class="vx-hint-tip${tipCls}">${formatHint(hint)}</span></span>`
       : ''
     return `
-      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">
+      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px">
         <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">${esc(label)}${hintEl}</div>
-        <div style="color:var(--t1);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-top:4px">${esc(String(value))}</div>
+        <div style="color:var(--t1);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-top:6px">${esc(String(value))}</div>
       </div>
     `
   }
@@ -1609,7 +1609,7 @@
       : '<div style="width:100%;aspect-ratio:9/16;max-height:220px;background:var(--s3);display:grid;place-items:center;color:var(--t3);font-size:10px">Video</div>'
     const cmts = comments > 0 ? '<span>' + comments + ' cmts</span>' : ''
     const shr = shares > 0 ? '<span>' + shares + ' shares</span>' : ''
-    return '<a href="' + esc(url || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--t2)\'" onmouseleave="this.style.borderColor=\'var(--b1)\'">'
+    return '<a href="' + esc(url || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--t2)\'" onmouseleave="this.style.borderColor=\'var(--b1)\'">'
       + thumb
       + '<div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px">'
       + '<div style="font-size:11px;color:var(--t1);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:30px">' + (esc(title) || '<span style="color:var(--t3)">(no caption)</span>') + '</div>'
@@ -1626,10 +1626,10 @@
     const likes = Number(v.likes || 0)
     const comments = Number(v.comments || 0)
     return `
-      <a href="${esc(url || '#')}" target="_blank" rel="noopener" class="vx-dcard" style="display:flex;gap:10px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-decoration:none;color:inherit">
+      <a href="${esc(url || '#')}" target="_blank" rel="noopener" class="vx-dcard" style="display:flex;gap:10px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px;text-decoration:none;color:inherit">
         ${cover
-          ? `<img src="${esc(cover)}" alt="" width="54" height="74" style="border-radius:6px;object-fit:cover;background:var(--s3);flex-shrink:0" loading="lazy" onerror="this.style.display='none'">`
-          : `<div style="width:54px;height:74px;border-radius:6px;background:var(--s3);flex-shrink:0"></div>`}
+          ? `<img src="${esc(cover)}" alt="" width="54" height="74" style="border-radius:8px;object-fit:cover;background:var(--s3);flex-shrink:0" loading="lazy" onerror="this.style.display='none'">`
+          : `<div style="width:54px;height:74px;border-radius:8px;background:var(--s3);flex-shrink:0"></div>`}
         <div style="min-width:0;flex:1">
           <div style="color:var(--t1);font-size:12.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(title.slice(0, 140))}${title.length > 140 ? '…' : ''}</div>
           <div style="color:var(--t3);font-size:10.5px;margin-top:4px">👁 ${shortNum(views)} · ❤ ${shortNum(likes)} · 💬 ${shortNum(comments)}</div>
@@ -1652,7 +1652,7 @@
       `
     }
     return `
-      <section style="margin-bottom:26px">
+      <section style="margin-bottom:32px">
         ${sectionLabel('Activity')}
         <ol style="list-style:none;padding:0;margin:0;border-left:1px solid var(--b1)">
           ${items.map((n) => `
@@ -1669,7 +1669,7 @@
   }
 
   function sectionLabel(text) {
-    return `<h2 style="color:var(--t2);font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin:0 0 10px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
+    return `<h2 style="color:var(--t2);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;margin:0 0 14px;font-family:'Syne',sans-serif">${esc(text)}</h2>`
   }
 
   function capitalize(s) {
@@ -1695,18 +1695,18 @@
     const wrap = document.createElement('div')
     wrap.id = 'vx-outcome-modal'
     wrap.style.cssText =
-      'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px;font-family:DM Sans,system-ui,sans-serif'
+      'position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px;font-family:DM Sans,system-ui,sans-serif'
     const title = opts.title || 'Done'
     const body = opts.body || ''
     const primary = opts.primaryLabel || 'OK'
     const secondary = opts.secondaryLabel
     wrap.innerHTML = `
-      <div style="max-width:420px;width:100%;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:22px 24px;box-shadow:0 24px 80px rgba(0,0,0,.45)">
+      <div style="max-width:420px;width:100%;background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:28px 30px;box-shadow:0 24px 80px rgba(0,0,0,.45);backdrop-filter:blur(20px)">
         <div style="color:var(--t1);font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;margin-bottom:10px;line-height:1.2">${esc(title)}</div>
         <p style="color:var(--t2);font-size:13px;line-height:1.55;margin:0 0 18px">${esc(body)}</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end">
-          ${secondary ? `<button type="button" data-vx-sec style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">${esc(secondary)}</button>` : ''}
-          <button type="button" data-vx-pri style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">${esc(primary)}</button>
+          ${secondary ? `<button type="button" data-vx-sec style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer">${esc(secondary)}</button>` : ''}
+          <button type="button" data-vx-pri style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;cursor:pointer">${esc(primary)}</button>
         </div>
       </div>
     `
@@ -1886,7 +1886,7 @@
           <div style="color:var(--t3);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px">Knowledge feed</div>
           <div style="color:var(--t1);font-size:12px">Maya — ${esc(formatNiche(niche))}</div>
         </div>
-        <button data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:999px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit">Full feed</button>
+        <button data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:8px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:inherit">Full feed</button>
       </div>
     `
     if (items.length === 0) {
@@ -1895,8 +1895,8 @@
         <div style="padding:32px 20px;text-align:center;color:var(--t2);font-size:12px;line-height:1.55">
           Signals are still wiring up — open the full feed or brief Maya while we pull the next batch.
           <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
-            <button type="button" data-v2-nav="db-knowledge" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">Open full feed</button>
-            <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Turn into brief</button>
+            <button type="button" data-v2-nav="db-knowledge" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:8px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">Open full feed</button>
+            <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer">Turn into brief</button>
           </div>
         </div>
       `
@@ -1904,9 +1904,9 @@
     const list = items.map(feedItemHTML).join('')
     const feedFooter = `
       <div style="padding:12px 16px;border-top:1px solid var(--b1);display:flex;flex-wrap:wrap;gap:8px">
-        <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 12px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Turn signal into brief</button>
-        <button type="button" data-v2-brief="strategist" data-v2-brief-name="Jordan" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Schedule for Jordan</button>
-        <button type="button" data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Ask Maya to go deeper</button>
+        <button type="button" data-v2-brief="analyst" data-v2-brief-name="Maya" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:6px 12px;border-radius:8px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Turn signal into brief</button>
+        <button type="button" data-v2-brief="strategist" data-v2-brief-name="Jordan" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Schedule for Jordan</button>
+        <button type="button" data-v2-nav="db-knowledge" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 12px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Ask Maya to go deeper</button>
       </div>
     `
     return `
@@ -1926,7 +1926,7 @@
       : ''
     return `
       <li class="vx-dcard-row" style="padding:14px 20px;border-bottom:1px solid var(--b1)">
-        <a href="${esc(item.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;gap:12px;align-items:flex-start">
+        <a href="${esc(item.url)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;gap:14px;align-items:flex-start">
           ${thumb}
           <div style="flex:1;min-width:0">
             <div style="color:var(--t3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;display:flex;gap:8px;align-items:center">
@@ -1956,7 +1956,7 @@
     root.style.cssText = 'height:100%;display:block;overflow:hidden;grid-template-columns:none'
     root.innerHTML = `
       <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
-        <main style="flex:1;min-width:0;overflow-y:auto;padding:28px 40px 60px">
+        <main style="flex:1;min-width:0;overflow-y:auto;padding:36px 48px 72px">
           ${sectionHeader()}
           ${sectionCeoNextAction()}
           ${sectionOverview()}

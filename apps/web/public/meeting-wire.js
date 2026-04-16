@@ -255,10 +255,10 @@
     bar.innerHTML = `
       <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;font-family:DM Sans,sans-serif">Your decision</div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        <button type="button" class="vx-mtg-ap" style="background:var(--t1);color:var(--bg);border:none;padding:8px 18px;border-radius:999px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer">Approve</button>
-        <button type="button" class="vx-mtg-rj" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Reject</button>
-        <button type="button" class="vx-mtg-sg" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Suggestion</button>
-        <button type="button" class="vx-mtg-copy" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:999px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Copy output</button>
+        <button type="button" class="vx-mtg-ap" style="background:var(--t1);color:var(--bg);border:none;padding:8px 18px;border-radius:8px;font-size:11px;font-weight:600;font-family:DM Sans,sans-serif;cursor:pointer">Approve</button>
+        <button type="button" class="vx-mtg-rj" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 18px;border-radius:8px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Reject</button>
+        <button type="button" class="vx-mtg-sg" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:8px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Suggestion</button>
+        <button type="button" class="vx-mtg-copy" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 18px;border-radius:8px;font-size:11px;font-family:DM Sans,sans-serif;cursor:pointer">Copy output</button>
       </div>
     `
     host.insertBefore(bar, wrapInput)
@@ -342,7 +342,7 @@
     wrap.id = 'vx-mtg-quickreplies'
     wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px 0;font-family:DM Sans,sans-serif'
     wrap.innerHTML = replies.map((r, i) =>
-      `<button data-vx-reply="${i}" style="background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:11px;padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;transition:background .15s,color .15s">${escapeHtml(r)}</button>`
+      `<button data-vx-reply="${i}" style="background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:11px;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:inherit;transition:background .15s,color .15s">${escapeHtml(r)}</button>`
     ).join('')
     inputArea.parentElement?.insertBefore(wrap, inputArea)
     wrap.querySelectorAll('[data-vx-reply]').forEach((btn) => {
@@ -368,7 +368,7 @@
     const btn = document.createElement('button')
     btn.id = 'vx-mtg-viewbrief'
     btn.style.cssText =
-      'position:absolute;top:54px;right:60px;background:var(--t1);color:var(--bg);border:none;font-size:11px;letter-spacing:.04em;padding:7px 14px;border-radius:999px;font-family:DM Sans,sans-serif;font-weight:600;cursor:pointer;z-index:10'
+      'position:absolute;top:54px;right:60px;background:var(--t1);color:var(--bg);border:none;font-size:11px;letter-spacing:.04em;padding:7px 14px;border-radius:8px;font-family:DM Sans,sans-serif;font-weight:600;cursor:pointer;z-index:10'
     btn.textContent = label
     btn.addEventListener('click', () => {
       // Hand off to outputs-wire's detail modal, which knows how to
@@ -395,7 +395,7 @@
     const badge = document.createElement('div')
     badge.id = 'vx-mtg-knowledge'
     badge.style.cssText =
-      'position:absolute;top:14px;right:60px;display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;font-family:DM Sans,sans-serif;z-index:10'
+      'position:absolute;top:14px;right:60px;display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-size:10px;letter-spacing:.06em;padding:5px 10px;border-radius:8px;font-family:DM Sans,sans-serif;z-index:10'
     badge.innerHTML = `
       <span style="width:5px;height:5px;border-radius:50%;background:var(--t1)"></span>
       <span>Drawing from ${parts.join(' + ')}</span>
@@ -457,9 +457,9 @@
     const el = document.createElement('div')
     el.id = 'vx-mtg-summary'
     el.style.cssText =
-      'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+      'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:24px'
     el.innerHTML = `
-      <div style="width:100%;max-width:520px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:28px;color:var(--t1);font-family:'DM Sans',sans-serif;max-height:92vh;overflow:auto">
+      <div style="width:100%;max-width:520px;background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:30px;color:var(--t1);font-family:'DM Sans',sans-serif;max-height:92vh;overflow:auto;backdrop-filter:blur(20px)">
         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Meeting summary</div>
         <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 14px">Recap with ${esc(name)}</h3>
         <p style="color:var(--t2);font-size:13px;line-height:1.55;margin:0 0 18px">${esc(data.summary || 'Meeting ended.')}</p>

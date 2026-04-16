@@ -116,10 +116,10 @@
     const el = document.createElement('div')
     el.id = 'vx-assign'
     el.style.cssText =
-      'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+      'position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:24px'
 
     el.innerHTML = `
-      <div style="width:100%;max-width:480px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:26px;color:var(--t1);font-family:'DM Sans',sans-serif">
+      <div style="width:100%;max-width:480px;background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:28px;color:var(--t1);font-family:'DM Sans',sans-serif;backdrop-filter:blur(20px)">
         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Quick brief</div>
         <h3 style="font-family:'Syne',sans-serif;font-size:20px;margin:0 0 6px">What do you need from ${escapeHtml(empName)}?</h3>
         <div style="color:var(--t3);font-size:12px;margin-bottom:16px">${escapeHtml(empName)} will start on it right away. Be specific — the more detail, the better the output.</div>
@@ -225,7 +225,7 @@
     toast.id = 'vx-working-toast'
     toast.setAttribute('role', 'status')
     toast.style.cssText =
-      'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9300;max-width:min(420px,92vw);padding:14px 18px;border-radius:10px;background:var(--s1);border:1px solid var(--b1);color:var(--t2);font-size:13px;line-height:1.5;font-family:inherit;box-shadow:0 8px 28px rgba(0,0,0,.2)'
+      'position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:9300;max-width:min(420px,92vw);padding:16px 20px;border-radius:12px;background:var(--bg);border:1px solid var(--b1);color:var(--t2);font-size:13px;line-height:1.5;font-family:inherit;box-shadow:0 8px 28px rgba(0,0,0,.3);backdrop-filter:blur(20px)'
     toast.innerHTML = `<strong>${escapeHtml(empName)}</strong> is working on it…`
     document.body.appendChild(toast)
 

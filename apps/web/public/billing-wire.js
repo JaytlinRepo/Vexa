@@ -63,7 +63,7 @@
     const card = document.createElement('div')
     card.id = 'vx-plan-card'
     card.style.cssText =
-      'margin:4px 0 20px;padding:16px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;font-family:"DM Sans",sans-serif'
+      'margin:4px 0 24px;padding:20px 22px;background:var(--s2);border:1px solid var(--b1);border-radius:14px;font-family:"DM Sans",sans-serif'
     card.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
         <div>
@@ -71,7 +71,7 @@
           <div style="font-size:14px;font-weight:600;color:${accent(usage.subscriptionStatus)}">${planLabel(usage.plan, usage.subscriptionStatus)}</div>
           <div style="font-size:12px;color:var(--t2);margin-top:2px">${trialLine}</div>
         </div>
-        <button id="vx-plan-manage" style="background:transparent;border:1px solid var(--b2);color:var(--t2);font-size:11px;padding:7px 14px;border-radius:6px;cursor:pointer;font-family:inherit">Manage</button>
+        <button id="vx-plan-manage" style="background:var(--s2);border:none;color:var(--t2);font-size:11px;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit">Manage</button>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
@@ -107,9 +107,9 @@
     const el = document.createElement('div')
     el.id = 'vx-upgrade'
     el.style.cssText =
-      'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+      'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:24px'
     el.innerHTML = `
-      <div style="width:100%;max-width:440px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:32px;color:var(--t1);font-family:'DM Sans',sans-serif">
+      <div style="width:100%;max-width:440px;background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:32px;color:var(--t1);font-family:'DM Sans',sans-serif;backdrop-filter:blur(20px)">
         <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Plan limit reached</div>
         <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 8px">Your team is at the monthly limit</h3>
         <p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 18px">

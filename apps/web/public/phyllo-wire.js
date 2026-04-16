@@ -229,7 +229,7 @@
       const connected = !!acct
       const handle = acct?.platform_username ? '@' + acct.platform_username : null
       return `
-        <div data-pid="${p.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:999px;cursor:pointer;transition:border-color .15s" title="${connected ? (handle || 'Connected') : 'Not connected — click to connect'}">
+        <div data-pid="${p.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;cursor:pointer;transition:border-color .15s" title="${connected ? (handle || 'Connected') : 'Not connected — click to connect'}">
           <span style="width:9px;height:9px;border-radius:50%;background:${connected ? '#34d27a' : 'var(--t3)'};${connected ? 'box-shadow:0 0 0 3px rgba(52,210,122,.18)' : 'opacity:.55'};flex-shrink:0"></span>
           <span style="color:var(--t1);font-size:12px;font-weight:500">${escapeHtml(p.name)}</span>
           ${connected && handle ? `<span style="color:var(--t3);font-size:11px">${escapeHtml(handle)}</span>` : ''}
@@ -530,7 +530,7 @@
         role="switch"
         aria-checked="${isConnected ? 'true' : 'false'}"
         aria-label="${escapeHtml(platform.name)} — ${isConnected ? 'connected' : isExpired ? 'session expired' : 'not connected'}"
-        style="position:relative;width:44px;height:24px;border-radius:999px;${trackBg};border:none;cursor:pointer;transition:background .2s;padding:0;flex-shrink:0">
+        style="position:relative;width:44px;height:24px;border-radius:8px;${trackBg};border:none;cursor:pointer;transition:background .2s;padding:0;flex-shrink:0">
         <span style="position:absolute;top:2px;${knobSide};width:20px;height:20px;border-radius:50%;${knobColor};transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.35)"></span>
       </button>
     `

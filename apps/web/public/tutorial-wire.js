@@ -83,7 +83,7 @@
       #vx-context-card .vx-tt-task-list{margin:0 0 14px;padding:0;list-style:none;font-size:12px;color:var(--t2);line-height:1.5;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:12px 0}
       #vx-context-card .vx-tt-task-list li{padding:4px 0;border-bottom:1px dashed var(--b1);display:flex;justify-content:space-between;gap:8px}
       #vx-context-card .vx-tt-task-list li:last-child{border-bottom:none}
-      #vx-context-card .vx-tt-pill{font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--s3);color:var(--t3);flex-shrink:0}
+      #vx-context-card .vx-tt-pill{font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:8px;background:var(--s3);color:var(--t3);flex-shrink:0}
     `
     document.head.appendChild(s)
   }
