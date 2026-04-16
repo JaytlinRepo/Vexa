@@ -9,11 +9,27 @@ const VERSION = '20260416-41'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
+  // If the user has a session, strip .active from the home view so it
+  // doesn't flash before dashboard-v2 takes over. The dashboard view
+  // gets .active instead — blank until v2 renders content into it.
+  let processed = html
+  if (typeof window !== 'undefined') {
+    try {
+      if (localStorage.getItem('vx-authed') === '1') {
+        processed = processed
+          .replace(/id="view-home"([^>]*?)class="([^"]*)\bactive\b([^"]*)"/,
+            'id="view-home"$1class="$2$3"')
+          .replace(/id="view-db-dashboard"([^>]*?)class="([^"]*)"/,
+            'id="view-db-dashboard"$1class="$2 active"')
+      }
+    } catch {}
+  }
+
   return (
     <>
       <div
         style={{ display: 'contents' }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: processed }}
       />
       <Script src={v('/prototype.js')} strategy="afterInteractive" />
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />

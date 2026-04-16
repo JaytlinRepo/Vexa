@@ -24,6 +24,11 @@ async function ensurePhylloUser(userId: string): Promise<string> {
   return created.id
 }
 
+// Cache Phyllo accounts for 5 minutes to avoid 429 rate limits.
+// The dashboard calls this on every render + on navigation.
+const phylloAccountsCache = new Map<string, { data: unknown[]; ts: number }>()
+const PHYLLO_CACHE_TTL = 5 * 60 * 1000
+
 router.get('/accounts', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
@@ -32,9 +37,22 @@ router.get('/accounts', requireAuth, async (req, res, next) => {
       res.json({ accounts: [] })
       return
     }
+    const cached = phylloAccountsCache.get(user.phylloUserId)
+    if (cached && Date.now() - cached.ts < PHYLLO_CACHE_TTL) {
+      res.json({ accounts: cached.data })
+      return
+    }
     const { data } = await phyllo.listAccountsForUser(user.phylloUserId)
+    phylloAccountsCache.set(user.phylloUserId, { data, ts: Date.now() })
     res.json({ accounts: data })
   } catch (err) {
+    // Return cached data on error (Phyllo 429) rather than failing
+    const user2 = await prisma.user.findUnique({ where: { id: (req as AuthedRequest).session.userId }, select: { phylloUserId: true } }).catch(() => null)
+    const cached = user2?.phylloUserId ? phylloAccountsCache.get(user2.phylloUserId) : null
+    if (cached) {
+      res.json({ accounts: cached.data })
+      return
+    }
     next(err)
   }
 })
