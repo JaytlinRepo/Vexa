@@ -606,7 +606,7 @@
     return `
       <section style="margin-bottom:26px">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-          ${tile('Awaiting review', String(awaiting), awaiting > 0 ? 'Tap to triage' : 'Smaller assets clear on defaults — big moves land here', 'db-tasks')}
+          ${''}<!-- awaiting review is now the notification list below -->
           ${tile('Followers', fVal, fDelta || fSub)}
           ${topPostTile()}
           ${tile('Tasks used', `${tasksUsed}/${tasksLimit >= 9999 ? '∞' : tasksLimit}`, `${pct}% of plan`, null, pct)}
