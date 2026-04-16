@@ -1335,21 +1335,65 @@
     var topEng = Number(top.likes||0) + Number(top.comments||0)*2 + Number(top.shares||0)*3
     var topTitle = String(top.title || '').slice(0, 80)
 
-    // Views distribution bar chart (top 10 videos)
-    var chartVids = vids.slice(0, 10)
-    var maxViews = Math.max.apply(null, chartVids.map(function(v){ return Number(v.views||0) }))
-    var barsHtml = chartVids.map(function(v) {
-      var views = Number(v.views || 0)
-      var h = Math.max(4, Math.round((views / Math.max(1, maxViews)) * 90))
-      var isTop = views === maxViews
-      var label = String(v.title || '').slice(0, 12)
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px">'
-        + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.4') + ';height:' + h + 'px;border-radius:3px"></div>'
-        + '<div style="color:var(--t3);font-size:8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(String(v.title || '')) + '">' + esc(label) + '</div>'
+    // Performance trend — engagement score per video chronologically
+    // Shows if the creator is improving or declining over time
+    var chronoVids = vids.slice().filter(function(v) { return v.createdAt })
+      .sort(function(a, b) { return Number(a.createdAt) - Number(b.createdAt) })
+      .slice(-12)
+    var trendSvg = ''
+    if (chronoVids.length >= 3) {
+      var engScores = chronoVids.map(function(v) {
+        return Number(v.likes||0) + Number(v.comments||0)*2 + Number(v.shares||0)*3
+      })
+      var tMin = Math.min.apply(null, engScores)
+      var tMax = Math.max.apply(null, engScores)
+      var tRange = Math.max(1, tMax - tMin)
+      var W = 340, H = 100, top2 = 8, bottom2 = H - 16
+      var tStep = W / (chronoVids.length - 1)
+      var tPts = engScores.map(function(s, i) {
+        return (i * tStep).toFixed(1) + ',' + (bottom2 - ((s - tMin) / tRange) * (bottom2 - top2)).toFixed(1)
+      }).join(' ')
+      var tArea = '0,' + H + ' ' + tPts + ' ' + W + ',' + H
+      var firstDate = new Date(chronoVids[0].createdAt * 1000).toLocaleDateString('en-US', {month:'short',day:'numeric'})
+      var lastDate = new Date(chronoVids[chronoVids.length-1].createdAt * 1000).toLocaleDateString('en-US', {month:'short',day:'numeric'})
+      var trendDir = engScores[engScores.length-1] > engScores[0] ? 'Improving' : engScores[engScores.length-1] < engScores[0] * 0.8 ? 'Declining' : 'Stable'
+      trendSvg = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
+        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Performance trend<span class="vx-hint" aria-label="Engagement score per video over time. Rising = your content is improving. Falling = recent posts are underperforming vs. older ones.">ⓘ<span class="vx-hint-tip">Engagement score per video over time. Rising = your content is improving. Falling = recent posts underperform older ones.</span></span></div>'
+        + '<div style="color:var(--t1);font-size:13px;font-weight:600">' + trendDir + '</div>'
         + '</div>'
-    }).join('')
+        + '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" preserveAspectRatio="none" style="display:block">'
+        + '<polygon points="' + tArea + '" fill="var(--t1)" fill-opacity="0.08" />'
+        + '<polyline points="' + tPts + '" fill="none" stroke="var(--t1)" stroke-width="2" stroke-linejoin="round" />'
+        + '</svg>'
+        + '<div style="display:flex;justify-content:space-between;color:var(--t3);font-size:9px;margin-top:4px"><span>' + firstDate + '</span><span>' + lastDate + '</span></div>'
+        + '</div>'
+    }
 
-    // Engagement by day (same as IG pattern)
+    // Like-to-view ratio — shows which videos converted viewers into engagers
+    var ratioVids = vids.filter(function(v) { return Number(v.views) > 0 }).slice(0, 10)
+    var ratioChart = ''
+    if (ratioVids.length >= 3) {
+      var ratios = ratioVids.map(function(v) { return { title: String(v.title||'').slice(0,15), ratio: Number(v.likes||0) / Number(v.views) * 100 } })
+      var maxRatio = Math.max.apply(null, ratios.map(function(r) { return r.ratio }))
+      var ratioBars = ratios.map(function(r) {
+        var h = Math.max(4, Math.round((r.ratio / Math.max(1, maxRatio)) * 90))
+        var isTop = r.ratio === maxRatio
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px">'
+          + '<div style="color:var(--t3);font-size:9px;text-align:center">' + r.ratio.toFixed(1) + '%</div>'
+          + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.4') + ';height:' + h + 'px;border-radius:3px"></div>'
+          + '<div style="color:var(--t3);font-size:7px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.title) + '</div>'
+          + '</div>'
+      }).join('')
+      ratioChart = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">'
+        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Like-to-view ratio<span class="vx-hint" aria-label="What % of viewers liked the video. High ratio = content resonated. Low ratio = algorithm pushed it but it didn\'t connect.">ⓘ<span class="vx-hint-tip">What % of viewers liked. High = content resonated deeply. Low = got views but didn\'t connect.</span></span></div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:flex-end;gap:4px;height:110px;padding:4px 0 6px">' + ratioBars + '</div>'
+        + '</div>'
+    }
+
+    // Engagement by day
     var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     var dayEng = [0,0,0,0,0,0,0]
     var dayCounts = [0,0,0,0,0,0,0]
@@ -1386,12 +1430,11 @@
       + '<span>' + shortNum(top.comments) + ' comments</span>'
       + '<span>' + shortNum(top.shares) + ' shares</span>'
       + '</div></div>'
-      // Views chart
+      // Performance trend (full width)
+      + trendSvg
+      // Like-to-view ratio + Engagement by day (side by side)
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">'
-      + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px">Views by video</div>'
-      + '<div style="display:flex;align-items:flex-end;gap:4px;height:110px;padding:4px 0 6px">' + barsHtml + '</div>'
-      + '</div>'
+      + ratioChart
       // Engagement by day
       + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
       + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">'
