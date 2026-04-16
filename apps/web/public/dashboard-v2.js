@@ -1148,40 +1148,11 @@
     const recentVids = Array.isArray(tt.recentVideos) ? tt.recentVideos.slice(0, 9) : topVideos
     const postsGrid = recentVids.length === 0
       ? ''
-      : `
-        <div style="margin-top:16px">
-          <div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Recent posts</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
-            ${recentVids.map((v) => {
-              const title = String(v.title || '').trim().slice(0, 60)
-              const cover = String(v.cover || '')
-              const url = String(v.shareUrl || '')
-              const views = Number(v.views || 0)
-              const likes = Number(v.likes || 0)
-              const comments = Number(v.comments || 0)
-              const shares = Number(v.shares || 0)
-              const date = v.createdAt ? new Date(v.createdAt * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
-              return \`
-                <a href="\${esc(url || '#')}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor='var(--t2)'" onmouseleave="this.style.borderColor='var(--b1)'">
-                  \${cover
-                    ? \`<div style="width:100%;aspect-ratio:9/16;max-height:220px;background:#1a1a1a;overflow:hidden"><img src="\${esc(cover)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display='none'" /></div>\`
-                    : \`<div style="width:100%;aspect-ratio:9/16;max-height:220px;background:var(--s3);display:grid;place-items:center;color:var(--t3);font-size:10px">Video</div>\`}
-                  <div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px">
-                    <div style="font-size:11px;color:var(--t1);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:30px">\${esc(title) || '<span style="color:var(--t3)">(no caption)</span>'}</div>
-                    <div style="font-size:10px;color:var(--t3);display:flex;flex-wrap:wrap;gap:8px;margin-top:auto">
-                      <span>\${shortNum(views)} views</span>
-                      <span>\${likes} likes</span>
-                      \${comments > 0 ? \`<span>\${comments} cmts</span>\` : ''}
-                      \${shares > 0 ? \`<span>\${shares} shares</span>\` : ''}
-                    </div>
-                    <div style="font-size:9px;color:var(--t3)">\${esc(date)}</div>
-                  </div>
-                </a>
-              \`
-            }).join('')}
-          </div>
-        </div>
-      `
+      : '<div style="margin-top:16px">'
+        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px">Recent posts</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'
+        + recentVids.map(ttPostCard).join('')
+        + '</div></div>'
 
     const avatar = tt.avatarUrl || ''
     const handle = tt.handle || ''
@@ -1223,6 +1194,29 @@
     const v = Number(n || 0)
     if (!isFinite(v)) return '—'
     return short(v)
+  }
+
+  function ttPostCard(v) {
+    const title = String(v.title || '').trim().slice(0, 60)
+    const cover = String(v.cover || '')
+    const url = String(v.shareUrl || '')
+    const views = Number(v.views || 0)
+    const likes = Number(v.likes || 0)
+    const comments = Number(v.comments || 0)
+    const shares = Number(v.shares || 0)
+    const date = v.createdAt ? new Date(v.createdAt * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+    const thumb = cover
+      ? '<div style="width:100%;aspect-ratio:9/16;max-height:220px;background:#1a1a1a;overflow:hidden"><img src="' + esc(cover) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onerror="this.style.display=\'none\'" /></div>'
+      : '<div style="width:100%;aspect-ratio:9/16;max-height:220px;background:var(--s3);display:grid;place-items:center;color:var(--t3);font-size:10px">Video</div>'
+    const cmts = comments > 0 ? '<span>' + comments + ' cmts</span>' : ''
+    const shr = shares > 0 ? '<span>' + shares + ' shares</span>' : ''
+    return '<a href="' + esc(url || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s" onmouseenter="this.style.borderColor=\'var(--t2)\'" onmouseleave="this.style.borderColor=\'var(--b1)\'">'
+      + thumb
+      + '<div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:6px">'
+      + '<div style="font-size:11px;color:var(--t1);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:30px">' + (esc(title) || '<span style="color:var(--t3)">(no caption)</span>') + '</div>'
+      + '<div style="font-size:10px;color:var(--t3);display:flex;flex-wrap:wrap;gap:8px;margin-top:auto"><span>' + shortNum(views) + ' views</span><span>' + likes + ' likes</span>' + cmts + shr + '</div>'
+      + '<div style="font-size:9px;color:var(--t3)">' + esc(date) + '</div>'
+      + '</div></a>'
   }
 
   function tiktokVideoCard(v) {
