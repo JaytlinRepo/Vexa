@@ -1067,8 +1067,8 @@
         + '</div></div>'
     }).join('')
 
-    var weakIdx = dayAvg.indexOf(Math.min.apply(null, dayAvg.filter(function(v) { return v > 0 })))
-    var weakDay = dayCounts[weakIdx] > 0 ? days[weakIdx] : ''
+    var weakIdx = avg.indexOf(Math.min.apply(null, avg.filter(function(v) { return v > 0 })))
+    var weakDay = counts[weakIdx] > 0 ? days[weakIdx] : ''
     var bestDayHint = peakLabel ? 'Maya: ' + peakLabel + ' gets the highest engagement on IG.' + (weakDay && weakDay !== peakLabel ? ' ' + weakDay + ' is your weakest.' : '') + ' Jordan: Schedule your most important content for ' + peakLabel + '. Save lightweight posts for slower days.' : ''
 
     return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
