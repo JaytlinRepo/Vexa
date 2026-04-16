@@ -168,8 +168,8 @@
   }
 
   // ── Dynamic tooltip builder — computes real insights from data ────
+  // Maya reads the data. Jordan tells you what to do about it.
   function igTip(metric, ig, ov) {
-    const delta = ov?.combinedFollowersDelta || 0
     const accounts = ov?.accounts || []
     const igAcct = accounts.find((a) => a.platform === 'instagram')
     const reachPct = ig.followerCount > 0 ? Math.round(ig.avgReach / ig.followerCount * 100) : 0
@@ -182,17 +182,19 @@
       case 'followers':
         if (igAcct?.prevFollowers != null) {
           const weekDelta = ig.followerCount - igAcct.prevFollowers
-          return weekDelta > 0 ? 'Up ' + short(weekDelta) + ' this week. ' + (weekDelta > 50 ? 'Strong growth — keep the momentum.' : 'Slow but steady. Post more consistently to accelerate.')
-            : weekDelta < 0 ? 'Down ' + short(Math.abs(weekDelta)) + ' this week. Check if recent content aligns with what your audience expects.'
-            : 'Flat this week. Try a new content format or collaboration to reach new people.'
+          const maya = weekDelta > 0 ? 'Maya: Up ' + short(weekDelta) + ' this week.' : weekDelta < 0 ? 'Maya: Down ' + short(Math.abs(weekDelta)) + ' this week.' : 'Maya: Flat this week.'
+          const jordan = weekDelta > 50 ? ' Jordan: Momentum is real — don\'t change the formula.' : weekDelta > 0 ? ' Jordan: Post one extra time this week to compound the growth.' : weekDelta < 0 ? ' Jordan: Revisit your last 3 posts — something shifted. Lean back into personal content.' : ' Jordan: Try a carousel with a strong hook on Thursday — your best performing day.'
+          return maya + jordan
         }
-        return short(ig.followerCount) + ' followers. Connect more data sources for growth tracking.'
+        return 'Maya: ' + short(ig.followerCount) + ' followers tracked. Jordan: Connect more data for weekly growth insights.'
       case 'posts':
-        return ig.postCount + ' posts total.' + (topFormat ? ' ' + topFormat[0] + ' make up ' + Math.round(topFormat[1]/media.length*100) + '% of your content.' : '') + (media.length < 10 ? ' Post more to give the algorithm more to work with.' : '')
+        const maya = 'Maya: ' + ig.postCount + ' posts.' + (topFormat ? ' ' + topFormat[0] + ' are ' + Math.round(topFormat[1]/media.length*100) + '% of content.' : '')
+        const jordan = media.length < 10 ? ' Jordan: You need more content in the catalog — aim for 3 posts this week.' : topFormat && topFormat[0] === 'Photos' ? ' Jordan: Shift toward Carousels and Reels — they get 2-3x more reach.' : ''
+        return maya + jordan
       case 'engagement':
-        return ig.engagementRate.toFixed(1) + '% engagement.' + (reachPct > 30 ? ' Your content reaches ' + reachPct + '% of followers — the algorithm is distributing it.' : ' Reaching ' + reachPct + '% of followers per post — try Reels or trending audio to expand reach.')
+        return 'Maya: ' + ig.engagementRate.toFixed(1) + '% engagement, reaching ' + reachPct + '% of followers.' + (reachPct > 30 ? ' Jordan: Distribution is strong. Focus on converting followers to commenters with questions in captions.' : ' Jordan: Reach is low at ' + reachPct + '%. Post a Reel this week — they get 3x the algorithmic push of static posts.')
       case 'reach':
-        return short(ig.avgReach) + ' people see each post on average.' + (reachPct > 50 ? ' That\'s ' + reachPct + '% of your followers — excellent distribution.' : ' That\'s ' + reachPct + '% of your followers.' + (reachPct < 20 ? ' Most followers aren\'t seeing your posts — post at peak times or use Reels.' : ''))
+        return 'Maya: ' + short(ig.avgReach) + ' people per post, ' + reachPct + '% of followers.' + (reachPct > 50 ? ' Jordan: Excellent. Your content is living on Explore. Keep this format going.' : reachPct < 20 ? ' Jordan: Most followers aren\'t seeing your posts. Post between 6-8pm on your best day and lead with a Reel.' : ' Jordan: Solid. Bump this by using trending audio or location tags in your next post.')
       default: return ''
     }
   }
@@ -202,17 +204,17 @@
     var conv = tt.avgViews > 0 ? (tt.avgLikes / tt.avgViews * 100).toFixed(1) : 0
     switch (metric) {
       case 'followers':
-        return short(tt.followerCount) + ' followers.' + (tt.followerCount < 1000 ? ' On TikTok, one viral video can change this overnight. Focus on hooks.' : tt.followerCount < 10000 ? ' Growing. Your reach rate of ' + vr + '% shows the algorithm is distributing your content.' : ' Solid base. Your ' + vr + '% reach rate means each video hits about ' + short(tt.avgViews) + ' people.')
+        return 'Maya: ' + short(tt.followerCount) + ' followers. Reach rate is ' + vr + '%.' + (tt.followerCount < 1000 ? ' Jordan: Focus on hooks — one viral video can 10x this number overnight.' : ' Jordan: Your ' + vr + '% reach means the algorithm is serving you to ' + short(tt.avgViews) + ' people per video. Keep posting.')
       case 'videos':
-        return tt.videoCount + ' videos posted.' + (tt.videoCount < 20 ? ' TikTok rewards volume — creators who post daily grow 3-5x faster.' : tt.videoCount < 50 ? ' Building momentum. Your best content will surface as you post more.' : ' Strong library. The algorithm has plenty to resurface.')
+        return 'Maya: ' + tt.videoCount + ' videos in your catalog.' + (tt.videoCount < 20 ? ' Jordan: Post daily for the next 2 weeks — TikTok rewards frequency heavily in the first 30 videos.' : tt.videoCount < 50 ? ' Jordan: Building momentum. Batch-film 5 videos on Sunday so you can post every day.' : ' Jordan: Strong library. The algorithm will resurface your best content — focus on new formats.')
       case 'views':
-        return short(tt.avgViews) + ' average views.' + (Number(vr) > 100 ? ' That\'s ' + vr + '% of your followers — the For You feed is actively pushing you.' : ' That\'s ' + vr + '% of your followers.' + (Number(vr) < 50 ? ' Your videos aren\'t escaping your follower base — stronger first 2 seconds will help.' : ' Close to breaking out — a strong hook could push this past 100%.'))
+        return 'Maya: ' + short(tt.avgViews) + ' avg views (' + vr + '% of followers).' + (Number(vr) > 100 ? ' Jordan: For You feed is your main channel. Double down on what\'s working — the algorithm is on your side.' : Number(vr) < 50 ? ' Jordan: Videos aren\'t escaping your follower base. Open with a question or visual pattern interrupt in the first second.' : ' Jordan: Close to breakout. Your next video — lead with your strongest hook from your top performer.')
       case 'engagement':
-        return ((tt.engagementRate || 0) * 100).toFixed(1) + '% of viewers interact.' + (tt.engagementRate >= 0.08 ? ' Well above average — the algorithm reads this as quality.' : tt.engagementRate >= 0.05 ? ' Healthy. Ask questions or use controversial hooks to push higher.' : ' Viewers watch but scroll past. Try calls-to-action or reply-to-comment videos.')
+        return 'Maya: ' + ((tt.engagementRate || 0) * 100).toFixed(1) + '% engagement rate.' + (tt.engagementRate >= 0.08 ? ' Jordan: This is excellent. The algorithm reads this as quality — it will push you further.' : tt.engagementRate >= 0.05 ? ' Jordan: Healthy. End your next 3 videos with a direct question to drive comments up.' : ' Jordan: Viewers watch but don\'t interact. Try a "reply to this comment" video or a duet this week.')
       case 'reach':
-        return vr + '% reach rate.' + (Number(vr) >= 100 ? ' Your content reaches beyond your followers — the For You feed is your main distribution channel.' : ' Most views come from your existing followers.' + (Number(vr) < 50 ? ' Use trending sounds and hashtags to break into new audiences.' : ' You\'re close to breakout — one strong video could tip it.'))
+        return 'Maya: ' + vr + '% reach rate.' + (Number(vr) >= 100 ? ' Jordan: You\'re reaching beyond followers. For You is your distribution — keep testing new content angles.' : ' Jordan: Most views from existing followers. Use trending sounds and hashtags on your next 3 posts to break into new audiences.')
       case 'conversion':
-        return conv + '% of viewers like your videos.' + (Number(conv) >= 8 ? ' High conversion — your content connects emotionally on first watch.' : Number(conv) >= 4 ? ' Average. Thumbnails and opening hooks determine who likes vs scrolls.' : ' Low — viewers watch but don\'t feel compelled to like. Strengthen the emotional payoff.')
+        return 'Maya: ' + conv + '% of viewers like your videos.' + (Number(conv) >= 8 ? ' Jordan: High conversion — your content connects on first watch. Lead with this format for the next week.' : Number(conv) >= 4 ? ' Jordan: Average. Your thumbnail and first frame determine who likes — test a text overlay hook.' : ' Jordan: Low conversion. The emotional payoff isn\'t landing. Study your top-liked video and replicate its structure.')
       default: return ''
     }
   }
