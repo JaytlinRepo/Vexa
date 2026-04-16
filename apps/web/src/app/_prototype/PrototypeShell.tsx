@@ -5,7 +5,7 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260416-51'
+const VERSION = '20260416-55'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
@@ -57,6 +57,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/calendar-wire.js')} strategy="afterInteractive" />
       <Script src={v('/footer-wire.js')} strategy="afterInteractive" />
       <Script src={v('/reveal-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/topbar-scroll.js')} strategy="afterInteractive" />
       <Script src={v('/contact-wire.js')} strategy="afterInteractive" />
     </>
   )

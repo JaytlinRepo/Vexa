@@ -331,7 +331,9 @@
       }
       #view-db-dashboard section { margin-bottom: 32px; }
 
-      .vx-reveal {
+      /* Scoped to dashboard only: marketing uses the same .vx-reveal class via
+         reveal-wire.js + .is-in, and must not inherit blur(10px) here. */
+      #view-db-dashboard .vx-reveal {
         opacity: 0;
         filter: blur(10px);
         transform: translateY(28px);
@@ -339,7 +341,7 @@
                     filter 0.8s cubic-bezier(.16,1,.3,1),
                     transform 0.8s cubic-bezier(.16,1,.3,1);
       }
-      .vx-reveal.vx-visible {
+      #view-db-dashboard .vx-reveal.vx-visible {
         opacity: 1;
         filter: blur(0);
         transform: translateY(0);
@@ -374,7 +376,7 @@
 
       /* Respect reduced motion */
       @media (prefers-reduced-motion: reduce) {
-        .vx-reveal { opacity: 1; filter: none; transform: none; transition: none; }
+        #view-db-dashboard .vx-reveal { opacity: 1; filter: none; transform: none; transition: none; }
         .vx-sparkline-draw { animation: none; stroke-dashoffset: 0; }
         .vx-sparkline-fill { animation: none; opacity: 0.08; }
         .vx-dcard { transition: none; }
