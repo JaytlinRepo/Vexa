@@ -722,50 +722,30 @@
   }
 
   function sectionReviewQueue() {
-    const delivered = STATE.tasks.filter((t) => t.status === 'delivered').slice(0, 3)
-    if (delivered.length === 0) {
-      return `
-        <section style="margin-bottom:26px">
-          ${sectionLabel('Awaiting your review')}
-          <div style="padding:22px;text-align:center;color:var(--t2);font-size:12px;line-height:1.55;border:1px dashed var(--b1);border-radius:10px">
-            Nothing needs your pen right now. The team is still running — scans, calendar checks, and staged briefs — so the next delivery can land without you babysitting the board.
-            <div style="margin-top:14px">
-              <button type="button" data-v2-nav="db-tasks" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 18px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Open full queue</button>
-            </div>
-          </div>
-        </section>
-      `
-    }
+    const delivered = STATE.tasks.filter((t) => t.status === 'delivered').slice(0, 6)
+    if (delivered.length === 0) return ''
     return `
-      <section style="margin-bottom:26px">
-        ${sectionLabel('Awaiting your review')}
-        <div style="display:flex;flex-direction:column;gap:10px">
-          ${delivered.map(reviewCard).join('')}
+      <div style="margin-bottom:20px">
+        <div style="display:flex;flex-direction:column;gap:1px;border:1px solid var(--b1);border-radius:10px;overflow:hidden">
+          ${delivered.map(reviewNotif).join('')}
         </div>
-      </section>
+      </div>
     `
   }
 
-  function reviewCard(t) {
-    const role = ROLE[t.employee?.role] || { name: t.employee?.name || 'Vexa', title: '', init: 'V' }
-    return `
-      <article data-task-id="${t.id}" class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px">
-        <header style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px">
-          <div>
-            <div style="color:var(--t3);font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">${esc(role.name)} · ${esc(formatType(t.type))}</div>
-            <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:500;color:var(--t1);margin:0">${esc(t.title)}</h3>
-          </div>
-          <span style="color:var(--t3);font-size:11px;flex-shrink:0">${esc(timeAgo(t.createdAt))}</span>
-        </header>
-        ${t.description ? `<p style="color:var(--t2);font-size:12px;line-height:1.55;margin:6px 0 0">${esc(t.description)}</p>` : ''}
-        ${outputPreview(t.outputs?.[0])}
-        <footer style="display:flex;gap:8px;margin-top:12px">
-          <button data-v2-action="approve" data-task-id="${t.id}" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Approve</button>
-          <button data-v2-action="reject" data-task-id="${t.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:8px 16px;border-radius:6px;font-size:11px;font-weight:500;font-family:'Syne',sans-serif;letter-spacing:.04em;cursor:pointer">Reject</button>
-          <button type="button" data-v2-meeting="${role.name}" data-v2-role="${role.title}" data-v2-init="${role.init}" data-v2-task-id="${t.id}" style="margin-left:auto;background:transparent;border:1px solid var(--b2);color:var(--t3);padding:8px 14px;border-radius:6px;font-size:11px;font-family:inherit;cursor:pointer">Call meeting</button>
-        </footer>
-      </article>
-    `
+  function reviewNotif(t) {
+    const role = ROLE[t.employee?.role] || { name: 'Vexa', init: 'V' }
+    return '<div data-task-id="' + t.id + '" class="vx-dcard" style="background:var(--s1);padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background=\'var(--s2)\'" onmouseleave="this.style.background=\'var(--s1)\'">'
+      + '<div style="width:28px;height:28px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:\'Syne\',sans-serif;flex-shrink:0">' + role.init + '</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="color:var(--t1);font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
+      + '<div style="color:var(--t3);font-size:10px">' + esc(role.name) + ' · ' + esc(formatType(t.type)) + ' · ' + esc(timeAgo(t.createdAt)) + '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-shrink:0">'
+      + '<button data-v2-action="approve" data-task-id="' + t.id + '" style="background:var(--t1);color:var(--inv,var(--bg));border:none;padding:5px 12px;border-radius:5px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer">Approve</button>'
+      + '<button data-v2-action="reject" data-task-id="' + t.id + '" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:5px 12px;border-radius:5px;font-size:10px;font-family:inherit;cursor:pointer">Reject</button>'
+      + '</div>'
+      + '</div>'
   }
 
   function outputPreview(o) {
@@ -1705,7 +1685,6 @@
           ${sectionHeader()}
           ${sectionCeoNextAction()}
           ${sectionTeamPulseBanner()}
-          ${sectionQueueNav()}
           ${sectionOverview()}
           ${sectionReviewQueue()}
           ${''}<!-- team section moved to Work page -->
