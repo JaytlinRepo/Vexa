@@ -914,11 +914,13 @@
     const igBio = ig.bio || ''
     const igProfileUrl = ig.profileUrl || `https://instagram.com/${igHandle}`
     const igEngPct = ig.engagementRate ? ig.engagementRate.toFixed(1) + '%' : '—'
+    const igAvatar = (STATE.overview?.accounts || []).find((a) => a.platform === 'instagram')?.profileImageUrl || ''
 
     return `
       <section style="margin-bottom:26px">
         ${sectionLabel('Instagram')}
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+          ${igAvatar ? `<img src="${esc(igAvatar)}" alt="" width="48" height="48" style="border-radius:12px;flex-shrink:0" onerror="this.style.display='none'">` : ''}
           <div style="min-width:0;flex:1">
             <div style="color:var(--t1);font-size:14px;font-weight:500">@${esc(igHandle)}</div>
             ${igBio ? `<div style="color:var(--t2);font-size:12px;line-height:1.4;margin-top:2px;max-width:560px">${esc(String(igBio).slice(0, 140))}${igBio.length > 140 ? '…' : ''}</div>` : ''}
