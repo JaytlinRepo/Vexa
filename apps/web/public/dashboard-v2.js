@@ -1370,28 +1370,16 @@
         + '</div>'
     }
 
-    // Like-to-view ratio — shows which videos converted viewers into engagers
-    var ratioVids = vids.filter(function(v) { return Number(v.views) > 0 }).slice(0, 10)
-    var ratioChart = ''
-    if (ratioVids.length >= 3) {
-      var ratios = ratioVids.map(function(v) { return { title: String(v.title||'').slice(0,15), ratio: Number(v.likes||0) / Number(v.views) * 100 } })
-      var maxRatio = Math.max.apply(null, ratios.map(function(r) { return r.ratio }))
-      var ratioBars = ratios.map(function(r) {
-        var h = Math.max(4, Math.round((r.ratio / Math.max(1, maxRatio)) * 90))
-        var isTop = r.ratio === maxRatio
-        return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px">'
-          + '<div style="color:var(--t3);font-size:9px;text-align:center">' + r.ratio.toFixed(1) + '%</div>'
-          + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.4') + ';height:' + h + 'px;border-radius:3px"></div>'
-          + '<div style="color:var(--t3);font-size:7px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.title) + '</div>'
-          + '</div>'
-      }).join('')
-      ratioChart = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
-        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">'
-        + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Like-to-view ratio<span class="vx-hint" aria-label="What % of viewers liked the video. High ratio = content resonated. Low ratio = algorithm pushed it but it didn\'t connect.">ⓘ<span class="vx-hint-tip">What % of viewers liked. High = content resonated deeply. Low = got views but didn\'t connect.</span></span></div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:flex-end;gap:4px;height:110px;padding:4px 0 6px">' + ratioBars + '</div>'
-        + '</div>'
-    }
+    // Insight card: average like-to-view conversion rate
+    var totalViews = 0, totalLikes = 0
+    vids.forEach(function(v) { totalViews += Number(v.views||0); totalLikes += Number(v.likes||0) })
+    var avgConversion = totalViews > 0 ? (totalLikes / totalViews * 100) : 0
+    var convLabel = avgConversion >= 8 ? 'Strong' : avgConversion >= 4 ? 'Average' : 'Low'
+    var convCard = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;justify-content:center">'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Like conversion</div>'
+      + '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1">' + avgConversion.toFixed(1) + '%</div>'
+      + '<div style="color:var(--t2);font-size:11px;margin-top:6px">' + convLabel + ' — ' + (avgConversion >= 8 ? 'your content resonates with viewers' : avgConversion >= 4 ? 'room to improve hooks and first impressions' : 'viewers watch but don\'t engage — strengthen your hooks') + '</div>'
+      + '</div>'
 
     // Engagement by day
     var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -1407,12 +1395,15 @@
     var peakDayVal = Math.max.apply(null, dayAvg)
     var peakDayIdx = dayAvg.indexOf(peakDayVal)
     var peakLabel = dayCounts[peakDayIdx] > 0 ? days[peakDayIdx] : ''
-    var dayBarsHtml = dayAvg.map(function(v, i) {
-      var h = Math.max(4, Math.round((v / Math.max(1, peakDayVal)) * 90))
-      var isTop = v === peakDayVal && v > 0
-      return '<div style="flex:1;display:flex;flex-direction:column;align-items:stretch;gap:6px">'
-        + '<div style="background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.45') + ';height:' + h + 'px;border-radius:3px"></div>'
-        + '<div style="color:var(--t3);font-size:9px;text-align:center;letter-spacing:.04em">' + days[i] + '</div>'
+    // Simplified: show each day as a horizontal bar with label
+    var dayBarsHtml = days.map(function(d, i) {
+      var w = Math.max(4, Math.round((dayAvg[i] / Math.max(1, peakDayVal)) * 100))
+      var isTop = dayAvg[i] === peakDayVal && dayAvg[i] > 0
+      return '<div style="display:flex;align-items:center;gap:8px">'
+        + '<div style="width:30px;color:' + (isTop ? 'var(--t1);font-weight:600' : 'var(--t3)') + ';font-size:11px">' + d + '</div>'
+        + '<div style="flex:1;height:8px;background:var(--s3);border-radius:4px;overflow:hidden">'
+        + '<div style="width:' + w + '%;height:100%;background:' + (isTop ? 'var(--t1)' : 'var(--t2)') + ';opacity:' + (isTop ? '1' : '0.35') + ';border-radius:4px"></div>'
+        + '</div>'
         + '</div>'
     }).join('')
 
@@ -1432,16 +1423,16 @@
       + '</div></div>'
       // Performance trend (full width)
       + trendSvg
-      // Like-to-view ratio + Engagement by day (side by side)
+      // Insight cards side by side
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">'
-      + ratioChart
-      // Engagement by day
+      + convCard
+      // Best day — headline first
       + '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:18px 20px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">'
-      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:5px">Engagement by day<span class="vx-hint" aria-label="Average engagement per day of the week across your videos.">ⓘ<span class="vx-hint-tip">Average engagement per day of the week across your videos. Tells you which days your audience interacts most.</span></span></div>'
-      + (peakLabel ? '<div style="color:var(--t1);font-size:13px;font-weight:600">Peak: ' + peakLabel + '</div>' : '')
-      + '</div>'
-      + '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:4px 0 6px">' + dayBarsHtml + '</div>'
+      + '<div style="color:var(--t3);font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Best day to post</div>'
+      + (peakLabel
+        ? '<div style="color:var(--t1);font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1;margin-bottom:8px">' + peakLabel + '</div>'
+        : '<div style="color:var(--t2);font-size:14px;margin-bottom:8px">Not enough data yet</div>')
+      + '<div style="display:flex;flex-direction:column;gap:4px">' + dayBarsHtml + '</div>'
       + '</div></div>'
       + '</div>'
   }
