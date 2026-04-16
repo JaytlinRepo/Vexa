@@ -13,6 +13,15 @@ import { invokeAgent, parseAgentOutput } from '../services/bedrock/bedrock.servi
 
 const SUPPORTED_NICHES = ['fitness', 'finance', 'food', 'coaching', 'lifestyle', 'personal_development'] as const
 
+const SUB_NICHES: Record<string, string[]> = {
+  lifestyle: ['travel', 'college', 'mom', 'minimalism', 'wellness', 'luxury', 'day in my life'],
+  fitness: ['weight loss', 'bodybuilding', 'yoga', 'running', 'crossfit', 'home workouts'],
+  finance: ['investing', 'budgeting', 'crypto', 'real estate', 'side hustles'],
+  food: ['baking', 'meal prep', 'vegan', 'restaurant reviews', 'healthy eating'],
+  coaching: ['business', 'life coaching', 'career', 'mindset', 'productivity'],
+  personal_development: ['habits', 'reading', 'mindfulness', 'goal setting', 'journaling'],
+}
+
 interface NicheDetectionResult {
   detectedNiche: string
   detectedSubNiche: string
@@ -61,21 +70,28 @@ export async function detectNicheFromContent(
     .map((c, i) => `${i + 1}. ${c.slice(0, 200)}`)
     .join('\n')
 
+  const subNicheList = Object.entries(SUB_NICHES)
+    .map(([niche, subs]) => `  ${niche}: ${subs.join(', ')}`)
+    .join('\n')
+
   const systemPrompt = `You are a content niche classifier. Given a list of video captions from a creator's social media account, determine which content niche best describes their work.
 
 Supported niches: ${SUPPORTED_NICHES.join(', ')}
 
+Sub-niches per niche (pick the closest match):
+${subNicheList}
+
 Rules:
-- Pick the SINGLE best-matching niche from the list above
-- Also suggest a specific sub-niche (e.g. "weight loss" for fitness, "day trading" for finance, "minimalist living" for lifestyle)
-- Confidence: 0.0 to 1.0 — how confident are you in the classification?
+- Pick the SINGLE best-matching niche from the supported list
+- Pick the closest sub-niche from the list above for that niche. If none match well, you may use a short custom label (2-3 words max)
+- Confidence: 0.0 to 1.0 — how confident are you?
 - If the content spans multiple niches, pick the dominant one
 - "lifestyle" is the catch-all — only use it when content genuinely IS lifestyle (daily routines, aesthetics, travel, personal vlogs) not as a fallback for unclear content
 
 Return ONLY valid JSON:
 {
   "detectedNiche": "one of: ${SUPPORTED_NICHES.join(', ')}",
-  "detectedSubNiche": "specific sub-niche string",
+  "detectedSubNiche": "one of the sub-niches listed above, or a short custom label",
   "confidence": 0.85,
   "reasoning": "one sentence explaining why"
 }`

@@ -30,6 +30,43 @@ const SUBREDDITS_BY_NICHE: Record<string, string[]> = {
   personal_development: ['selfimprovement', 'getdisciplined'],
 }
 
+const SUB_NICHE_SUBS: Record<string, Record<string, string[]>> = {
+  lifestyle: {
+    travel: ['travel', 'solotravel', 'digitalnomad'],
+    college: ['college', 'GetStudying', 'frugal'],
+    mom: ['Mommit', 'Parenting', 'workingmoms'],
+    minimalism: ['minimalism', 'declutter', 'simpleliving'],
+    wellness: ['wellness', 'Meditation', 'selfcare'],
+  },
+  fitness: {
+    'weight loss': ['loseit', 'progresspics', 'CICO'],
+    bodybuilding: ['bodybuilding', 'naturalbodybuilding'],
+    yoga: ['yoga', 'flexibility', 'Meditation'],
+    running: ['running', 'C25K', 'trailrunning'],
+  },
+  finance: {
+    investing: ['investing', 'stocks', 'dividends'],
+    budgeting: ['personalfinance', 'povertyfinance', 'ynab'],
+    crypto: ['CryptoCurrency', 'Bitcoin', 'defi'],
+  },
+  food: {
+    baking: ['Baking', 'Breadit', 'cakedecorating'],
+    'meal prep': ['MealPrepSunday', 'EatCheapAndHealthy', 'slowcooking'],
+    vegan: ['vegan', 'veganrecipes', 'PlantBasedDiet'],
+  },
+}
+
+function subNicheSubs(niche: string, subNiche: string | null | undefined): string[] {
+  if (!subNiche) return []
+  const map = SUB_NICHE_SUBS[niche]
+  if (!map) return []
+  const lower = subNiche.toLowerCase()
+  for (const [key, subs] of Object.entries(map)) {
+    if (lower.includes(key) || key.includes(lower.split(' ')[0])) return subs
+  }
+  return []
+}
+
 function rssToFeedItem(r: RSSItem): FeedItem {
   // Map RSS publisher articles onto the FeedItem shape. Score uses source
   // quality as a proxy (high-quality publishers start at 85) since RSS
@@ -177,7 +214,10 @@ router.get('/', requireAuth, async (req, res, next) => {
     }
 
     const niche = effectiveNiche(company) || 'lifestyle'
-    const subs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
+    const detectedSub = company.detectedSubNiche
+    const extraSubs = subNicheSubs(niche, detectedSub)
+    const baseSubs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
+    const subs = extraSubs.length > 0 ? [...new Set([...extraSubs, ...baseSubs])] : baseSubs
 
     const requestedLimit = Math.max(1, Math.min(24, Number(req.query.limit) || 12))
     // Cap Reddit to a small share of the feed — publisher RSS articles

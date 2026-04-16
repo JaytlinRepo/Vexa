@@ -106,6 +106,116 @@ const NICHE_SOURCES: Record<string, NicheSourceConfig> = {
   },
 }
 
+// ─── SUB-NICHE SOURCES (curated overrides per sub-niche) ─────────────────────
+// When a sub-niche matches a key here, its feeds + subs are MERGED with the
+// parent niche config — giving more targeted content while keeping the base.
+
+const SUB_NICHE_SOURCES: Record<string, Record<string, Partial<NicheSourceConfig>>> = {
+  lifestyle: {
+    'travel': {
+      rssFeeds: [
+        { url: 'https://feeds.feedburner.com/nomadicmatt', sourceName: 'Nomadic Matt' },
+        { url: 'https://www.lonelyplanet.com/news/feed', sourceName: 'Lonely Planet' },
+      ],
+      redditSubs: ['r/travel', 'r/solotravel', 'r/digitalnomad', 'r/backpacking'],
+    },
+    'college': {
+      rssFeeds: [
+        { url: 'https://www.hercampus.com/rss.xml', sourceName: 'Her Campus' },
+      ],
+      redditSubs: ['r/college', 'r/collegeinfogeek', 'r/GetStudying', 'r/frugal'],
+    },
+    'mom': {
+      rssFeeds: [
+        { url: 'https://www.scarymommy.com/feed', sourceName: 'Scary Mommy' },
+        { url: 'https://cupofjo.com/feed/', sourceName: 'Cup of Jo' },
+      ],
+      redditSubs: ['r/Mommit', 'r/Parenting', 'r/beyondthebump', 'r/workingmoms'],
+    },
+    'minimalism': {
+      rssFeeds: [
+        { url: 'https://www.theminimalists.com/feed/', sourceName: 'The Minimalists' },
+        { url: 'https://becomingminimalist.com/feed/', sourceName: 'Becoming Minimalist' },
+      ],
+      redditSubs: ['r/minimalism', 'r/declutter', 'r/simpleliving', 'r/zerowaste'],
+    },
+    'wellness': {
+      rssFeeds: [
+        { url: 'https://www.wellandgood.com/feed/', sourceName: 'Well+Good' },
+        { url: 'https://www.mindbodygreen.com/rss.xml', sourceName: 'mindbodygreen' },
+      ],
+      redditSubs: ['r/wellness', 'r/Meditation', 'r/selfcare', 'r/HealthyFood'],
+    },
+  },
+  fitness: {
+    'weight loss': {
+      redditSubs: ['r/loseit', 'r/progresspics', 'r/CICO', 'r/intermittentfasting'],
+    },
+    'bodybuilding': {
+      rssFeeds: [
+        { url: 'https://www.t-nation.com/feed/', sourceName: 'T-Nation' },
+      ],
+      redditSubs: ['r/bodybuilding', 'r/naturalbodybuilding', 'r/powerlifting'],
+    },
+    'yoga': {
+      redditSubs: ['r/yoga', 'r/flexibility', 'r/Meditation'],
+    },
+    'running': {
+      redditSubs: ['r/running', 'r/C25K', 'r/AdvancedRunning', 'r/trailrunning'],
+    },
+  },
+  finance: {
+    'investing': {
+      redditSubs: ['r/investing', 'r/stocks', 'r/ValueInvesting', 'r/dividends'],
+    },
+    'budgeting': {
+      redditSubs: ['r/personalfinance', 'r/povertyfinance', 'r/Frugal', 'r/ynab'],
+    },
+    'crypto': {
+      redditSubs: ['r/CryptoCurrency', 'r/Bitcoin', 'r/ethereum', 'r/defi'],
+    },
+  },
+  food: {
+    'baking': {
+      redditSubs: ['r/Baking', 'r/Breadit', 'r/cakedecorating', 'r/ArtisanBread'],
+    },
+    'meal prep': {
+      redditSubs: ['r/MealPrepSunday', 'r/EatCheapAndHealthy', 'r/slowcooking'],
+    },
+    'vegan': {
+      redditSubs: ['r/vegan', 'r/veganrecipes', 'r/PlantBasedDiet'],
+    },
+  },
+}
+
+/** Find the best matching sub-niche key from the detected sub-niche string */
+function matchSubNiche(niche: string, detectedSubNiche: string): string | null {
+  const subMap = SUB_NICHE_SOURCES[niche]
+  if (!subMap) return null
+  const lower = detectedSubNiche.toLowerCase()
+  // Exact key match first
+  if (subMap[lower]) return lower
+  // Fuzzy: check if any key appears in the detected string
+  for (const key of Object.keys(subMap)) {
+    if (lower.includes(key) || key.includes(lower.split(' ')[0])) return key
+  }
+  return null
+}
+
+/** Merge parent niche config with sub-niche overrides */
+function mergedConfig(niche: string, subNicheKey: string | null): NicheSourceConfig {
+  const base = NICHE_SOURCES[niche.toLowerCase()] || NICHE_SOURCES.lifestyle!
+  if (!subNicheKey) return base
+  const sub = SUB_NICHE_SOURCES[niche]?.[subNicheKey]
+  if (!sub) return base
+  return {
+    rssFeeds: [...(sub.rssFeeds || []), ...base.rssFeeds],
+    redditSubs: [...new Set([...(sub.redditSubs || []), ...base.redditSubs])],
+    youtubeChannelIds: [...(sub.youtubeChannelIds || []), ...(base.youtubeChannelIds || [])],
+    pubmedKeywords: [...(sub.pubmedKeywords || []), ...(base.pubmedKeywords || [])],
+  }
+}
+
 // ─── MAIN FEED AGGREGATOR ─────────────────────────────────────────────────────
 
 export async function aggregateNicheFeed(
@@ -113,7 +223,9 @@ export async function aggregateNicheFeed(
   subNiche?: string,
   limit = 20
 ): Promise<NicheFeed> {
-  const config = NICHE_SOURCES[niche.toLowerCase()] || NICHE_SOURCES.lifestyle
+  const subKey = subNiche ? matchSubNiche(niche.toLowerCase(), subNiche) : null
+  const config = mergedConfig(niche.toLowerCase(), subKey)
+  if (subKey) console.log(`[feed] using sub-niche '${subKey}' sources for ${niche}`)
   const allItems: FeedItem[] = []
 
   const results = await Promise.allSettled([
