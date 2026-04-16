@@ -71,8 +71,17 @@
 
       // Supplementary: feed + phyllo are slow (RSS timeouts, Phyllo 429s).
       // Fetch after render so they don't delay the dashboard.
+      // Re-render when feed arrives so the sidebar appears.
       void Promise.all([
-        get('/api/feed').then((f) => { STATE.feed = f?.items || [] }),
+        get('/api/feed').then((f) => {
+          const items = f?.items || []
+          if (items.length > 0 && STATE.feed.length === 0) {
+            STATE.feed = items
+            if (typeof render === 'function') render()
+          } else {
+            STATE.feed = items
+          }
+        }),
         get('/api/phyllo/accounts').then((p) => { STATE.phylloAccounts = p?.accounts || [] }),
       ])
     }
@@ -1387,9 +1396,9 @@
           ${sectionTiktok()}
           ${sectionActivity()}
         </main>
-        <aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
+        ${STATE.feed.length > 0 ? `<aside style="width:340px;flex-shrink:0;overflow-y:auto;border-left:1px solid var(--b1);background:var(--s1)">
           ${sectionFeedStrip()}
-        </aside>
+        </aside>` : ''}
       </div>
     `
     wireEvents(root)
