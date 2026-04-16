@@ -878,7 +878,7 @@
     if (!ig) {
       return `
         <section style="margin-bottom:26px">
-          ${sectionLabel('Instagram — last 30 days')}
+          ${sectionLabel('Instagram')}
           <div style="padding:32px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px">
             Connect Instagram to unlock follower, engagement, and audience charts.
             <div style="margin-top:16px">
@@ -910,9 +910,27 @@
       `
     }
 
+    const igHandle = ig.handle || ''
+    const igBio = ig.bio || ''
+    const igProfileUrl = ig.profileUrl || `https://instagram.com/${igHandle}`
+    const igEngPct = ig.engagementRate ? ig.engagementRate.toFixed(1) + '%' : '—'
+
     return `
       <section style="margin-bottom:26px">
-        ${sectionLabel('Instagram — last 30 days')}
+        ${sectionLabel('Instagram')}
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+          <div style="min-width:0;flex:1">
+            <div style="color:var(--t1);font-size:14px;font-weight:500">@${esc(igHandle)}</div>
+            ${igBio ? `<div style="color:var(--t2);font-size:12px;line-height:1.4;margin-top:2px;max-width:560px">${esc(String(igBio).slice(0, 140))}${igBio.length > 140 ? '…' : ''}</div>` : ''}
+          </div>
+          <a href="${esc(igProfileUrl)}" target="_blank" rel="noopener" style="color:var(--t2);font-size:11px;padding:6px 12px;border:1px solid var(--b2);border-radius:999px;text-decoration:none">Open profile</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+          ${kvTile('Followers', short(ig.followerCount))}
+          ${kvTile('Posts', short(ig.postCount))}
+          ${kvTile('Engagement', igEngPct, 'Average engagement rate across recent posts based on reach.')}
+          ${kvTile('Avg reach', short(ig.avgReach))}
+        </div>
         <div style="display:flex;flex-direction:column;gap:14px">
           ${igPostsGrid(ig.recentMedia)}
           ${topPostCard(ig.topPosts && ig.topPosts[0], ig.recentMedia)}
@@ -1285,7 +1303,7 @@
 
     return `
       <section id="tiktok" style="margin-bottom:26px">
-        ${sectionLabel('TikTok — last 20 videos')}
+        ${sectionLabel('TikTok')}
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
           ${avatar ? `<img src="${esc(avatar)}" alt="" width="48" height="48" style="border-radius:12px;flex-shrink:0">` : ''}
           <div style="min-width:0;flex:1">
