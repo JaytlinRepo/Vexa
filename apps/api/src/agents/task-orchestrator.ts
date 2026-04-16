@@ -90,18 +90,23 @@ async function executeAgentTask(task: {
   // Fetch brand memory
   const brandMemory = await getBrandMemory(task.id)
 
+  // Load live platform data so every agent sees real numbers
+  const { loadPersonalContext, buildPlatformDataSummary } = await import('../lib/personalContext')
+  const personal = await loadPersonalContext(prisma, task.companyId)
+  const platformData = buildPlatformDataSummary(personal)
+
   switch (employee.role) {
     case 'analyst':
-      return executeMayaTask({ niche, brandVoice, nicheContext, brandMemory, description, taskType: task.type, companyId: task.companyId })
+      return executeMayaTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description, taskType: task.type, companyId: task.companyId })
 
     case 'strategist':
-      return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, description })
+      return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description })
 
     case 'copywriter':
-      return executeAlexTask({ niche, brandVoice, audience, nicheContext, brandMemory, description, taskType: task.type })
+      return executeAlexTask({ niche, brandVoice, audience, nicheContext, brandMemory, platformData, description, taskType: task.type })
 
     case 'creative_director':
-      return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, description })
+      return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description })
 
     default:
       throw new Error(`Unknown employee role: ${employee.role}`)
@@ -115,6 +120,7 @@ async function executeMayaTask(ctx: {
   brandVoice: string
   nicheContext: string
   brandMemory: string
+  platformData?: string
   description: string | null
   taskType?: string
   companyId?: string
@@ -135,6 +141,7 @@ async function executeMayaTask(ctx: {
     baseSystemPrompt: basePrompt,
     nicheContext: ctx.nicheContext,
     brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
   })
 
   const raw = await invokeAgent({
@@ -261,6 +268,7 @@ async function executeJordanTask(ctx: {
   goals: string
   nicheContext: string
   brandMemory: string
+  platformData?: string
   description: string | null
 }): Promise<ContentPlan> {
   const basePrompt = buildJordanSystemPrompt({
@@ -274,6 +282,7 @@ async function executeJordanTask(ctx: {
     baseSystemPrompt: basePrompt,
     nicheContext: ctx.nicheContext,
     brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
   })
 
   const raw = await invokeAgent({
@@ -292,6 +301,7 @@ async function executeAlexTask(ctx: {
   audience: string
   nicheContext: string
   brandMemory: string
+  platformData?: string
   description: string | null
   taskType: string
 }): Promise<HooksOutput | ScriptOutput> {
@@ -305,6 +315,7 @@ async function executeAlexTask(ctx: {
     baseSystemPrompt: basePrompt,
     nicheContext: ctx.nicheContext,
     brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
   })
 
   const raw = await invokeAgent({
@@ -322,6 +333,7 @@ async function executeRileyTask(ctx: {
   brandVoice: string
   nicheContext: string
   brandMemory: string
+  platformData?: string
   description: string | null
 }): Promise<ShotListOutput> {
   const basePrompt = buildRileySystemPrompt({
@@ -333,6 +345,7 @@ async function executeRileyTask(ctx: {
     baseSystemPrompt: basePrompt,
     nicheContext: ctx.nicheContext,
     brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
   })
 
   const raw = await invokeAgent({

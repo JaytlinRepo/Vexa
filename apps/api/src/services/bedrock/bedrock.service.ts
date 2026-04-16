@@ -134,11 +134,13 @@ export function buildLayeredPrompt({
   nicheContext,
   brandMemory,
   recentOutputSummary,
+  platformData,
 }: {
   baseSystemPrompt: string
   nicheContext?: string
   brandMemory?: string
   recentOutputSummary?: string
+  platformData?: string
 }): string {
   let prompt = baseSystemPrompt
 
@@ -152,6 +154,10 @@ export function buildLayeredPrompt({
 
   if (recentOutputSummary) {
     prompt += `\n\n## Recent Work Context\n${recentOutputSummary}`
+  }
+
+  if (platformData) {
+    prompt += `\n\n## Creator's Platform Data (Live Numbers)\n${platformData}`
   }
 
   return prompt

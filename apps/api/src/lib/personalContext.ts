@@ -252,6 +252,43 @@ export function fmtFollowers(n: number): string {
   return n.toLocaleString()
 }
 
+/** Build a compact text summary of connected platform data for agent prompts. */
+export function buildPlatformDataSummary(ctx: PersonalContext | null): string {
+  if (!ctx) return ''
+  const parts: string[] = []
+
+  if (ctx.instagram) {
+    const ig = ctx.instagram
+    parts.push(`Instagram @${ig.handle}: ${fmtFollowers(ig.followerCount)} followers, ${ig.engagementRate}% engagement, ${fmtFollowers(ig.avgReach)} avg reach, ${ig.postCount} posts.`)
+    if (ig.topPosts.length > 0) {
+      const top = ig.topPosts[0]
+      parts.push(`  Top IG post: "${(top.caption || '').slice(0, 80)}" — ${top.likeCount} likes, ${top.commentCount} comments.`)
+    }
+    const topAge = topShare(ig.audienceAge)
+    const topCountry = topShare(ig.audienceTopCountries)
+    if (topAge || topCountry) {
+      const bits = [topAge ? `${topAge.bucket} (${Math.round(topAge.share * 100)}%)` : '', topCountry ? `${topCountry.bucket} (${Math.round(topCountry.share * 100)}%)` : ''].filter(Boolean)
+      parts.push(`  IG audience: ${bits.join(', ')}.`)
+    }
+  }
+
+  if (ctx.tiktok) {
+    const tt = ctx.tiktok
+    parts.push(`TikTok @${tt.handle}: ${fmtFollowers(tt.followerCount)} followers, ${(tt.engagementRate * 100).toFixed(1)}% engagement, ${fmtFollowers(tt.avgViews)} avg views, ${tt.videoCount} videos, ${fmtFollowers(tt.likesCount)} total likes.`)
+    if (tt.recentVideos.length > 0) {
+      const sorted = [...tt.recentVideos].sort((a, b) => (b.likeCount + b.commentCount * 2 + b.shareCount * 3) - (a.likeCount + a.commentCount * 2 + a.shareCount * 3))
+      const best = sorted[0]
+      const worst = sorted[sorted.length - 1]
+      parts.push(`  Top TT video: "${(best.caption || '').slice(0, 80)}" — ${best.viewCount} views, ${best.likeCount} likes.`)
+      if (worst !== best) {
+        parts.push(`  Weakest TT video: "${(worst.caption || '').slice(0, 80)}" — ${worst.viewCount} views, ${worst.likeCount} likes.`)
+      }
+    }
+  }
+
+  return parts.join('\n')
+}
+
 /** Best-effort top audience bucket by share. */
 export function topShare(
   rows: Array<{ bucket: string; share: number }>,
