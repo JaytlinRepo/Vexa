@@ -3,6 +3,7 @@ import axios from 'axios'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { fetchNicheRSSFeeds, RSSItem } from '../services/integrations/rss.service'
+import { effectiveNiche } from '../lib/nicheDetection'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -175,7 +176,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    const niche = (company.niche as string) || 'lifestyle'
+    const niche = effectiveNiche(company) || 'lifestyle'
     const subs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
 
     const requestedLimit = Math.max(1, Math.min(24, Number(req.query.limit) || 12))

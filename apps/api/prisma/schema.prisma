@@ -101,13 +101,16 @@ model Company {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
   name       String
-  niche      String
-  subNiche   String?  @map("sub_niche")
-  platform   Platform @default(instagram)
-  brandVoice Json     @default("{}") @map("brand_voice")
-  audience   Json     @default("{}")
-  goals      Json     @default("{}")
-  agentTools Json     @default("{}") @map("agent_tools")
+  niche         String
+  subNiche      String?  @map("sub_niche")
+  detectedNiche    String?  @map("detected_niche")
+  detectedSubNiche String?  @map("detected_sub_niche")
+  nicheConfidence  Float?   @map("niche_confidence")
+  platform      Platform @default(instagram)
+  brandVoice    Json     @default("{}") @map("brand_voice")
+  audience      Json     @default("{}")
+  goals         Json     @default("{}")
+  agentTools    Json     @default("{}") @map("agent_tools")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)

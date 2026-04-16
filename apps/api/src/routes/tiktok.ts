@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
+import { detectNicheFromContent } from '../lib/nicheDetection'
 
 const prisma = new PrismaClient()
 const router = Router()
@@ -281,7 +282,10 @@ router.get('/callback', async (req, res) => {
     } catch (e) {
       console.warn('[tiktok] persist failed', e)
     }
-    // Fire-and-forget: Maya analyzes the newly connected TikTok data
+    // Fire-and-forget: detect niche from content + Maya analyzes the data
+    void detectNicheFromContent(prisma, companyId).catch((err) =>
+      console.warn('[tiktok] niche detection failed (non-blocking)', err),
+    )
     void triggerProactiveMayaAnalysis(prisma, companyId).catch((err) =>
       console.warn('[tiktok] proactive Maya analysis failed (non-blocking)', err),
     )
