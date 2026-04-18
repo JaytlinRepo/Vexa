@@ -145,6 +145,23 @@ export async function createNotification(params: {
   // Push real-time if user is online
   pushSSEEvent(params.userId, result)
 
+  // Send email for key notification types (fire-and-forget)
+  try {
+    if (params.type === 'output_delivered' || params.type === 'team_update') {
+      const taskId = (params.metadata?.taskId as string) || ''
+      const role = (params.metadata?.employeeRole as string) || ''
+      if (taskId) {
+        const { triggerOutputDeliveredEmail } = require('../../lib/emailTriggers')
+        triggerOutputDeliveredEmail(params.userId, {
+          employeeRole: role || 'analyst',
+          outputType: params.title,
+          outputSummary: params.body,
+          taskId,
+        })
+      }
+    }
+  } catch {}
+
   return result
 }
 

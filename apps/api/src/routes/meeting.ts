@@ -487,6 +487,20 @@ Return ONLY valid JSON in this shape:
       })
     }
 
+    // Send meeting summary email
+    try {
+      const { triggerMeetingSummaryEmail } = await import('../lib/emailTriggers')
+      const emp = meeting.employee
+      triggerMeetingSummaryEmail(userId, {
+        employeeName: emp?.name || 'Your teammate',
+        employeeEmoji: '',
+        summary,
+        decisions,
+        tasksCreated: tasksCreated.length,
+        meetingId: meetingId || '',
+      })
+    } catch {}
+
     res.json({ summary, decisions, tasksCreated, meetingId })
   } catch (err) {
     if (err instanceof z.ZodError) {

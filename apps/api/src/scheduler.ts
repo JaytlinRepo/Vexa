@@ -248,6 +248,18 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
   })
   console.log('[scheduler] registered riley competitor analysis (15th of month 12:00 UTC)')
 
+  // Daily at 08:00 UTC — check for trial ending emails (3 days + 1 day warning)
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      const { checkTrialEndingEmails } = require('./lib/emailTriggers')
+      const result = await checkTrialEndingEmails()
+      if (result.sent > 0) console.log(`[scheduler] trial ending emails: ${result.sent} sent`)
+    } catch (err) {
+      console.error('[scheduler] trial ending emails threw', err)
+    }
+  })
+  console.log('[scheduler] registered trial ending email check (daily 08:00 UTC)')
+
   // Daily at 12:00 UTC — keep-alive: if CEO hasn't interacted in 3 days,
   // agents proactively generate fresh work so the inbox never looks empty.
   const keepAliveExpr = process.env.VEXA_KEEPALIVE_CRON || '0 12 * * *'

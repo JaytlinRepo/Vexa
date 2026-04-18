@@ -172,6 +172,12 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     where: { id: user.id },
     data: { subscriptionStatus: 'past_due' },
   })
+
+  // Send payment failed email
+  try {
+    const { triggerPaymentFailedEmail } = require('../../lib/emailTriggers')
+    triggerPaymentFailedEmail(user.id)
+  } catch {}
 }
 
 // ─── PLAN HELPERS ─────────────────────────────────────────────────────────────

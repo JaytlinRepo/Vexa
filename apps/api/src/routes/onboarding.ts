@@ -63,6 +63,12 @@ router.post('/company', requireAuth, async (req, res, next) => {
       console.warn('[onboarding] welcome notification failed', e)
     }
 
+    // Send welcome email
+    try {
+      const { triggerWelcomeEmail } = await import('../lib/emailTriggers')
+      triggerWelcomeEmail(userId)
+    } catch {}
+
     res.status(201).json({ company })
   } catch (err) {
     if (err instanceof z.ZodError) {
