@@ -428,8 +428,8 @@ RAPIDAPI_KEY=
 CREATOMATE_API_KEY=
 
 # App
-NEXT_PUBLIC_APP_URL=https://app.vexa.ai
-NEXT_PUBLIC_MARKETING_URL=https://vexa.ai
+NEXT_PUBLIC_APP_URL=https://app.sovexa.ai
+NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 ```
 
 ---

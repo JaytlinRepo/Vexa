@@ -2,17 +2,9 @@
 ;(function () {
   var html = document.documentElement
   function sync() {
-    try {
-      var t = localStorage.getItem('vx-t')
-      if (t === 'light' || t === 'dark') {
-        html.setAttribute('data-theme', t)
-      } else {
-        localStorage.setItem('vx-t', 'dark')
-        html.setAttribute('data-theme', 'dark')
-      }
-    } catch (_) {
-      html.setAttribute('data-theme', 'dark')
-    }
+    // Always dark — light theme is not production-ready yet
+    html.setAttribute('data-theme', 'dark')
+    try { localStorage.setItem('vx-t', 'dark') } catch (_) {}
   }
   sync()
   window.toggleTheme = function vexaToggleTheme() {

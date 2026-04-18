@@ -51,7 +51,7 @@ export class VexaStack extends cdk.Stack {
         scopes: [cognito.OAuthScope.EMAIL, cognito.OAuthScope.OPENID, cognito.OAuthScope.PROFILE],
         callbackUrls: [
           'http://localhost:3000/auth/callback',
-          'https://app.vexa.ai/auth/callback',
+          'https://app.sovexa.ai/auth/callback',
         ],
       },
     })

@@ -9,6 +9,8 @@
   if (localStorage.getItem('vx-authed') === '1') return
   // Don't show if already seen this session
   if (sessionStorage.getItem('vx-intro-done') === '1') return
+  // Don't show if there's a session cookie (user is logged in but vx-authed wasn't set yet)
+  if (document.cookie.indexOf('vx_session') !== -1) return
 
   // Create overlay
   var overlay = document.createElement('div')

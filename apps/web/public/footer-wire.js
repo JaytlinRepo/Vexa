@@ -102,7 +102,7 @@
     document.getElementById('vx-legal-modal')?.remove()
     const titles = { terms: 'Terms of Service', privacy: 'Privacy Policy', security: 'Security' }
     const bodies = {
-      terms: 'Terms of Service · placeholder. The full document is in legal review and ships with public launch. Reach out at hello@vexa.ai if you need it sooner — we can share the draft on request.',
+      terms: 'Terms of Service · placeholder. The full document is in legal review and ships with public launch. Reach out at hello@sovexa.ai if you need it sooner — we can share the draft on request.',
       privacy: 'Privacy Policy · placeholder. We collect the minimum needed to run your AI content team: account, brand workspace data, social-platform data you connect via Phyllo. We never sell your data and never share it with other Vexa users. Full document at public launch.',
       security: 'Security · placeholder. All data is encrypted at rest (PostgreSQL) and in transit (TLS). Phyllo holds OAuth tokens — Vexa never sees your social passwords. Full doc at public launch.',
     }

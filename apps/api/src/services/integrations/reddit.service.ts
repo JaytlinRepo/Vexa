@@ -59,7 +59,7 @@ export async function fetchSubredditHot(
   const response = await axios.get(url, {
     timeout: 8000,
     headers: {
-      'User-Agent': 'Vexa/1.0 (content research tool; contact@vexa.ai)',
+      'User-Agent': 'Vexa/1.0 (content research tool; contact@sovexa.ai)',
     },
   })
 
@@ -100,7 +100,7 @@ export async function fetchSubredditRising(
 
   const response = await axios.get(url, {
     timeout: 8000,
-    headers: { 'User-Agent': 'Vexa/1.0 (content research tool; contact@vexa.ai)' },
+    headers: { 'User-Agent': 'Vexa/1.0 (content research tool; contact@sovexa.ai)' },
   })
 
   const children = response.data?.data?.children || []
@@ -139,7 +139,7 @@ export async function fetchPostTopComments(
 
   const response = await axios.get(url, {
     timeout: 8000,
-    headers: { 'User-Agent': 'Vexa/1.0 (content research tool; contact@vexa.ai)' },
+    headers: { 'User-Agent': 'Vexa/1.0 (content research tool; contact@sovexa.ai)' },
   })
 
   const commentData = response.data?.[1]?.data?.children || []

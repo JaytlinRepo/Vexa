@@ -132,9 +132,37 @@ function selectNiche(el,niche){
   document.querySelectorAll('.ob-card').forEach(c=>c.classList.remove('selected'))
   el.classList.add('selected')
   selectedNiche=niche
-  const btn=document.getElementById('ob-niche-btn')
+  // Hide custom input if a preset was picked
+  var customWrap = document.getElementById('ob-custom-niche')
+  if (customWrap && niche !== '__custom__') customWrap.style.display = 'none'
+  var btn=document.getElementById('ob-niche-btn')
   btn.disabled=false
   btn.style.opacity='1'
+}
+
+function toggleCustomNiche(){
+  document.querySelectorAll('.ob-card').forEach(c=>c.classList.remove('selected'))
+  document.getElementById('ob-niche-other').classList.add('selected')
+  var customWrap = document.getElementById('ob-custom-niche')
+  customWrap.style.display = 'block'
+  var input = document.getElementById('ob-custom-niche-input')
+  input.focus()
+  selectedNiche = '__custom__'
+  var btn = document.getElementById('ob-niche-btn')
+  // Enable button only when they type something
+  btn.disabled = true
+  btn.style.opacity = '.4'
+  input.oninput = function() {
+    var val = input.value.trim()
+    if (val.length >= 2) {
+      selectedNiche = val.toLowerCase().replace(/[^a-z0-9_ ]/g, '').replace(/\s+/g, '_')
+      btn.disabled = false
+      btn.style.opacity = '1'
+    } else {
+      btn.disabled = true
+      btn.style.opacity = '.4'
+    }
+  }
 }
 
 function startReveal(){
@@ -598,11 +626,6 @@ function goToTasks() {
   navigate('db-tasks')
   setTimeout(() => {
     renderCalendar()
-    setTimeout(() => {
-      showToast('M','Maya','Trend Analyst',
-        '"Weighted walking is still rising — up 340% in 48 hours. I\'ve flagged Jan 13 in the calendar. You should post before competitors catch on."',
-        'e8')
-    }, 2000)
   }, 320)
 }
 

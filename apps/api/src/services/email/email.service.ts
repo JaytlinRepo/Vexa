@@ -14,8 +14,8 @@ import { Resend } from 'resend'
 import { EMPLOYEE_CONFIGS, EmployeeRole } from '@vexa/types'
 
 const resend = new Resend(process.env.RESEND_API_KEY || '')
-const FROM = 'Vexa <team@vexa.ai>'
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.vexa.ai'
+const FROM = 'Vexa <team@sovexa.ai>'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.sovexa.ai'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -311,7 +311,7 @@ async function send(params: {
       to: params.to,
       subject: params.subject,
       html: params.html,
-      reply_to: params.replyTo || 'support@vexa.ai',
+      reply_to: params.replyTo || 'support@sovexa.ai',
     })
 
     if (error) {

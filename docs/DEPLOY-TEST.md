@@ -79,9 +79,9 @@ env vars or a stale `DATABASE_URL`.
 
 ## 5 · Custom domain (when ready)
 
-- **Vercel**: Project → Settings → Domains → add `vexa.ai`
+- **Vercel**: Project → Settings → Domains → add `sovexa.ai`
 - **Railway**: Service → Settings → Networking → Custom Domain
-  → add `api.vexa.ai`
+  → add `api.sovexa.ai`
 - Update `NEXT_PUBLIC_API_URL` on Vercel + `CORS_ORIGINS` on Railway
   to use the custom domains.
 - Update Phyllo, Stripe, and any other webhook destinations.

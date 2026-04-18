@@ -17,6 +17,7 @@ import * as xml2js from 'xml2js'
 export interface RSSItem {
   title: string
   description: string
+  fullContent?: string
   url: string
   source: string
   author?: string
@@ -69,8 +70,9 @@ export const NICHE_RSS_FEEDS: Record<string, FeedConfig[]> = {
     { url: 'https://www.wellandgood.com/feed/', name: 'Well+Good', quality: 'high' },
     { url: 'https://www.mindbodygreen.com/rss.xml', name: 'mindbodygreen', quality: 'high' },
     { url: 'https://bemorewithless.com/feed/', name: 'Be More With Less', quality: 'medium' },
-    { url: 'https://mnmlist.com/feed/', name: 'mnmlist', quality: 'medium' },
     { url: 'https://www.apartmenttherapy.com/main.rss', name: 'Apartment Therapy', quality: 'medium' },
+    { url: 'https://www.nomadicmatt.com/travel-blog/feed/', name: 'Nomadic Matt', quality: 'high' },
+    { url: 'https://theblondeabroad.com/feed/', name: 'The Blonde Abroad', quality: 'high' },
   ],
   personal_development: [
     { url: 'https://jamesclear.com/feed', name: 'James Clear', quality: 'high' },
@@ -80,6 +82,30 @@ export const NICHE_RSS_FEEDS: Record<string, FeedConfig[]> = {
     { url: 'https://tim.blog/feed/', name: 'Tim Ferriss', quality: 'high' },
     { url: 'https://www.nateliason.com/feed', name: 'Nat Eliason', quality: 'medium' },
   ],
+}
+
+// ─── SUB-NICHE OVERRIDES ─────────────────────────────────────────────────────
+// When a sub-niche is detected, these feeds replace the generic niche feeds.
+export const SUB_NICHE_RSS_FEEDS: Record<string, Record<string, FeedConfig[]>> = {
+  lifestyle: {
+    travel: [
+      { url: 'https://www.nomadicmatt.com/travel-blog/feed/', name: 'Nomadic Matt', quality: 'high' },
+      { url: 'https://theblondeabroad.com/feed/', name: 'The Blonde Abroad', quality: 'high' },
+      { url: 'https://www.lonelyplanet.com/blog/feed', name: 'Lonely Planet', quality: 'high' },
+      { url: 'https://www.cntraveler.com/feed/rss', name: 'Condé Nast Traveler', quality: 'high' },
+      { url: 'https://matadornetwork.com/feed/', name: 'Matador Network', quality: 'medium' },
+      { url: 'https://www.adventurouskate.com/feed/', name: 'Adventurous Kate', quality: 'medium' },
+    ],
+    wellness: [
+      { url: 'https://www.wellandgood.com/feed/', name: 'Well+Good', quality: 'high' },
+      { url: 'https://www.mindbodygreen.com/rss.xml', name: 'mindbodygreen', quality: 'high' },
+      { url: 'https://zenhabits.net/feed/', name: 'Zen Habits', quality: 'high' },
+    ],
+    minimalism: [
+      { url: 'https://bemorewithless.com/feed/', name: 'Be More With Less', quality: 'high' },
+      { url: 'https://www.theminimalists.com/feed/', name: 'The Minimalists', quality: 'high' },
+    ],
+  },
 }
 
 // ─── FETCH SINGLE FEED ────────────────────────────────────────────────────────
@@ -92,7 +118,7 @@ export async function fetchRSSFeed(
     const response = await axios.get(feedConfig.url, {
       timeout: 8000,
       headers: {
-        'User-Agent': 'Vexa/1.0 (content aggregator; contact@vexa.ai)',
+        'User-Agent': 'Vexa/1.0 (content aggregator; contact@sovexa.ai)',
         'Accept': 'application/rss+xml, application/xml, text/xml',
       },
       responseType: 'text',
@@ -111,16 +137,18 @@ export async function fetchRSSFeed(
 
     return items.slice(0, maxItems).map((item: Record<string, unknown>) => {
       const title = extractText(item.title)
-      const description = stripHtml(
-        extractText(item.description || item.summary || item['content:encoded'] || '')
-      ).slice(0, 300)
+      const rawContent = extractText(item['content:encoded'] || item.content || '')
+      const rawDesc = extractText(item.description || item.summary || '')
+      const description = stripHtml(rawDesc || rawContent).slice(0, 300)
+      // Keep full article body (HTML) — stripped to text for reading in-app
+      const fullBody = rawContent || rawDesc
+      const fullContent = fullBody ? cleanArticleHtml(fullBody) : undefined
       const link = extractText(item.link || item.id) || ''
       const pubDate = extractText(item.pubDate || item.published || item.updated || '')
       const author = extractText(item.author || item['dc:creator'] || '')
 
       // Try to extract image from content
-      const content = extractText(item['content:encoded'] || item.content || '')
-      const imageMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i)
+      const imageMatch = (rawContent || rawDesc).match(/<img[^>]+src=["']([^"']+)["']/i)
       const imageUrl = imageMatch ? imageMatch[1] : undefined
 
       // Extract categories
@@ -132,6 +160,7 @@ export async function fetchRSSFeed(
       return {
         title: title.slice(0, 150),
         description,
+        fullContent,
         url: link,
         source: feedConfig.name,
         author: author || undefined,
@@ -155,10 +184,18 @@ export async function fetchRSSFeed(
 export async function fetchNicheRSSFeeds(
   niche: string,
   maxFeedsToFetch = 4,
-  itemsPerFeed = 5
+  itemsPerFeed = 5,
+  subNiche?: string | null
 ): Promise<RSSItem[]> {
-  const feeds = (NICHE_RSS_FEEDS[niche.toLowerCase()] || [])
-    .filter(f => f.quality === 'high') // start with high quality only
+  // Use sub-niche-specific feeds when available, fall back to niche feeds
+  const subFeeds = subNiche
+    ? SUB_NICHE_RSS_FEEDS[niche.toLowerCase()]?.[subNiche.toLowerCase()] || []
+    : []
+  const nicheFeeds = NICHE_RSS_FEEDS[niche.toLowerCase()] || []
+  // Prefer sub-niche feeds, backfill with niche feeds
+  const allFeeds = [...subFeeds, ...nicheFeeds.filter(f => !subFeeds.some(sf => sf.name === f.name))]
+  const feeds = allFeeds
+    .filter(f => f.quality === 'high')
     .slice(0, maxFeedsToFetch)
 
   if (!feeds.length) {
@@ -212,6 +249,25 @@ function extractText(val: unknown): string {
     return String(obj._ || obj.$t || obj['#text'] || Object.values(obj).find(v => typeof v === 'string') || '').trim()
   }
   return String(val).trim()
+}
+
+function cleanArticleHtml(html: string): string {
+  return html
+    // Remove script, style, iframe tags and their content
+    .replace(/<(script|style|iframe|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    // Remove image tags (we handle images separately)
+    .replace(/<img[^>]*>/gi, '')
+    // Remove attributes except href on links
+    .replace(/<a\s+[^>]*href=["']([^"']*)["'][^>]*>/gi, '<a href="$1">')
+    // Strip all other attributes
+    .replace(/<(\w+)\s+[^>]*>/g, '<$1>')
+    // Keep only safe tags: p, h1-h6, ul, ol, li, a, strong, em, br, blockquote
+    .replace(/<\/?(?!p|h[1-6]|ul|ol|li|a|strong|em|br|blockquote)[a-z][^>]*>/gi, '')
+    // Clean up empty tags
+    .replace(/<(\w+)>\s*<\/\1>/g, '')
+    // Normalize whitespace between tags
+    .replace(/>\s+</g, '><')
+    .trim()
 }
 
 function stripHtml(html: string): string {

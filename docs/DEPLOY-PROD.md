@@ -26,7 +26,7 @@ Production runs entirely on AWS. The CDK scaffold is at
 
 | Layer | Service | Notes |
 |---|---|---|
-| Edge / CDN | CloudFront | Routes `vexa.ai` and `api.vexa.ai` |
+| Edge / CDN | CloudFront | Routes `sovexa.ai` and `api.sovexa.ai` |
 | Web (Next.js) | AWS Amplify Hosting | SSR + static; auto-deploys from `main` |
 | API container | ECS Fargate (or Lambda) | Container = the same `apps/api/Dockerfile` we run on Railway today |
 | Container registry | ECR | Built + pushed by GitHub Actions on every `main` push |
@@ -52,7 +52,7 @@ Production runs entirely on AWS. The CDK scaffold is at
 | Stripe | Test mode (no payments) | Live mode |
 | Cron | In-process node-cron | EventBridge → SQS → Fargate worker |
 | Secrets | Plain env vars on Railway/Vercel | Secrets Manager + IAM roles |
-| Domain | `*.vercel.app`, `*.up.railway.app` | `vexa.ai`, `api.vexa.ai` |
+| Domain | `*.vercel.app`, `*.up.railway.app` | `sovexa.ai`, `api.sovexa.ai` |
 | `VEXA_MODE` | `test` | `prod` |
 
 ## Deploy steps (when ready)
@@ -94,16 +94,16 @@ Production runs entirely on AWS. The CDK scaffold is at
    ```
 
 7. **Connect Amplify** to the GitHub repo, set rootDirectory `apps/web`,
-   wire `NEXT_PUBLIC_API_URL=https://api.vexa.ai`, deploy.
+   wire `NEXT_PUBLIC_API_URL=https://api.sovexa.ai`, deploy.
 
-8. **DNS** — Route53 zone for `vexa.ai`, A record for the API ALB,
+8. **DNS** — Route53 zone for `sovexa.ai`, A record for the API ALB,
    CloudFront distribution for the web app.
 
 9. **Phyllo** — switch `PHYLLO_API_BASE` to production endpoint, set
    the production callback URL in the Phyllo dashboard.
 
 10. **Stripe** — switch to live mode keys, register webhook to
-    `https://api.vexa.ai/api/stripe/webhook`.
+    `https://api.sovexa.ai/api/stripe/webhook`.
 
 ## Open questions to settle before deploy
 

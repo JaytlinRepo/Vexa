@@ -52,12 +52,16 @@ const NICHE_CATEGORY_IDS: Record<string, string> = {
 
 // Search keywords per niche for findable trending content
 const NICHE_SEARCH_TERMS: Record<string, string> = {
-  fitness:            'fitness workout 2024',
-  finance:            'personal finance investing 2024',
+  fitness:            'fitness workout tips',
+  finance:            'personal finance investing tips',
   food:               'recipe cooking viral',
-  coaching:           'productivity mindset self improvement',
-  lifestyle:          'lifestyle wellness vlog',
-  personal_development: 'self improvement habits 2024',
+  coaching:           'productivity mindset coaching',
+  lifestyle:          'lifestyle wellness routine',
+  personal_development: 'self improvement habits motivation',
+  tech:               'tech content creator tips',
+  'data science':     'data science content machine learning',
+  ai:                 'AI artificial intelligence content creator',
+  science:            'science education content creator',
 }
 
 // ─── SEARCH TRENDING VIDEOS ───────────────────────────────────────────────────
@@ -69,16 +73,19 @@ const NICHE_SEARCH_TERMS: Record<string, string> = {
 export async function searchNicheVideos(
   niche: string,
   subNiche?: string,
-  maxResults = 15
+  maxResults = 15,
+  customQuery?: string
 ): Promise<YouTubeVideo[]> {
   if (!YOUTUBE_API_KEY) {
     console.warn('YOUTUBE_API_KEY not set — skipping YouTube')
     return []
   }
 
-  const query = subNiche
-    ? `${subNiche} ${NICHE_SEARCH_TERMS[niche.toLowerCase()] || niche}`
-    : NICHE_SEARCH_TERMS[niche.toLowerCase()] || niche
+  const base = customQuery
+    || (subNiche
+      ? `${subNiche} ${NICHE_SEARCH_TERMS[niche.toLowerCase()] || niche}`
+      : NICHE_SEARCH_TERMS[niche.toLowerCase()] || niche)
+  const query = `${base} #shorts`
 
   try {
     // Step 1: Search for videos (costs 100 units)
@@ -88,11 +95,11 @@ export async function searchNicheVideos(
         part: 'snippet',
         q: query,
         type: 'video',
-        order: 'viewCount',
+        order: 'relevance',
         publishedAfter: getDateDaysAgo(30),
         maxResults,
         relevanceLanguage: 'en',
-        videoDuration: 'short', // Shorts/Reels-length content
+        videoDuration: 'short', // Shorts = under 4 min, maps to Reels-length content
       },
       timeout: 8000,
     })

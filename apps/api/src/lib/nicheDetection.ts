@@ -81,19 +81,47 @@ async function persistResult(prisma: PrismaClient, companyId: string, result: Ni
   console.log(`[niche] detected ${result.detectedNiche}/${result.detectedSubNiche} (${(result.confidence * 100).toFixed(0)}%) for company ${companyId}: ${result.reasoning}`)
 }
 
+// ─── HASHTAG EXTRACTION ─────────────────────────────────────────────────────
+
+function extractHashtags(captions: string[]): string[] {
+  const counts: Record<string, number> = {}
+  for (const c of captions) {
+    const tags = c.match(/#[a-zA-Z0-9_]+/g) || []
+    for (const tag of tags) {
+      const normalized = tag.toLowerCase()
+      // Skip noise hashtags
+      if (['#fyp', '#fypシ', '#viral', '#fy', '#foryou', '#foryoupage', '#trending'].includes(normalized)) continue
+      counts[normalized] = (counts[normalized] || 0) + 1
+    }
+  }
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([tag, count]) => `${tag} (${count}x)`)
+}
+
 // ─── TEXT-BASED DETECTION ────────────────────────────────────────────────────
 
-async function detectFromText(captions: string[]): Promise<NicheDetectionResult | null> {
-  if (captions.length < 3) return null
+async function detectFromText(captions: string[], bios: string[] = []): Promise<NicheDetectionResult | null> {
+  if (captions.length < 3 && bios.length === 0) return null
 
   const captionBlock = captions
     .slice(0, 20)
     .map((c, i) => `${i + 1}. ${c.slice(0, 200)}`)
     .join('\n')
 
+  const hashtags = extractHashtags(captions)
+  const hashtagBlock = hashtags.length > 0
+    ? `\n\nMost used hashtags (excluding #fyp/#viral noise):\n${hashtags.join(', ')}`
+    : ''
+
+  const bioBlock = bios.length > 0
+    ? `\n\nBio/profile descriptions:\n${bios.map(b => `- ${b}`).join('\n')}`
+    : ''
+
   const raw = await invokeAgent({
     systemPrompt: buildSystemPrompt(),
-    messages: [{ role: 'user', content: `Classify this creator's niche from their ${captions.length} most recent video captions:\n\n${captionBlock}` }],
+    messages: [{ role: 'user', content: `Classify this creator's niche from their content:\n\n${captions.length} most recent captions:\n${captionBlock}${hashtagBlock}${bioBlock}` }],
     maxTokens: 256,
     temperature: 0.2,
   })
@@ -167,18 +195,38 @@ export async function detectNicheFromContent(
   })
   if (!company) return null
 
-  // Gather captions
+  // Gather captions, bios, thumbnails
   const captions: string[] = []
+  const bios: string[] = []
   const thumbnailUrls: string[] = []
+
   if (company.tiktok) {
     const vids = (company.tiktok.recentVideos as Array<{ title?: string; cover?: string }>) || []
     for (const v of vids) {
       if (v.title?.trim()) captions.push(v.title.trim())
       if (v.cover) thumbnailUrls.push(v.cover)
     }
+    const ttBio = (company.tiktok as Record<string, unknown>).bio as string | undefined
+    if (ttBio?.trim()) bios.push(ttBio.trim())
   }
 
-  // Also pull from PlatformPost
+  // Pull bios from PlatformAccount
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId },
+    select: { bio: true },
+  })
+  for (const a of accounts) {
+    if (a.bio?.trim() && !bios.includes(a.bio.trim())) bios.push(a.bio.trim())
+  }
+
+  // Pull from InstagramConnection bio
+  const igConn = await prisma.instagramConnection.findFirst({
+    where: { companyId },
+    select: { bio: true },
+  })
+  if (igConn?.bio?.trim() && !bios.includes(igConn.bio.trim())) bios.push(igConn.bio.trim())
+
+  // Pull captions + thumbnails from PlatformPost
   if (captions.length < 5 || thumbnailUrls.length < 5) {
     const posts = await prisma.platformPost.findMany({
       where: { account: { companyId } },
@@ -193,8 +241,8 @@ export async function detectNicheFromContent(
   }
 
   try {
-    // Step 1: try text-based detection
-    const textResult = await detectFromText(captions).catch(() => null)
+    // Step 1: try text-based detection (captions + hashtags + bios)
+    const textResult = await detectFromText(captions, bios).catch(() => null)
 
     if (textResult && textResult.confidence >= 0.5) {
       await persistResult(prisma, companyId, textResult)

@@ -13,7 +13,7 @@ Two completely separate deployments. Same code, different infrastructure.
 | **Phyllo** | Staging API | Production API |
 | **Bedrock** | Disabled (mocks only) | Enabled |
 | **Stripe** | Test mode | Live mode |
-| **Domain** | `*.vercel.app` / `*.railway.app` | `vexa.ai` / `api.vexa.ai` |
+| **Domain** | `*.vercel.app` / `*.railway.app` | `sovexa.ai` / `api.sovexa.ai` |
 | **`VEXA_MODE`** | `test` | `prod` |
 | **Cost** | ~$0–10/month | scales with usage |
 | **Setup guide** | [DEPLOY-TEST.md](./DEPLOY-TEST.md) | [DEPLOY-PROD.md](./DEPLOY-PROD.md) |
