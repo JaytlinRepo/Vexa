@@ -34,6 +34,11 @@
         <button class="ob-card" onclick="selectNiche(this,'coaching')"><div class="ob-card-lbl">04</div><div class="ob-card-name">Coaching &amp; Education</div><div class="ob-card-desc">Teaching, courses, authority building</div></button>
         <button class="ob-card" onclick="selectNiche(this,'lifestyle')"><div class="ob-card-lbl">05</div><div class="ob-card-name">Lifestyle</div><div class="ob-card-desc">Aesthetic, story, personal brand</div></button>
         <button class="ob-card" onclick="selectNiche(this,'personal_dev')"><div class="ob-card-lbl">06</div><div class="ob-card-name">Personal Development</div><div class="ob-card-desc">Mindset, habits, growth</div></button>
+        <button class="ob-card" id="ob-niche-other" onclick="toggleCustomNiche()"><div class="ob-card-lbl">07</div><div class="ob-card-name">Other</div><div class="ob-card-desc">Something else — tell us</div></button>
+      </div>
+      <div id="ob-custom-niche" style="display:none;margin-bottom:16px">
+        <input class="ob-input" id="ob-custom-niche-input" placeholder="e.g. Travel, Tech, Gaming, Beauty, Real Estate" autocomplete="off" style="margin-bottom:4px">
+        <p class="ob-hint">Your team will specialize in this. Be specific — "travel vlogging" works better than just "travel".</p>
       </div>
       <div class="ob-actions">
         <button class="btn-fill" id="ob-niche-btn" onclick="obNext(2)" style="padding:13px 32px;font-size:12px;opacity:.4" disabled>Continue</button>
@@ -155,12 +160,8 @@
         <!-- Marketing nav (shown when not logged in) -->
         <div class="topnav-group" id="nav-marketing">
           <a class="topnav-link active" id="nav-home" onclick="navigate('home')">Home</a>
-          <a class="topnav-link" id="nav-team" onclick="navigate('team')">Team</a>
           <a class="topnav-link" id="nav-how" onclick="navigate('how')">How it works</a>
-          <a class="topnav-link" id="nav-outputs" onclick="navigate('outputs')">Outputs</a>
-          <a class="topnav-link" id="nav-knowledge" onclick="navigate('knowledge')">Knowledge</a>
           <a class="topnav-link" id="nav-pricing" onclick="navigate('pricing')">Pricing</a>
-          <a class="topnav-link" id="nav-faq" onclick="navigate('faq')">FAQ</a>
           <a class="topnav-link" id="nav-contact" onclick="navigate('contact')">Contact</a>
         </div>
         <!-- App nav (shown when logged in) -->
@@ -191,22 +192,19 @@
         <div class="hero-content">
           <p class="hero-overline">
             <span class="hero-overline-line"></span>
-            Early access &mdash; 1,200 creators
+            You're the CEO
             <span class="hero-overline-line"></span>
           </p>
           <h1 class="hero-h1">
-            <span class="word"><span class="wi" style="animation-delay:.36s">Your</span></span>
-            <span class="word"><span class="wi" style="animation-delay:.50s">content.</span></span>
-            <br>
-            <span class="word"><span class="wi" style="animation-delay:.66s;font-style:italic;color:var(--t2)">Run</span></span>
-            <span class="word"><span class="wi" style="animation-delay:.80s;font-style:italic;color:var(--t2)">by</span></span>
-            <span class="word"><span class="wi" style="animation-delay:.94s;font-style:italic;color:var(--t2)">a</span></span>
-            <span class="word"><span class="wi" style="animation-delay:1.08s;font-style:italic;color:var(--t2)">team.</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.36s;font-style:italic;color:var(--accent,#d4a574)">They</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.50s;font-style:italic;color:var(--accent,#d4a574)">do</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.66s;font-style:italic;color:var(--accent,#d4a574)">the</span></span>
+            <span class="word"><span class="wi" style="animation-delay:.80s;font-style:italic;color:var(--accent,#d4a574)">work.</span></span>
           </h1>
-          <p class="hero-sub">Vexa gives every creator a full AI content team — strategist, trend analyst, copywriter, and creative director — that specializes in their niche and delivers real work, every day.</p>
+          <p class="hero-sub">AI employees. Zero management overhead. Your content team starts working the moment you sign up.</p>
           <div class="hero-ctas">
-            <button class="btn-fill" onclick="startOnboarding()">Start free &mdash; 7 days</button>
-            <button class="btn-outline" onclick="navigate('outputs')">See real outputs</button>
+            <button class="btn-fill" onclick="startOnboarding()">Get started free</button>
+            <button class="btn-outline" onclick="navigate('how')">See how it works</button>
           </div>
           <div class="hero-meta">
             <span>No credit card required</span>
@@ -525,8 +523,7 @@
             <div class="feed-tabs">
               <button class="feed-tab active" onclick="switchFeed(this,'all')">All</button>
               <button class="feed-tab" onclick="switchFeed(this,'article')">Articles</button>
-              <button class="feed-tab" onclick="switchFeed(this,'research')">Research</button>
-              <button class="feed-tab" onclick="switchFeed(this,'reddit')">Community</button>
+              <button class="feed-tab" onclick="switchFeed(this,'video')">Posts</button>
             </div>
           </div>
         </div>
@@ -1438,8 +1435,7 @@
           <div class="feed-tabs">
             <button class="feed-tab active" onclick="switchFeed2(this,'all')">All</button>
             <button class="feed-tab" onclick="switchFeed2(this,'article')">Articles</button>
-            <button class="feed-tab" onclick="switchFeed2(this,'research')">Research</button>
-            <button class="feed-tab" onclick="switchFeed2(this,'reddit')">Community</button>
+            <button class="feed-tab" onclick="switchFeed2(this,'video')">Posts</button>
           </div>
         </div>
         <div class="feed-bar"><div class="feed-bar-left"><span class="feed-bar-name">Curated by Maya</span><span class="feed-bar-desc">Trend Analyst &middot; Last scanned 2 hours ago &middot; 14 sources active &middot; Fitness niche</span></div><div class="feed-bar-right"><span class="feed-pulse"></span>Updated daily</div></div>
