@@ -231,6 +231,191 @@ export function buildRenderRequestFromOutputs(
   }
 }
 
+// ─── RENDER FROM RILEY'S EDIT SUGGESTIONS (template-less) ────────────────────
+
+export interface EditRenderRequest {
+  videoUrl: string
+  videoDuration?: number
+  edits: Array<{
+    type: string
+    label?: string
+    startSec?: number
+    endSec?: number
+    factor?: number
+    aspect?: string
+    content?: string
+    position?: string
+    mood?: string
+  }>
+  aspectRatio?: '9:16' | '1:1' | '4:5' | '16:9'
+}
+
+/**
+ * Build a Creatomate RenderScript from Riley's edit suggestions.
+ * No template needed — generates the full render JSON dynamically.
+ */
+export async function renderFromEdits(request: EditRenderRequest): Promise<RenderJob> {
+  if (!CREATOMATE_API_KEY) {
+    throw new Error('CREATOMATE_API_KEY not set')
+  }
+
+  // Determine output dimensions based on aspect ratio
+  const aspectMap: Record<string, { width: number; height: number }> = {
+    '9:16': { width: 1080, height: 1920 },
+    '1:1': { width: 1080, height: 1080 },
+    '4:5': { width: 1080, height: 1350 },
+    '16:9': { width: 1920, height: 1080 },
+  }
+
+  // Check if any edit requests a specific crop
+  const cropEdit = request.edits.find(e => e.type === 'crop')
+  const aspect = cropEdit?.aspect || request.aspectRatio || '9:16'
+  const dims = aspectMap[aspect] || aspectMap['9:16']
+
+  // Build trim properties
+  const trimEdit = request.edits.find(e => e.type === 'trim')
+  let trimStart: number | undefined
+  let trimDuration: number | undefined
+  if (trimEdit) {
+    trimStart = trimEdit.startSec || 0
+    if (trimEdit.endSec && request.videoDuration) {
+      trimDuration = trimEdit.endSec - (trimEdit.startSec || 0)
+    } else if (trimEdit.endSec) {
+      trimDuration = trimEdit.endSec - (trimEdit.startSec || 0)
+    }
+  }
+
+  // Build color filter from mood edit
+  const moodEdit = request.edits.find(e => e.type === 'mood')
+  const moodMap: Record<string, { filter?: string; overlay?: string; filterValue?: number }> = {
+    warm: { filter: 'sepia', filterValue: 30 },
+    cool: { filter: 'hue-rotate', filterValue: 20 },
+    moody: { filter: 'contrast', filterValue: 30, overlay: 'rgba(0,0,20,0.15)' },
+    bright: { filter: 'brightness', filterValue: 15 },
+    vintage: { filter: 'sepia', filterValue: 50, overlay: 'rgba(255,240,200,0.08)' },
+    cinematic: { filter: 'contrast', filterValue: 20, overlay: 'rgba(0,20,30,0.12)' },
+  }
+  const moodStyle = moodEdit?.mood ? moodMap[moodEdit.mood] : null
+
+  // Build the video element
+  const videoElement: Record<string, unknown> = {
+    type: 'video',
+    track: 1,
+    source: request.videoUrl,
+    fit: 'cover',
+  }
+  if (trimStart !== undefined) videoElement.trim_start = trimStart
+  if (trimDuration !== undefined) videoElement.trim_duration = trimDuration
+  if (moodStyle?.filter) {
+    videoElement.color_filter = moodStyle.filter
+    if (moodStyle.filterValue) videoElement.color_filter_value = `${moodStyle.filterValue}%`
+  }
+
+  // Speed edit — Creatomate doesn't have a playback_rate, so we adjust trim_duration
+  const speedEdit = request.edits.find(e => e.type === 'speed')
+  if (speedEdit?.factor && speedEdit.factor !== 1) {
+    // Adjust duration to simulate speed change
+    // Faster = shorter duration, slower = longer duration
+    const currentDuration = trimDuration || request.videoDuration || 10
+    const adjustedDuration = currentDuration / speedEdit.factor
+    videoElement.duration = adjustedDuration
+  }
+
+  const elements: Array<Record<string, unknown>> = [videoElement]
+
+  // Add color overlay for mood
+  if (moodStyle?.overlay) {
+    elements.push({
+      type: 'shape',
+      track: 2,
+      fill_color: moodStyle.overlay,
+      width: '100%',
+      height: '100%',
+      time: 0,
+      duration: null,  // match video
+    })
+  }
+
+  // Add text overlays
+  const textEdits = request.edits.filter(e => e.type === 'text')
+  textEdits.forEach((te, i) => {
+    const yMap: Record<string, string> = {
+      top: '10%',
+      center: '50%',
+      bottom: '85%',
+    }
+    elements.push({
+      type: 'text',
+      track: 3 + i,
+      text: te.content || '',
+      font_family: 'Montserrat',
+      font_weight: '700',
+      font_size: '7 vmin',
+      fill_color: '#ffffff',
+      shadow_color: 'rgba(0,0,0,0.6)',
+      shadow_blur: 4,
+      shadow_y: 2,
+      x: '50%',
+      y: yMap[te.position || 'bottom'] || '85%',
+      width: '85%',
+      x_alignment: '50%',
+      y_alignment: '50%',
+      time: te.startSec || 0,
+      duration: (te.endSec || 3) - (te.startSec || 0),
+      animations: [
+        { type: 'text-appear', duration: 0.5 },
+        { type: 'text-disappear', duration: 0.3, time: 'end' },
+      ],
+    })
+  })
+
+  // Strip audio edit
+  const stripAudio = request.edits.some(e => e.type === 'audio_strip')
+  if (stripAudio) {
+    videoElement.volume = '0%'
+  }
+
+  // Audio normalize — Creatomate doesn't have a direct equiv, but we can set volume
+  const normAudio = request.edits.some(e => e.type === 'audio_norm')
+  if (normAudio && !stripAudio) {
+    videoElement.volume = '100%'
+    videoElement.audio_fade_in = 0.3
+    videoElement.audio_fade_out = 0.3
+  }
+
+  const body = {
+    output_format: 'mp4',
+    width: dims.width,
+    height: dims.height,
+    frame_rate: 30,
+    elements,
+  }
+
+  console.log('[creatomate] rendering with', elements.length, 'elements, dims:', dims.width, 'x', dims.height)
+
+  const response = await axios.post(
+    `${BASE_URL}/renders`,
+    { source: body },
+    {
+      headers: {
+        Authorization: `Bearer ${CREATOMATE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    }
+  )
+
+  const render = Array.isArray(response.data) ? response.data[0] : response.data
+
+  return {
+    id: render.id,
+    status: render.status,
+    url: render.url,
+    snapshotUrl: render.snapshot_url,
+    createdAt: render.created_at,
+  }
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 function sleep(ms: number): Promise<void> {

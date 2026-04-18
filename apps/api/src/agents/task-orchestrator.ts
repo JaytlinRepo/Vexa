@@ -1,8 +1,8 @@
 import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
 import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt, buildMayaPulseSystemPrompt, buildMayaPulseTaskPrompt } from './maya/system-prompt'
-import { buildJordanSystemPrompt, buildAlexSystemPrompt, buildRileySystemPrompt } from './jordan-alex-riley-prompts'
-import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, OutputType } from '@vexa/types'
+import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildAlexSystemPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt } from './jordan-alex-riley-prompts'
+import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, UploadReview, ContentAudit, GrowthStrategy, FeedAudit, FormatAnalysis, OutputType } from '@vexa/types'
 import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -100,12 +100,27 @@ async function executeAgentTask(task: {
       return executeMayaTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description, taskType: task.type, companyId: task.companyId })
 
     case 'strategist':
+      if (task.type === 'content_audit') {
+        return executeJordanContentAudit({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
+      if (task.type === 'growth_strategy') {
+        return executeJordanGrowthStrategy({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
       return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description })
 
     case 'copywriter':
       return executeAlexTask({ niche, brandVoice, audience, nicheContext, brandMemory, platformData, description, taskType: task.type })
 
     case 'creative_director':
+      if (task.type === 'upload_review') {
+        return executeRileyUploadReview({ niche, brandVoice, nicheContext, brandMemory, platformData, description, companyId: task.companyId })
+      }
+      if (task.type === 'feed_audit') {
+        return executeRileyFeedAudit({ niche, subNiche: company.subNiche, brandVoice, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
+      if (task.type === 'format_analysis') {
+        return executeRileyFormatAnalysis({ niche, subNiche: company.subNiche, brandVoice, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
       return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description })
 
     default:
@@ -371,6 +386,304 @@ async function executeRileyTask(ctx: {
   return parseAgentOutput<ShotListOutput>(raw)
 }
 
+// ─── JORDAN PROACTIVE EXECUTORS ──────────────────────────────────────────────
+
+async function loadPostContext(companyId: string): Promise<string> {
+  const accounts = await prisma.platformAccount.findMany({ where: { companyId } })
+  if (!accounts.length) return ''
+
+  const posts = await prisma.platformPost.findMany({
+    where: { accountId: { in: accounts.map(a => a.id) } },
+    orderBy: { publishedAt: 'desc' },
+    take: 30,
+  })
+  if (!posts.length) return ''
+
+  const scored = posts.map(p => ({
+    ...p,
+    engScore: (p.likeCount || 0) + (p.commentCount || 0) * 2 + (p.shareCount || 0) * 3,
+  })).sort((a, b) => b.engScore - a.engScore)
+
+  const lines: string[] = []
+  lines.push(`## Creator's Post History (${posts.length} posts analyzed)`)
+
+  const avgViews = posts.reduce((s, p) => s + (p.viewCount || 0), 0) / posts.length
+  const avgLikes = posts.reduce((s, p) => s + (p.likeCount || 0), 0) / posts.length
+  lines.push(`Average: ${Math.round(avgViews)} views, ${Math.round(avgLikes)} likes per post.`)
+
+  // Format breakdown
+  const formats: Record<string, { count: number; totalEng: number }> = {}
+  for (const p of posts) {
+    const fmt = (p.mediaType || 'unknown').toLowerCase()
+    if (!formats[fmt]) formats[fmt] = { count: 0, totalEng: 0 }
+    formats[fmt].count++
+    formats[fmt].totalEng += (p.likeCount || 0) + (p.commentCount || 0)
+  }
+  lines.push('\nFormat breakdown:')
+  for (const [fmt, data] of Object.entries(formats)) {
+    lines.push(`  - ${fmt}: ${data.count} posts, avg ${Math.round(data.totalEng / data.count)} engagement`)
+  }
+
+  // Top 5 posts
+  lines.push('\nTop performing posts:')
+  for (const p of scored.slice(0, 5)) {
+    lines.push(`  - [${(p.mediaType || '').toLowerCase()}] "${(p.caption || '').slice(0, 80)}" — ${p.viewCount} views, ${p.likeCount} likes, ${p.shareCount} shares`)
+  }
+
+  // Recent 5 posts
+  lines.push('\nMost recent posts:')
+  for (const p of [...posts].slice(0, 5)) {
+    lines.push(`  - [${(p.mediaType || '').toLowerCase()}] "${(p.caption || '').slice(0, 80)}" — ${p.viewCount} views, ${p.likeCount} likes`)
+  }
+
+  // Posting frequency
+  if (posts.length >= 2) {
+    const first = posts[posts.length - 1].publishedAt
+    const last = posts[0].publishedAt
+    if (first && last) {
+      const days = Math.max(1, (last.getTime() - first.getTime()) / (1000 * 60 * 60 * 24))
+      const perWeek = (posts.length / days * 7).toFixed(1)
+      lines.push(`\nPosting frequency: ~${perWeek} posts/week over ${Math.round(days)} days`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+async function executeJordanContentAudit(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string; audience: string; goals: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<ContentAudit> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildJordanContentAuditPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice, audience: ctx.audience, goals: ctx.goals,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Deliver the content audit based on my posting history. Reference specific posts and patterns.' }],
+    maxTokens: 3072, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<ContentAudit>(raw)
+}
+
+async function executeJordanGrowthStrategy(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string; audience: string; goals: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<GrowthStrategy> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildJordanGrowthStrategyPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice, audience: ctx.audience, goals: ctx.goals,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Build my growth strategy based on my current data. Prioritize actions by impact.' }],
+    maxTokens: 3072, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<GrowthStrategy>(raw)
+}
+
+// ─── RILEY PROACTIVE EXECUTORS ───────────────────────────────────────────────
+
+async function executeRileyFeedAudit(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<FeedAudit> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildRileyFeedAuditPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Audit my feed. How does my content look as a whole? Is the visual identity cohesive?' }],
+    maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<FeedAudit>(raw)
+}
+
+async function executeRileyFormatAnalysis(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<FormatAnalysis> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildRileyFormatAnalysisPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Analyze my content format performance. Which formats work best and what should I change?' }],
+    maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<FormatAnalysis>(raw)
+}
+
+async function executeRileyUploadReview(ctx: {
+  niche: string
+  brandVoice: string
+  nicheContext: string
+  brandMemory: string
+  platformData?: string
+  description: string | null
+  companyId: string
+}): Promise<UploadReview> {
+  // Description contains JSON with uploadKey, uploadType, and optional notes
+  let uploadMeta: { uploadKey: string; uploadType: 'video' | 'image'; notes?: string } | null = null
+  try {
+    uploadMeta = JSON.parse(ctx.description || '{}')
+  } catch { /* fallback below */ }
+
+  if (!uploadMeta?.uploadKey) {
+    throw new Error('Upload review requires an uploadKey in the task description')
+  }
+
+  const { getPresignedUrl } = await import('../services/storage/s3.service')
+  const fileUrl = await getPresignedUrl(uploadMeta.uploadKey)
+
+  // Probe video for duration/dimensions
+  let videoDuration: number | undefined
+  if (uploadMeta.uploadType === 'video') {
+    try {
+      const { probeVideo } = await import('../services/video/ffmpeg.service')
+      const probe = await probeVideo(uploadMeta.uploadKey)
+      videoDuration = probe.duration
+    } catch (e) {
+      console.warn('[upload-review] Video probe failed:', (e as Error).message)
+    }
+  }
+
+  // Load the creator's existing posts so Riley can learn their style
+  let postContext = ''
+  try {
+    const accounts = await prisma.platformAccount.findMany({
+      where: { companyId: ctx.companyId },
+    })
+    if (accounts.length > 0) {
+      const posts = await prisma.platformPost.findMany({
+        where: { accountId: { in: accounts.map(a => a.id) } },
+        orderBy: { publishedAt: 'desc' },
+        take: 30,
+      })
+
+      if (posts.length > 0) {
+        // Sort by engagement to find top performers
+        const scored = posts.map(p => ({
+          ...p,
+          engScore: (p.likeCount || 0) + (p.commentCount || 0) * 2 + (p.shareCount || 0) * 3,
+        })).sort((a, b) => b.engScore - a.engScore)
+
+        const topPosts = scored.slice(0, 5)
+        const recentPosts = [...posts].slice(0, 5)
+        const avgViews = posts.reduce((s, p) => s + (p.viewCount || 0), 0) / posts.length
+        const avgLikes = posts.reduce((s, p) => s + (p.likeCount || 0), 0) / posts.length
+
+        const lines: string[] = []
+        lines.push(`## Creator's Existing Content (use this to judge brand consistency & niche fit)`)
+        lines.push(`Analyzed ${posts.length} posts. Avg ${Math.round(avgViews)} views, ${Math.round(avgLikes)} likes per post.`)
+        lines.push('')
+        lines.push('### Top performing posts (what their audience loves):')
+        for (const p of topPosts) {
+          const fmt = (p.mediaType || '').toLowerCase()
+          lines.push(`- [${fmt}] "${(p.caption || '').slice(0, 100)}" — ${p.viewCount} views, ${p.likeCount} likes, ${p.shareCount} shares`)
+        }
+        lines.push('')
+        lines.push('### Most recent posts (their current direction):')
+        for (const p of recentPosts) {
+          const fmt = (p.mediaType || '').toLowerCase()
+          lines.push(`- [${fmt}] "${(p.caption || '').slice(0, 100)}" — ${p.viewCount} views, ${p.likeCount} likes`)
+        }
+        lines.push('')
+        lines.push('Use this data to evaluate whether the new upload matches what performs well for this creator. Flag if the new content is a departure from their established style or top-performing themes.')
+
+        postContext = lines.join('\n')
+      }
+    }
+  } catch (e) {
+    console.warn('[upload-review] Failed to load post context:', (e as Error).message)
+  }
+
+  const basePrompt = buildRileyUploadReviewPrompt({
+    niche: ctx.niche,
+    brandVoice: ctx.brandVoice,
+    uploadType: uploadMeta.uploadType,
+    videoDuration,
+  })
+
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt,
+    nicheContext: ctx.nicheContext,
+    brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
+    recentOutputSummary: postContext || undefined,
+  })
+
+  // Build the user message — for images, include the image via base64 if possible
+  let messages: Array<{ role: 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }> }>
+
+  if (uploadMeta.uploadType === 'image') {
+    try {
+      const response = await fetch(fileUrl)
+      const buffer = Buffer.from(await response.arrayBuffer())
+      const base64 = buffer.toString('base64')
+      const contentType = response.headers.get('content-type') || 'image/jpeg'
+
+      messages = [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: contentType, data: base64 },
+          },
+          {
+            type: 'text',
+            text: `Review this ${uploadMeta.uploadType} for posting on social media.${uploadMeta.notes ? `\n\nCEO's notes: ${uploadMeta.notes}` : ''}\n\nAnalyze: framing, lighting, composition, hook potential, and overall quality. Return your structured review with suggestedEdits as an empty array.`,
+          },
+        ],
+      }]
+    } catch {
+      messages = [{
+        role: 'user',
+        content: `Review this uploaded ${uploadMeta.uploadType} for social media posting. The file is at: ${fileUrl}\n${uploadMeta.notes ? `CEO's notes: ${uploadMeta.notes}` : ''}\n\nProvide your structured review based on social media best practices for the ${ctx.niche} niche. Return suggestedEdits as an empty array.`,
+      }]
+    }
+  } else {
+    // Video — text-based review with edit suggestion context
+    const durationNote = videoDuration ? `\nVideo duration: ${videoDuration.toFixed(1)} seconds.` : ''
+    messages = [{
+      role: 'user',
+      content: `Review this uploaded video for social media posting. The video file is available at: ${fileUrl}${durationNote}\n${uploadMeta.notes ? `CEO's notes: ${uploadMeta.notes}` : ''}\n\nBased on social media video best practices for the ${ctx.niche} niche:\n1. Score each category 1-10 (hook, pacing, framing, lighting, audio, editing)\n2. Suggest specific AI edits the system can auto-apply (trim, speed, crop, text overlay, audio normalization)\n3. Only suggest edits that would meaningfully improve the content`,
+    }]
+  }
+
+  const raw = await invokeAgent({
+    systemPrompt,
+    messages: messages as never,
+    maxTokens: 3072,
+    temperature: 0.6,
+    companyId: ctx.companyId,
+  })
+
+  const review = parseAgentOutput<Omit<UploadReview, 'uploadKey' | 'uploadType' | 'videoDuration'>>(raw)
+
+  return {
+    ...review,
+    suggestedEdits: review.suggestedEdits || [],
+    uploadKey: uploadMeta.uploadKey,
+    uploadType: uploadMeta.uploadType,
+    videoDuration,
+  }
+}
+
 // ─── HANDLE USER ACTION ON OUTPUT ────────────────────────────────────────────
 
 /**
@@ -392,7 +705,8 @@ export async function handleTaskAction(
     include: { outputs: true, employee: true, company: true },
   })
 
-  const isApprove = action.type === 'approve' || action.type.startsWith('use_') || action.type === 'start_production'
+  const isSaveUnreleased = action.type === 'save_unreleased'
+  const isApprove = action.type === 'approve' || action.type.startsWith('use_') || action.type === 'start_production' || action.type === 'post_anyway' || isSaveUnreleased
   const isReject = action.type === 'reject' || action.type === 'regenerate' || action.type === 'start_over'
   const isReconsider = !isApprove && !isReject
 
@@ -403,23 +717,50 @@ export async function handleTaskAction(
     const latestOutput = task.outputs[task.outputs.length - 1]
     if (latestOutput) {
       await prisma.output.update({ where: { id: latestOutput.id }, data: { status: 'approved' } })
-      await prisma.brandMemory.create({
-        data: {
-          companyId: task.companyId,
-          memoryType: 'feedback',
-          content: {
-            type: 'approval',
-            outputType: latestOutput.type,
-            employeeRole: task.employee.role,
-            action: action.type,
-          } as never,
-          weight: 1.5,
-        },
-      })
+
+      // CEO override on upload review — store what Riley flagged and that
+      // the CEO overrode it. Riley's future reviews will factor this in.
+      if (action.type === 'post_anyway' && latestOutput.type === 'upload_review') {
+        const reviewContent = latestOutput.content as Record<string, unknown>
+        await prisma.brandMemory.create({
+          data: {
+            companyId: task.companyId,
+            memoryType: 'feedback',
+            content: {
+              type: 'ceo_override',
+              context: 'upload_review',
+              rileyFlagged: reviewContent.issues || [],
+              verdict: reviewContent.verdict,
+              overallScore: reviewContent.overallScore,
+              rileyNote: reviewContent.rileyNote,
+              ceoDecision: 'posted_anyway',
+              timestamp: new Date().toISOString(),
+            } as never,
+            weight: 2.0,  // High weight — overrides are strong signals
+          },
+        })
+      } else {
+        await prisma.brandMemory.create({
+          data: {
+            companyId: task.companyId,
+            memoryType: 'feedback',
+            content: {
+              type: 'approval',
+              outputType: latestOutput.type,
+              employeeRole: task.employee.role,
+              action: action.type,
+            } as never,
+            weight: 1.5,
+          },
+        })
+      }
     }
 
-    // Trigger next agent in pipeline if applicable
-    await triggerNextAgentAfterApproval(prisma, task)
+    // Trigger next agent in pipeline — but NOT for unreleased saves.
+    // Nothing gets published without explicit CEO confirmation.
+    if (!isSaveUnreleased) {
+      await triggerNextAgentAfterApproval(prisma, task)
+    }
 
   } else if (isReject) {
     await prisma.task.update({ where: { id: taskId }, data: { status: 'rejected', userAction: action as never } })
@@ -681,6 +1022,11 @@ function getOutputTypeForTask(taskType: string): string {
     video_production: 'video',
     performance_review: 'performance_review',
     weekly_pulse: 'weekly_pulse',
+    upload_review: 'upload_review',
+    content_audit: 'content_audit',
+    growth_strategy: 'growth_strategy',
+    feed_audit: 'feed_audit',
+    format_analysis: 'format_analysis',
   }
   return map[taskType] || taskType || 'hooks'
 }

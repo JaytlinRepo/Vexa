@@ -58,6 +58,11 @@ enum OutputType {
   video
   performance_review
   weekly_pulse
+  upload_review
+  content_audit
+  growth_strategy
+  feed_audit
+  format_analysis
 }
 
 enum OutputStatus {

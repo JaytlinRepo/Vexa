@@ -49,7 +49,7 @@ const createSchema = z.object({
   employeeId: z.string().uuid(),
   title: z.string().min(3).max(200),
   description: z.string().max(2000).optional(),
-  type: z.enum(['trend_report', 'content_plan', 'hooks', 'caption', 'script', 'shot_list', 'video']),
+  type: z.enum(['trend_report', 'content_plan', 'hooks', 'caption', 'script', 'shot_list', 'video', 'upload_review']),
   briefKind: z.string().min(1).max(60).optional(),
 })
 
@@ -238,7 +238,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 })
 
 const actionSchema = z.object({
-  action: z.enum(['approve', 'reject', 'reconsider', 'regenerate']),
+  action: z.enum(['approve', 'reject', 'reconsider', 'regenerate', 'post_anyway', 'save_unreleased', 'accept_notes']),
   feedback: z.string().max(1000).optional(),
 })
 
@@ -286,6 +286,8 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
     let newStatus: TaskStatus
     switch (data.action) {
       case 'approve':
+      case 'post_anyway':
+      case 'save_unreleased':
         newStatus = 'approved'
         break
       case 'reject':
@@ -293,6 +295,7 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
         break
       case 'reconsider':
       case 'regenerate':
+      case 'accept_notes':
         newStatus = 'revision'
         break
     }
@@ -313,7 +316,7 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
     try {
       const employeeName = updated.employee.name
       const emoji = emojiByRole[updated.employee.role] ?? '✅'
-      if (data.action === 'approve') {
+      if (data.action === 'approve' || data.action === 'post_anyway' || data.action === 'save_unreleased') {
         const outputs = updated.outputs ?? []
         const latestOutput =
           outputs.length === 0
@@ -332,32 +335,68 @@ router.post('/:id/action', requireAuth, async (req, res, next) => {
           taskType: updated.type,
           employeeName,
         })
-        try {
-          chain = await triggerNextAgentAfterApproval(prisma, {
-            id: updated.id,
-            companyId: updated.companyId,
-            employee: updated.employee,
+        // Save unreleased: store content but do NOT trigger publishing pipeline
+        if (data.action === 'save_unreleased') {
+          // Check if unreleased pile has hit 25 — nudge the CEO
+          const unreleasedCount = await prisma.task.count({
+            where: {
+              companyId: updated.companyId,
+              type: 'upload_review',
+              status: 'approved',
+              userAction: { path: ['type'], equals: 'save_unreleased' },
+            },
           })
-        } catch (e) {
-          console.warn('[tasks] triggerNextAgentAfterApproval failed', e)
-          chain = { ok: false, reason: 'bad_config' }
+          if (unreleasedCount >= 25 && unreleasedCount % 25 === 0) {
+            await createNotification({
+              userId,
+              companyId: updated.companyId,
+              type: 'team_update',
+              emoji: '⚠️',
+              title: `${unreleasedCount} unreleased items piling up`,
+              body: 'You have ' + unreleasedCount + ' saved uploads that haven\'t been posted. Take a few minutes to review them — release what\'s ready, scrap what\'s not.',
+              actionLabel: 'Open Content tab',
+              metadata: { tab: 'content' },
+            })
+          }
+          await createNotification({
+            userId,
+            companyId: updated.companyId,
+            type: 'task_approved',
+            emoji: '📦',
+            title: 'Content saved as unreleased',
+            body: `"${updated.title}" saved. It won't be posted until you release it.`,
+            actionLabel: 'Open Content tab',
+            metadata: { taskId: updated.id },
+          })
+        } else {
+          // Regular approve / post_anyway — trigger the pipeline
+          try {
+            chain = await triggerNextAgentAfterApproval(prisma, {
+              id: updated.id,
+              companyId: updated.companyId,
+              employee: updated.employee,
+            })
+          } catch (e) {
+            console.warn('[tasks] triggerNextAgentAfterApproval failed', e)
+            chain = { ok: false, reason: 'bad_config' }
+          }
+
+          const chainBody = chainProgressBody(updated.title, chain, 'manual')
+
+          await createNotification({
+            userId,
+            companyId: updated.companyId,
+            type: 'task_approved',
+            emoji,
+            title: `${employeeName}'s work approved`,
+            body: chainBody,
+            actionLabel: chain.ok === true ? 'Open next deliverable' : 'Open queue',
+            metadata: {
+              taskId: updated.id,
+              ...(chain.ok === true ? { nextTaskId: chain.nextTaskId, nextTaskTitle: chain.title } : {}),
+            },
+          })
         }
-
-        const chainBody = chainProgressBody(updated.title, chain, 'manual')
-
-        await createNotification({
-          userId,
-          companyId: updated.companyId,
-          type: 'task_approved',
-          emoji,
-          title: `${employeeName}'s work approved`,
-          body: chainBody,
-          actionLabel: chain.ok === true ? 'Open next deliverable' : 'Open queue',
-          metadata: {
-            taskId: updated.id,
-            ...(chain.ok === true ? { nextTaskId: chain.nextTaskId, nextTaskTitle: chain.title } : {}),
-          },
-        })
       } else if (data.action === 'reject') {
         await createNotification({
           userId,

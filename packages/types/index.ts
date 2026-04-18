@@ -5,7 +5,7 @@ export type Plan = 'starter' | 'pro' | 'agency'
 export type Platform = 'instagram'
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
-export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse'
+export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse' | 'upload_review' | 'content_audit' | 'growth_strategy' | 'feed_audit' | 'format_analysis'
 export type OutputStatus = 'draft' | 'approved' | 'rejected'
 export type MemoryType = 'feedback' | 'preference' | 'performance' | 'voice'
 
@@ -309,6 +309,180 @@ export interface WeeklyPulse {
   generatedAt: string
 }
 
+// Content Audit (Jordan)
+export interface ContentAudit {
+  period: string                // e.g. "Last 30 days"
+  postsAnalyzed: number
+  formatBreakdown: Array<{
+    format: string              // 'reel' | 'carousel' | 'static' | 'story'
+    count: number
+    avgEngagement: number
+    verdict: 'overused' | 'underused' | 'balanced'
+  }>
+  postingPatterns: {
+    postsPerWeek: number
+    bestDays: string[]
+    bestTimes: string[]
+    consistency: 'strong' | 'inconsistent' | 'declining'
+    note: string
+  }
+  pillarBalance: Array<{
+    pillar: string
+    percentage: number
+    performance: 'strong' | 'weak' | 'average'
+    note: string
+  }>
+  topPerformers: Array<{
+    caption: string
+    format: string
+    engagement: number
+    whyItWorked: string
+  }>
+  gaps: string[]                // what's missing from their content mix
+  jordanNote: string
+  generatedAt: string
+}
+
+// Growth Strategy (Jordan)
+export interface GrowthStrategy {
+  currentState: {
+    followers: number
+    avgEngagement: number
+    trajectory: 'growing' | 'flat' | 'declining'
+    summary: string
+  }
+  strategy: Array<{
+    priority: number
+    action: string
+    why: string
+    expectedImpact: 'high' | 'medium' | 'low'
+    timeframe: string           // e.g. "This week", "Next 30 days"
+  }>
+  postingSchedule: {
+    recommended: string         // e.g. "5x per week"
+    current: string
+    optimalDays: string[]
+    optimalTimes: string[]
+    note: string
+  }
+  audienceInsights: {
+    whoEngages: string
+    whatTheyWant: string
+    contentTheyIgnore: string
+  }
+  competitorGaps: string[]      // opportunities from similar creators
+  jordanNote: string
+  generatedAt: string
+}
+
+// Feed Audit (Riley)
+export interface FeedAudit {
+  postsReviewed: number
+  overallAesthetic: {
+    score: number               // 1-10
+    description: string         // e.g. "Warm, earthy tones with high contrast"
+    consistency: 'cohesive' | 'mixed' | 'scattered'
+  }
+  colorPalette: {
+    dominant: string[]          // e.g. ["warm tones", "earth browns", "golden hour"]
+    note: string
+  }
+  moodPattern: {
+    primary: string             // e.g. "aspirational lifestyle"
+    secondary: string
+    note: string
+  }
+  gridFlow: {
+    score: number               // 1-10 — how well posts look together on the grid
+    note: string
+  }
+  brandAlignment: {
+    score: number
+    onBrand: string[]           // posts that match the brand
+    offBrand: string[]          // posts that feel out of place
+    note: string
+  }
+  recommendations: string[]
+  rileyNote: string
+  generatedAt: string
+}
+
+// Format Analysis (Riley)
+export interface FormatAnalysis {
+  postsAnalyzed: number
+  formatPerformance: Array<{
+    format: string
+    count: number
+    avgViews: number
+    avgLikes: number
+    avgShares: number
+    engagementRate: number
+    trend: 'rising' | 'stable' | 'falling'
+    note: string
+  }>
+  bestFormat: {
+    format: string
+    why: string
+    topExample: string          // caption of best-performing post in this format
+  }
+  underusedFormat: {
+    format: string
+    why: string
+    opportunity: string
+  }
+  trendingFormats: Array<{
+    format: string
+    whyTrending: string
+    nicheRelevance: 'high' | 'medium' | 'low'
+  }>
+  recommendations: string[]
+  rileyNote: string
+  generatedAt: string
+}
+
+// Upload Review (Riley)
+export interface VideoEditCommand {
+  type: 'trim' | 'speed' | 'crop' | 'text' | 'audio_norm' | 'audio_strip' | 'mood'
+  label: string                 // human-readable description
+  // trim
+  startSec?: number
+  endSec?: number
+  // speed
+  factor?: number
+  // crop
+  aspect?: '9:16' | '1:1' | '4:5' | '16:9'
+  // text overlay
+  content?: string
+  position?: 'top' | 'center' | 'bottom'
+  fontSize?: number
+  color?: string
+  // mood (color grading)
+  mood?: 'warm' | 'cool' | 'moody' | 'bright' | 'vintage' | 'cinematic'
+}
+
+export interface UploadReview {
+  verdict: 'ready_to_post' | 'needs_work'
+  overallScore: number          // 1-10
+  breakdown: {
+    nicheFit: { score: number; note: string }
+    brandConsistency: { score: number; note: string }
+    hook: { score: number; note: string }
+    moodTone: { score: number; note: string }
+    engagementPotential: { score: number; note: string }
+    platformFit: { score: number; note: string }
+  }
+  strengths: string[]
+  issues: string[]              // empty if ready_to_post
+  suggestedEdits: VideoEditCommand[]  // post-production edits the system can auto-apply
+  rileyNote: string             // Riley's creative assessment
+  uploadKey: string             // S3 key of the uploaded file
+  uploadType: 'video' | 'image'
+  thumbnailUrl?: string
+  editedKey?: string            // S3 key of edited version (after edits applied)
+  editedUrl?: string            // presigned URL of edited version
+  videoDuration?: number        // probed duration in seconds
+}
+
 export interface OutputContent {
   trend_report: TrendReport
   content_plan: ContentPlan
@@ -319,6 +493,11 @@ export interface OutputContent {
   video: { url: string; s3Key: string; duration: string; thumbnailUrl: string }
   performance_review: PerformanceReview
   weekly_pulse: WeeklyPulse
+  upload_review: UploadReview
+  content_audit: ContentAudit
+  growth_strategy: GrowthStrategy
+  feed_audit: FeedAudit
+  format_analysis: FormatAnalysis
 }
 
 export interface Output {
@@ -440,6 +619,32 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
   weekly_pulse: [
     { id: 'acknowledge', label: 'Got it', emoji: '✅', variant: 'approve' },
     { id: 'full_review', label: 'Run full analysis', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Skip', emoji: '⏭', variant: 'reject' },
+  ],
+  upload_review: [
+    { id: 'approve', label: 'Ready — send to Jordan', emoji: '✅', variant: 'approve' },
+    { id: 'post_anyway', label: 'Post anyway', emoji: '⚡', variant: 'approve' },
+    { id: 'accept_notes', label: 'Accept notes — I\'ll re-upload', emoji: '🔄', variant: 'reconsider' },
+    { id: 'reject', label: 'Scrap it', emoji: '🗑', variant: 'reject' },
+  ],
+  content_audit: [
+    { id: 'acknowledge', label: 'Got it — update the plan', emoji: '✅', variant: 'approve' },
+    { id: 'deep_dive', label: 'Dig deeper on this', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Not useful', emoji: '⏭', variant: 'reject' },
+  ],
+  growth_strategy: [
+    { id: 'approve', label: 'Let\'s execute this', emoji: '✅', variant: 'approve' },
+    { id: 'adjust', label: 'Adjust priorities', emoji: '🔄', variant: 'reconsider', feedbackPrompt: 'What should we focus on instead?' },
+    { id: 'dismiss', label: 'Not now', emoji: '⏭', variant: 'reject' },
+  ],
+  feed_audit: [
+    { id: 'acknowledge', label: 'Noted — keep watching', emoji: '✅', variant: 'approve' },
+    { id: 'deep_dive', label: 'What should I change?', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Skip', emoji: '⏭', variant: 'reject' },
+  ],
+  format_analysis: [
+    { id: 'acknowledge', label: 'Got it — adjust the mix', emoji: '✅', variant: 'approve' },
+    { id: 'deep_dive', label: 'Show me examples', emoji: '🔍', variant: 'reconsider' },
     { id: 'dismiss', label: 'Skip', emoji: '⏭', variant: 'reject' },
   ],
 }

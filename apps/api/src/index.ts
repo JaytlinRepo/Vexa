@@ -25,6 +25,7 @@ import phylloRouter from './routes/phyllo'
 import platformDataRouter from './routes/platformData'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
+import uploadsRouter from './routes/uploads'
 import { registerScheduledJobs } from './scheduler'
 import { PrismaClient } from '@prisma/client'
 
@@ -93,6 +94,7 @@ app.use('/api/phyllo', phylloRouter)
 app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)
+app.use('/api/uploads', uploadsRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session

@@ -1054,6 +1054,11 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
   video: () => ({ status: 'pending', note: 'Video generation is briefed to Creatomate once a shot list is approved.' }),
   performance_review: () => ({ status: 'pending', note: 'Performance reviews always use Bedrock — no mock fallback.' }),
   weekly_pulse: () => ({ status: 'pending', note: 'Weekly pulses always use Bedrock — no mock fallback.' }),
+  upload_review: () => ({ status: 'pending', note: 'Upload reviews always use Bedrock — no mock fallback.' }),
+  content_audit: () => ({ status: 'pending', note: 'Content audits always use Bedrock — no mock fallback.' }),
+  growth_strategy: () => ({ status: 'pending', note: 'Growth strategies always use Bedrock — no mock fallback.' }),
+  feed_audit: () => ({ status: 'pending', note: 'Feed audits always use Bedrock — no mock fallback.' }),
+  format_analysis: () => ({ status: 'pending', note: 'Format analyses always use Bedrock — no mock fallback.' }),
 }
 
 // ─────────────────────────────────────────────────────────────────────
