@@ -7,21 +7,21 @@
 
   const TYPE_LABEL = {
     trend_report: 'Trend Report',
-    content_plan: 'Content Plan',
-    hooks: 'Hooks',
+    content_plan: 'Posting Schedule',
+    hooks: 'Captions',
     caption: 'Caption',
     script: 'Script',
-    shot_list: 'Shot List',
+    shot_list: 'Visual Brief',
     video: 'Video',
   }
 
   const FILTER_TYPES = [
     { key: 'all', label: 'All' },
-    { key: 'hooks', label: 'Hooks' },
+    { key: 'hooks', label: 'Captions' },
     { key: 'script', label: 'Scripts' },
-    { key: 'content_plan', label: 'Content plans' },
+    { key: 'content_plan', label: 'Posting schedules' },
     { key: 'trend_report', label: 'Trend reports' },
-    { key: 'shot_list', label: 'Shot lists' },
+    { key: 'shot_list', label: 'Visual briefs' },
     { key: 'video', label: 'Videos' },
   ]
 
@@ -334,7 +334,7 @@
       </div>
     `
     const shotsBlock = shots.length ? `
-      <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);font-family:'Syne',sans-serif;margin-bottom:8px">Shot list</div>
+      <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);font-family:'Syne',sans-serif;margin-bottom:8px">Visual brief</div>
       <ol style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
         ${shots.map((s) => `
           <li style="display:grid;grid-template-columns:42px 70px 1fr;gap:14px;align-items:baseline;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px 14px">

@@ -1513,12 +1513,14 @@
               </div>
             </div>
             <div class="settings-panel" id="settings-billing">
-              <div class="settings-section">
+              <div class="settings-section" id="vx-billing-section">
                 <h3>Subscription</h3>
-                <p>Currently on the Pro plan — $49.99/month. Next billing date: February 1, 2025.</p>
+                <p id="vx-billing-status" style="color:var(--t2)">Loading...</p>
+                <!-- Plan cards -->
+                <div id="vx-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0"></div>
+                <!-- Actions -->
                 <div style="display:flex;gap:10px;margin-top:4px">
-                  <button class="settings-save">Manage billing</button>
-                  <button style="padding:10px 20px;border:1px solid var(--b2);border-radius:100px;background:transparent;color:var(--t3);font-size:12px;letter-spacing:.06em;text-transform:uppercase;transition:all .2s" onmouseenter="this.style.color='var(--t2)'" onmouseleave="this.style.color='var(--t3)'">Cancel plan</button>
+                  <button class="settings-save" id="vx-billing-manage" style="display:none">Manage billing</button>
                 </div>
               </div>
             </div>

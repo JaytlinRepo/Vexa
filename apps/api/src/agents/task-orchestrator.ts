@@ -1,8 +1,8 @@
 import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
 import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt, buildMayaPulseSystemPrompt, buildMayaPulseTaskPrompt } from './maya/system-prompt'
-import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildAlexSystemPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt } from './jordan-alex-riley-prompts'
-import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, UploadReview, ContentAudit, GrowthStrategy, FeedAudit, FormatAnalysis, OutputType } from '@vexa/types'
+import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildJordanPlanAdjustmentPrompt, buildAlexSystemPrompt, buildAlexTrendHooksPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt, buildRileyCompetitorAnalysisPrompt } from './jordan-alex-riley-prompts'
+import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, UploadReview, ContentAudit, GrowthStrategy, FeedAudit, FormatAnalysis, TrendHooks, PlanAdjustment, CompetitorAnalysis, OutputType } from '@vexa/types'
 import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -106,9 +106,15 @@ async function executeAgentTask(task: {
       if (task.type === 'growth_strategy') {
         return executeJordanGrowthStrategy({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
       }
+      if (task.type === 'plan_adjustment') {
+        return executeJordanPlanAdjustment({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
       return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description })
 
     case 'copywriter':
+      if (task.type === 'trend_hooks') {
+        return executeAlexTrendHooks({ niche, subNiche: company.subNiche, brandVoice, audience, nicheContext, brandMemory, platformData, description, companyId: task.companyId })
+      }
       return executeAlexTask({ niche, brandVoice, audience, nicheContext, brandMemory, platformData, description, taskType: task.type })
 
     case 'creative_director':
@@ -120,6 +126,9 @@ async function executeAgentTask(task: {
       }
       if (task.type === 'format_analysis') {
         return executeRileyFormatAnalysis({ niche, subNiche: company.subNiche, brandVoice, nicheContext, brandMemory, platformData, companyId: task.companyId })
+      }
+      if (task.type === 'competitor_analysis') {
+        return executeRileyCompetitorAnalysis({ niche, subNiche: company.subNiche, brandVoice, nicheContext, brandMemory, platformData, companyId: task.companyId })
       }
       return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description })
 
@@ -526,6 +535,72 @@ async function executeRileyFormatAnalysis(ctx: {
     maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
   })
   return parseAgentOutput<FormatAnalysis>(raw)
+}
+
+async function executeJordanPlanAdjustment(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string; audience: string; goals: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<PlanAdjustment> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildJordanPlanAdjustmentPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice, audience: ctx.audience, goals: ctx.goals,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Check mid-week performance. What needs adjusting in this week\'s content plan?' }],
+    maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<PlanAdjustment>(raw)
+}
+
+async function executeAlexTrendHooks(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string; audience: string
+  nicheContext: string; brandMemory: string; platformData?: string; description: string | null; companyId: string
+}): Promise<TrendHooks> {
+  // Extract trend info from description (passed by proactive trigger)
+  let trendTopic = 'current trending topic'
+  let trendContext = ''
+  try {
+    const meta = JSON.parse(ctx.description || '{}')
+    trendTopic = meta.trendTopic || trendTopic
+    trendContext = meta.trendContext || ''
+  } catch {}
+
+  const basePrompt = buildAlexTrendHooksPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice, audience: ctx.audience,
+    trendTopic, trendContext,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: `Write 5 hooks for this trending topic: "${trendTopic}". Make them specific to my niche and brand.` }],
+    maxTokens: 2048, temperature: 0.85, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<TrendHooks>(raw)
+}
+
+async function executeRileyCompetitorAnalysis(ctx: {
+  niche: string; subNiche?: string | null; brandVoice: string
+  nicheContext: string; brandMemory: string; platformData?: string; companyId: string
+}): Promise<CompetitorAnalysis> {
+  const postContext = await loadPostContext(ctx.companyId)
+  const basePrompt = buildRileyCompetitorAnalysisPrompt({
+    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice,
+  })
+  const systemPrompt = buildLayeredPrompt({
+    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
+    platformData: ctx.platformData, recentOutputSummary: postContext || undefined,
+  })
+  const raw = await invokeAgent({
+    systemPrompt, messages: [{ role: 'user', content: 'Analyze the competitive landscape in my niche. What patterns are dominant, what gaps can I fill, and what threats should I watch?' }],
+    maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
+  })
+  return parseAgentOutput<CompetitorAnalysis>(raw)
 }
 
 async function executeRileyUploadReview(ctx: {
@@ -1027,6 +1102,9 @@ function getOutputTypeForTask(taskType: string): string {
     growth_strategy: 'growth_strategy',
     feed_audit: 'feed_audit',
     format_analysis: 'format_analysis',
+    trend_hooks: 'trend_hooks',
+    plan_adjustment: 'plan_adjustment',
+    competitor_analysis: 'competitor_analysis',
   }
   return map[taskType] || taskType || 'hooks'
 }
@@ -1110,9 +1188,9 @@ function buildHandoffContext(fromRole: string, toRole: string, content: Record<s
 
 function getAutoTaskTitle(role: string): string {
   const map: Record<string, string> = {
-    strategist: 'Build this week\'s content plan',
-    copywriter: 'Write hooks and scripts for the content plan',
-    creative_director: 'Create production brief and shot list',
+    strategist: 'Build this week\'s posting schedule',
+    copywriter: 'Write captions and scripts for the schedule',
+    creative_director: 'Create visual brief',
   }
   return map[role] || 'New task'
 }

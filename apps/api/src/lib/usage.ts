@@ -13,25 +13,26 @@ export interface UsageReport {
 }
 
 /**
- * Apply a pending trial->active transition. Call at the top of every auth'd
- * request that cares about subscription state (auth/me and usage).
+ * Check trial status. If trial has expired and user hasn't subscribed via
+ * Stripe, mark them as canceled so they see the upgrade prompt.
  */
 export async function rolloverTrialIfDue(prisma: PrismaClient, userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { subscriptionStatus: true, trialEndsAt: true },
+    select: { subscriptionStatus: true, trialEndsAt: true, stripeSubscriptionId: true },
   })
   if (!user) return
   if (user.subscriptionStatus !== 'trial') return
   if (!user.trialEndsAt) return
   if (user.trialEndsAt.getTime() > Date.now()) return
-  // Trial expired — auto-renew to active. Stripe integration (future) will
-  // replace this block: it will be triggered by invoice.paid / payment_failed
-  // webhooks instead of a time check.
-  await prisma.user.update({
-    where: { id: userId },
-    data: { subscriptionStatus: 'active' },
-  })
+  // Trial expired — if they have a Stripe subscription, Stripe webhooks
+  // handle the transition. If not, mark as canceled to prompt upgrade.
+  if (!user.stripeSubscriptionId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { subscriptionStatus: 'canceled' },
+    })
+  }
 }
 
 export async function computeUsage(prisma: PrismaClient, userId: string): Promise<UsageReport> {

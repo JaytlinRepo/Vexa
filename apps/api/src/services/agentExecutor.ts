@@ -1059,6 +1059,9 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
   growth_strategy: () => ({ status: 'pending', note: 'Growth strategies always use Bedrock — no mock fallback.' }),
   feed_audit: () => ({ status: 'pending', note: 'Feed audits always use Bedrock — no mock fallback.' }),
   format_analysis: () => ({ status: 'pending', note: 'Format analyses always use Bedrock — no mock fallback.' }),
+  trend_hooks: () => ({ status: 'pending', note: 'Trend hooks always use Bedrock — no mock fallback.' }),
+  plan_adjustment: () => ({ status: 'pending', note: 'Plan adjustments always use Bedrock — no mock fallback.' }),
+  competitor_analysis: () => ({ status: 'pending', note: 'Competitor analyses always use Bedrock — no mock fallback.' }),
 }
 
 // ─────────────────────────────────────────────────────────────────────

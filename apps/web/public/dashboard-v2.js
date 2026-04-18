@@ -52,7 +52,9 @@
     STATE.tasks = tasks?.tasks || []
     STATE.usage = usage
     // Persist auth state so next page load skips the home view flash
-    try { if (me?.user) localStorage.setItem('vx-authed', '1'); else localStorage.removeItem('vx-authed') } catch {}
+    // Only set the flag, never remove it here — removal happens on explicit logout.
+    // Removing on failed /api/auth/me causes the home page to flash on refresh.
+    try { if (me?.user) localStorage.setItem('vx-authed', '1') } catch {}
 
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
@@ -183,13 +185,13 @@
         if (igAcct?.prevFollowers != null) {
           const weekDelta = ig.followerCount - igAcct.prevFollowers
           const maya = weekDelta > 0 ? 'Maya: Up ' + short(weekDelta) + ' this week.' : weekDelta < 0 ? 'Maya: Down ' + short(Math.abs(weekDelta)) + ' this week.' : 'Maya: Flat this week.'
-          const jordan = weekDelta > 50 ? ' Jordan: Momentum is real — don\'t change the formula.' : weekDelta > 0 ? ' Jordan: Post one extra time this week to compound the growth.' : weekDelta < 0 ? ' Jordan: Revisit your last 3 posts — something shifted. Lean back into personal content.' : ' Jordan: Try a carousel with a strong hook on Thursday — your best performing day.'
+          const jordan = weekDelta > 50 ? ' Jordan: Momentum is real — don\'t change the formula.' : weekDelta > 0 ? ' Jordan: Post one extra time this week to compound the growth.' : weekDelta < 0 ? ' Jordan: Revisit your last 3 posts — something shifted. Lean back into personal content.' : ' Jordan: Try a slideshow with a strong caption on Thursday — your best performing day.'
           return maya + jordan
         }
         return 'Maya: ' + short(ig.followerCount) + ' followers tracked. Jordan: Connect more data for weekly growth insights.'
       case 'posts':
         const maya = 'Maya: ' + ig.postCount + ' posts.' + (topFormat ? ' ' + topFormat[0] + ' are ' + Math.round(topFormat[1]/media.length*100) + '% of content.' : '')
-        const jordan = media.length < 10 ? ' Jordan: You need more content in the catalog — aim for 3 posts this week.' : topFormat && topFormat[0] === 'Photos' ? ' Jordan: Shift toward Carousels and Reels — they get 2-3x more reach.' : ''
+        const jordan = media.length < 10 ? ' Jordan: You need more content in the catalog — aim for 3 posts this week.' : topFormat && topFormat[0] === 'Photos' ? ' Jordan: Shift toward slideshows and reels — they get 2-3x more reach.' : ''
         return maya + jordan
       case 'engagement':
         return 'Maya: ' + ig.engagementRate.toFixed(1) + '% engagement, reaching ' + reachPct + '% of followers.' + (reachPct > 30 ? ' Jordan: Distribution is strong. Focus on converting followers to commenters with questions in captions.' : ' Jordan: Reach is low at ' + reachPct + '%. Post a Reel this week — they get 3x the algorithmic push of static posts.')
@@ -204,11 +206,11 @@
     var conv = tt.avgViews > 0 ? (tt.avgLikes / tt.avgViews * 100).toFixed(1) : 0
     switch (metric) {
       case 'followers':
-        return 'Maya: ' + short(tt.followerCount) + ' followers. Reach rate is ' + vr + '%.' + (tt.followerCount < 1000 ? ' Jordan: Focus on hooks — one viral video can 10x this number overnight.' : ' Jordan: Your ' + vr + '% reach means the algorithm is serving you to ' + short(tt.avgViews) + ' people per video. Keep posting.')
+        return 'Maya: ' + short(tt.followerCount) + ' followers. Reach rate is ' + vr + '%.' + (tt.followerCount < 1000 ? ' Jordan: Focus on captions — one viral video can 10x this number overnight.' : ' Jordan: Your ' + vr + '% reach means the algorithm is serving you to ' + short(tt.avgViews) + ' people per video. Keep posting.')
       case 'videos':
         return 'Maya: ' + tt.videoCount + ' videos in your catalog.' + (tt.videoCount < 20 ? ' Jordan: Post daily for the next 2 weeks — TikTok rewards frequency heavily in the first 30 videos.' : tt.videoCount < 50 ? ' Jordan: Building momentum. Batch-film 5 videos on Sunday so you can post every day.' : ' Jordan: Strong library. The algorithm will resurface your best content — focus on new formats.')
       case 'views':
-        return 'Maya: ' + short(tt.avgViews) + ' avg views (' + vr + '% of followers).' + (Number(vr) > 100 ? ' Jordan: For You feed is your main channel. Double down on what\'s working — the algorithm is on your side.' : Number(vr) < 50 ? ' Jordan: Videos aren\'t escaping your follower base. Open with a question or visual pattern interrupt in the first second.' : ' Jordan: Close to breakout. Your next video — lead with your strongest hook from your top performer.')
+        return 'Maya: ' + short(tt.avgViews) + ' avg views (' + vr + '% of followers).' + (Number(vr) > 100 ? ' Jordan: For You feed is your main channel. Double down on what\'s working — the algorithm is on your side.' : Number(vr) < 50 ? ' Jordan: Videos aren\'t escaping your follower base. Open with a question or visual pattern interrupt in the first second.' : ' Jordan: Close to breakout. Your next video — lead with your strongest caption from your top performer.')
       case 'engagement':
         return 'Maya: ' + ((tt.engagementRate || 0) * 100).toFixed(1) + '% engagement rate.' + (tt.engagementRate >= 0.08 ? ' Jordan: This is excellent. The algorithm reads this as quality — it will push you further.' : tt.engagementRate >= 0.05 ? ' Jordan: Healthy. End your next 3 videos with a direct question to drive comments up.' : ' Jordan: Viewers watch but don\'t interact. Try a "reply to this comment" video or a duet this week.')
       case 'reach':
@@ -256,12 +258,12 @@
       'Reconciling pillars with live trends Maya flagged.',
       'Pulling next-week slots against growth signals.',
       'Tuning cadence to when your audience peaks.',
-      'Stress-testing hooks Alex will inherit.',
+      'Stress-testing captions Alex will write.',
     ],
     copywriter: [
       "Drafting variants against Jordan's plan.",
       'Sharpening saves and CTAs for your voice.',
-      'Pulling hook patterns from top performers.',
+      'Pulling caption patterns from top performers.',
       'Aligning captions with what Riley can shoot.',
     ],
     creative_director: [
@@ -500,9 +502,9 @@
     const awaiting = STATE.tasks.filter((t) => t.status === 'delivered').length
     let body
     if (awaiting > 0 && live > 0) {
-      body = `${awaiting} deliverable${awaiting > 1 ? 's' : ''} need your sign-off — and ${live} teammate${live > 1 ? 's are' : ' is'} still executing in parallel.`
+      body = `${awaiting} drop${awaiting > 1 ? 's' : ''} need your sign-off — and ${live} teammate${live > 1 ? 's are' : ' is'} still executing in parallel.`
     } else if (awaiting > 0) {
-      body = `${awaiting} deliverable${awaiting > 1 ? 's' : ''} need your sign-off. The rest of the team stays on watch for the next move.`
+      body = `${awaiting} drop${awaiting > 1 ? 's' : ''} need your sign-off. The rest of the team stays on watch for the next move.`
     } else if (live > 0) {
       body = `${live} teammate${live > 1 ? 's are' : ' is'} live on briefs. Nothing is waiting on you right now — they keep the lane warm until the next drop.`
     } else {
@@ -522,7 +524,7 @@
         } else if (daysAgo === 1) {
           postingNote = 'Last post was yesterday.'
         } else if (daysAgo >= 3) {
-          postingNote = `You haven\u2019t posted in ${daysAgo} days. Brief Alex for a quick hook?`
+          postingNote = `You haven\u2019t posted in ${daysAgo} days. Brief Alex for a quick caption?`
         }
       }
     }
@@ -584,8 +586,8 @@
     const n = delivered.length
     const headline =
       n === 1
-        ? `One deliverable is waiting — start with ${role.name}.`
-        : `You have ${n} deliverables waiting — start with ${role.name}'s first.`
+        ? `One drop is waiting — start with ${role.name}.`
+        : `You have ${n} drops waiting — start with ${role.name}'s first.`
     return `
       <section style="margin-bottom:22px">
         <div style="border:1px solid var(--b1);border-radius:14px;padding:22px 24px;background:linear-gradient(145deg, var(--s1) 0%, var(--s3) 100%)">
@@ -1648,7 +1650,7 @@
         <section>
           ${sectionLabel('Activity')}
           <div style="padding:24px;color:var(--t2);font-size:12px;line-height:1.55;text-align:center;border:1px dashed var(--b1);border-radius:12px">
-            No notifications in the last little while — the team is still running scans and keeping deliverables warm in the background.
+            No notifications in the last little while — the team is still running scans and keeping drops warm in the background.
           </div>
         </section>
       `
@@ -1774,7 +1776,7 @@
       if (sr) {
         e.preventDefault()
         const tid = sr.dataset.v2ScrollReview
-        const el = host.querySelector(`article[data-task-id="${tid}"]`)
+        const el = host.querySelector(`[data-task-id="${tid}"]`)
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         return
       }
@@ -1802,7 +1804,7 @@
           showOutcomeModal({
             title: `${who} picked up the next step`,
             body: `“${chain.title}” is in your queue now — open it to review what they shipped.`,
-            primaryLabel: 'Open next deliverable',
+            primaryLabel: 'Open next drop',
             onPrimary: () => {
               try {
                 sessionStorage.setItem('vxFocusTaskId', chain.nextTaskId)
@@ -1879,7 +1881,7 @@
 
   // ─────────────── feed strip (right rail) ────────────────────────
   function sectionFeedStrip() {
-    const items = STATE.feed.slice(0, 12)
+    const items = STATE.feed.slice(0, 10)
     const company = STATE.me?.companies?.[0]
     const niche = (company?.detectedNiche && company?.nicheConfidence >= 0.6 ? company.detectedNiche : company?.niche) || ''
     const header = `
@@ -1923,8 +1925,9 @@
     const thumb = item.imageUrl
       ? `<img src="${esc(item.imageUrl)}" alt="" style="width:72px;height:72px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--s3)" loading="lazy" onerror="this.style.display='none'" />`
       : `<div style="width:72px;height:72px;border-radius:8px;background:var(--s3);flex-shrink:0;display:grid;place-items:center;color:var(--t3);font-size:10px;letter-spacing:.06em;text-transform:uppercase">${esc(item.type || 'Link')}</div>`
+    const isTrend = item.type === 'trend'
     const scoreTag = item.score != null
-      ? `<span style="color:var(--t1);font-weight:600;margin-left:auto">${item.score}</span>`
+      ? `<span style="color:${isTrend ? '#34d27a' : 'var(--t1)'};font-weight:600;margin-left:auto">${isTrend ? '↑' : ''}${item.score}</span>`
       : ''
     return `
       <li class="vx-dcard-row" style="padding:14px 20px;border-bottom:1px solid var(--b1)">
@@ -1984,6 +1987,128 @@
     // Kick off background syncs AFTER rendering — doesn't delay the UI
     backgroundTiktokSync()
     backgroundInstagramSync()
+    // Show unread drop toasts
+    setTimeout(showDeliverableToasts, 600)
+  }
+
+  // ── Deliverable toasts — rotating single notification ──────────
+  var toastsStarted = false
+  var toastQueue = []
+  var toastRotateTimer = null
+
+  function showDeliverableToasts() {
+    if (toastsStarted) return
+    var delivered = STATE.tasks.filter(function (t) { return t.status === 'delivered' })
+    if (delivered.length === 0) return
+    toastsStarted = true
+    toastQueue = delivered.slice()
+    showNextToast()
+  }
+
+  function buildToastPreview(t) {
+    var output = t.outputs && t.outputs[0]
+    var c = output?.content || {}
+    var type = t.type || ''
+    var lines = []
+
+    // Title context
+    lines.push(t.title || 'New drop')
+
+    // Type-specific detail
+    if (Array.isArray(c.hooks) && c.hooks.length) {
+      lines.push(c.hooks.length + ' hook' + (c.hooks.length > 1 ? 's' : '') + ' ready — "' + (c.hooks[0].text || '').slice(0, 60) + '..."')
+    } else if (Array.isArray(c.trends) && c.trends.length) {
+      var topTrend = c.trends[0]
+      lines.push(c.trends.length + ' trend' + (c.trends.length > 1 ? 's' : '') + ' flagged. Top: ' + (topTrend.topic || '') + ' (' + (topTrend.growth || topTrend.verdict || '') + ')')
+    } else if (Array.isArray(c.posts) && c.posts.length) {
+      lines.push(c.posts.length + '-day plan ready. ' + c.posts.slice(0, 3).map(function (p) { return (p.day || '').slice(0, 3) + ': ' + (p.format || '') }).join(', '))
+    } else if (Array.isArray(c.shots) && c.shots.length) {
+      lines.push(c.shots.length + ' shots planned. Opens with: "' + (c.shots[0].description || c.shots[0].shot || '').slice(0, 50) + '..."')
+    } else if (c.summary) {
+      lines.push(String(c.summary).slice(0, 100))
+    } else if (c.script) {
+      lines.push('Script ready — ' + String(c.script).slice(0, 60) + '...')
+    }
+
+    // Time context
+    if (t.createdAt) {
+      lines.push('Delivered ' + timeAgo(t.createdAt))
+    }
+
+    return lines.join('\n')
+  }
+
+  function showNextToast() {
+    clearTimeout(toastRotateTimer)
+    if (toastQueue.length === 0) {
+      var el = document.getElementById('vx-deliver-toasts')
+      if (el) { el.style.opacity = '0'; setTimeout(function () { el.remove() }, 400) }
+      return
+    }
+
+    var t = toastQueue[0]
+    var role = ROLE[t.employee?.role] || { name: 'Vexa', title: 'Agent', init: 'V' }
+    var preview = buildToastPreview(t)
+    var counter = toastQueue.length > 1 ? '<span style="color:var(--t3);font-size:10px;margin-left:8px">' + toastQueue.length + ' unread</span>' : ''
+
+    var container = document.getElementById('vx-deliver-toasts')
+    if (!container) {
+      container = document.createElement('div')
+      container.id = 'vx-deliver-toasts'
+      container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:8000;max-width:360px;width:100%;transition:opacity .4s ease'
+      document.body.appendChild(container)
+    }
+
+    container.style.opacity = '0'
+    setTimeout(function () {
+      container.innerHTML = '<div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px;box-shadow:0 8px 32px rgba(0,0,0,.4)">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+        + '<div style="width:28px;height:28px;border-radius:8px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0">' + role.init + '</div>'
+        + '<div style="flex:1"><div style="color:var(--t1);font-size:12px;font-weight:500">' + esc(role.name) + ' — ' + esc(role.title) + counter + '</div></div>'
+        + '<button id="vx-toast-close" style="background:none;border:none;color:var(--t3);font-size:16px;cursor:pointer;padding:0 4px;line-height:1">&times;</button>'
+        + '</div>'
+        + '<div style="color:var(--t2);font-size:12px;line-height:1.55">'
+        + preview.split('\n').map(function (line, i) {
+            if (i === 0) return '<div style="color:var(--t1);font-size:13px;font-weight:500;margin-bottom:4px">' + esc(line) + '</div>'
+            if (i === preview.split('\n').length - 1) return '<div style="color:var(--t3);font-size:10px;margin-top:4px">' + esc(line) + '</div>'
+            return '<div style="font-style:italic">' + esc(line) + '</div>'
+          }).join('')
+        + '</div>'
+        + '<div style="margin-top:10px;display:flex;gap:8px">'
+        + '<button id="vx-toast-review" style="background:var(--t1);color:var(--inv);border:none;padding:6px 14px;border-radius:8px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;letter-spacing:.04em;text-transform:uppercase">Review</button>'
+        + '<button id="vx-toast-dismiss" style="background:transparent;border:1px solid var(--b2);color:var(--t3);padding:6px 14px;border-radius:8px;font-size:10px;font-family:inherit;cursor:pointer">Dismiss</button>'
+        + '</div></div>'
+
+      container.style.opacity = '1'
+
+      // Close — dismiss this one, show next
+      container.querySelector('#vx-toast-close').addEventListener('click', function () {
+        toastQueue.shift()
+        showNextToast()
+      })
+
+      // Dismiss — remove from rotation, show next
+      container.querySelector('#vx-toast-dismiss').addEventListener('click', function () {
+        toastQueue.shift()
+        showNextToast()
+      })
+
+      // Review — go to work page
+      container.querySelector('#vx-toast-review').addEventListener('click', function () {
+        clearTimeout(toastRotateTimer)
+        container.remove()
+        toastQueue = []
+        sessionStorage.setItem('vxFocusTaskId', t.id)
+        if (typeof window.navigate === 'function') window.navigate('db-tasks')
+      })
+
+      // Auto-rotate after 10s
+      toastRotateTimer = setTimeout(function () {
+        // Move current to end of queue (rotate)
+        toastQueue.push(toastQueue.shift())
+        showNextToast()
+      }, 10000)
+    }, 150)
   }
 
   async function refresh() {

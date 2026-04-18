@@ -5,7 +5,7 @@ export type Plan = 'starter' | 'pro' | 'agency'
 export type Platform = 'instagram'
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
-export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse' | 'upload_review' | 'content_audit' | 'growth_strategy' | 'feed_audit' | 'format_analysis'
+export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse' | 'upload_review' | 'content_audit' | 'growth_strategy' | 'feed_audit' | 'format_analysis' | 'trend_hooks' | 'plan_adjustment' | 'competitor_analysis'
 export type OutputStatus = 'draft' | 'approved' | 'rejected'
 export type MemoryType = 'feedback' | 'preference' | 'performance' | 'voice'
 
@@ -97,8 +97,8 @@ export const EMPLOYEE_CONFIGS: Record<EmployeeRole, EmployeeConfig> = {
     emoji: '📊',
     color: '#6ab4ff',
     personality: 'Data-driven, precise, slightly urgent. Always backs claims with numbers.',
-    specialties: ['Trend reports', 'Competitor intel', 'Viral hook opportunities', 'Content gap analysis'],
-    proactiveSchedule: 'Every Monday 9am'
+    specialties: ['Trend reports', 'Performance reviews', 'Weekly pulse', 'Content gap analysis'],
+    proactiveSchedule: 'Monday weekly pulse, performance review on connect'
   },
   strategist: {
     role: 'strategist',
@@ -107,8 +107,8 @@ export const EMPLOYEE_CONFIGS: Record<EmployeeRole, EmployeeConfig> = {
     emoji: '🗺️',
     color: '#c8f060',
     personality: 'Calm, organized, big-picture thinker. Speaks in systems and frameworks.',
-    specialties: ['Weekly content calendars', 'Content pillars', 'Audience analysis', 'Posting strategy'],
-    proactiveSchedule: 'Every Sunday 7pm'
+    specialties: ['Posting schedules', 'Content audits', 'Growth strategy', 'Mid-week adjustments'],
+    proactiveSchedule: 'Sunday posting schedule, Wednesday audit + adjustment, monthly growth strategy'
   },
   copywriter: {
     role: 'copywriter',
@@ -117,8 +117,8 @@ export const EMPLOYEE_CONFIGS: Record<EmployeeRole, EmployeeConfig> = {
     emoji: '✍️',
     color: '#e8c87a',
     personality: 'Creative, punchy, opinionated. Pushes back if a brief is weak.',
-    specialties: ['Hooks', 'Captions', 'Reel scripts', 'Carousel copy', 'CTAs'],
-    proactiveSchedule: 'After Jordan\'s plan is approved'
+    specialties: ['Captions', 'Reel scripts', 'Slideshow copy', 'CTAs', 'Trend hooks'],
+    proactiveSchedule: 'When Maya spots a trend + after posting schedule is approved'
   },
   creative_director: {
     role: 'creative_director',
@@ -126,9 +126,9 @@ export const EMPLOYEE_CONFIGS: Record<EmployeeRole, EmployeeConfig> = {
     title: 'Creative Director',
     emoji: '🎬',
     color: '#b482ff',
-    personality: 'Visual thinker, detail-obsessed. Speaks in scenes and shots.',
-    specialties: ['Shot lists', 'Pacing guides', 'Visual direction', 'Editing notes'],
-    proactiveSchedule: 'After Alex\'s copy is approved'
+    personality: 'Visual thinker, detail-obsessed. Thinks in brand, format, and feed.',
+    specialties: ['Feed audits', 'Format analysis', 'Competitor analysis', 'Visual briefs'],
+    proactiveSchedule: 'Thursday feed audit, Friday format analysis, monthly competitor analysis'
   }
 }
 
@@ -181,7 +181,7 @@ export interface ContentPlan {
   posts: Array<{
     day: string
     date: string
-    format: 'reel' | 'carousel' | 'static' | 'story'
+    format: 'reel' | 'slideshow' | 'post' | 'story'
     topic: string
     angle: string
     goal: string
@@ -440,6 +440,55 @@ export interface FormatAnalysis {
   generatedAt: string
 }
 
+// Trend Hooks (Alex) — proactive hooks based on Maya's trending topics
+export interface TrendHooks {
+  trendUsed: string              // which trend these hooks are for
+  trendSource: string            // "Maya's weekly pulse" or "Maya's trend report"
+  hooks: Array<{
+    text: string
+    style: string               // 'bold claim' | 'question' | 'story opener' | 'controversial'
+    whyItWorks: string
+  }>
+  recommendedHook: number        // index of Alex's top pick
+  alexNote: string
+  generatedAt: string
+}
+
+// Plan Adjustment (Jordan) — mid-week tweak based on what performed
+export interface PlanAdjustment {
+  originalPlan: string           // reference to the current week's plan
+  whatChanged: string            // what performance data triggered this
+  adjustments: Array<{
+    day: string
+    originalPost: string
+    newPost: string
+    reason: string
+  }>
+  keepAsIs: string[]             // posts that are still on track
+  jordanNote: string
+  generatedAt: string
+}
+
+// Competitor Analysis (Riley) — what similar creators are doing
+export interface CompetitorAnalysis {
+  nicheAnalyzed: string
+  creatorsStudied: number
+  patterns: Array<{
+    pattern: string              // e.g. "POV format dominating travel niche"
+    frequency: string            // "3 of 5 top creators use this"
+    relevance: 'high' | 'medium' | 'low'
+    example: string
+  }>
+  gaps: Array<{
+    opportunity: string          // what competitors aren't doing
+    why: string
+    difficulty: 'easy' | 'medium' | 'hard'
+  }>
+  threats: string[]              // competitor moves to watch
+  rileyNote: string
+  generatedAt: string
+}
+
 // Upload Review (Riley)
 export interface VideoEditCommand {
   type: 'trim' | 'speed' | 'crop' | 'text' | 'audio_norm' | 'audio_strip' | 'mood'
@@ -498,6 +547,9 @@ export interface OutputContent {
   growth_strategy: GrowthStrategy
   feed_audit: FeedAudit
   format_analysis: FormatAnalysis
+  trend_hooks: TrendHooks
+  plan_adjustment: PlanAdjustment
+  competitor_analysis: CompetitorAnalysis
 }
 
 export interface Output {
@@ -576,13 +628,13 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
     { id: 'save_later', label: 'Save for later', emoji: '📅', variant: 'neutral' },
   ],
   content_plan: [
-    { id: 'approve', label: 'Approve plan', emoji: '✅', variant: 'approve' },
+    { id: 'approve', label: 'Approve schedule', emoji: '✅', variant: 'approve' },
     { id: 'rethink_angle', label: 'Rethink the angle', emoji: '🔄', variant: 'reconsider' },
     { id: 'adjust_timing', label: 'Adjust the timing', emoji: '⏰', variant: 'reconsider' },
     { id: 'modify_days', label: 'Modify specific days', emoji: '📋', variant: 'neutral' },
   ],
   hooks: [
-    { id: 'use_hook', label: 'Use this hook', emoji: '✅', variant: 'approve' },
+    { id: 'use_hook', label: 'Use this caption', emoji: '✅', variant: 'approve' },
     { id: 'be_bolder', label: 'Too safe — be bolder', emoji: '🔄', variant: 'reconsider' },
     { id: 'off_brand', label: 'Off-brand — try again', emoji: '🎯', variant: 'reject' },
     { id: 'more_variations', label: 'Give me 5 more', emoji: '➕', variant: 'neutral' },
@@ -601,10 +653,10 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
     { id: 'rewrite', label: 'Start over', emoji: '🔄', variant: 'reject' },
   ],
   shot_list: [
-    { id: 'approve', label: 'Start production', emoji: '✅', variant: 'approve' },
-    { id: 'simplify', label: 'Simplify the shots', emoji: '🔄', variant: 'reconsider' },
+    { id: 'approve', label: 'Approve visual brief', emoji: '✅', variant: 'approve' },
+    { id: 'simplify', label: 'Simplify', emoji: '🔄', variant: 'reconsider' },
     { id: 'pacing', label: 'Change the pacing', emoji: '⚡', variant: 'reconsider' },
-    { id: 'regenerate', label: 'Regenerate completely', emoji: '🎬', variant: 'reject' },
+    { id: 'regenerate', label: 'Redo completely', emoji: '🎬', variant: 'reject' },
   ],
   video: [
     { id: 'approve', label: 'Approve for posting', emoji: '✅', variant: 'approve' },
@@ -646,6 +698,21 @@ export const OUTPUT_ACTIONS: Record<OutputType, ActionButton[]> = {
     { id: 'acknowledge', label: 'Got it — adjust the mix', emoji: '✅', variant: 'approve' },
     { id: 'deep_dive', label: 'Show me examples', emoji: '🔍', variant: 'reconsider' },
     { id: 'dismiss', label: 'Skip', emoji: '⏭', variant: 'reject' },
+  ],
+  trend_hooks: [
+    { id: 'use_hook', label: 'Use this hook', emoji: '✅', variant: 'approve' },
+    { id: 'more_variations', label: 'Give me more', emoji: '➕', variant: 'reconsider' },
+    { id: 'off_brand', label: 'Off-brand', emoji: '🎯', variant: 'reject' },
+  ],
+  plan_adjustment: [
+    { id: 'approve', label: 'Update the plan', emoji: '✅', variant: 'approve' },
+    { id: 'keep_original', label: 'Keep original plan', emoji: '↩️', variant: 'reject' },
+    { id: 'adjust', label: 'Adjust differently', emoji: '🔄', variant: 'reconsider', feedbackPrompt: 'What would you change?' },
+  ],
+  competitor_analysis: [
+    { id: 'acknowledge', label: 'Got it — factor this in', emoji: '✅', variant: 'approve' },
+    { id: 'deep_dive', label: 'Dig deeper', emoji: '🔍', variant: 'reconsider' },
+    { id: 'dismiss', label: 'Not relevant', emoji: '⏭', variant: 'reject' },
   ],
 }
 

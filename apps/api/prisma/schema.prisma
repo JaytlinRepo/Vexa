@@ -63,6 +63,9 @@ enum OutputType {
   growth_strategy
   feed_audit
   format_analysis
+  trend_hooks
+  plan_adjustment
+  competitor_analysis
 }
 
 enum OutputStatus {

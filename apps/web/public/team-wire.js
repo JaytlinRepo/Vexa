@@ -123,7 +123,7 @@
         <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Quick brief</div>
         <h3 style="font-family:'Syne',sans-serif;font-size:20px;margin:0 0 6px">What do you need from ${escapeHtml(empName)}?</h3>
         <div style="color:var(--t3);font-size:12px;margin-bottom:16px">${escapeHtml(empName)} will start on it right away. Be specific — the more detail, the better the output.</div>
-        <textarea id="vx-brief-input" rows="3" placeholder="e.g. Write 5 hooks for a carousel about morning routines" style="width:100%;padding:12px 14px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1);font-family:inherit;font-size:13px;line-height:1.5;resize:vertical"></textarea>
+        <textarea id="vx-brief-input" rows="3" placeholder="e.g. Write 5 captions for a slideshow about morning routines" style="width:100%;padding:12px 14px;border:1px solid var(--b1);border-radius:8px;background:var(--s2);color:var(--t1);font-family:inherit;font-size:13px;line-height:1.5;resize:vertical"></textarea>
         <div id="vx-assign-err" style="color:#ff6b6b;font-size:12px;margin-top:8px;min-height:16px"></div>
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px">
           <button id="vx-assign-cancel" style="background:none;border:1px solid var(--b2);color:var(--t2);padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">Cancel</button>

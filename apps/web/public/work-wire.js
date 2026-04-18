@@ -25,7 +25,16 @@
   }
 
   function formatType(t) {
-    return String(t || 'task').replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase() })
+    var labels = {
+      trend_report: 'Trend Report', content_plan: 'Posting Schedule', hooks: 'Captions',
+      caption: 'Caption', script: 'Script', shot_list: 'Visual Brief', video: 'Video',
+      performance_review: 'Performance Review', weekly_pulse: 'Weekly Pulse',
+      upload_review: 'Upload Review', content_audit: 'Content Audit',
+      growth_strategy: 'Growth Strategy', feed_audit: 'Feed Audit',
+      format_analysis: 'Format Analysis', trend_hooks: 'Trend Captions',
+      plan_adjustment: 'Schedule Adjustment', competitor_analysis: 'Competitor Analysis',
+    }
+    return labels[t] || String(t || 'task').replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase() })
   }
 
   var ROLE = {
@@ -116,18 +125,18 @@
       if (c.summary) return '<div style="font-style:italic;color:var(--t1)">' + esc(String(c.summary).slice(0, 150)) + '</div>'
     }
 
-    // Hooks — show the top pick with context
+    // Captions — show the top pick with context
     if (Array.isArray(c.hooks) && c.hooks.length) {
       var flagged = c.hooks.find(function (h) { return h.flagged })
       var best = flagged || c.hooks[0]
-      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.hooks.length + ' hooks delivered</div>'
+      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.hooks.length + ' captions delivered</div>'
         + '<div style="padding:8px 12px;background:var(--s2);border-radius:8px;font-style:italic">"' + esc((best.text || '').slice(0, 100)) + '"</div>'
         + (flagged ? '<div style="color:var(--t3);font-size:10px;margin-top:4px">★ Agent\'s pick</div>' : '')
     }
 
-    // Content plan — show the week overview
+    // Posting schedule — show the week overview
     if (Array.isArray(c.posts) && c.posts.length) {
-      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.posts.length + '-post plan for the week</div>'
+      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.posts.length + '-post schedule for the week</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:6px">'
         + c.posts.slice(0, 5).map(function (p) {
           return '<span style="background:var(--s2);padding:4px 8px;border-radius:6px;font-size:10px;color:var(--t2)">'
@@ -136,9 +145,9 @@
         + '</div>'
     }
 
-    // Shot list
+    // Visual brief
     if (Array.isArray(c.shots) && c.shots.length) {
-      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.shots.length + ' shots planned</div>'
+      return '<div style="margin-bottom:4px;color:var(--t1);font-weight:500">' + c.shots.length + '-shot visual brief</div>'
         + '<div style="font-style:italic">Opens with: "' + esc((c.shots[0].description || c.shots[0].shot || '').slice(0, 80)) + '..."</div>'
     }
 
@@ -214,6 +223,39 @@
         fmtHtml += '<div style="font-size:11px;color:#e8c87a">Underused: ' + esc(c.underusedFormat.format) + ' — ' + esc(c.underusedFormat.opportunity?.slice(0, 80) || '') + '</div>'
       }
       return fmtHtml
+    }
+
+    // Trend hooks (Alex)
+    if (type === 'trend_hooks' && c.hooks?.length) {
+      var best = c.hooks[c.recommendedHook || 0] || c.hooks[0]
+      return '<div style="margin-bottom:6px;color:var(--t1);font-weight:500">' + c.hooks.length + ' hooks for: ' + esc((c.trendUsed || '').slice(0, 50)) + '</div>'
+        + '<div style="padding:8px 12px;background:var(--s2);border-radius:8px;font-style:italic;font-size:12px;color:var(--t1)">"' + esc((best.text || '').slice(0, 100)) + '"</div>'
+        + '<div style="font-size:10px;color:var(--t3);margin-top:4px">Alex\'s pick · ' + esc(best.style || '') + '</div>'
+    }
+
+    // Plan adjustment (Jordan)
+    if (type === 'plan_adjustment' && c.adjustments) {
+      var adjCount = Array.isArray(c.adjustments) ? c.adjustments.length : 0
+      var keepCount = Array.isArray(c.keepAsIs) ? c.keepAsIs.length : 0
+      return '<div style="margin-bottom:6px;color:var(--t1);font-weight:500">Mid-week plan update</div>'
+        + '<div style="font-size:11px;color:var(--t2);margin-bottom:6px">' + esc(c.whatChanged || '') + '</div>'
+        + '<div style="display:flex;gap:8px">'
+        + (adjCount ? '<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(232,200,122,.1);color:#e8c87a">' + adjCount + ' swapped</span>' : '')
+        + (keepCount ? '<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(52,210,122,.1);color:#34d27a">' + keepCount + ' on track</span>' : '')
+        + '</div>'
+    }
+
+    // Competitor analysis (Riley)
+    if (type === 'competitor_analysis' && c.patterns) {
+      var patCount = Array.isArray(c.patterns) ? c.patterns.length : 0
+      var gapCount = Array.isArray(c.gaps) ? c.gaps.length : 0
+      var topGap = Array.isArray(c.gaps) && c.gaps[0] ? c.gaps[0] : null
+      return '<div style="margin-bottom:6px;color:var(--t1);font-weight:500">Competitor landscape · ' + esc(c.nicheAnalyzed || '') + '</div>'
+        + '<div style="display:flex;gap:8px;margin-bottom:6px">'
+        + '<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:var(--s2);color:var(--t2)">' + patCount + ' patterns</span>'
+        + '<span style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(52,210,122,.1);color:#34d27a">' + gapCount + ' gaps</span>'
+        + '</div>'
+        + (topGap ? '<div style="font-size:11px;color:var(--t2);line-height:1.5">Top gap: ' + esc(topGap.opportunity?.slice(0, 80) || '') + '</div>' : '')
     }
 
     // Upload review — show verdict + score

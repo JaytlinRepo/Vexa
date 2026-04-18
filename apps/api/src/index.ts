@@ -26,6 +26,7 @@ import platformDataRouter from './routes/platformData'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
 import uploadsRouter from './routes/uploads'
+import stripeRouter from './routes/stripe'
 import { registerScheduledJobs } from './scheduler'
 import { PrismaClient } from '@prisma/client'
 
@@ -62,6 +63,8 @@ app.use(
     credentials: true,
   }),
 )
+// Stripe webhook needs raw body — must be before json parser
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '2mb' }))
 app.use(cookieParser())
 
@@ -95,6 +98,7 @@ app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)
 app.use('/api/uploads', uploadsRouter)
+app.use('/api/stripe', stripeRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session

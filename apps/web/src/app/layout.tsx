@@ -4,8 +4,8 @@ import VexaThemeBridge from './VexaThemeBridge'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Vexa',
-  description: 'Your content. Run by a team.',
+  title: 'Vexa — Your AI Content Team',
+  description: 'AI employees. Zero management overhead. Your content team starts working the moment you sign up.',
 }
 
 export const viewport: Viewport = {

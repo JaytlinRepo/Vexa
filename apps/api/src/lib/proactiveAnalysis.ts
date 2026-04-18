@@ -151,10 +151,10 @@ export async function triggerWeeklyPlan(
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
   return triggerAgentTask(prisma, companyId, 'strategist', {
     type: 'content_plan',
-    title: 'Next week — content plan',
-    description: 'Weekly content plan based on current trends, audience data, and what performed best recently.',
-    notifTitle: 'Jordan\'s weekly plan is ready',
-    notifBody: 'Next week\'s content plan is waiting for your review.',
+    title: 'Next week — posting schedule',
+    description: 'Weekly posting schedule based on current trends, audience data, and what performed best recently.',
+    notifTitle: 'Jordan\'s posting schedule is ready',
+    notifBody: 'Next week\'s posting schedule is waiting for your review.',
     dedupDays: 6,
   })
 }
@@ -169,10 +169,10 @@ export async function triggerProactiveHooks(
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
   return triggerAgentTask(prisma, companyId, 'copywriter', {
     type: 'hooks',
-    title: 'Hooks — this week\'s top angle',
-    description: 'Scroll-stopping hooks for the strongest content opportunity this week.',
-    notifTitle: 'Alex delivered hooks',
-    notifBody: 'Fresh hooks are ready — pick one and film.',
+    title: 'Captions — this week\'s top angle',
+    description: 'Scroll-stopping captions for the strongest content opportunity this week.',
+    notifTitle: 'Alex delivered captions',
+    notifBody: 'Fresh captions are ready — pick one and film.',
     dedupDays: 5,
   })
 }
@@ -275,6 +275,44 @@ export async function triggerGrowthStrategy(
   })
 }
 
+/**
+ * Jordan's mid-week plan adjustment — Wednesday. Compares current plan
+ * vs actual performance and suggests swaps for remaining days.
+ */
+export async function triggerPlanAdjustment(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'strategist', {
+    type: 'plan_adjustment',
+    title: 'Mid-week plan check',
+    description: 'Compare this week\'s plan vs actual performance. What should we adjust for the rest of the week?',
+    notifTitle: 'Jordan adjusted the plan',
+    notifBody: 'Mid-week performance check — some posts swapped based on what\'s working.',
+    dedupDays: 6,
+  })
+}
+
+/**
+ * Alex's trend hooks — triggered when Maya delivers a trend report.
+ * Writes hooks specifically for the top trending topic.
+ */
+export async function triggerTrendHooks(
+  prisma: PrismaClient,
+  companyId: string,
+  trendTopic: string,
+  trendContext: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'copywriter', {
+    type: 'trend_hooks',
+    title: 'Hooks for: ' + trendTopic.slice(0, 60),
+    description: JSON.stringify({ trendTopic, trendContext }),
+    notifTitle: 'Alex wrote hooks for a trend',
+    notifBody: 'Maya spotted "' + trendTopic.slice(0, 40) + '" — Alex wrote 5 hooks for it.',
+    dedupDays: 3,
+  })
+}
+
 // ─── RILEY PROACTIVE DELIVERABLES ────────────────────────────────────────────
 
 /**
@@ -310,6 +348,24 @@ export async function triggerFormatAnalysis(
     notifTitle: 'Riley analyzed your formats',
     notifBody: 'Format performance breakdown — which types of content drive the most engagement.',
     dedupDays: 12,
+  })
+}
+
+/**
+ * Riley's competitor analysis — monthly. Studies what similar creators
+ * in the niche are doing, identifies patterns and gaps.
+ */
+export async function triggerCompetitorAnalysis(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'creative_director', {
+    type: 'competitor_analysis',
+    title: 'Competitor landscape — patterns & gaps',
+    description: 'What are similar creators doing? What patterns dominate, what gaps can I fill?',
+    notifTitle: 'Riley analyzed the competition',
+    notifBody: 'Competitor patterns, gaps you can fill, and threats to watch.',
+    dedupDays: 25,
   })
 }
 
@@ -377,7 +433,13 @@ export async function triggerKeepAlive(
       } else if (!types.includes('format_analysis')) {
         await triggerFormatAnalysis(prisma, companyId)
         triggered++
-      } else if (!types.includes('hooks')) {
+      } else if (!types.includes('competitor_analysis')) {
+        await triggerCompetitorAnalysis(prisma, companyId)
+        triggered++
+      } else if (!types.includes('plan_adjustment')) {
+        await triggerPlanAdjustment(prisma, companyId)
+        triggered++
+      } else if (!types.includes('hooks') && !types.includes('trend_hooks')) {
         await triggerProactiveHooks(prisma, companyId)
         triggered++
       }

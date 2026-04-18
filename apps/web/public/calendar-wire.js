@@ -22,11 +22,11 @@
 
   const TYPE_CAL = {
     trend_report: 'Trend',
-    content_plan: 'Plan',
-    hooks: 'Hooks',
+    content_plan: 'Schedule',
+    hooks: 'Captions',
     caption: 'Caption',
     script: 'Script',
-    shot_list: 'Shoot',
+    shot_list: 'Visual Brief',
     video: 'Video',
   }
 

@@ -117,9 +117,95 @@
     }
   }
 
+  // ── Billing ──────────────────────────────────────────────
+  var PLANS = [
+    { id:'starter', name:'Starter', price:'$29', annual:'$22', features:['2 employees (Maya + Alex)','30 tasks/month','Basic brand voice','No meetings'] },
+    { id:'pro', name:'Pro', price:'$79', annual:'$59', features:['All 4 employees','Unlimited tasks','Meetings + brand memory','Weekly reports','Knowledge feed'], popular:true },
+    { id:'agency', name:'Agency', price:'$149', annual:'$112', features:['Up to 5 workspaces','Everything in Pro','Priority processing','Advanced analytics'] },
+  ]
+
+  async function loadBilling() {
+    var statusEl = document.getElementById('vx-billing-status')
+    var cardsEl = document.getElementById('vx-plan-cards')
+    var manageBtn = document.getElementById('vx-billing-manage')
+    if (!statusEl || !cardsEl) return
+
+    try {
+      var res = await fetch('/api/stripe/subscription', { credentials:'include' })
+      var sub = res.ok ? await res.json() : null
+
+      if (!sub) { statusEl.textContent = 'Unable to load subscription.'; return }
+
+      var isTrial = sub.status === 'trial'
+      var isActive = sub.status === 'active'
+      var isCanceled = sub.status === 'canceled'
+      var isPastDue = sub.status === 'past_due'
+
+      if (isTrial && sub.trialDaysLeft != null) {
+        statusEl.innerHTML = '<span style="color:var(--accent)">' + sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) + ' Trial</span> — ' + sub.trialDaysLeft + ' days left'
+      } else if (isActive) {
+        statusEl.innerHTML = '<span style="color:#34d27a">' + sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) + ' Plan</span> — Active'
+      } else if (isCanceled) {
+        statusEl.innerHTML = '<span style="color:#e87a7a">Canceled</span> — subscribe to continue using Vexa'
+      } else if (isPastDue) {
+        statusEl.innerHTML = '<span style="color:#e87a7a">Payment failed</span> — update your payment method'
+      }
+
+      // Show manage button if they have a Stripe customer
+      if (sub.hasStripeCustomer && manageBtn) {
+        manageBtn.style.display = ''
+        manageBtn.onclick = async function () {
+          manageBtn.textContent = 'Opening...'
+          var r = await fetch('/api/stripe/portal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:'{}' })
+          if (r.ok) { var d = await r.json(); window.open(d.url, '_blank') }
+          else { alert('Could not open billing portal.') }
+          manageBtn.textContent = 'Manage billing'
+        }
+      }
+
+      // Render plan cards
+      cardsEl.innerHTML = PLANS.map(function (p) {
+        var isCurrent = sub.plan === p.id && (isActive || isTrial)
+        return '<div style="background:var(--s1);border:1px solid ' + (p.popular ? 'var(--accent)' : 'var(--b1)') + ';border-radius:12px;padding:20px;position:relative;' + (isCurrent ? 'box-shadow:0 0 0 1px var(--accent)' : '') + '">'
+          + (p.popular ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:4px;background:var(--accent);color:var(--inv)">Most popular</div>' : '')
+          + '<div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:4px">' + p.name + '</div>'
+          + '<div style="margin-bottom:12px"><span style="font-size:24px;font-weight:600;color:var(--t1)">' + p.price + '</span><span style="font-size:12px;color:var(--t3)">/mo</span></div>'
+          + '<div style="font-size:11px;color:var(--t3);margin-bottom:14px">' + p.annual + '/mo billed annually</div>'
+          + p.features.map(function (f) { return '<div style="font-size:12px;color:var(--t2);padding:3px 0;display:flex;align-items:center;gap:6px"><span style="color:#34d27a;font-size:10px">+</span>' + f + '</div>' }).join('')
+          + '<button data-vx-checkout="' + p.id + '" style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid ' + (isCurrent ? 'var(--b2)' : 'var(--t1)') + ';background:' + (isCurrent ? 'transparent' : 'var(--t1)') + ';color:' + (isCurrent ? 'var(--t2)' : 'var(--inv)') + ';font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">' + (isCurrent ? 'Current plan' : 'Choose ' + p.name) + '</button>'
+          + '</div>'
+      }).join('')
+
+      // Wire checkout buttons
+      cardsEl.querySelectorAll('[data-vx-checkout]').forEach(function (btn) {
+        if (btn.textContent === 'Current plan') { btn.disabled = true; return }
+        btn.addEventListener('click', async function () {
+          btn.textContent = 'Redirecting...'
+          btn.disabled = true
+          var r = await fetch('/api/stripe/checkout', {
+            method:'POST', credentials:'include',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ plan: btn.dataset.vxCheckout, billing: 'monthly' }),
+          })
+          if (r.ok) {
+            var d = await r.json()
+            window.location.href = d.url
+          } else {
+            var err = await r.json().catch(function(){return{}})
+            alert('Checkout error: ' + (err.error || 'Unknown error'))
+            btn.textContent = 'Choose ' + btn.dataset.vxCheckout.charAt(0).toUpperCase() + btn.dataset.vxCheckout.slice(1)
+            btn.disabled = false
+          }
+        })
+      })
+    } catch (e) {
+      statusEl.textContent = 'Error loading subscription.'
+    }
+  }
+
   function init() {
     wireSaveButtons()
-    if (document.getElementById('view-db-settings')) loadMe()
+    if (document.getElementById('view-db-settings')) { loadMe(); loadBilling() }
   }
 
   const prevEnter = window.enterDashboard

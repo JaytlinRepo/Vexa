@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { syncInstagramAccount } from './lib/instagramSync'
-import { triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis } from './lib/proactiveAnalysis'
+import { triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 
 /**
@@ -152,6 +152,22 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
   })
   console.log(`[scheduler] registered jordan weekly plan on '${jordanExpr}' (UTC)`)
 
+  // Wednesday 15:00 UTC — Jordan's mid-week plan adjustment
+  cron.schedule('0 15 * * 3', async () => {
+    console.log('[scheduler] jordan plan adjustment starting')
+    try {
+      const companies = await prisma.company.findMany({
+        where: { OR: [{ tiktok: { isNot: null } }, { instagram: { isNot: null } }] },
+        select: { id: true },
+      })
+      for (const { id } of companies) {
+        try { await triggerPlanAdjustment(prisma, id) } catch {}
+      }
+      console.log('[scheduler] jordan plan adjustment done for', companies.length, 'companies')
+    } catch (err) { console.error('[scheduler] jordan plan adjustment threw', err) }
+  })
+  console.log('[scheduler] registered jordan plan adjustment (Wed 15:00 UTC)')
+
   // Wednesday 10:00 UTC — Jordan's content audit (bi-weekly, dedup handles frequency)
   cron.schedule('0 10 * * 3', async () => {
     console.log('[scheduler] jordan content audit starting')
@@ -215,6 +231,22 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     } catch (err) { console.error('[scheduler] riley format analysis threw', err) }
   })
   console.log('[scheduler] registered riley format analysis (Fri 14:00 UTC)')
+
+  // 15th of month 12:00 UTC — Riley's competitor analysis
+  cron.schedule('0 12 15 * *', async () => {
+    console.log('[scheduler] riley competitor analysis starting')
+    try {
+      const companies = await prisma.company.findMany({
+        where: { OR: [{ tiktok: { isNot: null } }, { instagram: { isNot: null } }] },
+        select: { id: true },
+      })
+      for (const { id } of companies) {
+        try { await triggerCompetitorAnalysis(prisma, id) } catch {}
+      }
+      console.log('[scheduler] riley competitor analysis done for', companies.length, 'companies')
+    } catch (err) { console.error('[scheduler] riley competitor analysis threw', err) }
+  })
+  console.log('[scheduler] registered riley competitor analysis (15th of month 12:00 UTC)')
 
   // Daily at 12:00 UTC — keep-alive: if CEO hasn't interacted in 3 days,
   // agents proactively generate fresh work so the inbox never looks empty.
