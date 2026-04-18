@@ -1,4 +1,4 @@
-/* Vexa — notifications bell: SSE + dropdown
+/* Sovexa — notifications bell: SSE + dropdown
  *
  * Opens EventSource('/api/notifications/stream') after the dashboard is entered,
  * maintains an in-memory list, updates the unread badge, and injects a dropdown

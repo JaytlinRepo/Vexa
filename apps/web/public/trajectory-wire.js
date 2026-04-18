@@ -1,4 +1,4 @@
-/* Vexa — Trajectory section on the dashboard.
+/* Sovexa — Trajectory section on the dashboard.
  *
  * Reads from the new per-sync tables (platform_snapshots, platform_posts)
  * via /api/platform/timeseries. Injects a 3-card row after the Performance

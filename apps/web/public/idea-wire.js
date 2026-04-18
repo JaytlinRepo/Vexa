@@ -1,4 +1,4 @@
-/* Vexa — user-added content ideas on the calendar.
+/* Sovexa — user-added content ideas on the calendar.
  *
  * Click any day cell on the calendar (month or week view) to open a
  * prompt modal. Type the idea, pick a format, save → it lands on the

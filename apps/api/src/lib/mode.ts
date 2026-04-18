@@ -1,5 +1,5 @@
 /**
- * Vexa runtime mode.
+ * Sovexa runtime mode.
  *
  * "test"  — every external paid/rate-limited service is short-circuited to a
  *            local mock (Bedrock, Stripe, Meta, Creatomate, Resend). Safe for

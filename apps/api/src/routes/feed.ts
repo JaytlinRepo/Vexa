@@ -457,7 +457,7 @@ router.get('/article', requireAuth, async (req, res) => {
   try {
     const response = await axios.get(url, {
       timeout: 10000,
-      headers: { 'User-Agent': 'Vexa/1.0 (content reader)' },
+      headers: { 'User-Agent': 'Sovexa/1.0 (content reader)' },
       responseType: 'text',
       maxRedirects: 3,
     })

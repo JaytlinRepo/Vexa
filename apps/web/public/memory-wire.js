@@ -1,4 +1,4 @@
-/* Vexa — brand memory settings panel
+/* Sovexa — brand memory settings panel
  *
  * Injects a new "Memory" tab into #view-db-settings with a CRUD UI against
  * /api/memory. Lets the CEO see and edit what the team has learned about

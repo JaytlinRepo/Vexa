@@ -118,7 +118,7 @@ export async function fetchRSSFeed(
     const response = await axios.get(feedConfig.url, {
       timeout: 8000,
       headers: {
-        'User-Agent': 'Vexa/1.0 (content aggregator; contact@sovexa.ai)',
+        'User-Agent': 'Sovexa/1.0 (content aggregator; contact@sovexa.ai)',
         'Accept': 'application/rss+xml, application/xml, text/xml',
       },
       responseType: 'text',

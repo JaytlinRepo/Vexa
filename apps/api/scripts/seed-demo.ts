@@ -1,5 +1,5 @@
 /**
- * Vexa demo seed — creates (or refreshes) a fully-populated account you can
+ * Sovexa demo seed — creates (or refreshes) a fully-populated account you can
  * log into during testing without going through the 7-step onboarding every
  * time.
  *

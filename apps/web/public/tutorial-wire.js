@@ -1,4 +1,4 @@
-/* Vexa — first-run tips & contextual tips for review / in-progress work.
+/* Sovexa — first-run tips & contextual tips for review / in-progress work.
  *
  * 1) Main tutorial on `vx-dashboard-ready` (once, unless dismissed forever).
  * 2) After the tutorial closes — or immediately if the tutorial was already

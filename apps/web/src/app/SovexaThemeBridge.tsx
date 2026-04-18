@@ -12,7 +12,7 @@ declare global {
  * Ensures data-theme + window.toggleTheme survive React hydration and work on
  * every route (not only / where prototype.js loads).
  */
-export default function VexaThemeBridge() {
+export default function SovexaThemeBridge() {
   useLayoutEffect(() => {
     const html = document.documentElement
     function applyFromStorage() {

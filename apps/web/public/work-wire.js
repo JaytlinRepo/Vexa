@@ -1,4 +1,4 @@
-/* Vexa — unified Work page: inbox-first with tabs.
+/* Sovexa — unified Work page: inbox-first with tabs.
  *
  * Tabs: Inbox | Calendar | Team
  * Inbox (default): deliverables needing decision at top, in-progress
@@ -74,7 +74,7 @@
   }
 
   function inboxCard(t) {
-    var role = ROLE[t.employee?.role] || { name: 'Vexa', init: 'V' }
+    var role = ROLE[t.employee?.role] || { name: 'Sovexa', init: 'V' }
     var output = t.outputs && t.outputs[0]
     var summary = buildCardSummary(t, output)
 

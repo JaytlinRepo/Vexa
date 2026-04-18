@@ -1,4 +1,4 @@
-/* Vexa — monthly scorecard card on the dashboard.
+/* Sovexa — monthly scorecard card on the dashboard.
  *
  * Pulls /api/company/scorecard. Shows three things the CEO cares about at
  * renewal time: outputs shipped this month, approval rate on that work,

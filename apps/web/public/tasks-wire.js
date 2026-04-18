@@ -1,4 +1,4 @@
-/* Vexa — task list + approve/reject wiring
+/* Sovexa — task list + approve/reject wiring
  *
  * After dashboard-wire.js enters the dashboard, swap the static "Recent
  * activity" rows for real tasks from /api/tasks. Wire each row's action
@@ -71,7 +71,7 @@
       const row = document.createElement('div')
       row.className = 'task-row'
       row.dataset.taskId = t.id
-      const name = t.employee?.name || 'Vexa'
+      const name = t.employee?.name || 'Sovexa'
       const color = EMP_COLOR[name] || '#ffffff'
       const initial = name.charAt(0)
       const actionable = t.status === 'delivered'

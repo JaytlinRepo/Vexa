@@ -8,18 +8,18 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 
-export class VexaStack extends cdk.Stack {
+export class SovexaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props)
 
     // ── VPC ────────────────────────────────────────────────────────────────────
-    const vpc = new ec2.Vpc(this, 'VexaVPC', {
+    const vpc = new ec2.Vpc(this, 'SovexaVPC', {
       maxAzs: 2,
       natGateways: 1,
     })
 
     // ── COGNITO USER POOL ──────────────────────────────────────────────────────
-    const userPool = new cognito.UserPool(this, 'VexaUserPool', {
+    const userPool = new cognito.UserPool(this, 'SovexaUserPool', {
       userPoolName: 'vexa-users',
       selfSignUpEnabled: true,
       signInAliases: { email: true },
@@ -39,7 +39,7 @@ export class VexaStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     })
 
-    const userPoolClient = new cognito.UserPoolClient(this, 'VexaUserPoolClient', {
+    const userPoolClient = new cognito.UserPoolClient(this, 'SovexaUserPoolClient', {
       userPool,
       generateSecret: false,
       authFlows: {
@@ -59,10 +59,10 @@ export class VexaStack extends cdk.Stack {
     // ── RDS POSTGRESQL ─────────────────────────────────────────────────────────
     const dbSecurityGroup = new ec2.SecurityGroup(this, 'DBSecurityGroup', {
       vpc,
-      description: 'Vexa RDS Security Group',
+      description: 'Sovexa RDS Security Group',
     })
 
-    const database = new rds.DatabaseInstance(this, 'VexaDatabase', {
+    const database = new rds.DatabaseInstance(this, 'SovexaDatabase', {
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_15_4,
       }),
@@ -78,7 +78,7 @@ export class VexaStack extends cdk.Stack {
     })
 
     // ── S3 BUCKET (outputs + video assets) ────────────────────────────────────
-    const outputsBucket = new s3.Bucket(this, 'VexaOutputsBucket', {
+    const outputsBucket = new s3.Bucket(this, 'SovexaOutputsBucket', {
       bucketName: 'vexa-outputs',
       versioned: false,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -94,7 +94,7 @@ export class VexaStack extends cdk.Stack {
     })
 
     // ── LAMBDA EXECUTION ROLE ─────────────────────────────────────────────────
-    const lambdaRole = new iam.Role(this, 'VexaLambdaRole', {
+    const lambdaRole = new iam.Role(this, 'SovexaLambdaRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
@@ -117,7 +117,7 @@ export class VexaStack extends cdk.Stack {
     outputsBucket.grantReadWrite(lambdaRole)
 
     // ── API LAMBDA ────────────────────────────────────────────────────────────
-    const apiLambda = new lambda.Function(this, 'VexaApiLambda', {
+    const apiLambda = new lambda.Function(this, 'SovexaApiLambda', {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'index.handler',
       code: lambda.Code.fromAsset('../apps/api/dist'),
@@ -137,9 +137,9 @@ export class VexaStack extends cdk.Stack {
     })
 
     // ── API GATEWAY ───────────────────────────────────────────────────────────
-    const api = new apigateway.RestApi(this, 'VexaApi', {
-      restApiName: 'Vexa API',
-      description: 'Vexa content company OS API',
+    const api = new apigateway.RestApi(this, 'SovexaApi', {
+      restApiName: 'Sovexa API',
+      description: 'Sovexa content company OS API',
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,

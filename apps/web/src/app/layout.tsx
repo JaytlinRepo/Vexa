@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import VexaThemeBridge from './VexaThemeBridge'
+import SovexaThemeBridge from './SovexaThemeBridge'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Vexa — Your AI Content Team',
+  title: 'Sovexa — Your AI Content Team',
   description: 'AI employees. Zero management overhead. Your content team starts working the moment you sign up.',
 }
 
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}</Script>
       </head>
       <body>
-        <VexaThemeBridge />
+        <SovexaThemeBridge />
         {children}
       </body>
     </html>

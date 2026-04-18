@@ -1,4 +1,4 @@
-/* Vexa — insights charts driven by real Instagram data.
+/* Sovexa — insights charts driven by real Instagram data.
  * Re-renders every chart card in the Performance Insights section off the
  * stub that /api/instagram/insights returns (same shape as the Graph API).
  */

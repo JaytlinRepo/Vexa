@@ -1,4 +1,4 @@
-/* Vexa — settings page: prefill inputs from /api/company/me, wire save
+/* Sovexa — settings page: prefill inputs from /api/company/me, wire save
  * buttons to PATCH /api/company/:id (plus user-level email/name fields).
  */
 ;(function () {
@@ -146,7 +146,7 @@
       } else if (isActive) {
         statusEl.innerHTML = '<span style="color:#34d27a">' + sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) + ' Plan</span> — Active'
       } else if (isCanceled) {
-        statusEl.innerHTML = '<span style="color:#e87a7a">Canceled</span> — subscribe to continue using Vexa'
+        statusEl.innerHTML = '<span style="color:#e87a7a">Canceled</span> — subscribe to continue using Sovexa'
       } else if (isPastDue) {
         statusEl.innerHTML = '<span style="color:#e87a7a">Payment failed</span> — update your payment method'
       }

@@ -1,4 +1,4 @@
-/* Vexa — dashboard v2
+/* Sovexa — dashboard v2
  *
  * Replaces everything inside #view-db-dashboard with a single clean,
  * purposeful layout. All data comes from the same endpoints; the goal is
@@ -790,7 +790,7 @@
   }
 
   function reviewNotif(t) {
-    const role = ROLE[t.employee?.role] || { name: 'Vexa', init: 'V' }
+    const role = ROLE[t.employee?.role] || { name: 'Sovexa', init: 'V' }
     return '<div data-task-id="' + t.id + '" class="vx-dcard" style="background:var(--s1);padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background=\'var(--s2)\'" onmouseleave="this.style.background=\'var(--s1)\'">'
       + '<div style="width:30px;height:30px;border-radius:8px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:\'Syne\',sans-serif;flex-shrink:0">' + role.init + '</div>'
       + '<div style="flex:1;min-width:0">'
@@ -2047,7 +2047,7 @@
     }
 
     var t = toastQueue[0]
-    var role = ROLE[t.employee?.role] || { name: 'Vexa', title: 'Agent', init: 'V' }
+    var role = ROLE[t.employee?.role] || { name: 'Sovexa', title: 'Agent', init: 'V' }
     var preview = buildToastPreview(t)
     var counter = toastQueue.length > 1 ? '<span style="color:var(--t3);font-size:10px;margin-left:8px">' + toastQueue.length + ' unread</span>' : ''
 

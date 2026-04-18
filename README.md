@@ -1,16 +1,16 @@
-# Vexa — AI Content Company OS
+# Sovexa — AI Content Company OS
 
 > Your content. Run by a team.
 
-Vexa is a SaaS platform that gives every content creator a full AI workforce — a Trend Analyst, Content Strategist, Copywriter, and Creative Director — that specializes in their niche, learns their brand, and delivers real structured work every day. You are the CEO. You approve, redirect, and call meetings. Your team does everything else.
+Sovexa is a SaaS platform that gives every content creator a full AI workforce — a Trend Analyst, Content Strategist, Copywriter, and Creative Director — that specializes in their niche, learns their brand, and delivers real structured work every day. You are the CEO. You approve, redirect, and call meetings. Your team does everything else.
 
 ---
 
-## What Makes Vexa Different
+## What Makes Sovexa Different
 
-Most AI tools make you the prompt engineer — you still do all the thinking. Vexa inverts that. Your employees proactively deliver work without being asked. You respond to their outputs using action buttons. The only place you type freely is in a Meeting.
+Most AI tools make you the prompt engineer — you still do all the thinking. Sovexa inverts that. Your employees proactively deliver work without being asked. You respond to their outputs using action buttons. The only place you type freely is in a Meeting.
 
-| Other AI tools | Vexa |
+| Other AI tools | Sovexa |
 |---|---|
 | You write the prompt | Employees deliver work |
 | Generic outputs | Deep niche specialization |
@@ -159,8 +159,8 @@ vexa/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/JaytlinRepo/Vexa.git
-cd Vexa
+git clone https://github.com/JaytlinRepo/Sovexa.git
+cd Sovexa
 npm install
 ```
 

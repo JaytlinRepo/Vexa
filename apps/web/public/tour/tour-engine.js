@@ -1,4 +1,4 @@
-// Vexa onboarding tour — automatic cinematic spotlight
+// Sovexa onboarding tour — automatic cinematic spotlight
 // Panels are appended directly to body (no wrapper overlay that blocks content)
 
 ;(function () {
@@ -213,13 +213,13 @@
   })
 
   // Public API
-  window.launchVexaTour = function() { step=0; render() }
+  window.launchSovexaTour = function() { step=0; render() }
 
   // Auto-launch for new users
   function autoLaunch() {
     if (localStorage.getItem('vx-tour-done')==='1') return
     if (localStorage.getItem('vx-authed')!=='1') return
-    setTimeout(window.launchVexaTour, 2500)
+    setTimeout(window.launchSovexaTour, 2500)
   }
   if (document.readyState!=='loading') autoLaunch()
   else document.addEventListener('DOMContentLoaded', autoLaunch)

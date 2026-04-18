@@ -1,4 +1,4 @@
-/* Theme: root layout (theme-dark-default.js + VexaThemeBridge.tsx) owns
+/* Theme: root layout (theme-dark-default.js + SovexaThemeBridge.tsx) owns
    data-theme and window.toggleTheme so hydration cannot clobber the toggle. */
 
 /* ── GUARD — the script can be re-evaluated by dev HMR or a <Script> remount.
@@ -730,7 +730,7 @@ document.addEventListener('keydown',e=>{
 })
 
 // Sidebar logo: welcome when logged out; auth-ui replaces with /api/auth/me.
-window.navigateVexaLogo = function () {
+window.navigateSovexaLogo = function () {
   if (typeof isLoggedIn !== 'undefined' && isLoggedIn) navigate('db-dashboard')
   else navigate('home')
 }

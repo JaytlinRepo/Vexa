@@ -1,4 +1,4 @@
-/* Vexa — meeting room streaming client
+/* Sovexa — meeting room streaming client
  *
  * Replaces the prototype's mrSendBtn canned-response with a real streaming call
  * to /api/meeting/reply. Streams tokens into the latest message bubble in real

@@ -1,4 +1,4 @@
-/* Vexa — dashboard data wiring
+/* Sovexa — dashboard data wiring
  *
  * Runs after prototype.js + auth-ui.js. On load, tries to restore the session
  * and jump straight to the dashboard with real data. Also overrides

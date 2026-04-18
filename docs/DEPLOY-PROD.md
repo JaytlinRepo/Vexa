@@ -1,4 +1,4 @@
-# Vexa — PRODUCTION STACK (AWS)
+# Sovexa — PRODUCTION STACK (AWS)
 
 > ⚠️ **Not yet deployed.** This is the planned production architecture.
 > Test/preview stack lives at [DEPLOY-TEST.md](./DEPLOY-TEST.md) and is

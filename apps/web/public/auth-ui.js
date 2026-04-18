@@ -1,4 +1,4 @@
-/* Vexa — auth + extended onboarding + Instagram connect
+/* Sovexa — auth + extended onboarding + Instagram connect
  *
  * Injected alongside prototype.js. Replaces mock startOnboarding / showLogin /
  * obNext / enterDashboard so they hit the real API. Keeps body.html untouched.
@@ -220,8 +220,8 @@
     return res.json()
   }
 
-  // Sidebar "Vexa" title: dashboard when session exists, else marketing home.
-  window.navigateVexaLogo = async function () {
+  // Sidebar "Sovexa" title: dashboard when session exists, else marketing home.
+  window.navigateSovexaLogo = async function () {
     const me = await fetchMe()
     if (me?.user?.id) {
       if (typeof window.navigate === 'function') window.navigate('db-dashboard')

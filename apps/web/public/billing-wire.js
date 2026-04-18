@@ -1,4 +1,4 @@
-/* Vexa — billing & usage UI
+/* Sovexa — billing & usage UI
  *
  * Adds a Plan + Usage card to the dashboard (renders under quick stats) and
  * surfaces trial countdown / auto-renew status. Reads GET /api/usage.

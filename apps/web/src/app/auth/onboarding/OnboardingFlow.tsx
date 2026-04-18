@@ -134,7 +134,7 @@ export default function OnboardingFlow() {
 
       {/* Logo */}
       <div style={{ marginBottom: 48, fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>
-        Vexa
+        Sovexa
       </div>
 
       {/* Progress bar */}
@@ -156,7 +156,7 @@ export default function OnboardingFlow() {
       <div style={{ width: '100%', maxWidth: 520 }}>
 
         {step === 1 && (
-          <StepWrapper title="Name your company." sub="This is the brand Vexa will build content for.">
+          <StepWrapper title="Name your company." sub="This is the brand Sovexa will build content for.">
             <input
               autoFocus
               value={data.companyName}

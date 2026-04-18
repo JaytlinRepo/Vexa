@@ -14,7 +14,7 @@ import { Resend } from 'resend'
 import { EMPLOYEE_CONFIGS, EmployeeRole } from '@vexa/types'
 
 const resend = new Resend(process.env.RESEND_API_KEY || '')
-const FROM = 'Vexa <team@sovexa.ai>'
+const FROM = 'Sovexa <team@sovexa.ai>'
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.sovexa.ai'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function baseTemplate(content: string, preheader = ''): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vexa</title>
+<title>Sovexa</title>
 </head>
 <body style="margin:0;padding:0;background:#0a0a0a;font-family:'DM Sans',Helvetica,Arial,sans-serif">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden">${preheader}</div>` : ''}
@@ -43,7 +43,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden">${preheade
 
       <!-- LOGO -->
       <tr><td style="padding-bottom:32px">
-        <span style="font-family:Georgia,serif;font-size:24px;font-weight:bold;color:#f5f5f5;letter-spacing:-1px">Vexa</span>
+        <span style="font-family:Georgia,serif;font-size:24px;font-weight:bold;color:#f5f5f5;letter-spacing:-1px">Sovexa</span>
       </td></tr>
 
       <!-- CONTENT -->
@@ -54,7 +54,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden">${preheade
       <!-- FOOTER -->
       <tr><td style="padding-top:32px;text-align:center">
         <p style="color:#555;font-size:12px;margin:0">
-          © 2025 Vexa · <a href="${BASE_URL}/settings" style="color:#555">Manage notifications</a> · <a href="%unsubscribe_url%" style="color:#555">Unsubscribe</a>
+          © 2025 Sovexa · <a href="${BASE_URL}/settings" style="color:#555">Manage notifications</a> · <a href="%unsubscribe_url%" style="color:#555">Unsubscribe</a>
         </p>
       </td></tr>
 
@@ -96,7 +96,7 @@ export async function sendWelcomeEmail(params: {
   const { to, firstName, companyName, niche } = params
 
   const content = `
-    ${h1(`Welcome to Vexa, ${firstName}.`)}
+    ${h1(`Welcome to Sovexa, ${firstName}.`)}
     ${p(`Your content company <strong style="color:#f5f5f5">${companyName}</strong> is live. Your team knows your niche and they're already at work.`)}
     ${divider()}
     <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.08em">Your team</p>
@@ -270,7 +270,7 @@ export async function sendTrialEndingEmail(params: {
 
   return send({
     to,
-    subject: daysLeft === 1 ? `Your Vexa trial ends tomorrow` : `${daysLeft} days left — keep your team`,
+    subject: daysLeft === 1 ? `Your Sovexa trial ends tomorrow` : `${daysLeft} days left — keep your team`,
     html: baseTemplate(content, `Your team has been busy. Don't let the momentum stop.`),
   })
 }

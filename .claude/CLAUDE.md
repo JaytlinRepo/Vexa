@@ -1,7 +1,7 @@
 # VEXA — Claude Code Master Instructions
 
-## What is Vexa?
-Vexa is a SaaS platform that gives content creators an AI-powered content team.
+## What is Sovexa?
+Sovexa is a SaaS platform that gives content creators an AI-powered content team.
 Users are CEOs. They manage AI employees who plan, write, and produce social media content.
 
 This is NOT a chatbot product. It is a structured workforce simulation platform.

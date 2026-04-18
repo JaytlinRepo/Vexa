@@ -1,4 +1,4 @@
-/* Vexa — marketing footer.
+/* Sovexa — marketing footer.
  *
  * Injects a consistent footer into every marketing view (home, team,
  * how, outputs, knowledge, pricing, faq). Each .view is its own
@@ -22,7 +22,7 @@
       <footer class="vx-footer">
         <div class="vx-footer-grid">
           <div class="vx-footer-brand">
-            <div class="vx-footer-mark">Vexa</div>
+            <div class="vx-footer-mark">Sovexa</div>
             <p class="vx-footer-tag">Your content. Run by a team.</p>
             <p class="vx-footer-mini">Four AI specialists — analyst, strategist, copywriter, creative director — that plan, write, and produce content for your brand.</p>
           </div>
@@ -54,7 +54,7 @@
         </div>
 
         <div class="vx-footer-bottom">
-          <div class="vx-footer-copy">© ${YEAR} Vexa. Built for content businesses.</div>
+          <div class="vx-footer-copy">© ${YEAR} Sovexa. Built for content businesses.</div>
           <div class="vx-footer-meta">v1.0 · made for creators</div>
         </div>
       </footer>
@@ -103,8 +103,8 @@
     const titles = { terms: 'Terms of Service', privacy: 'Privacy Policy', security: 'Security' }
     const bodies = {
       terms: 'Terms of Service · placeholder. The full document is in legal review and ships with public launch. Reach out at hello@sovexa.ai if you need it sooner — we can share the draft on request.',
-      privacy: 'Privacy Policy · placeholder. We collect the minimum needed to run your AI content team: account, brand workspace data, social-platform data you connect via Phyllo. We never sell your data and never share it with other Vexa users. Full document at public launch.',
-      security: 'Security · placeholder. All data is encrypted at rest (PostgreSQL) and in transit (TLS). Phyllo holds OAuth tokens — Vexa never sees your social passwords. Full doc at public launch.',
+      privacy: 'Privacy Policy · placeholder. We collect the minimum needed to run your AI content team: account, brand workspace data, social-platform data you connect via Phyllo. We never sell your data and never share it with other Sovexa users. Full document at public launch.',
+      security: 'Security · placeholder. All data is encrypted at rest (PostgreSQL) and in transit (TLS). Phyllo holds OAuth tokens — Sovexa never sees your social passwords. Full doc at public launch.',
     }
     const el = document.createElement('div')
     el.id = 'vx-legal-modal'

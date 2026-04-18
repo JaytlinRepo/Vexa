@@ -1,10 +1,10 @@
-// Vexa onboarding tour steps — adapted for the AI content team dashboard
+// Sovexa onboarding tour steps — adapted for the AI content team dashboard
 window.VEXA_TOUR_STEPS = [
   {
     id: 'welcome',
     target: null,
     page: 'dashboard',
-    eyebrow: 'Welcome to Vexa',
+    eyebrow: 'Welcome to Sovexa',
     title: 'Your AI\ncontent team.',
     body: 'Four specialists. Zero management overhead. They analyze, plan, write, and direct — you make the final call.',
     cta: 'Meet the team',
@@ -52,6 +52,6 @@ window.VEXA_TOUR_STEPS = [
     eyebrow: 'Step 5 of 5',
     title: 'You\'re the CEO.\nThey do the work.',
     body: 'Your team is already analyzing your accounts and building your first content plan. Check your inbox in the morning.',
-    cta: 'Enter Vexa',
+    cta: 'Enter Sovexa',
   },
 ]

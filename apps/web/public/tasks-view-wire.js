@@ -1,4 +1,4 @@
-/* Vexa — tasks page (#view-db-tasks): render the full list with filter tabs.
+/* Sovexa — tasks page (#view-db-tasks): render the full list with filter tabs.
  * Replaces the static .out-card entries in #tasks-list-view with a live render
  * off GET /api/tasks, grouped by status with clickable filter tabs.
  */
@@ -58,7 +58,7 @@
   }
 
   function taskCard(t) {
-    const emp = t.employee?.name || 'Vexa'
+    const emp = t.employee?.name || 'Sovexa'
     const actionable = t.status === 'delivered'
     return `
       <div class="out-card" data-task-id="${t.id}" data-status="${t.status}">

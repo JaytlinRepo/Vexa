@@ -1,4 +1,4 @@
-# Vexa — TEST PREVIEW STACK
+# Sovexa — TEST PREVIEW STACK
 
 > ⚠️ **This is the test/preview stack.** Free-tier hosts, throwaway
 > databases, Phyllo's staging API. NOT production — do NOT route real
@@ -32,7 +32,7 @@ container runs `prisma db push` on start).
 ## 2 · Railway API (15 min)
 
 1. Sign up at https://railway.app (GitHub auth).
-2. Click **New Project → Deploy from GitHub repo** → pick the Vexa repo.
+2. Click **New Project → Deploy from GitHub repo** → pick the Sovexa repo.
 3. When prompted, choose **Add a service from a Dockerfile** with the
    path `apps/api/Dockerfile` and **build context** set to the repo root.
 4. Under **Variables**, add at minimum:
@@ -56,7 +56,7 @@ container runs `prisma db push` on start).
 ## 3 · Vercel Web (10 min)
 
 1. Sign up at https://vercel.com (GitHub auth).
-2. **Add New → Project** → import the Vexa repo.
+2. **Add New → Project** → import the Sovexa repo.
 3. Set **Root Directory** to `apps/web`.
 4. Framework preset auto-detects as **Next.js**. Don't override
    build/install commands — the `vercel.json` in `apps/web` handles

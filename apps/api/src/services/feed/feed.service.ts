@@ -283,7 +283,7 @@ async function fetchSingleRSS(
 ): Promise<FeedItem[]> {
   const response = await axios.get(url, {
     timeout: 6000,
-    headers: { 'User-Agent': 'Vexa/1.0 (content aggregator)' },
+    headers: { 'User-Agent': 'Sovexa/1.0 (content aggregator)' },
   })
 
   const parsed = await xml2js.parseStringPromise(response.data, { explicitArray: false })
@@ -336,7 +336,7 @@ async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedIte
   const sub = subreddit.replace('r/', '')
   const response = await axios.get(`https://www.reddit.com/r/${sub}/hot.json?limit=5`, {
     timeout: 6000,
-    headers: { 'User-Agent': 'Vexa/1.0' },
+    headers: { 'User-Agent': 'Sovexa/1.0' },
   })
 
   const posts = response.data?.data?.children || []

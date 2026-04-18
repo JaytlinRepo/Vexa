@@ -1,4 +1,4 @@
-/* Vexa — Phyllo Connect integration.
+/* Sovexa — Phyllo Connect integration.
  *
  * Exposes window.vxPhylloConnect(companyId?) which:
  *   1. Fetches a short-lived SDK token from /api/phyllo/sdk-token
@@ -87,7 +87,7 @@
         throw new Error('phyllo_sdk_missing_initialize')
       }
       const phyllo = PhylloConnect.initialize({
-        clientDisplayName: 'Vexa',
+        clientDisplayName: 'Sovexa',
         environment: token.environment || 'staging',
         userId: token.phylloUserId,
         token: token.sdkToken,
@@ -507,7 +507,7 @@
             parts.push('syncing data…')
           }
         } else {
-          parts.push('data not pulled into Vexa yet')
+          parts.push('data not pulled into Sovexa yet')
         }
         detail = parts.map(escapeHtml).join(' · ')
       }

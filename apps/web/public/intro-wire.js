@@ -1,4 +1,4 @@
-/* Vexa intro — plays the cinematic demo as a full-screen overlay on first visit,
+/* Sovexa intro — plays the cinematic demo as a full-screen overlay on first visit,
  * then seamlessly dissolves into the real home page.
  *
  * Only shows for non-authed visitors who haven't seen it this session.

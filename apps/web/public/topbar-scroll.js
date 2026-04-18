@@ -1,4 +1,4 @@
-/* Vexa — top bar scroll: HG-style floating “island” morph. Uses scroll position
+/* Sovexa — top bar scroll: HG-style floating “island” morph. Uses scroll position
  * over a long range (not a hard threshold) + rAF smoothing so the transition
  * feels continuous. Dashboard views skip the morph. Scroll: `.view` or `main`.
  */

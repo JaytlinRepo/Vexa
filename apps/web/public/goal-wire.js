@@ -1,4 +1,4 @@
-/* Vexa — metric goal + pacing card on the dashboard.
+/* Sovexa — metric goal + pacing card on the dashboard.
  *
  * Goals are picked by Jordan, not the CEO. The CEO's only actions are
  * "Have Jordan pick one," "Try another," and "Clear." This removes the

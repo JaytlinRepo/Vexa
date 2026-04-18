@@ -1,4 +1,4 @@
-/* Vexa — Apple-style scroll reveals + ambient hero parallax.
+/* Sovexa — Apple-style scroll reveals + ambient hero parallax.
  *
  * - IntersectionObserver auto-tags a curated list of selectors with
  *   `vx-reveal` and flips to `.is-in` when they scroll into view. One-shot

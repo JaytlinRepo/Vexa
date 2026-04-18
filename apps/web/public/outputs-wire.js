@@ -1,4 +1,4 @@
-/* Vexa — outputs library (#view-db-outputs): render every Output record as a
+/* Sovexa — outputs library (#view-db-outputs): render every Output record as a
  * card, with a type filter that re-queries the API.
  */
 ;(function () {
@@ -52,7 +52,7 @@
   }
 
   function cardHTML(o) {
-    const emp = o.employee?.name || 'Vexa'
+    const emp = o.employee?.name || 'Sovexa'
     const title = o.task?.title || TYPE_LABEL[o.type] || 'Output'
     const badge = o.status || 'draft'
     return `

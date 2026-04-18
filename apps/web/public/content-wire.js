@@ -1,4 +1,4 @@
-/* Vexa — Content tab: upload media for Riley review + CEO approve/override.
+/* Sovexa — Content tab: upload media for Riley review + CEO approve/override.
  *
  * Shows:
  *  - Upload zone (drag-drop or click)

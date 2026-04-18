@@ -1,4 +1,4 @@
-/* Vexa — contact form wiring.
+/* Sovexa — contact form wiring.
  *
  * Submits #vx-contact-form to POST /api/contact. If the endpoint is missing
  * or errors, the UI still shows the success panel — we'd rather tell the

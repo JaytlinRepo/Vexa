@@ -1,4 +1,4 @@
-/* Vexa — knowledge feed: render real items from /api/feed into the two feed
+/* Sovexa — knowledge feed: render real items from /api/feed into the two feed
  * grids (#mkt-feed-grid and #db-feed-grid). Keeps the prototype's switchFeed
  * tab filter working by setting data-type / data-type2 attributes on each
  * rendered card.

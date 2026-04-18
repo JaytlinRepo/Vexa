@@ -1,4 +1,4 @@
-# Vexa stacks — test vs production
+# Sovexa stacks — test vs production
 
 Two completely separate deployments. Same code, different infrastructure.
 

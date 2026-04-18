@@ -1,4 +1,4 @@
-/* Vexa — keep the tasks calendar in sync with real work.
+/* Sovexa — keep the tasks calendar in sync with real work.
  *
  * Merges GET /api/tasks into window.calEntries (alongside demo + user ideas)
  * and adds meeting recaps. Entries we own use ids prefixed with vx-task-,
@@ -77,7 +77,7 @@
     const out = []
     const role = t.employee?.role
     const who = ROLE_WHO[role] || 'jordan'
-    const label = WHO_LABEL[who] || 'Vexa'
+    const label = WHO_LABEL[who] || 'Sovexa'
     const typeLabel = TYPE_CAL[t.type] || String(t.type || 'Task').replace(/_/g, ' ')
     const titleBase = (t.title || 'Task').slice(0, 80)
 
@@ -128,7 +128,7 @@
   }
 
   /** Drop task/plan rows we regenerate; keep meeting recaps (vx-mtg-) and demo/user rows. */
-  function stripVexaGenerated(entries) {
+  function stripSovexaGenerated(entries) {
     return entries.filter((e) => {
       const id = String(e.id || '')
       return !(id.startsWith('vx-task-') || id.startsWith('vx-plan-'))
@@ -161,7 +161,7 @@
 
     fetchTasks()
       .then((tasks) => {
-        const preserved = stripVexaGenerated(list)
+        const preserved = stripSovexaGenerated(list)
         const byTaskId = new Map()
         for (const t of tasks) {
           if (t && t.id && !byTaskId.has(t.id)) byTaskId.set(t.id, t)
@@ -196,7 +196,7 @@
     if (!Array.isArray(list)) return
     const { name, employeeRole, summary } = opts
     const who = ROLE_WHO[employeeRole] || 'jordan'
-    const label = WHO_LABEL[who] || name || 'Vexa'
+    const label = WHO_LABEL[who] || name || 'Sovexa'
     const title = (summary || 'Team meeting').replace(/\s+/g, ' ').trim().slice(0, 72) || 'Meeting recap'
     list.push({
       id: `vx-mtg-${Date.now()}`,

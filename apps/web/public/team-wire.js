@@ -1,4 +1,4 @@
-/* Vexa — team page: render real per-employee status into #view-db-team.
+/* Sovexa — team page: render real per-employee status into #view-db-team.
  * Each of the four employee cards shows the most recent task's title +
  * a status pill derived from that task's state.
  */

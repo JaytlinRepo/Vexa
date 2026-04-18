@@ -157,7 +157,7 @@ router.get('/debug', requireAuth, async (req, res, next) => {
       accountTypeReported: igAccount.account_type ?? null,
       diagnosis: reasons.length ? reasons : ['Looks healthy — full data should be flowing.'],
       remediation: [
-        'If account is PERSONAL on Meta\'s side: switch to Professional (Settings → Account → Switch to Professional Account), then disconnect and reconnect on Vexa.',
+        'If account is PERSONAL on Meta\'s side: switch to Professional (Settings → Account → Switch to Professional Account), then disconnect and reconnect on Sovexa.',
         'If just switched to Professional: wait 24-48h for Meta to propagate insights, then trigger Resync from Settings → Integrations.',
         'If consent was skipped: disconnect, reconnect, and accept ALL permissions on the Meta consent screen.',
       ],

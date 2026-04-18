@@ -1,5 +1,5 @@
 /**
- * Seed Vexa's niche knowledge base.
+ * Seed Sovexa's niche knowledge base.
  *
  * Run: `npm run seed:knowledge` (after adding the script to package.json)
  * or directly: `tsx scripts/seed-niche-knowledge.ts`
