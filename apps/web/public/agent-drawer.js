@@ -18,11 +18,11 @@
       personality: 'Data-driven and precise. References numbers, spots patterns, and delivers insights with urgency.',
       schedule: 'Delivers a weekly pulse every Monday at 9am automatically. Scans your niche daily.',
       services: [
-        { kind: 'weekly_trends', label: 'Weekly Trends', desc: 'What\'s rising in your niche right now — growth %, urgency, and suggested hooks.', type: 'trend_analysis' },
-        { kind: 'competitor_scan', label: 'Competitor Scan', desc: 'What competitors are doing, what\'s working for them, and where you can win.', type: 'trend_analysis' },
-        { kind: 'audience_deep_dive', label: 'Audience Deep Dive', desc: 'Who your audience really is — demographics, peak times, and what they engage with.', type: 'trend_analysis' },
-        { kind: 'hashtag_report', label: 'Hashtag Strategy', desc: 'Big, mid, and small hashtag buckets optimized for your niche and audience size.', type: 'trend_analysis' },
-        { kind: 'engagement_diagnosis', label: 'Engagement Diagnosis', desc: 'Why your engagement dropped and exactly what to fix.', type: 'performance_review' },
+        { kind: 'weekly_trends', label: 'Weekly Trends', desc: 'What\'s rising in your content space right now — growth %, urgency, and what to act on.', type: 'trend_analysis', requires: 'platform' },
+        { kind: 'competitor_scan', label: 'Competitor Scan', desc: 'What competitors are doing, what\'s working for them, and where you can win.', type: 'trend_analysis', requires: 'competitors' },
+        { kind: 'audience_deep_dive', label: 'Audience Deep Dive', desc: 'Who your audience really is — demographics, peak times, and what they engage with.', type: 'trend_analysis', requires: 'audience' },
+        { kind: 'hashtag_report', label: 'Hashtag Strategy', desc: 'Big, mid, and small hashtag buckets optimized for your content and audience size.', type: 'trend_analysis', requires: 'platform' },
+        { kind: 'engagement_diagnosis', label: 'Engagement Diagnosis', desc: 'Why your engagement shifted and exactly what to do about it.', type: 'performance_review', requires: 'platform' },
       ],
     },
     strategist: {
@@ -33,11 +33,11 @@
       personality: 'Calm and organized. Thinks in systems, frameworks, and long-term growth. Plans your content week by week.',
       schedule: 'Delivers a weekly content plan every Sunday at 7pm. Audits and adjusts mid-week automatically.',
       services: [
-        { kind: 'weekly_plan', label: 'Weekly Plan', desc: 'A full week of content — formats, topics, angles, and timing. Ready to approve.', type: 'content_planning' },
-        { kind: 'pillar_rebuild', label: 'Pillar Rebuild', desc: 'Rebuild your content pillars from scratch. What to keep, what to kill, what to start.', type: 'content_planning' },
-        { kind: 'cadence_plan', label: 'Posting Cadence', desc: 'When to post, how often, and which formats — optimized for your audience.', type: 'content_planning' },
-        { kind: 'ninety_day_plan', label: '90-Day Plan', desc: 'Three months mapped out — themes, goals, and must-ship content per month.', type: 'content_planning' },
-        { kind: 'slot_audit', label: 'Slot Audit', desc: 'Find your 2 weakest content slots and replace them with higher-performing formats.', type: 'content_planning' },
+        { kind: 'weekly_plan', label: 'Weekly Plan', desc: 'A full week of content — formats, topics, angles, and timing. Ready to approve.', type: 'content_planning', requires: 'platform' },
+        { kind: 'pillar_rebuild', label: 'Pillar Rebuild', desc: 'Rebuild your content pillars from scratch. What to keep, what to kill, what to start.', type: 'content_planning', requires: 'platform' },
+        { kind: 'cadence_plan', label: 'Posting Cadence', desc: 'When to post, how often, and which formats — optimized for your audience.', type: 'content_planning', requires: 'platform' },
+        { kind: 'ninety_day_plan', label: '90-Day Plan', desc: 'Three months mapped out — themes, goals, and must-ship content per month.', type: 'content_planning', requires: 'none' },
+        { kind: 'slot_audit', label: 'Slot Audit', desc: 'Find your 2 weakest content slots and replace them with higher-performing formats.', type: 'content_planning', requires: 'posts' },
       ],
     },
     copywriter: {
@@ -48,11 +48,11 @@
       personality: 'Creative, punchy, and opinionated. Pushes back on weak briefs. Tells you which hook is the one.',
       schedule: 'Auto-briefed when Jordan\'s plan is approved. Delivers hooks, scripts, and captions on demand.',
       services: [
-        { kind: 'top_trend_hooks', label: 'Trend Hooks', desc: '5 scroll-stopping hooks for the hottest trend in your niche. Includes Alex\'s pick.', type: 'hook_writing' },
-        { kind: 'reel_script_30s', label: '30s Reel Script', desc: 'Beat-by-beat script: hook, tension, reframe, payoff. Ready to film.', type: 'script_writing' },
-        { kind: 'caption_next_post', label: 'Caption', desc: 'Full ready-to-paste caption with CTA and line break strategy.', type: 'caption_writing' },
-        { kind: 'carousel_opening_lines', label: 'Carousel Openers', desc: '3 opening lines for slide 1. Alex tells you which one wins and why.', type: 'hook_writing' },
-        { kind: 'bio_rewrite', label: 'Bio Rewrite', desc: '3 bio options — outcome-first, identity-first, and punchy. With a recommendation.', type: 'caption_writing' },
+        { kind: 'top_trend_hooks', label: 'Trend Hooks', desc: '5 scroll-stopping hooks for what\'s trending right now. Includes Alex\'s pick.', type: 'hook_writing', requires: 'none' },
+        { kind: 'reel_script_30s', label: '30s Reel Script', desc: 'Beat-by-beat script: hook, tension, reframe, payoff. Ready to film.', type: 'script_writing', requires: 'none' },
+        { kind: 'caption_next_post', label: 'Caption', desc: 'Full ready-to-paste caption with CTA and line break strategy.', type: 'caption_writing', requires: 'none' },
+        { kind: 'carousel_opening_lines', label: 'Carousel Openers', desc: '3 opening lines for slide 1. Alex tells you which one wins and why.', type: 'hook_writing', requires: 'none' },
+        { kind: 'bio_rewrite', label: 'Bio Rewrite', desc: '3 bio options — outcome-first, identity-first, and punchy. With a recommendation.', type: 'caption_writing', requires: 'platform' },
       ],
     },
     creative_director: {
@@ -63,11 +63,11 @@
       personality: 'Visual thinker, detail-obsessed. Speaks in shots and scenes. Makes sure your content looks as good as it reads.',
       schedule: 'Auto-briefed when Alex\'s copy is approved. Audits your feed and format performance bi-weekly.',
       services: [
-        { kind: 'reel_shot_list', label: 'Shot List', desc: 'Exactly what to film — shots, duration, camera angles, audio notes, and pacing.', type: 'shot_list' },
-        { kind: 'pacing_notes', label: 'Pacing Notes', desc: 'Frame-by-frame timing so your video holds attention from start to finish.', type: 'shot_list' },
-        { kind: 'visual_direction', label: 'Visual Direction', desc: 'Scene composition, color, lighting, and energy for your next piece of content.', type: 'shot_list' },
-        { kind: 'thumbnail_brief', label: 'Thumbnail Brief', desc: 'First-frame optimization — what your video cover should look like to get clicks.', type: 'shot_list' },
-        { kind: 'fix_weak_reel', label: 'Fix a Weak Reel', desc: 'Specific edits to rescue underperforming content — trim, speed, mood, text overlays.', type: 'shot_list' },
+        { kind: 'reel_shot_list', label: 'Shot List', desc: 'Exactly what to film — shots, duration, camera angles, audio notes, and pacing.', type: 'shot_list', requires: 'none' },
+        { kind: 'pacing_notes', label: 'Pacing Notes', desc: 'Frame-by-frame timing so your video holds attention from start to finish.', type: 'shot_list', requires: 'none' },
+        { kind: 'visual_direction', label: 'Visual Direction', desc: 'Scene composition, color, lighting, and energy for your next piece of content.', type: 'shot_list', requires: 'none' },
+        { kind: 'thumbnail_brief', label: 'Thumbnail Brief', desc: 'First-frame optimization — what your video cover should look like to get clicks.', type: 'shot_list', requires: 'none' },
+        { kind: 'fix_weak_reel', label: 'Fix a Weak Reel', desc: 'Specific edits to rescue underperforming content — trim, speed, mood, text overlays.', type: 'shot_list', requires: 'posts' },
       ],
     },
   }
@@ -80,6 +80,25 @@
   }
 
   var DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  // Check if the user has the data needed for a service
+  function canFulfill(requires) {
+    if (!requires || requires === 'none') return true
+    var state = window.__vxDashState || {}
+    var hasPlatform = !!(state.tiktok || state.insights)
+    var hasPosts = !!(state.tasks && state.tasks.length > 0) || hasPlatform
+    var hasAudience = hasPlatform // audience comes with platform connect
+    // Competitor data requires external feeds — check if knowledge feed has data
+    var hasCompetitors = !!(state.feed && state.feed.length > 0)
+
+    switch (requires) {
+      case 'platform': return hasPlatform
+      case 'posts': return hasPosts
+      case 'audience': return hasAudience
+      case 'competitors': return hasCompetitors
+      default: return true
+    }
+  }
 
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
 
@@ -180,7 +199,7 @@
       + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;font-weight:500">Meet with ' + esc(agent.name) + '</div>'
       + '<div style="font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:14px">Start a conversation about any of these topics. ' + esc(agent.name) + ' comes prepared with your data.</div>'
       + '<div style="display:flex;flex-direction:column;gap:6px">'
-      + agent.services.map(function (s) {
+      + agent.services.filter(function (s) { return canFulfill(s.requires) }).map(function (s) {
           return '<button data-vx-meeting-topic="' + s.kind + '" data-vx-role="' + role + '" data-vx-agent-name="' + esc(agent.name) + '" data-vx-agent-title="' + esc(agent.title) + '" data-vx-agent-init="' + agent.init + '" data-vx-topic-label="' + esc(s.label) + '" style="text-align:left;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;align-items:center;gap:12px">'
             + '<div style="flex:1">'
             + '<div style="font-size:12px;font-weight:500;color:var(--t1)">' + esc(s.label) + '</div>'
