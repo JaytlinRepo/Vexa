@@ -32,6 +32,7 @@ export default function PrototypeShell({ html }: { html: string }) {
         dangerouslySetInnerHTML={{ __html: processed }}
       />
       <Script src={v('/intro-wire.js')} strategy="beforeInteractive" />
+      <Script src={v('/waitlist.js')} strategy="afterInteractive" />
       <Script src={v('/prototype.js')} strategy="afterInteractive" />
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />
       <Script src={v('/auth-ui.js')} strategy="afterInteractive" />

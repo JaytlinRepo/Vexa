@@ -468,3 +468,13 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notifications")
 }
+
+model WaitlistEntry {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  source    String?  @default("website")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("waitlist")
+}
