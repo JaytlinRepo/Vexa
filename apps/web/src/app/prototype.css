@@ -517,7 +517,7 @@ input,textarea{cursor:text}
 .team-grid{display:flex;flex-direction:column;gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
 .team-row{
   background:var(--bg);
-  display:grid;grid-template-columns:180px 1fr auto;
+  display:grid;grid-template-columns:180px 1fr 200px;
   gap:0;transition:background .25s;
 }
 .team-row:hover{background:var(--s1)}

@@ -63,7 +63,7 @@
     + '<div style="display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
 
     // Maya
-    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
     + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">01</span></div>'
     + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Trend &amp; Insights Analyst</div>'
@@ -75,7 +75,7 @@
     + '</div>'
 
     // Jordan
-    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
     + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">02</span></div>'
     + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Content Strategist</div>'
@@ -87,7 +87,7 @@
     + '</div>'
 
     // Alex
-    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
     + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">03</span></div>'
     + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Copywriter &amp; Script Writer</div>'
@@ -99,7 +99,7 @@
     + '</div>'
 
     // Riley
-    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
     + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">04</span></div>'
     + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Creative Director</div>'
