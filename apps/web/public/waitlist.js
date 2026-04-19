@@ -59,9 +59,9 @@
     + '<div style="display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
 
     // Maya
-    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">01</span></div>'
-    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">01</span></div>'
+    + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Trend &amp; Insights Analyst</div>'
     + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Maya</div>'
     + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Monitors your niche daily across Reddit, news, research, and YouTube. Every Monday she delivers a trend report — what is rising, why it matters, what to make this week.</div>'
@@ -71,9 +71,9 @@
     + '</div>'
 
     // Jordan
-    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">02</span></div>'
-    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">02</span></div>'
+    + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Content Strategist</div>'
     + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Jordan</div>'
     + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Briefs Alex automatically once you approve.</div>'
@@ -83,9 +83,9 @@
     + '</div>'
 
     // Alex
-    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">03</span></div>'
-    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">03</span></div>'
+    + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Copywriter &amp; Script Writer</div>'
     + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Alex</div>'
     + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Has strong opinions about which hook is the right one.</div>'
@@ -95,9 +95,9 @@
     + '</div>'
 
     // Riley
-    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">04</span></div>'
-    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="display:grid;grid-template-columns:180px 1fr auto;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">04</span></div>'
+    + '<div style="padding:44px 48px">'
     + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Creative Director</div>'
     + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Riley</div>'
     + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use.</div>'
