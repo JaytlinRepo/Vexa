@@ -57,15 +57,80 @@
       }, 600)
     }
 
-    // If topic was provided, auto-send it as the first user message
-    // so the agent immediately starts working on it.
-    // Pacing: let the greeting breathe before the user "responds"
+    // If topic was provided, the agent presents findings directly —
+    // no user message needed. Maya greets, then delivers her analysis.
     if (topic) {
-      setTimeout(() => {
-        const inp = document.getElementById('mr-input-field')
-        if (inp) {
-          inp.value = 'Let\'s talk about ' + topic.toLowerCase() + '.'
-          window.mrSendBtn()
+      setTimeout(async () => {
+        const topicMsg = 'I want to discuss ' + topic.toLowerCase() + '. Show me what you have — present your findings.'
+        history.push({ role: 'user', content: topicMsg })
+
+        const msgs = document.getElementById('mr-msgs')
+        if (!msgs) return
+
+        // Add agent reply bubble
+        const replyDiv = document.createElement('div')
+        replyDiv.className = 'mr-msg'
+        replyDiv.style.cssText = 'opacity:0;transform:translateY(8px);transition:all .4s ease'
+        const bubble = document.createElement('div')
+        bubble.className = 'mr-bubble'
+        bubble.textContent = ''
+        replyDiv.appendChild(bubble)
+        msgs.appendChild(replyDiv)
+        requestAnimationFrame(() => {
+          replyDiv.style.opacity = '1'
+          replyDiv.style.transform = 'translateY(0)'
+        })
+
+        // Stream the agent's response
+        streaming = true
+        try {
+          const res = await fetch('/api/meeting/reply', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeRole: currentRole,
+              message: topicMsg,
+              history: [],
+            }),
+          })
+          if (!res.ok || !res.body) {
+            bubble.textContent = '(Could not reach the team right now — try again.)'
+            streaming = false
+            return
+          }
+          const reader = res.body.getReader()
+          const decoder = new TextDecoder('utf-8')
+          let buffer = ''
+          let assistantText = ''
+          while (true) {
+            const { value, done } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            let idx
+            while ((idx = buffer.indexOf('\n\n')) >= 0) {
+              const frame = buffer.slice(0, idx).trim()
+              buffer = buffer.slice(idx + 2)
+              if (!frame.startsWith('data:')) continue
+              const json = frame.slice(5).trim()
+              try {
+                const evt = JSON.parse(json)
+                if (evt.chunk) {
+                  assistantText += evt.chunk
+                  bubble.innerHTML = renderAgentMarkdown(assistantText)
+                  msgs.scrollTop = msgs.scrollHeight
+                } else if (evt.done) {
+                  history.push({ role: 'assistant', content: assistantText })
+                } else if (typeof evt.knowledgeCount === 'number') {
+                  renderKnowledgeBadge(evt.knowledgeCount, evt.niche, evt.memoryCount)
+                }
+              } catch {}
+            }
+          }
+        } catch {
+          bubble.textContent = '(Connection lost — try again.)'
+        } finally {
+          streaming = false
         }
       }, 2500)
     }
