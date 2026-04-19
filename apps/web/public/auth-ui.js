@@ -181,21 +181,8 @@
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'login_failed')
         authedUser = json.user
-        // Decide next screen based on whether the account already has a
-        // company. For onboarded users we reload rather than calling the
-        // enterDashboard wrapper chain directly — that chain is wrapped by
-        // 20+ companion scripts and at least one layer silently no-ops
-        // post-login so the nav never switches. The session-restore path
-        // (DOMContentLoaded → dashboard-wire init) is battle-tested and
-        // lands cleanly on the dashboard, so we take that path every time.
-        const me = await fetchMe()
-        if (me?.companies && me.companies.length > 0) {
-          try { localStorage.setItem('vx-authed', '1') } catch {}
-          location.reload()
-        } else {
-          window.closeAuth()
-          closeAuthAndStartOnboarding()
-        }
+        try { localStorage.setItem('vx-authed', '1') } catch {}
+        location.reload()
       }
     } catch (e) {
       console.error('[auth] login error:', e.message, e)
