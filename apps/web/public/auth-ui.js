@@ -75,11 +75,11 @@
         <label>Full name</label><input id="vx-signup-name" placeholder="Your name" autocomplete="name" />
         <label>Email</label><input id="vx-signup-email" type="email" placeholder="you@example.com" autocomplete="email" />
         <label>Username</label><input id="vx-signup-username" placeholder="pickahandle" autocomplete="username" />
-        <label>Password</label><input id="vx-signup-password" type="password" placeholder="8+ characters" autocomplete="new-password" />
+        <label>Password</label><div style="position:relative"><input id="vx-signup-password" type="password" placeholder="8+ characters" autocomplete="new-password" style="padding-right:44px" /><button type="button" class="vx-eye" data-target="vx-signup-password" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px;padding:4px">Show</button></div>
       </div>
       <div id="vx-auth-login" style="display:none">
         <label>Email or username</label><input id="vx-login-id" placeholder="you@example.com" autocomplete="username" />
-        <label>Password</label><input id="vx-login-password" type="password" autocomplete="current-password" />
+        <label>Password</label><div style="position:relative"><input id="vx-login-password" type="password" autocomplete="current-password" style="padding-right:44px" /><button type="button" class="vx-eye" data-target="vx-login-password" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px;padding:4px">Show</button></div>
       </div>
       <div class="vx-err" id="vx-auth-err"></div>
       <div class="vx-actions">
@@ -92,6 +92,17 @@
   authModal.id = 'vx-auth'
   authModal.innerHTML = authHtml
   document.body.appendChild(authModal)
+
+  // Password visibility toggles
+  authModal.querySelectorAll('.vx-eye').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var inp = document.getElementById(btn.dataset.target)
+      if (!inp) return
+      var showing = inp.type === 'text'
+      inp.type = showing ? 'password' : 'text'
+      btn.textContent = showing ? 'Show' : 'Hide'
+    })
+  })
 
   // Click the backdrop (outside the card) to close
   authModal.addEventListener('click', (e) => {
