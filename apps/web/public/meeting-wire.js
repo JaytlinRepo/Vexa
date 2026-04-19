@@ -42,15 +42,24 @@
 
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
-      msgs.innerHTML = `
-        <div class="mr-msg">
-          <div class="mr-bubble">${greeting}</div>
-        </div>
-      `
+      msgs.innerHTML = ''
+      // Agent enters the room — brief pause, then greeting appears
+      setTimeout(() => {
+        const msgDiv = document.createElement('div')
+        msgDiv.className = 'mr-msg'
+        msgDiv.style.cssText = 'opacity:0;transform:translateY(8px);transition:all .4s ease'
+        msgDiv.innerHTML = '<div class="mr-bubble">' + greeting + '</div>'
+        msgs.appendChild(msgDiv)
+        requestAnimationFrame(() => {
+          msgDiv.style.opacity = '1'
+          msgDiv.style.transform = 'translateY(0)'
+        })
+      }, 600)
     }
 
     // If topic was provided, auto-send it as the first user message
-    // so the agent immediately starts working on it
+    // so the agent immediately starts working on it.
+    // Pacing: let the greeting breathe before the user "responds"
     if (topic) {
       setTimeout(() => {
         const inp = document.getElementById('mr-input-field')
@@ -58,7 +67,7 @@
           inp.value = 'Let\'s talk about ' + topic.toLowerCase() + '.'
           window.mrSendBtn()
         }
-      }, 800)
+      }, 2500)
     }
 
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
