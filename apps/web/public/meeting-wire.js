@@ -19,7 +19,7 @@
   let streaming = false
 
   const originalOpen = window.openMeeting
-  window.openMeeting = function (name, role, init) {
+  window.openMeeting = function (name, role, init, taskRef, topic) {
     currentRole = ROLE_BY_NAME[name] || 'copywriter'
     currentName = name
     // Claude requires the first message in `messages` to have role='user',
@@ -31,15 +31,63 @@
     document.getElementById('vx-mtg-quickreplies')?.remove()
     document.getElementById('vx-mtg-viewbrief')?.remove()
     document.getElementById('vx-mtg-review-actions')?.remove()
+
+    // Build greeting — contextual if opened from drawer with a topic
+    let greeting
+    if (topic) {
+      greeting = topicGreeting(name, topic)
+    } else {
+      greeting = `"Hey — ${name} here. What are we working on?"`
+    }
+
     const msgs = document.getElementById('mr-msgs')
     if (msgs) {
       msgs.innerHTML = `
         <div class="mr-msg">
-          <div class="mr-bubble">"Hey — ${name} here. What are we working on?"</div>
+          <div class="mr-bubble">${greeting}</div>
         </div>
       `
     }
+
+    // If topic was provided, auto-send it as the first user message
+    // so the agent immediately starts working on it
+    if (topic) {
+      setTimeout(() => {
+        const inp = document.getElementById('mr-input-field')
+        if (inp) {
+          inp.value = 'Let\'s talk about ' + topic.toLowerCase() + '.'
+          window.mrSendBtn()
+        }
+      }, 800)
+    }
+
     if (typeof originalOpen === 'function') originalOpen(name, role, init)
+  }
+
+  function topicGreeting(name, topic) {
+    const greetings = {
+      'Weekly Trends': `"${name} here. I've been watching your niche — let me pull up what's moving right now and we'll figure out what to act on."`,
+      'Competitor Scan': `"${name} here. Let me show you what your competitors are doing this week and where you can get ahead of them."`,
+      'Audience Deep Dive': `"${name} here. I've got your audience data pulled up — let's look at who's actually engaging and what they want from you."`,
+      'Hashtag Strategy': `"${name} here. I'll break down the hashtag landscape in your niche — the buckets that'll actually move the needle for your size."`,
+      'Engagement Diagnosis': `"${name} here. I noticed some patterns in your recent engagement — let's dig into what's happening and fix it."`,
+      'Weekly Plan': `"${name} here. I've been looking at your content pipeline — let me walk you through what I think next week should look like."`,
+      'Pillar Rebuild': `"${name} here. Let's rethink your content pillars from scratch. I'll show you what's working, what's dead weight, and what to build."`,
+      'Posting Cadence': `"${name} here. I've analyzed your posting patterns against your audience's peak times. Let's optimize your schedule."`,
+      '90-Day Plan': `"${name} here. Let's map out the next three months. I'll walk you through themes, goals, and what needs to ship each month."`,
+      'Slot Audit': `"${name} here. I've identified your weakest content slots. Let me show you what to replace them with."`,
+      'Trend Hooks': `"${name} here. I've got 5 hooks ready for the top trend in your niche. Let me show you which one I think wins and why."`,
+      '30s Reel Script': `"${name} here. Let's write a script. I'll build it beat by beat — hook, tension, payoff — so it's ready to film."`,
+      'Caption': `"${name} here. Let's write a caption that actually converts. I'll draft it and you tell me if it sounds like you."`,
+      'Carousel Openers': `"${name} here. Slide 1 decides everything. Let me show you 3 opening lines and we'll pick the one that stops the scroll."`,
+      'Bio Rewrite': `"${name} here. Your bio is the first thing people read. Let me give you 3 options and we'll pick the one that fits."`,
+      'Shot List': `"${name} here. Let's plan exactly what you're filming. I'll give you every shot, angle, and timing note so it's effortless on set."`,
+      'Pacing Notes': `"${name} here. Let's talk timing — I'll break down the frame-by-frame pacing so your video holds attention start to finish."`,
+      'Visual Direction': `"${name} here. Let's nail the look. I'll walk you through composition, color, and energy for your next piece."`,
+      'Thumbnail Brief': `"${name} here. Your first frame is your billboard. Let me show you what it should look like to get the click."`,
+      'Fix a Weak Reel': `"${name} here. I looked at the Reel — I know exactly what's off. Let me walk you through the fixes."`,
+    }
+    return greetings[topic] || `"${name} here. You wanted to talk about ${topic.toLowerCase()} — I've pulled up everything I have. Let's get into it."`
   }
 
   // Open the meeting room with a brief already on the table — the agent
