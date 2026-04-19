@@ -802,6 +802,18 @@
     competitors: '',
   }
 
+  function timeAgo(d) {
+    if (!d) return ''
+    var ms = Date.now() - new Date(d).getTime()
+    var m = Math.floor(ms / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return m + 'm ago'
+    var h = Math.floor(m / 60)
+    if (h < 24) return h + 'h ago'
+    var days = Math.floor(h / 24)
+    return days + 'd ago'
+  }
+
   function scopedLabel(platform, metric) {
     var platName = platform === 'tiktok' ? 'TikTok' : platform === 'instagram' ? 'Instagram' : platform.charAt(0).toUpperCase() + platform.slice(1)
     var metricLabels = {
