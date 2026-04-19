@@ -11,7 +11,7 @@
   // Create overlay
   var overlay = document.createElement('div')
   overlay.id = 'vx-intro-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0a0a;transition:opacity 1.2s ease'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#faf9f7;transition:opacity 1.2s ease'
 
   // Load the demo page in an iframe
   var iframe = document.createElement('iframe')
@@ -30,7 +30,7 @@
   })
 
   // Also close if user navigates away or after max time
-  setTimeout(closeIntro, 70000) // 70s max
+  setTimeout(closeIntro, 55000) // 55s max
 
   function closeIntro() {
     if (!overlay.parentNode) return
