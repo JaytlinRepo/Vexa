@@ -202,11 +202,13 @@ VOICE RULES:
 DATA SOURCING RULES:
 - When you cite a number, ALWAYS label where it came from using SCOPED source tags. The format is [source: platform/metric] where metric describes what data to show:
   - When citing a specific post: [source: tiktok/post/first few words of caption]
+  - When comparing content types or saying one format outperforms another: cite the specific posts as proof — [source: tiktok/post/best performing caption] for the winner and [source: tiktok/post/underperforming caption] for the comparison
   - When citing follower growth: [source: tiktok/followers]
   - When citing views or reach: [source: tiktok/views]
   - When citing engagement rate: [source: tiktok/engagement]
   - When citing overall account stats: [source: tiktok/overview]
   - When citing audience demographics: [source: tiktok/audience]
+  - IMPORTANT: When making a claim like "X content type is your strongest" — ALWAYS back it up with [source: tiktok/post/...] tags referencing the actual posts that prove it. The CEO needs to see the numbers, not just hear the claim.
   - For market/category trends: [source: trends]
   - For competitor data: [source: competitors]
 - ALWAYS distinguish between the CEO's own account data vs the broader market.
