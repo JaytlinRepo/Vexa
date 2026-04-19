@@ -203,6 +203,7 @@ DATA SOURCING RULES:
 - When you cite a number, ALWAYS label where it came from using SCOPED source tags. The format is [source: platform/metric] where metric describes what data to show:
   - When citing a specific post: [source: tiktok/post/first few words of caption]
   - When citing follower growth: [source: tiktok/followers]
+  - When citing views or reach: [source: tiktok/views]
   - When citing engagement rate: [source: tiktok/engagement]
   - When citing overall account stats: [source: tiktok/overview]
   - When citing audience demographics: [source: tiktok/audience]

@@ -558,9 +558,11 @@
 
           if (metric === 'post' && detail) {
             // ── SPECIFIC POST ── find the post by caption fragment
+            console.log('[source card] looking for post with caption containing:', detail, 'in', posts.length, 'posts')
             var matchPost = posts.find(function (p) {
               return (p.caption || '').toLowerCase().indexOf(detail.toLowerCase()) !== -1
             })
+            console.log('[source card] match:', matchPost ? matchPost.caption?.slice(0, 40) : 'NOT FOUND')
             if (matchPost) {
               var avgViews = posts.length > 0 ? Math.round(posts.reduce(function (s, p) { return s + (p.viewCount || 0) }, 0) / posts.length) : 0
               var vsAvg = avgViews > 0 ? ((matchPost.viewCount / avgViews) * 100 - 100).toFixed(0) : '0'
@@ -594,6 +596,21 @@
               + metricTile('7 days ago', fmtNum(oldest))
               + '</div>'
               + sparklineRow(followerHistory, 'Daily follower count')
+
+          } else if (metric === 'views' || metric === 'reach') {
+            // ── VIEWS/REACH ── avg views + per-post breakdown
+            var viewsList = posts.map(function (p) { return p.viewCount || 0 })
+            var avgV = viewsList.length > 0 ? Math.round(viewsList.reduce(function (a, b) { return a + b }, 0) / viewsList.length) : 0
+            var maxV = viewsList.length > 0 ? Math.max.apply(null, viewsList) : 0
+            var minV = viewsList.length > 0 ? Math.min.apply(null, viewsList) : 0
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Views · Recent Posts</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">'
+              + metricTile('Avg Views', fmtNum(avgV))
+              + metricTile('Best', fmtNum(maxV))
+              + metricTile('Lowest', fmtNum(minV))
+              + '</div>'
+              + sparklineRow(viewsList.slice().reverse(), 'Views per post (oldest → newest)')
+              + recentPostsRow(posts.slice(0, 5))
 
           } else if (metric === 'engagement') {
             // ── ENGAGEMENT ── rate + history
@@ -664,7 +681,8 @@
 
         panel.innerHTML = content
       })
-      .catch(function () {
+      .catch(function (err) {
+        console.error('[source card] fetch error:', err)
         panel.innerHTML = '<div style="color:var(--t3)">Could not load data.</div>'
       })
     return // panel already inserted above
@@ -789,6 +807,8 @@
     var metricLabels = {
       post: platName + ' Post',
       followers: platName + ' Followers',
+      views: platName + ' Views',
+      reach: platName + ' Reach',
       engagement: platName + ' Engagement',
       audience: platName + ' Audience',
       overview: platName + ' Data',
