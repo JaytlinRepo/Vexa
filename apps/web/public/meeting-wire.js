@@ -59,8 +59,32 @@
 
     // If topic was provided, the agent presents findings directly —
     // no user message needed. Maya greets, then delivers her analysis.
+    // But first: check if we already have a recent report (< 24h) for this topic.
+    // If so, present that instead of making a new Bedrock call.
     if (topic) {
       setTimeout(async () => {
+        // Check for cached results from today
+        var cachedOutput = findRecentOutput(currentRole, topic)
+        if (cachedOutput) {
+          const msgs = document.getElementById('mr-msgs')
+          if (!msgs) return
+          const replyDiv = document.createElement('div')
+          replyDiv.className = 'mr-msg'
+          replyDiv.style.cssText = 'opacity:0;transform:translateY(8px);transition:all .4s ease'
+          const bubble = document.createElement('div')
+          bubble.className = 'mr-bubble'
+          bubble.innerHTML = renderAgentMarkdown(cachedOutput.summary)
+          replyDiv.appendChild(bubble)
+          msgs.appendChild(replyDiv)
+          requestAnimationFrame(() => {
+            replyDiv.style.opacity = '1'
+            replyDiv.style.transform = 'translateY(0)'
+          })
+          history.push({ role: 'user', content: 'Show me the ' + topic.toLowerCase() + ' report.' })
+          history.push({ role: 'assistant', content: cachedOutput.summary })
+          return
+        }
+
         const topicMsg = 'I want to discuss ' + topic.toLowerCase() + '. Show me what you have — present your findings.'
         history.push({ role: 'user', content: topicMsg })
 
@@ -819,6 +843,80 @@
     audience: '',
     trends: '',
     competitors: '',
+  }
+
+  // Map drawer topic labels to task types for cache lookup
+  var TOPIC_TO_TASK_TYPE = {
+    'Weekly Trends': ['trend_analysis', 'weekly_pulse'],
+    'Competitor Scan': ['trend_analysis'],
+    'Audience Deep Dive': ['trend_analysis'],
+    'Hashtag Strategy': ['trend_analysis'],
+    'Engagement Diagnosis': ['performance_review'],
+    'Weekly Plan': ['content_planning', 'content_plan'],
+    'Pillar Rebuild': ['content_planning'],
+    'Posting Cadence': ['content_planning'],
+    '90-Day Plan': ['content_planning'],
+    'Slot Audit': ['content_planning'],
+    'Trend Hooks': ['hook_writing', 'trend_hooks'],
+    '30s Reel Script': ['script_writing'],
+    'Caption': ['caption_writing'],
+    'Carousel Openers': ['hook_writing'],
+    'Bio Rewrite': ['caption_writing'],
+    'Shot List': ['shot_list'],
+    'Pacing Notes': ['shot_list'],
+    'Visual Direction': ['shot_list'],
+    'Thumbnail Brief': ['shot_list'],
+    'Fix a Weak Reel': ['shot_list'],
+  }
+
+  function findRecentOutput(role, topic) {
+    var state = window.__vxDashState
+    if (!state || !state.tasks) return null
+    var taskTypes = TOPIC_TO_TASK_TYPE[topic] || []
+    if (taskTypes.length === 0) return null
+
+    var oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+    var match = state.tasks.find(function (t) {
+      if (!t.employee || t.employee.role !== role) return false
+      if (taskTypes.indexOf(t.type) === -1) return false
+      if (t.status !== 'delivered' && t.status !== 'approved') return false
+      if (new Date(t.createdAt).getTime() < oneDayAgo) return false
+      return true
+    })
+
+    if (!match || !match.outputs || match.outputs.length === 0) return null
+    var output = match.outputs[0]
+    var content = output.content || {}
+
+    // Build a readable summary from the structured output
+    var summary = '**Here is the report I delivered ' + timeAgo(match.createdAt) + ' — same data window, no need to regenerate.**\n\n'
+
+    if (content.trends && Array.isArray(content.trends)) {
+      summary += content.trends.map(function (t, i) {
+        return '- **' + (t.topic || 'Trend ' + (i + 1)) + '** — ' + (t.growth || t.growthPercent || '') + ' growth. ' + (t.insight || t.whyItMatters || '').slice(0, 120)
+      }).join('\n')
+    } else if (content.hooks && Array.isArray(content.hooks)) {
+      summary += content.hooks.map(function (h, i) {
+        return '- Hook ' + (i + 1) + ': "' + (h.text || '').slice(0, 80) + '"'
+      }).join('\n')
+    } else if (content.posts && Array.isArray(content.posts)) {
+      summary += content.posts.map(function (p) {
+        return '- **' + (p.day || '?') + '**: ' + (p.format || '') + ' — ' + (p.topic || '')
+      }).join('\n')
+    } else if (content.summary) {
+      summary += content.summary
+    } else if (content.winOfTheWeek) {
+      summary += '- **Win**: ' + content.winOfTheWeek + '\n'
+      summary += '- **Miss**: ' + (content.missOfTheWeek || 'None flagged') + '\n'
+      summary += '- **Trajectory**: ' + (content.trajectory || 'Stable') + '\n'
+      summary += '- **One thing to do**: ' + (content.oneThingToDo || '')
+    } else {
+      summary += JSON.stringify(content).slice(0, 300)
+    }
+
+    summary += '\n\n*This is the same report from ' + timeAgo(match.createdAt) + '. Ask me anything about it, or I can run a fresh analysis if the data has changed.*'
+
+    return { summary: summary, task: match }
   }
 
   function timeAgo(d) {
