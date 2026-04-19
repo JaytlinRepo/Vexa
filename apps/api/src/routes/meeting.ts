@@ -111,7 +111,7 @@ function buildFullPlatformBlock(
 
   // Snapshot history — shows actual changes over time
   if (snapshots.length >= 2) {
-    block += '\nHistory (last ' + snapshots.length + ' syncs):\n'
+    block += '\nLast 7 days (' + snapshots.length + ' data points):\n'
     const oldest = snapshots[0]
     const latest = snapshots[snapshots.length - 1]
     const followerChange = latest.followerCount - oldest.followerCount
@@ -136,7 +136,13 @@ function buildFullPlatformBlock(
   if (notConnected.length > 0) {
     block += `NOT CONNECTED: ${notConnected.join(', ')}. Do NOT reference these platforms — you have no data for them. Only discuss ${connected.join(' and ')}.\n`
   }
-  block += `RULE: Only cite numbers that appear in the data above. If a number is not listed, do NOT estimate or invent it. The CEO can see the source data — if your numbers don't match, you lose trust.\n`
+  block += `CRITICAL RULE — READ THIS CAREFULLY:
+The numbers listed above are the ONLY numbers you have. You MUST NOT invent, estimate, or fabricate ANY statistics, percentages, or metrics.
+- If the data says followers went from 817 to 819, you say "+2 followers" — NOT "+37%" or any other made-up number.
+- If a metric is not listed above (like "save rate" or "Reels views"), you DO NOT HAVE IT. Say "I don't have that data yet" instead of inventing a number.
+- The CEO sees the same source data when they click the [source] tag. If your numbers don't match, they will know immediately. This destroys trust permanently.
+- When you don't have enough data to identify a trend, say that honestly. "Your data is relatively stable — no major shifts this period" is a valid and trustworthy answer.
+- NEVER use percentages unless you can show the exact before and after numbers from the data above.\n`
   block += '--- End platform data ---\n'
   return block
 }
@@ -414,11 +420,11 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       let snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = []
       let recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = []
       if (platformAccount) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         const [snaps, posts] = await Promise.all([
           prisma.platformSnapshot.findMany({
-            where: { accountId: platformAccount.id },
-            orderBy: { capturedAt: 'desc' },
-            take: 14,
+            where: { accountId: platformAccount.id, capturedAt: { gte: sevenDaysAgo } },
+            orderBy: { capturedAt: 'asc' },
             select: { capturedAt: true, followerCount: true, engagementRate: true, avgReach: true },
           }),
           prisma.platformPost.findMany({
@@ -428,7 +434,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
             select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
           }),
         ])
-        snapshots = snaps.reverse()
+        snapshots = snaps
         recentPosts = posts
       }
 
