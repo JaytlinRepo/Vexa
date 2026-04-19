@@ -208,6 +208,7 @@
       case 'invalid_credentials': return 'That email/username or password is wrong.'
       case 'email_or_username_in_use': return 'That email or username is already in use.'
       case 'invalid_input': return 'Please check the fields and try again.'
+      case 'rate_limited': return 'Too many attempts. Wait a few minutes and try again.'
       default: return 'Something went wrong. Try again.'
     }
   }

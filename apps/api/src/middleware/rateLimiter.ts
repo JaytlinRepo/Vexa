@@ -21,10 +21,10 @@ export const apiLimiter = rateLimit({
   message: { error: 'rate_limited', message: 'Too many requests. Please slow down.' },
 })
 
-// Auth endpoints — stricter: 10 attempts per 15 minutes per IP
+// Auth endpoints — stricter: 30 attempts per 15 minutes per IP
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator: (req: Request) => req.ip ?? 'unknown',
