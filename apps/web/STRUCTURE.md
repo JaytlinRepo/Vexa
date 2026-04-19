@@ -12,13 +12,13 @@ Import and render the full marketing site (vexa-website.html converted to React)
 
 ## app/auth/login/page.tsx
 Login form. Email + password.
-AWS Cognito via Amplify Auth.
+Custom JWT auth via httpOnly session cookie.
 Link to signup. 
 On success → redirect to /dashboard or /onboarding if no company set up.
 
 ## app/auth/signup/page.tsx
 Signup form. Name, email, password.
-Cognito user pool registration.
+POST /api/auth/signup (email, username, password → bcrypt hash → session cookie).
 On success → redirect to /onboarding.
 
 ## app/auth/onboarding/page.tsx
@@ -140,7 +140,7 @@ Sizes: sm (32px), md (44px), lg (64px), xl (96px — for meeting room).
 ## API CLIENT (lib/api.ts)
 Axios instance with:
 - Base URL from env
-- Auth interceptor: attach Cognito JWT to every request
+- Auth: httpOnly cookie (vx_session) sent automatically with credentials: 'include'
 - Response interceptor: handle 401 (redirect to login), 403 (plan upgrade prompt)
 
 ---

@@ -54,10 +54,9 @@ app.use(
       // Same-origin / curl / server-to-server requests have no Origin header
       if (!origin) return cb(null, true)
       if (allowedOrigins.includes(origin)) return cb(null, true)
-      // Allow Vercel previews, Amplify previews, and localhost
+      // Allow Amplify previews, sovexa.ai subdomains, and localhost
       try {
         const host = new URL(origin).hostname
-        if (host.endsWith('.vercel.app')) return cb(null, true)
         if (host.endsWith('.amplifyapp.com')) return cb(null, true)
         if (host.endsWith('.sovexa.ai') || host === 'sovexa.ai') return cb(null, true)
         if (host === 'localhost' || host === '127.0.0.1') return cb(null, true)

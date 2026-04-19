@@ -26,13 +26,13 @@ This is NOT a chatbot product. It is a structured workforce simulation platform.
 - **Styling**: TailwindCSS + shadcn/ui
 - **State**: Zustand
 - **Data fetching**: TanStack Query
-- **Auth**: AWS Cognito via Amplify Auth
+- **Auth**: Custom JWT (jose + bcrypt) with httpOnly cookie sessions
 - **Fonts**: Syne (headings) + DM Sans (body)
 
 ### Backend
 - **Runtime**: Node.js
-- **Framework**: Express.js on AWS Lambda
-- **API**: REST via API Gateway
+- **Framework**: Express.js on AWS App Runner
+- **API**: REST (direct Express, no API Gateway)
 - **Database**: PostgreSQL on AWS RDS
 - **ORM**: Prisma
 
@@ -43,13 +43,15 @@ This is NOT a chatbot product. It is a structured workforce simulation platform.
 
 ### Infrastructure
 - **Hosting**: AWS
-- **Frontend**: AWS Amplify
-- **Backend**: AWS Lambda + API Gateway
-- **Database**: AWS RDS (PostgreSQL)
-- **Storage**: AWS S3 (outputs, video assets)
-- **Auth**: AWS Cognito
+- **Frontend**: AWS Amplify (sovexa.ai)
+- **Backend**: AWS App Runner (api.sovexa.ai)
+- **Database**: AWS RDS PostgreSQL (prod: sovexa_prod, dev: sovexa_dev)
+- **Storage**: AWS S3 (sovexa-outputs)
+- **Auth**: Custom JWT sessions (jose + bcrypt, httpOnly cookies)
+- **Secrets**: AWS SSM Parameter Store (/sovexa/dev/, /sovexa/prod/)
+- **Email**: Resend (team@sovexa.ai)
 - **Video Generation**: Creatomate API
-- **Trend Data**: Google Trends API + NewsAPI + RapidAPI
+- **Trend Data**: Google Trends API + NewsAPI + YouTube + Reddit + RSS
 - **Payments**: Stripe
 
 ---
@@ -149,7 +151,8 @@ User taps "Call a Meeting" on any employee card
 users (
   id UUID PRIMARY KEY,
   email VARCHAR UNIQUE NOT NULL,
-  cognito_id VARCHAR UNIQUE NOT NULL,
+  username VARCHAR UNIQUE,
+  password_hash VARCHAR,
   full_name VARCHAR,
   subscription_status ENUM('trial', 'active', 'canceled', 'past_due'),
   plan ENUM('starter', 'pro', 'agency'),
@@ -252,13 +255,13 @@ brand_memory (
 
 ## API Routes
 
-### Auth
+### Auth (Custom JWT + bcrypt)
 ```
-POST /api/auth/signup
-POST /api/auth/login
-POST /api/auth/logout
-POST /api/auth/refresh
-GET  /api/auth/me
+POST /api/auth/signup              — Create user, hash password, set session cookie
+POST /api/auth/login               — Verify password, set session cookie
+POST /api/auth/logout              — Clear session cookie
+POST /api/auth/change-password     — Verify current, hash new
+GET  /api/auth/me                  — Read session cookie, return user + companies
 ```
 
 ### Onboarding
@@ -408,9 +411,10 @@ AWS_S3_BUCKET=vexa-outputs
 DATABASE_URL=postgresql://...
 
 # Auth
-COGNITO_USER_POOL_ID=
-COGNITO_CLIENT_ID=
-NEXTAUTH_SECRET=
+SESSION_SECRET=
+
+# Admin
+ADMIN_EMAILS=
 
 # Payments
 STRIPE_SECRET_KEY=
@@ -466,11 +470,11 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 
 ## Build Order (Recommended)
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅
 1. Next.js project setup + Tailwind + shadcn
-2. AWS Cognito auth (signup, login, session)
-3. RDS database + Prisma schema + migrations
-4. Basic API structure on Lambda
+2. Custom JWT auth (signup, login, session cookies)
+3. RDS database + Prisma schema
+4. Express API on App Runner
 
 ### Phase 2 — Core Product
 5. Onboarding flow (niche selection, brand voice)

@@ -7,9 +7,7 @@ import { readSession } from './auth'
 async function keyGenerator(req: Request): Promise<string> {
   const session = await readSession(req)
   if (session) return `user:${session.userId}`
-  const forwarded = req.headers['x-forwarded-for']
-  const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.ip
-  return `ip:${ip}`
+  return `ip:${req.ip ?? 'unknown'}`
 }
 
 // General API rate limit — 100 requests per minute per user/IP
@@ -19,6 +17,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { error: 'rate_limited', message: 'Too many requests. Please slow down.' },
 })
 
@@ -28,10 +27,8 @@ export const authLimiter = rateLimit({
   limit: 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req: Request) => {
-    const forwarded = req.headers['x-forwarded-for']
-    return typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.ip ?? 'unknown'
-  },
+  keyGenerator: (req: Request) => req.ip ?? 'unknown',
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { error: 'rate_limited', message: 'Too many login attempts. Try again later.' },
 })
 
@@ -42,5 +39,6 @@ export const agentLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator,
+  validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { error: 'rate_limited', message: 'Too many AI requests. Please wait a moment.' },
 })
