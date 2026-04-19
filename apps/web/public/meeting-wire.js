@@ -95,6 +95,8 @@
             }),
           })
           if (!res.ok || !res.body) {
+            console.error('[meeting] topic auto-send failed:', res.status, res.statusText)
+            try { console.error('[meeting] response:', await res.text()) } catch {}
             bubble.textContent = '(Could not reach the team right now — try again.)'
             streaming = false
             return
@@ -140,17 +142,17 @@
 
   function topicGreeting(name, topic) {
     const greetings = {
-      'Weekly Trends': `"${name} here. I've been watching your niche — let me pull up what's moving right now and we'll figure out what to act on."`,
+      'Weekly Trends': `"${name} here. I've been watching your space — let me pull up what's moving right now and walk you through it."`,
       'Competitor Scan': `"${name} here. Let me show you what your competitors are doing this week and where you can get ahead of them."`,
       'Audience Deep Dive': `"${name} here. I've got your audience data pulled up — let's look at who's actually engaging and what they want from you."`,
-      'Hashtag Strategy': `"${name} here. I'll break down the hashtag landscape in your niche — the buckets that'll actually move the needle for your size."`,
+      'Hashtag Strategy': `"${name} here. I'll break down the hashtag landscape for your content — the buckets that'll actually move the needle for your size."`,
       'Engagement Diagnosis': `"${name} here. I noticed some patterns in your recent engagement — let's dig into what's happening and fix it."`,
       'Weekly Plan': `"${name} here. I've been looking at your content pipeline — let me walk you through what I think next week should look like."`,
       'Pillar Rebuild': `"${name} here. Let's rethink your content pillars from scratch. I'll show you what's working, what's dead weight, and what to build."`,
       'Posting Cadence': `"${name} here. I've analyzed your posting patterns against your audience's peak times. Let's optimize your schedule."`,
       '90-Day Plan': `"${name} here. Let's map out the next three months. I'll walk you through themes, goals, and what needs to ship each month."`,
       'Slot Audit': `"${name} here. I've identified your weakest content slots. Let me show you what to replace them with."`,
-      'Trend Hooks': `"${name} here. I've got 5 hooks ready for the top trend in your niche. Let me show you which one I think wins and why."`,
+      'Trend Hooks': `"${name} here. I've got 5 hooks ready for what's trending right now. Let me show you which one I think wins and why."`,
       '30s Reel Script': `"${name} here. Let's write a script. I'll build it beat by beat — hook, tension, payoff — so it's ready to film."`,
       'Caption': `"${name} here. Let's write a caption that actually converts. I'll draft it and you tell me if it sounds like you."`,
       'Carousel Openers': `"${name} here. Slide 1 decides everything. Let me show you 3 opening lines and we'll pick the one that stops the scroll."`,
