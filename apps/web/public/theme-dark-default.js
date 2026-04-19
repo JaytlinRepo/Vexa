@@ -2,9 +2,11 @@
 ;(function () {
   var html = document.documentElement
   function sync() {
-    // Always dark — light theme is not production-ready yet
-    html.setAttribute('data-theme', 'dark')
-    try { localStorage.setItem('vx-t', 'dark') } catch (_) {}
+    var saved = null
+    try { saved = localStorage.getItem('vx-t') } catch (_) {}
+    var theme = (saved === 'dark' || saved === 'light') ? saved : 'light'
+    html.setAttribute('data-theme', theme)
+    try { localStorage.setItem('vx-t', theme) } catch (_) {}
   }
   sync()
   window.toggleTheme = function vexaToggleTheme() {

@@ -21,11 +21,11 @@ export default function SovexaThemeBridge() {
         if (t === 'light' || t === 'dark') {
           html.setAttribute('data-theme', t)
         } else {
-          localStorage.setItem('vx-t', 'dark')
-          html.setAttribute('data-theme', 'dark')
+          localStorage.setItem('vx-t', 'light')
+          html.setAttribute('data-theme', 'light')
         }
       } catch {
-        html.setAttribute('data-theme', 'dark')
+        html.setAttribute('data-theme', 'light')
       }
     }
     applyFromStorage()
