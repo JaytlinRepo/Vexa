@@ -2059,7 +2059,8 @@
     }
 
     var t = toastQueue[0]
-    var role = ROLE[t.employee?.role] || { name: 'Sovexa', title: 'Agent', init: 'V' }
+    if (!t) { toastQueue.shift(); showNextToast(); return }
+    var role = ROLE[t.employee?.role || t.employeeRole] || { name: 'Sovexa', title: 'Agent', init: 'V' }
     var preview = buildToastPreview(t)
     var counter = toastQueue.length > 1 ? '<span style="color:var(--t3);font-size:10px;margin-left:8px">' + toastQueue.length + ' unread</span>' : ''
 
