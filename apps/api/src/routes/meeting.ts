@@ -60,6 +60,59 @@ estimating.
 --- End platform data ---`
 }
 
+function buildFullPlatformBlock(ig: Parameters<typeof formatPlatformBlock>[0], tt: {
+  handle: string
+  followerCount: number
+  followingCount: number
+  videoCount: number
+  avgViews: number
+  engagementRate: number
+} | null): string {
+  const connected: string[] = []
+  const notConnected: string[] = []
+  let block = '\n--- Connected platforms ---\n'
+
+  // Instagram
+  if (ig && ig.source === 'phyllo') {
+    connected.push('Instagram')
+    const topPosts = Array.isArray(ig.topPosts) ? ig.topPosts : []
+    const topLine = topPosts[0]
+      ? `  top post: "${String((topPosts[0] as { caption?: string }).caption || '').slice(0, 90)}" — ${(topPosts[0] as { like_count?: number }).like_count ?? 0} likes`
+      : ''
+    const ages = Array.isArray(ig.audienceAge) ? ig.audienceAge : []
+    const topAge = ages.sort((a: { share: number }, b: { share: number }) => b.share - a.share)[0] as { bucket?: string } | undefined
+    block += `\nInstagram (@${ig.handle}):\n`
+      + `  ${ig.followerCount.toLocaleString()} followers, ${ig.postCount} posts\n`
+      + `  ${ig.engagementRate}% engagement, avg reach ${ig.avgReach.toLocaleString()}\n`
+      + `  primary audience: ${topAge?.bucket ?? 'unknown'}\n`
+      + (topLine ? topLine + '\n' : '')
+  } else {
+    notConnected.push('Instagram')
+  }
+
+  // TikTok
+  if (tt) {
+    connected.push('TikTok')
+    block += `\nTikTok (@${tt.handle}):\n`
+      + `  ${tt.followerCount.toLocaleString()} followers, ${tt.videoCount} videos\n`
+      + `  ${tt.avgViews.toLocaleString()} avg views, ${((tt.engagementRate || 0) * 100).toFixed(1)}% engagement\n`
+  } else {
+    notConnected.push('TikTok')
+  }
+
+  if (connected.length === 0) {
+    return `\n--- Platform data ---\nNO PLATFORMS CONNECTED. You have no follower counts, engagement rates, or post data. If the CEO asks about stats, say "Connect your accounts in Settings and I'll pull real numbers." Never invent figures.\n--- End platform data ---\n`
+  }
+
+  block += '\n'
+  if (notConnected.length > 0) {
+    block += `NOT CONNECTED: ${notConnected.join(', ')}. Do NOT reference these platforms — you have no data for them. Only discuss ${connected.join(' and ')}.\n`
+  }
+  block += `RULE: Only reference platforms listed above. Never mention platforms the CEO has not connected. Use real numbers from the data above — never invent stats.\n`
+  block += '--- End platform data ---\n'
+  return block
+}
+
 const roleSchema = z.enum(['analyst', 'strategist', 'copywriter', 'creative_director'])
 
 const replySchema = z.object({
@@ -276,7 +329,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     // the system prompt.
     const company = await prisma.company.findFirst({
       where: { userId },
-      include: { instagram: true },
+      include: { instagram: true, tiktok: true },
     })
     let memoryBlock = ''
     let platformBlock = ''
@@ -285,7 +338,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     if (company) {
       const memories = await readTopMemories(prisma, company.id, 10)
       memoryBlock = formatMemoryForPrompt(memories)
-      platformBlock = formatPlatformBlock(company.instagram)
+      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok)
       // Pull niche-specific knowledge for this agent's role, scored
       // against the CEO's current message so the most relevant entries
       // surface (e.g. asking about hooks pulls hook_pattern entries).
