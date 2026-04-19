@@ -145,9 +145,32 @@
     + '</section>'
 
     // ─── FOOTER ──────────────────────────────────────────────────
-    + '<footer style="padding:40px 20px;border-top:1px solid rgba(0,0,0,.06);text-align:center">'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#ccc;margin-bottom:8px">SOVEXA</div>'
-    + '<div style="font-size:12px;color:#ccc">Your AI content team.</div>'
+    + '<footer style="padding:64px 40px 32px;border-top:1px solid rgba(0,0,0,.06);background:#0a0a0a;color:#edede9">'
+    + '<div style="max-width:900px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr;gap:48px;margin-bottom:40px">'
+
+    // Brand column
+    + '<div>'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:300;font-style:italic;margin-bottom:10px;color:#edede9">Sovexa</div>'
+    + '<p style="font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
+    + '<p style="font-size:12px;color:rgba(255,255,255,.25);line-height:1.6;margin:0;max-width:340px">Four AI specialists — analyst, strategist, copywriter, creative director — that plan, write, and produce content for your brand.</p>'
+    + '</div>'
+
+    // Company column
+    + '<div style="display:flex;flex-direction:column;gap:10px">'
+    + '<div style="font-family:Syne,sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px">Company</div>'
+    + '<a href="mailto:hello@sovexa.ai" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Contact</a>'
+    + '<a href="#" id="vx-wl-terms" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Terms</a>'
+    + '<a href="#" id="vx-wl-privacy" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Privacy</a>'
+    + '<a href="#" id="vx-wl-security" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Security</a>'
+    + '</div>'
+
+    + '</div>'
+
+    // Bottom bar
+    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding-top:20px;font-size:11px;color:rgba(255,255,255,.2)">'
+    + '<span>&copy; ' + new Date().getFullYear() + ' Sovexa. Built for content businesses.</span>'
+    + '<span style="font-style:italic">v1.0 &middot; made for creators</span>'
+    + '</div>'
     + '</footer>'
 
   document.body.appendChild(overlay)
@@ -202,4 +225,33 @@
     inp.addEventListener('focus', function () { inp.style.borderColor = '#d4a574' })
     inp.addEventListener('blur', function () { inp.style.borderColor = 'rgba(0,0,0,.1)' })
   })
+
+  // Legal modals
+  var legalContent = {
+    terms: { title: 'Terms of Service', body: 'Terms of Service — placeholder. The full document is in legal review and ships with public launch. Reach out at hello@sovexa.ai if you need it sooner.' },
+    privacy: { title: 'Privacy Policy', body: 'Privacy Policy — placeholder. We collect the minimum needed to run your AI content team: account and brand workspace data. We never sell your data. Full document at public launch.' },
+    security: { title: 'Security', body: 'Security — placeholder. All data is encrypted at rest (PostgreSQL) and in transit (TLS). Full document at public launch.' },
+  }
+
+  function openLegal(kind) {
+    var existing = document.getElementById('vx-wl-legal')
+    if (existing) existing.remove()
+    var info = legalContent[kind]
+    if (!info) return
+    var modal = document.createElement('div')
+    modal.id = 'vx-wl-legal'
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+    modal.innerHTML = '<div style="width:100%;max-width:480px;background:#fff;border-radius:14px;padding:28px;color:#1a1a1a;font-family:DM Sans,sans-serif">'
+      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:22px;font-weight:400;margin:0 0 12px">' + info.title + '</h3>'
+      + '<p style="color:#888;font-size:13px;line-height:1.6;margin:0 0 20px">' + info.body + '</p>'
+      + '<div style="text-align:right"><button id="vx-wl-legal-close" style="background:#1a1a1a;color:#fff;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600">Close</button></div>'
+      + '</div>'
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove() })
+    document.body.appendChild(modal)
+    document.getElementById('vx-wl-legal-close').addEventListener('click', function () { modal.remove() })
+  }
+
+  document.getElementById('vx-wl-terms').addEventListener('click', function (e) { e.preventDefault(); openLegal('terms') })
+  document.getElementById('vx-wl-privacy').addEventListener('click', function (e) { e.preventDefault(); openLegal('privacy') })
+  document.getElementById('vx-wl-security').addEventListener('click', function (e) { e.preventDefault(); openLegal('security') })
 })()
