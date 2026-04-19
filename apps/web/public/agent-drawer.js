@@ -288,19 +288,25 @@
       var tab = document.createElement('button')
       tab.dataset.vxTab = role
       tab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 14px;border:none;border-radius:10px 0 0 10px;cursor:pointer;font-family:DM Sans,sans-serif;transition:all .25s cubic-bezier(.16,1,.3,1);background:var(--s1);border:1px solid var(--b1);border-right:none;box-shadow:-4px 2px 12px rgba(0,0,0,.04)'
-      tab.innerHTML = '<div style="width:28px;height:28px;border-radius:7px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0">' + a.init + '</div>'
-        + '<div style="overflow:hidden;max-width:0;transition:max-width .25s cubic-bezier(.16,1,.3,1);white-space:nowrap">'
-        + '<div style="font-size:11px;font-weight:600;color:var(--t1);line-height:1.2">' + esc(a.name) + '</div>'
+      var avatar = document.createElement('div')
+      avatar.style.cssText = 'width:28px;height:28px;border-radius:7px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0'
+      avatar.textContent = a.init
+
+      var tabLabel = document.createElement('div')
+      tabLabel.style.cssText = 'overflow:hidden;max-width:0;transition:max-width .25s cubic-bezier(.16,1,.3,1);white-space:nowrap'
+      tabLabel.innerHTML = '<div style="font-size:11px;font-weight:600;color:var(--t1);line-height:1.2">' + esc(a.name) + '</div>'
         + '<div style="font-size:9px;color:var(--t3)">' + esc(a.title.split(' ')[0]) + '</div>'
-        + '</div>'
+
+      tab.appendChild(avatar)
+      tab.appendChild(tabLabel)
 
       tab.addEventListener('mouseenter', function () {
-        tab.querySelector('[style*="max-width:0"]').style.maxWidth = '120px'
+        tabLabel.style.maxWidth = '120px'
         tab.style.paddingRight = '16px'
       })
       tab.addEventListener('mouseleave', function () {
         if (currentRole !== role) {
-          tab.querySelector('[style*="max-width"]').style.maxWidth = '0px'
+          tabLabel.style.maxWidth = '0px'
           tab.style.paddingRight = '12px'
         }
       })
