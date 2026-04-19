@@ -46,98 +46,108 @@
     + '</div>'
     + '</section>'
 
-    // ─── YOUR AI TEAM ────────────────────────────────────────────
-    + '<section style="padding:60px 20px;background:#fff;border-top:1px solid rgba(0,0,0,.06)">'
-    + '<div style="max-width:900px;margin:0 auto;text-align:center">'
-    + '<div style="font-family:Syne,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b0b0b0;margin-bottom:12px">YOUR AI TEAM</div>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(28px,4vw,40px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 40px">Four employees. Zero management.</h2>'
+    // ─── YOUR AI TEAM (matches home page team-row layout) ─────────
+    + '<section style="padding:clamp(60px,8vw,100px) 20px">'
+    + '<div style="max-width:960px;margin:0 auto">'
+    + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
+    + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Your AI team</span>'
+    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(38px,5vw,68px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 16px;letter-spacing:-.02em;line-height:1.08">Meet your staff.</h2>'
+    + '<p style="font-size:15px;color:#888;line-height:1.7;max-width:540px;margin:0 auto">Four specialized AI employees — each with a distinct role, personality, and expertise. They know your niche, learn your brand, and deliver work without being asked.</p>'
+    + '</div>'
 
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;text-align:left">'
+    // Team rows
+    + '<div style="display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
 
     // Maya
-    + '<div style="background:#faf9f7;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:24px">'
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-    + '<div style="width:36px;height:36px;border-radius:50%;background:#6ab4ff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">M</div>'
-    + '<div><div style="font-size:15px;font-weight:500;color:#1a1a1a">Maya</div><div style="font-size:11px;color:#aaa">Trend Analyst</div></div>'
+    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">01</span></div>'
+    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Trend &amp; Insights Analyst</div>'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Maya</div>'
+    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Monitors your niche daily across Reddit, news, research, and YouTube. Every Monday she delivers a trend report — what is rising, why it matters, what to make this week.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Trend reports</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Viral hooks</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Knowledge feed</span></div>'
     + '</div>'
-    + '<p style="font-size:13px;color:#888;line-height:1.6;margin:0">Spots trends before they peak. Delivers data-driven reports every Monday.</p>'
+    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">Delivers Monday 9am</span></div>'
     + '</div>'
 
     // Jordan
-    + '<div style="background:#faf9f7;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:24px">'
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-    + '<div style="width:36px;height:36px;border-radius:50%;background:#c8f060;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0a0a0a">J</div>'
-    + '<div><div style="font-size:15px;font-weight:500;color:#1a1a1a">Jordan</div><div style="font-size:11px;color:#aaa">Content Strategist</div></div>'
+    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">02</span></div>'
+    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Content Strategist</div>'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Jordan</div>'
+    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Briefs Alex automatically once you approve.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Content calendar</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Strategy</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Pipeline</span></div>'
     + '</div>'
-    + '<p style="font-size:13px;color:#888;line-height:1.6;margin:0">Builds your weekly plan. Audits what\'s working. Designs your growth strategy.</p>'
+    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">Delivers Sunday 7pm</span></div>'
     + '</div>'
 
     // Alex
-    + '<div style="background:#faf9f7;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:24px">'
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-    + '<div style="width:36px;height:36px;border-radius:50%;background:#e8c87a;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0a0a0a">A</div>'
-    + '<div><div style="font-size:15px;font-weight:500;color:#1a1a1a">Alex</div><div style="font-size:11px;color:#aaa">Copywriter</div></div>'
+    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">03</span></div>'
+    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Copywriter &amp; Script Writer</div>'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Alex</div>'
+    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Has strong opinions about which hook is the right one.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Hooks</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Reel scripts</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Captions</span></div>'
     + '</div>'
-    + '<p style="font-size:13px;color:#888;line-height:1.6;margin:0">Writes hooks that stop the scroll. Punchy, opinionated, always on-brand.</p>'
+    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">After Jordan approves</span></div>'
     + '</div>'
 
     // Riley
-    + '<div style="background:#faf9f7;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:24px">'
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'
-    + '<div style="width:36px;height:36px;border-radius:50%;background:#b482ff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">R</div>'
-    + '<div><div style="font-size:15px;font-weight:500;color:#1a1a1a">Riley</div><div style="font-size:11px;color:#aaa">Creative Director</div></div>'
+    + '<div style="display:flex;background:#faf9f7;transition:background .25s">'
+    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:48px;font-weight:300;color:rgba(0,0,0,.08)">04</span></div>'
+    + '<div style="padding:44px 48px;flex:1">'
+    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Creative Director</div>'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Riley</div>'
+    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use.</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Shot lists</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Visual direction</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Video generation</span></div>'
     + '</div>'
-    + '<p style="font-size:13px;color:#888;line-height:1.6;margin:0">Audits your feed. Analyzes format performance. Keeps the brand cohesive.</p>'
+    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">After Alex delivers</span></div>'
     + '</div>'
 
     + '</div>'
     + '</div>'
     + '</section>'
 
-    // ─── HOW IT WORKS ────────────────────────────────────────────
-    + '<section style="padding:60px 20px;border-top:1px solid rgba(0,0,0,.06)">'
-    + '<div style="max-width:700px;margin:0 auto;text-align:center">'
-    + '<div style="font-family:Syne,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#b0b0b0;margin-bottom:12px">HOW IT WORKS</div>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(28px,4vw,40px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 48px">They work. <span style="color:#d4a574">You approve.</span></h2>'
-
-    + '<div style="display:flex;flex-direction:column;gap:0;text-align:left;position:relative;padding-left:48px">'
-
-    // Vertical line
-    + '<div style="position:absolute;left:22px;top:8px;bottom:8px;width:2px;background:rgba(0,0,0,.06)"></div>'
-
-    // Step 1
-    + '<div style="position:relative;padding:16px 0">'
-    + '<div style="position:absolute;left:-48px;width:36px;height:36px;border-radius:50%;background:#6ab4ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;z-index:1">M</div>'
-    + '<div style="font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px">Maya spots a trend</div>'
-    + '<div style="font-size:13px;color:#888;line-height:1.5">She scans your niche daily and surfaces what\'s spiking — before your competitors see it.</div>'
+    // ─── PROCESS (matches home page how-grid layout) ─────────────
+    + '<section style="padding:clamp(60px,8vw,100px) 20px;border-top:1px solid rgba(0,0,0,.06)">'
+    + '<div style="max-width:960px;margin:0 auto">'
+    + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
+    + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Process</span>'
+    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(38px,5vw,68px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 16px;letter-spacing:-.02em;line-height:1.08">From sign-up to first output <em style="color:#b0b0b0;font-weight:300">in five minutes.</em></h2>'
+    + '<p style="font-size:15px;color:#888;line-height:1.7;max-width:540px;margin:0 auto">No learning curve. No complex setup. Tell Sovexa what you create — your team is ready to work.</p>'
     + '</div>'
 
-    // Step 2
-    + '<div style="position:relative;padding:16px 0">'
-    + '<div style="position:absolute;left:-48px;width:36px;height:36px;border-radius:50%;background:#c8f060;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0a0a0a;z-index:1">J</div>'
-    + '<div style="font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px">Jordan builds the plan</div>'
-    + '<div style="font-size:13px;color:#888;line-height:1.5">A week of content, structured around the trend. Formats, timing, and angles — all mapped out.</div>'
+    // 4-column grid
+    + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
+
+    + '<div style="background:#faf9f7;padding:44px 36px">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">01</div>'
+    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Set your niche</h3>'
+    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Choose your content category and optionally a sub-niche. Your team specializes instantly.</p>'
+    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">2 minutes</span>'
     + '</div>'
 
-    // Step 3
-    + '<div style="position:relative;padding:16px 0">'
-    + '<div style="position:absolute;left:-48px;width:36px;height:36px;border-radius:50%;background:#e8c87a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#0a0a0a;z-index:1">A</div>'
-    + '<div style="font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px">Alex writes the copy</div>'
-    + '<div style="font-size:13px;color:#888;line-height:1.5">Hooks, captions, scripts — written in your voice. Multiple options so you always have choices.</div>'
+    + '<div style="background:#faf9f7;padding:44px 36px">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">02</div>'
+    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Define your brand</h3>'
+    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Select your tone, describe your audience, and share your goals. The more context, the better your team sounds.</p>'
+    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">2 minutes</span>'
     + '</div>'
 
-    // Step 4
-    + '<div style="position:relative;padding:16px 0">'
-    + '<div style="position:absolute;left:-48px;width:36px;height:36px;border-radius:50%;background:#b482ff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;z-index:1">R</div>'
-    + '<div style="font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px">Riley directs the visuals</div>'
-    + '<div style="font-size:13px;color:#888;line-height:1.5">Shot lists, pacing, editing notes. She makes sure your content looks as good as it reads.</div>'
+    + '<div style="background:#faf9f7;padding:44px 36px">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">03</div>'
+    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Your team delivers</h3>'
+    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Maya pulls trends immediately. Jordan drafts your first plan. Real structured outputs — not a blank dashboard.</p>'
+    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">1 minute</span>'
     + '</div>'
 
-    // Step 5 — CEO
-    + '<div style="position:relative;padding:16px 0">'
-    + '<div style="position:absolute;left:-48px;width:36px;height:36px;border-radius:50%;background:#d4a574;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0a0a0a;z-index:1">YOU</div>'
-    + '<div style="font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px">You approve and post</div>'
-    + '<div style="font-size:13px;color:#888;line-height:1.5">Review what your team delivers. Approve, reject, or ask for changes. One tap.</div>'
+    + '<div style="background:#faf9f7;padding:44px 36px">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">04</div>'
+    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Approve and repeat</h3>'
+    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Review outputs with action buttons. Approve triggers the next step automatically. Every decision trains your team.</p>'
+    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">Daily habit</span>'
     + '</div>'
 
     + '</div>'
