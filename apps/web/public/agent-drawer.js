@@ -175,17 +175,18 @@
       + '</div>'
       + '</div>'
 
-      // ── 4. REQUEST NEW WORK (services — secondary action) ──
+      // ── 4. MEET WITH AGENT (services as meeting topics) ──
       + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
-      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:14px;font-weight:500">Request new work</div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px">'
+      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;font-weight:500">Meet with ' + esc(agent.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:14px">Start a conversation about any of these topics. ' + esc(agent.name) + ' comes prepared with your data.</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px">'
       + agent.services.map(function (s) {
-          return '<button data-vx-service="' + s.kind + '" data-vx-type="' + s.type + '" data-vx-role="' + role + '" data-vx-label="' + esc(s.label) + '" style="text-align:left;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;font-family:inherit">'
-            + '<div style="display:flex;align-items:center;justify-content:space-between">'
+          return '<button data-vx-meeting-topic="' + s.kind + '" data-vx-role="' + role + '" data-vx-agent-name="' + esc(agent.name) + '" data-vx-agent-title="' + esc(agent.title) + '" data-vx-agent-init="' + agent.init + '" data-vx-topic-label="' + esc(s.label) + '" style="text-align:left;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;font-family:inherit;display:flex;align-items:center;gap:12px">'
+            + '<div style="flex:1">'
             + '<div style="font-size:12px;font-weight:500;color:var(--t1)">' + esc(s.label) + '</div>'
-            + '<div style="font-size:10px;color:var(--t3)">Assign</div>'
+            + '<div style="font-size:11px;color:var(--t2);line-height:1.4;margin-top:2px">' + esc(s.desc) + '</div>'
             + '</div>'
-            + '<div style="font-size:11px;color:var(--t2);line-height:1.5;margin-top:4px">' + esc(s.desc) + '</div>'
+            + '<div style="font-size:10px;color:var(--t3);flex-shrink:0;padding:4px 10px;border:1px solid var(--b1);border-radius:6px">Meet</div>'
             + '</button>'
         }).join('')
       + '</div>'
@@ -212,16 +213,20 @@
     backdrop.style.pointerEvents = 'auto'
     drawer.style.transform = 'translateX(0)'
 
-    // Wire service buttons
-    drawer.querySelectorAll('[data-vx-service]').forEach(function (btn) {
+    // Wire meeting topic buttons
+    drawer.querySelectorAll('[data-vx-meeting-topic]').forEach(function (btn) {
       btn.addEventListener('mouseenter', function () { btn.style.borderColor = 'var(--t3)' })
       btn.addEventListener('mouseleave', function () { btn.style.borderColor = 'var(--b1)' })
       btn.addEventListener('click', function () {
-        var kind = btn.dataset.vxService
-        var type = btn.dataset.vxType
-        var role = btn.dataset.vxRole
-        var label = btn.dataset.vxLabel
-        assignService(role, type, kind, label)
+        var name = btn.dataset.vxAgentName
+        var title = btn.dataset.vxAgentTitle
+        var init = btn.dataset.vxAgentInit
+        var topic = btn.dataset.vxTopicLabel
+        closeDrawer()
+        // Open meeting with topic context
+        if (typeof window.openMeeting === 'function') {
+          window.openMeeting(name, title, init, null, topic)
+        }
       })
     })
 
