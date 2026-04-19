@@ -1,6 +1,6 @@
-/* Waitlist overlay — shows after the intro demo for non-logged-in visitors.
- * Captures email + optional name, posts to /api/waitlist, shows confirmation.
- * Logged-in users skip this entirely.
+/* Waitlist gate — the ONLY screen non-logged-in visitors can reach.
+ * Intro demo plays → dissolves → waitlist appears. No way past it.
+ * Logged-in users (vx_session cookie) bypass to the app.
  */
 ;(function () {
   if (document.cookie.indexOf('vx_session') !== -1) return
@@ -34,12 +34,10 @@
     // Success state (hidden)
     + '<div id="vx-wl-success" style="display:none">'
     + '<div style="width:56px;height:56px;border-radius:50%;background:rgba(52,210,122,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><svg width="24" height="24" fill="none" stroke="#34d27a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:28px;font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 12px">You\'re on the list.</h2>'
-    + '<p style="font-size:14px;color:#888;line-height:1.6;margin:0">Check your inbox for a welcome email. We\'ll let you know the moment your team is ready.</p>'
+    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:28px;font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 12px">Thank you for joining.</h2>'
+    + '<p style="font-size:14px;color:#888;line-height:1.6;margin:0 0 24px">We\'ll send you an email the moment your AI content team is ready. Keep an eye on your inbox.</p>'
+    + '<div style="font-family:Syne,sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">SOVEXA</div>'
     + '</div>'
-
-    // Login link
-    + '<div style="margin-top:32px;font-size:13px;color:#aaa">Already have access? <a href="/" id="vx-wl-login" style="color:#d4a574;text-decoration:none;font-weight:500">Log in</a></div>'
 
     + '</div>'
 
@@ -101,21 +99,12 @@
         } else {
           btn.textContent = 'Join the waitlist'
           btn.disabled = false
-          alert(d.error || 'Something went wrong')
         }
       })
       .catch(function () {
         btn.textContent = 'Join the waitlist'
         btn.disabled = false
       })
-  })
-
-  // Login link closes waitlist
-  document.getElementById('vx-wl-login').addEventListener('click', function (e) {
-    e.preventDefault()
-    overlay.style.opacity = '0'
-    overlay.style.pointerEvents = 'none'
-    setTimeout(function () { overlay.remove() }, 600)
   })
 
   // Focus styling
