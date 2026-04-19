@@ -190,6 +190,7 @@
         // lands cleanly on the dashboard, so we take that path every time.
         const me = await fetchMe()
         if (me?.companies && me.companies.length > 0) {
+          try { localStorage.setItem('vx-authed', '1') } catch {}
           location.reload()
         } else {
           window.closeAuth()
@@ -197,6 +198,7 @@
         }
       }
     } catch (e) {
+      console.error('[auth] login error:', e.message, e)
       errEl.textContent = friendlyError(e.message)
     } finally {
       btn.disabled = false
