@@ -14,10 +14,9 @@
  * No third-party push service needed. This is all custom.
  */
 
-import { PrismaClient } from '@prisma/client'
+import prisma from '../../lib/prisma'
 import { Response } from 'express'
 
-const prisma = new PrismaClient()
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 

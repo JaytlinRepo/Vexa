@@ -1,13 +1,12 @@
 import { Router } from 'express'
 import axios from 'axios'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { fetchNicheRSSFeeds, RSSItem } from '../services/integrations/rss.service'
 import { getRelatedQueries, getKeywordTrend } from '../services/integrations/google-trends.service'
 import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtube.service'
 import { effectiveNiche } from '../lib/nicheDetection'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 // ─── Feed cache: avoid re-fetching Reddit + RSS + Trends on every request ────

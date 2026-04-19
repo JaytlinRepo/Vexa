@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, EmployeeRole } from '@prisma/client'
 import { orchestrateTask } from '../agents/task-orchestrator'
 import { createNotification } from '../services/notifications/notification.service'
 import { PLAN_LIMITS } from './plans'
@@ -183,7 +183,7 @@ export async function triggerProactiveHooks(
 async function triggerAgentTask(
   prisma: PrismaClient,
   companyId: string,
-  role: string,
+  role: EmployeeRole,
   opts: { type: string; title: string; description: string; notifTitle: string; notifBody: string; dedupDays: number },
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
   const since = new Date(Date.now() - opts.dedupDays * 24 * 60 * 60 * 1000)
@@ -396,7 +396,7 @@ export async function triggerKeepAlive(
       where: {
         companyId,
         status: { in: ['approved', 'rejected'] },
-        updatedAt: { gte: threeDaysAgo },
+        completedAt: { gte: threeDaysAgo },
       },
     })
     if (recentAction) continue // CEO is active, skip

@@ -1,10 +1,9 @@
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { computeUsage } from '../lib/usage'
 import { getBedrockUsage, estimateCost } from '../lib/bedrockUsage'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 router.get('/', requireAuth, async (req, res, next) => {

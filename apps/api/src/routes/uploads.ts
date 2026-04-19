@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import multer from 'multer'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
@@ -7,7 +6,7 @@ import { uploadFile, buildUploadKey, getPresignedUrl, getPresignedUploadUrl } fr
 import { orchestrateTask } from '../agents/task-orchestrator'
 import { createNotification } from '../services/notifications/notification.service'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 // Accept up to 50MB files (video can be large)

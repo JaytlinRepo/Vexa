@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
 import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt, buildMayaPulseSystemPrompt, buildMayaPulseTaskPrompt } from './maya/system-prompt'
 import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildJordanPlanAdjustmentPrompt, buildAlexSystemPrompt, buildAlexTrendHooksPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt, buildRileyCompetitorAnalysisPrompt } from './jordan-alex-riley-prompts'
@@ -8,7 +9,6 @@ import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { AgentRole } from '../lib/nicheKnowledge'
 
-const prisma = new PrismaClient()
 
 // ─── ORCHESTRATE TASK ─────────────────────────────────────────────────────────
 

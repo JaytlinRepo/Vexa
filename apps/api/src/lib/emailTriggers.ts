@@ -3,7 +3,7 @@
  * from the right places in the app. All calls are non-blocking.
  */
 
-import { PrismaClient } from '@prisma/client'
+import prisma from './prisma'
 import {
   sendWelcomeEmail,
   sendOutputDeliveredEmail,
@@ -13,7 +13,6 @@ import {
 } from '../services/email/email.service'
 import { EMPLOYEE_CONFIGS, EmployeeRole } from '@vexa/types'
 
-const prisma = new PrismaClient()
 
 function safe(fn: () => Promise<unknown>): void {
   fn().catch(err => console.warn('[email] send failed:', (err as Error).message))

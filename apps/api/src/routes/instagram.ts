@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import * as meta from '../lib/metaGraph'
 import { mapMetaToStub } from '../lib/metaMapper'
@@ -11,7 +10,7 @@ import { detectNicheFromContent } from '../lib/nicheDetection'
 import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
 import { PLAN_LIMITS } from '../lib/plans'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 const SCOPES = 'instagram_basic,instagram_manage_insights,pages_read_engagement,pages_show_list,business_management'

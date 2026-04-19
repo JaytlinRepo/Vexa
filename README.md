@@ -148,19 +148,55 @@ vexa/
 
 ---
 
+## Infrastructure
+
+### Production URLs
+| Service | URL |
+|---|---|
+| **Frontend** | https://sovexa.ai |
+| **API** | https://api.sovexa.ai |
+
+### AWS Services
+| Service | Resource | Details |
+|---|---|---|
+| **Amplify** | `d1y8b9qw8l1748` | Next.js frontend, two branches (production + dev) |
+| **App Runner** | `sovexa-api` | Express API, pulls from ECR |
+| **ECR** | `sovexa-api` | Docker image repository |
+| **Route 53** | `sovexa.ai` | DNS (single hosted zone) |
+| **Neon** | PostgreSQL | Database (dev + prod share for now) |
+| **Bedrock** | Claude Haiku | LLM for all 4 agents |
+
+### Deployment Workflow
+- **Dev**: Push to `dev` branch → auto-deploys to Amplify dev
+- **Production**: Merge `dev` → `main`, then manually trigger Amplify build. Production never auto-deploys.
+- **API**: Build Docker image → push to ECR → update App Runner service
+
+### Branch Environments
+| Branch | Stage | Frontend URL | API URL |
+|---|---|---|---|
+| `main` | Production | https://sovexa.ai | https://api.sovexa.ai |
+| `dev` | Development | https://dev.d1y8b9qw8l1748.amplifyapp.com | https://api.sovexa.ai |
+
+### IAM
+- **vexa-dev** — IAM user with ECR, App Runner, Amplify, Bedrock permissions
+- **SovexaAppRunnerECRAccess** — IAM role for App Runner to pull from ECR
+
+---
+
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL 15+ (or Neon for cloud)
 - Redis 7+ (optional for local dev)
+- Docker (for API builds)
 - AWS account with Bedrock access
 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/JaytlinRepo/Sovexa.git
-cd Sovexa
+git clone https://github.com/JaytlinRepo/Vexa.git
+cd Vexa
 npm install
 ```
 
@@ -199,7 +235,7 @@ STRIPE_WEBHOOK_SECRET=
 
 ```bash
 cd apps/api
-npx prisma migrate dev --name init
+npx prisma db push
 npx prisma generate
 ```
 
@@ -215,6 +251,19 @@ cd apps/web && npm run dev
 
 Frontend: http://localhost:3000
 API: http://localhost:4000
+
+### 5. Deploy API to AWS
+
+```bash
+# Build and push Docker image
+docker build -t sovexa-api -f apps/api/Dockerfile .
+docker tag sovexa-api:latest 322513863369.dkr.ecr.us-east-1.amazonaws.com/sovexa-api:latest
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 322513863369.dkr.ecr.us-east-1.amazonaws.com
+docker push 322513863369.dkr.ecr.us-east-1.amazonaws.com/sovexa-api:latest
+
+# Update App Runner (picks up latest image)
+aws apprunner start-deployment --service-arn <service-arn> --region us-east-1
+```
 
 ---
 

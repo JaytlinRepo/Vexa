@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { PrismaClient, EmployeeRole } from '@prisma/client'
+import { EmployeeRole } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { seedStarterTasks } from '../lib/seedStarterTasks'
 import { createNotification } from '../services/notifications/notification.service'
 
-const prisma = new PrismaClient()
 const router = Router()
 
 const EMPLOYEE_SEED: Array<{ role: EmployeeRole; name: string }> = [

@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
@@ -8,7 +7,7 @@ import { detectNicheFromContent } from '../lib/nicheDetection'
 import { syncTiktokAccount } from '../lib/tiktokRefreshSync'
 import { PLAN_LIMITS } from '../lib/plans'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 function appUrl(): string {

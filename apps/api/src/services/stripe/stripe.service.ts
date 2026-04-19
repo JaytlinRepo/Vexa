@@ -1,11 +1,10 @@
 import Stripe from 'stripe'
-import { PrismaClient } from '@prisma/client'
+import prisma from '../../lib/prisma'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2024-04-10',
 })
 
-const prisma = new PrismaClient()
 
 // ─── PRICE IDS ────────────────────────────────────────────────────────────────
 

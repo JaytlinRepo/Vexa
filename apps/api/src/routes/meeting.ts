@@ -1,13 +1,12 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { isTestMode } from '../lib/mode'
 import { readTopMemories, formatMemoryForPrompt } from '../lib/brandMemory'
 import { PLAN_LIMITS } from '../lib/plans'
 import { nicheKnowledgeBlock, AgentRole } from '../lib/nicheKnowledge'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 function formatPlatformBlock(ig: {
@@ -490,7 +489,7 @@ Return ONLY valid JSON in this shape:
     // Send meeting summary email
     try {
       const { triggerMeetingSummaryEmail } = await import('../lib/emailTriggers')
-      const emp = meeting.employee
+      const emp = hostEmployee
       triggerMeetingSummaryEmail(userId, {
         employeeName: emp?.name || 'Your teammate',
         employeeEmoji: '',

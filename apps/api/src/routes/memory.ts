@@ -1,10 +1,10 @@
 import { Router } from 'express'
-import { PrismaClient, MemoryType } from '@prisma/client'
+import { MemoryType } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { writeMemory } from '../lib/brandMemory'
 
-const prisma = new PrismaClient()
 const router = Router()
 
 const createSchema = z.object({

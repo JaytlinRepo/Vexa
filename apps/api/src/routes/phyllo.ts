@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import * as phyllo from '../lib/phyllo'
@@ -8,7 +7,7 @@ import { writeMemory } from '../lib/brandMemory'
 import { createNotification } from '../services/notifications/notification.service'
 import { persistPhylloSync } from '../lib/platformSync'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 async function ensurePhylloUser(userId: string): Promise<string> {

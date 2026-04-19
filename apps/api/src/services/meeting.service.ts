@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { invokeAgentStream, invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
 import {
   buildMayaMeetingPrompt,
@@ -10,7 +10,6 @@ import {
 } from '../agents/jordan-alex-riley-prompts'
 import { EmployeeRole, MeetingMessage, MeetingDecision } from '@vexa/types'
 
-const prisma = new PrismaClient()
 
 // ─── START MEETING ────────────────────────────────────────────────────────────
 

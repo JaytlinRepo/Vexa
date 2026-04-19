@@ -91,8 +91,7 @@ router.post('/webhook', async (req, res, next) => {
 
 router.get('/subscription', requireAuth, async (req, res, next) => {
   try {
-    const { PrismaClient } = await import('@prisma/client')
-    const prisma = new PrismaClient()
+    const prisma = (await import('../lib/prisma')).default
     const { userId } = (req as AuthedRequest).session
 
     const user = await prisma.user.findUnique({
@@ -123,8 +122,6 @@ router.get('/subscription', requireAuth, async (req, res, next) => {
       trialDaysLeft,
       trialEndsAt: user.trialEndsAt,
     })
-
-    await prisma.$disconnect()
   } catch (err) {
     next(err)
   }

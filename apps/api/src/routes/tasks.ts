@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { PrismaClient, TaskStatus, type OutputType } from '@prisma/client'
+import { TaskStatus, type OutputType } from '@prisma/client'
+import prisma from '../lib/prisma'
 import { z } from 'zod'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { createNotification } from '../services/notifications/notification.service'
@@ -13,7 +14,6 @@ import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { PLAN_LIMITS } from '../lib/plans'
 import { getBedrockUsage } from '../lib/bedrockUsage'
 
-const prisma = new PrismaClient()
 const router = Router()
 
 const emojiByRole: Record<string, string> = {

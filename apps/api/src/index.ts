@@ -27,8 +27,10 @@ import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
 import uploadsRouter from './routes/uploads'
 import stripeRouter from './routes/stripe'
+import adminRouter from './routes/admin'
 import { registerScheduledJobs } from './scheduler'
-import { PrismaClient } from '@prisma/client'
+import prisma from './lib/prisma'
+import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
 
 if (!process.env.SESSION_SECRET) {
   console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
@@ -52,10 +54,12 @@ app.use(
       // Same-origin / curl / server-to-server requests have no Origin header
       if (!origin) return cb(null, true)
       if (allowedOrigins.includes(origin)) return cb(null, true)
-      // Allow any Vercel preview / production subdomain
+      // Allow Vercel previews, Amplify previews, and localhost
       try {
         const host = new URL(origin).hostname
         if (host.endsWith('.vercel.app')) return cb(null, true)
+        if (host.endsWith('.amplifyapp.com')) return cb(null, true)
+        if (host.endsWith('.sovexa.ai') || host === 'sovexa.ai') return cb(null, true)
         if (host === 'localhost' || host === '127.0.0.1') return cb(null, true)
       } catch { /* fallthrough */ }
       cb(new Error(`Origin ${origin} not allowed by CORS`))
@@ -83,6 +87,12 @@ app.get('/api/mode', (_req, res) => {
   res.json({ mode: getMode() })
 })
 
+// Rate limiting — applied per-user (session) or per-IP (unauthenticated)
+app.use('/api/auth', authLimiter)
+app.use('/api/tasks', agentLimiter)
+app.use('/api/meeting', agentLimiter)
+app.use('/api/', apiLimiter)
+
 app.use('/api/auth', authRouter)
 app.use('/api/onboarding', onboardingRouter)
 app.use('/api/instagram', instagramRouter)
@@ -99,6 +109,7 @@ app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/stripe', stripeRouter)
+app.use('/api/admin', adminRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
@@ -136,8 +147,19 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res, next) => {
 })
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[api]', err)
+  console.error('[api] request error:', err.message, err.stack?.split('\n').slice(0, 3).join(' '))
+  if (res.headersSent) return
   res.status(500).json({ error: 'internal_error', message: err.message })
+})
+
+// Process-level error isolation — log and survive, never crash the whole server
+process.on('unhandledRejection', (reason) => {
+  console.error('[api] unhandled rejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[api] uncaught exception:', err.message, err.stack?.split('\n').slice(0, 5).join(' '))
+  // Don't exit — App Runner will restart us, but we lose all in-flight requests.
+  // Only exit on truly fatal errors (OOM will kill us anyway).
 })
 
 app.listen(PORT, () => {
@@ -155,5 +177,5 @@ app.listen(PORT, () => {
   if (mode === 'test') {
     console.log(`[api] TEST MODE — this is the preview stack. Do not route real users.`)
   }
-  registerScheduledJobs(new PrismaClient())
+  registerScheduledJobs(prisma)
 })

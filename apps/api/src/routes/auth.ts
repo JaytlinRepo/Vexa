@@ -1,12 +1,11 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
-import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { createSession, clearSession, readSession } from '../middleware/auth'
 import { trialEnd } from '../lib/plans'
 import { rolloverTrialIfDue } from '../lib/usage'
 
-const prisma = new PrismaClient()
+import prisma from '../lib/prisma'
 const router = Router()
 
 const signupSchema = z.object({
