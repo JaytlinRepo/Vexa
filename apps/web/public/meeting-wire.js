@@ -561,6 +561,8 @@
     let html = out.join('')
     // Bold (run after structural pass so we don't break bullet detection)
     html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:var(--t1);font-weight:600">$1</strong>')
+    // Source badges — [source: Your TikTok] becomes a styled inline tag
+    html = html.replace(/\[source:\s*([^\]]+)\]/g, '<span style="display:inline-block;font-size:9px;letter-spacing:.04em;color:var(--t3);background:var(--s2,rgba(0,0,0,.04));padding:2px 8px;border-radius:4px;margin-left:4px;vertical-align:middle">$1</span>')
     return html
   }
 
