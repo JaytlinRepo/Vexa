@@ -60,14 +60,19 @@ estimating.
 --- End platform data ---`
 }
 
-function buildFullPlatformBlock(ig: Parameters<typeof formatPlatformBlock>[0], tt: {
-  handle: string
-  followerCount: number
-  followingCount: number
-  videoCount: number
-  avgViews: number
-  engagementRate: number
-} | null): string {
+function buildFullPlatformBlock(
+  ig: Parameters<typeof formatPlatformBlock>[0],
+  tt: {
+    handle: string
+    followerCount: number
+    followingCount: number
+    videoCount: number
+    avgViews: number
+    engagementRate: number
+  } | null,
+  snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = [],
+  recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = [],
+): string {
   const connected: string[] = []
   const notConnected: string[] = []
   let block = '\n--- Connected platforms ---\n'
@@ -104,11 +109,34 @@ function buildFullPlatformBlock(ig: Parameters<typeof formatPlatformBlock>[0], t
     return `\n--- Platform data ---\nNO PLATFORMS CONNECTED. You have no follower counts, engagement rates, or post data. If the CEO asks about stats, say "Connect your accounts in Settings and I'll pull real numbers." Never invent figures.\n--- End platform data ---\n`
   }
 
+  // Snapshot history — shows actual changes over time
+  if (snapshots.length >= 2) {
+    block += '\nHistory (last ' + snapshots.length + ' syncs):\n'
+    const oldest = snapshots[0]
+    const latest = snapshots[snapshots.length - 1]
+    const followerChange = latest.followerCount - oldest.followerCount
+    const sign = followerChange >= 0 ? '+' : ''
+    block += `  Followers: ${oldest.followerCount.toLocaleString()} → ${latest.followerCount.toLocaleString()} (${sign}${followerChange.toLocaleString()})\n`
+    if (oldest.avgReach !== latest.avgReach) {
+      block += `  Avg reach: ${oldest.avgReach.toLocaleString()} → ${latest.avgReach.toLocaleString()}\n`
+    }
+    block += `  Period: ${oldest.capturedAt.toISOString().slice(0, 10)} to ${latest.capturedAt.toISOString().slice(0, 10)}\n`
+  }
+
+  // Recent posts — the agent can reference actual content
+  if (recentPosts.length > 0) {
+    block += '\nRecent posts (newest first):\n'
+    for (const p of recentPosts.slice(0, 5)) {
+      const caption = (p.caption || 'untitled').slice(0, 60)
+      block += `  - "${caption}" — ${p.viewCount.toLocaleString()} views, ${p.likeCount.toLocaleString()} likes, ${p.commentCount.toLocaleString()} comments\n`
+    }
+  }
+
   block += '\n'
   if (notConnected.length > 0) {
     block += `NOT CONNECTED: ${notConnected.join(', ')}. Do NOT reference these platforms — you have no data for them. Only discuss ${connected.join(' and ')}.\n`
   }
-  block += `RULE: Only reference platforms listed above. Never mention platforms the CEO has not connected. Use real numbers from the data above — never invent stats.\n`
+  block += `RULE: Only cite numbers that appear in the data above. If a number is not listed, do NOT estimate or invent it. The CEO can see the source data — if your numbers don't match, you lose trust.\n`
   block += '--- End platform data ---\n'
   return block
 }
@@ -377,7 +405,34 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     if (company) {
       const memories = await readTopMemories(prisma, company.id, 10)
       memoryBlock = formatMemoryForPrompt(memories)
-      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok)
+
+      // Load snapshot history + recent posts for the platform block
+      const platformAccount = await prisma.platformAccount.findFirst({
+        where: { companyId: company.id },
+        orderBy: { lastSyncedAt: 'desc' },
+      })
+      let snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = []
+      let recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = []
+      if (platformAccount) {
+        const [snaps, posts] = await Promise.all([
+          prisma.platformSnapshot.findMany({
+            where: { accountId: platformAccount.id },
+            orderBy: { capturedAt: 'desc' },
+            take: 14,
+            select: { capturedAt: true, followerCount: true, engagementRate: true, avgReach: true },
+          }),
+          prisma.platformPost.findMany({
+            where: { accountId: platformAccount.id },
+            orderBy: { publishedAt: 'desc' },
+            take: 10,
+            select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
+          }),
+        ])
+        snapshots = snaps.reverse()
+        recentPosts = posts
+      }
+
+      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts)
       // Pull niche-specific knowledge for this agent's role, scored
       // against the CEO's current message so the most relevant entries
       // surface (e.g. asking about hooks pulls hook_pattern entries).
