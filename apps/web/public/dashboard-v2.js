@@ -1976,7 +1976,7 @@
           ${sectionOverview()}
           ${sectionTeamPulseBanner()}
           ${sectionReviewQueue()}
-          ${sectionTeam()}
+          ${''}<!-- team accessible via side tabs -->
           ${sectionPerformance()}
           ${sectionTiktok()}
           ${sectionActivity()}

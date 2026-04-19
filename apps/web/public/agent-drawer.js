@@ -270,10 +270,96 @@
     return days + 'd ago'
   }
 
+  // ─── SIDE TABS ─────────────────────────────────────────────────
+  // Persistent tabs on the right edge of the screen. Always visible
+  // when the dashboard is active. Click to open the agent drawer.
+
+  var tabsContainer = null
+
+  function createSideTabs() {
+    if (tabsContainer) return
+    tabsContainer = document.createElement('div')
+    tabsContainer.id = 'vx-agent-tabs'
+    tabsContainer.style.cssText = 'position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:8000;display:flex;flex-direction:column;gap:6px;padding:4px 0'
+
+    var roles = ['analyst', 'strategist', 'copywriter', 'creative_director']
+    roles.forEach(function (role) {
+      var a = AGENTS[role]
+      var tab = document.createElement('button')
+      tab.dataset.vxTab = role
+      tab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 14px;border:none;border-radius:10px 0 0 10px;cursor:pointer;font-family:DM Sans,sans-serif;transition:all .25s cubic-bezier(.16,1,.3,1);background:var(--s1);border:1px solid var(--b1);border-right:none;box-shadow:-4px 2px 12px rgba(0,0,0,.04)'
+      tab.innerHTML = '<div style="width:28px;height:28px;border-radius:7px;background:' + a.color + '18;color:' + a.color + ';display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0">' + a.init + '</div>'
+        + '<div style="overflow:hidden;max-width:0;transition:max-width .25s cubic-bezier(.16,1,.3,1);white-space:nowrap">'
+        + '<div style="font-size:11px;font-weight:600;color:var(--t1);line-height:1.2">' + esc(a.name) + '</div>'
+        + '<div style="font-size:9px;color:var(--t3)">' + esc(a.title.split(' ')[0]) + '</div>'
+        + '</div>'
+
+      tab.addEventListener('mouseenter', function () {
+        tab.querySelector('[style*="max-width:0"]').style.maxWidth = '120px'
+        tab.style.paddingRight = '16px'
+      })
+      tab.addEventListener('mouseleave', function () {
+        if (currentRole !== role) {
+          tab.querySelector('[style*="max-width"]').style.maxWidth = '0px'
+          tab.style.paddingRight = '12px'
+        }
+      })
+      tab.addEventListener('click', function () {
+        openDrawer(role)
+      })
+      tabsContainer.appendChild(tab)
+    })
+
+    document.body.appendChild(tabsContainer)
+  }
+
+  function showSideTabs() {
+    createSideTabs()
+    if (tabsContainer) tabsContainer.style.display = 'flex'
+  }
+
+  function hideSideTabs() {
+    if (tabsContainer) tabsContainer.style.display = 'none'
+  }
+
+  // Show tabs when dashboard is active, hide otherwise
+  function checkDashboardActive() {
+    var dbView = document.getElementById('view-db-dashboard')
+    if (dbView && dbView.classList.contains('active')) {
+      showSideTabs()
+    } else {
+      hideSideTabs()
+    }
+  }
+
+  // Check on load and on navigation
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(checkDashboardActive, 500) })
+  } else {
+    setTimeout(checkDashboardActive, 500)
+  }
+
+  // Re-check when navigation happens
+  var origNav = window.navigate
+  if (typeof origNav === 'function') {
+    window.navigate = function () {
+      var r = origNav.apply(this, arguments)
+      setTimeout(checkDashboardActive, 300)
+      return r
+    }
+  }
+
+  // Also check periodically in case dashboard-v2 renders late
+  var tabCheckCount = 0
+  var tabCheckInterval = setInterval(function () {
+    checkDashboardActive()
+    tabCheckCount++
+    if (tabCheckCount > 30) clearInterval(tabCheckInterval)
+  }, 1000)
+
   // Expose globally
   window.openAgentDrawer = openDrawer
   window.closeAgentDrawer = closeDrawer
-
-  // Expose state accessor for the drawer to read tasks
-  // dashboard-v2 should set window.__vxDashState = STATE after fetch
+  window.showAgentTabs = showSideTabs
+  window.hideAgentTabs = hideSideTabs
 })()
