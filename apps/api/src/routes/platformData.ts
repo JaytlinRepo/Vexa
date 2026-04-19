@@ -32,8 +32,9 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
         orderBy: { publishedAt: 'desc' },
         take: 200,
       }),
+      // Audience may be on a different account (e.g. Instagram has demographics, TikTok doesn't)
       prisma.platformAudience.findMany({
-        where: { accountId: account.id },
+        where: { account: { companyId: company.id } },
         orderBy: { capturedAt: 'desc' },
         take: 5,
       }),
