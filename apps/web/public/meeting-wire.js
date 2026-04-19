@@ -14,6 +14,8 @@
   }
 
   let history = []
+  // Cache meeting topic responses — key: "role:topic", value: { text, timestamp }
+  var meetingCache = {}
   let currentRole = 'copywriter'
   let currentName = 'Alex'
   let streaming = false
@@ -63,9 +65,12 @@
     // If so, present that instead of making a new Bedrock call.
     if (topic) {
       setTimeout(async () => {
-        // Check for cached results from today
-        var cachedOutput = findRecentOutput(currentRole, topic)
-        if (cachedOutput) {
+        var cacheKey = currentRole + ':' + topic
+        var cached = meetingCache[cacheKey]
+        var oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+
+        // If we have an exact cached response from today, replay it
+        if (cached && cached.timestamp > oneDayAgo) {
           const msgs = document.getElementById('mr-msgs')
           if (!msgs) return
           const replyDiv = document.createElement('div')
@@ -73,15 +78,16 @@
           replyDiv.style.cssText = 'opacity:0;transform:translateY(8px);transition:all .4s ease'
           const bubble = document.createElement('div')
           bubble.className = 'mr-bubble'
-          bubble.innerHTML = renderAgentMarkdown(cachedOutput.summary)
+          bubble.innerHTML = renderAgentMarkdown(cached.text)
           replyDiv.appendChild(bubble)
           msgs.appendChild(replyDiv)
           requestAnimationFrame(() => {
             replyDiv.style.opacity = '1'
             replyDiv.style.transform = 'translateY(0)'
           })
-          history.push({ role: 'user', content: 'Show me the ' + topic.toLowerCase() + ' report.' })
-          history.push({ role: 'assistant', content: cachedOutput.summary })
+          msgs.scrollTop = msgs.scrollHeight
+          history.push({ role: 'user', content: 'Show me the ' + topic.toLowerCase() + ' findings.' })
+          history.push({ role: 'assistant', content: cached.text })
           return
         }
 
@@ -147,6 +153,8 @@
                   msgs.scrollTop = msgs.scrollHeight
                 } else if (evt.done) {
                   history.push({ role: 'assistant', content: assistantText })
+                  // Cache this response for same-day replays
+                  meetingCache[cacheKey] = { text: assistantText, timestamp: Date.now() }
                 } else if (typeof evt.knowledgeCount === 'number') {
                   renderKnowledgeBadge(evt.knowledgeCount, evt.niche, evt.memoryCount)
                 }
