@@ -184,19 +184,24 @@
           identifier: document.getElementById('vx-login-id').value.trim(),
           password: document.getElementById('vx-login-password').value,
         }
-        const res = await fetch(API + '/api/auth/login', {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'login_failed')
+        var res, json
+        try {
+          res = await fetch(API + '/api/auth/login', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+        } catch (netErr) {
+          throw new Error('network_error')
+        }
+        try { json = await res.json() } catch { json = {} }
+        if (!res.ok) throw new Error(json.error || json.message || 'login_failed')
         authedUser = json.user
         try { localStorage.setItem('vx-authed', '1') } catch {}
         location.reload()
       }
     } catch (e) {
-      console.error('[auth] login error:', e.message, e)
+      console.error('[auth] error:', e.message, e)
       errEl.textContent = friendlyError(e.message)
     } finally {
       btn.disabled = false
@@ -205,11 +210,18 @@
 
   function friendlyError(code) {
     switch (code) {
-      case 'invalid_credentials': return 'That email/username or password is wrong.'
-      case 'email_or_username_in_use': return 'That email or username is already in use.'
-      case 'invalid_input': return 'Please check the fields and try again.'
-      case 'rate_limited': return 'Too many attempts. Wait a few minutes and try again.'
-      default: return 'Something went wrong. Try again.'
+      case 'invalid_credentials': return 'Wrong email/username or password. Check your spelling and try again.'
+      case 'email_or_username_in_use': return 'That email or username is already taken. Try a different one.'
+      case 'invalid_input': return 'Please fill in all required fields correctly.'
+      case 'rate_limited': return 'Too many attempts. Please wait a few minutes before trying again.'
+      case 'network_error': return 'Can\'t reach the server. Check your internet connection and try again.'
+      case 'login_failed': return 'Login failed. Please check your credentials and try again.'
+      case 'signup_failed': return 'Sign up failed. Please try again.'
+      case 'unauthorized': return 'Session expired. Please log in again.'
+      case 'internal_error': return 'Server error. Please try again in a moment.'
+      default:
+        if (code && code.length < 100) return code.replace(/_/g, ' ')
+        return 'Something went wrong. Please try again.'
     }
   }
 
