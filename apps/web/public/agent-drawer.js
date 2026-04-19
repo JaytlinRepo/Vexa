@@ -87,7 +87,8 @@
     var state = window.__vxDashState || {}
     var hasPlatform = !!(state.tiktok || state.insights)
     var hasPosts = !!(state.tasks && state.tasks.length > 0) || hasPlatform
-    var hasAudience = hasPlatform // audience comes with platform connect
+    // Audience requires actual demographic data, not just a platform connection
+    var hasAudience = !!(state.overview && state.overview.audience && Object.keys(state.overview.audience).length > 0)
     // Competitor data requires external feeds — check if knowledge feed has data
     var hasCompetitors = !!(state.feed && state.feed.length > 0)
 

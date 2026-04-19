@@ -72,6 +72,7 @@ function buildFullPlatformBlock(
   } | null,
   snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = [],
   recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = [],
+  audience: { ageBreakdown: unknown; genderBreakdown: unknown; topCountries: unknown; topCities: unknown } | null = null,
 ): string {
   const connected: string[] = []
   const notConnected: string[] = []
@@ -142,6 +143,40 @@ function buildFullPlatformBlock(
       block += `  - "${caption}" — ${p.viewCount.toLocaleString()} views, ${p.likeCount.toLocaleString()} likes, ${p.commentCount.toLocaleString()} comments\n`
     }
     block += `=== END RECENT POSTS ===\n`
+  }
+
+  // Audience demographics
+  if (audience) {
+    block += `\n=== YOUR AUDIENCE (cite these exact numbers) ===\n`
+    const ages = Array.isArray(audience.ageBreakdown) ? audience.ageBreakdown as Array<{ bucket: string; share: number }> : []
+    if (ages.length > 0) {
+      block += `Age breakdown:\n`
+      for (const a of ages) {
+        block += `  ${a.bucket}: ${(a.share * 100).toFixed(1)}%\n`
+      }
+    }
+    const genders = Array.isArray(audience.genderBreakdown) ? audience.genderBreakdown as Array<{ bucket: string; share: number }> : []
+    if (genders.length > 0) {
+      block += `Gender:\n`
+      for (const g of genders) {
+        block += `  ${g.bucket}: ${(g.share * 100).toFixed(1)}%\n`
+      }
+    }
+    const countries = Array.isArray(audience.topCountries) ? audience.topCountries as Array<{ bucket: string; share: number }> : []
+    if (countries.length > 0) {
+      block += `Top countries:\n`
+      for (const c of countries.slice(0, 5)) {
+        block += `  ${c.bucket}: ${(c.share * 100).toFixed(1)}%\n`
+      }
+    }
+    const cities = Array.isArray(audience.topCities) ? audience.topCities as Array<{ bucket: string; share: number }> : []
+    if (cities.length > 0) {
+      block += `Top cities:\n`
+      for (const c of cities.slice(0, 3)) {
+        block += `  ${c.bucket}: ${(c.share * 100).toFixed(1)}%\n`
+      }
+    }
+    block += `=== END AUDIENCE ===\n`
   }
 
   block += '\n'
@@ -463,9 +498,10 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       })
       let snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = []
       let recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = []
+      let audienceData: { ageBreakdown: unknown; genderBreakdown: unknown; topCountries: unknown; topCities: unknown } | null = null
       if (platformAccount) {
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        const [snaps, posts] = await Promise.all([
+        const [snaps, posts, audienceRows] = await Promise.all([
           prisma.platformSnapshot.findMany({
             where: { accountId: platformAccount.id, capturedAt: { gte: sevenDaysAgo } },
             orderBy: { capturedAt: 'asc' },
@@ -477,12 +513,20 @@ router.post('/reply', requireAuth, async (req, res, next) => {
             take: 10,
             select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
           }),
+          prisma.platformAudience.findFirst({
+            where: { accountId: platformAccount.id },
+            orderBy: { capturedAt: 'desc' },
+          }),
         ])
         snapshots = snaps
         recentPosts = posts
+        // Add audience data to platform block if available
+        if (audienceRows) {
+          audienceData = audienceRows
+        }
       }
 
-      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts)
+      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts, audienceData)
       // Pull niche-specific knowledge for this agent's role, scored
       // against the CEO's current message so the most relevant entries
       // surface (e.g. asking about hooks pulls hook_pattern entries).
