@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
       await resend.emails.send({
         from: 'Sovexa <team@sovexa.ai>',
         to: NOTIFY_EMAIL,
-        replyTo: body.email,
+        reply_to: body.email,
         subject: `[Sovexa Contact] ${body.reason} — ${body.name}`,
         html: `
           <div style="font-family:'DM Sans',system-ui,sans-serif;max-width:520px;margin:0 auto;padding:32px 20px">
