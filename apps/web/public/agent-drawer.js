@@ -280,16 +280,16 @@
     if (tabsContainer) return
     tabsContainer = document.createElement('div')
     tabsContainer.id = 'vx-agent-tabs'
-    tabsContainer.style.cssText = 'position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:8000;display:flex;flex-direction:column;gap:6px;padding:4px 0'
+    tabsContainer.style.cssText = 'position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:8000;display:flex;flex-direction:column;gap:2px;padding:4px 0'
 
     var roles = ['analyst', 'strategist', 'copywriter', 'creative_director']
     roles.forEach(function (role) {
       var a = AGENTS[role]
       var tab = document.createElement('button')
       tab.dataset.vxTab = role
-      tab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 14px;border:none;border-radius:10px 0 0 10px;cursor:pointer;font-family:DM Sans,sans-serif;transition:all .25s cubic-bezier(.16,1,.3,1);background:var(--s1);border:1px solid var(--b1);border-right:none;box-shadow:-4px 2px 12px rgba(0,0,0,.04)'
+      tab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border:none;border-radius:8px 0 0 8px;cursor:pointer;font-family:DM Sans,sans-serif;transition:all .25s cubic-bezier(.16,1,.3,1);background:var(--s1);border:1px solid var(--b1);border-right:none;box-shadow:-2px 1px 8px rgba(0,0,0,.03)'
       var avatar = document.createElement('div')
-      avatar.style.cssText = 'width:28px;height:28px;border-radius:7px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0'
+      avatar.style.cssText = 'width:24px;height:24px;border-radius:6px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:10px;font-family:Syne,sans-serif;flex-shrink:0'
       avatar.textContent = a.init
 
       var tabLabel = document.createElement('div')

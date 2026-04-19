@@ -1996,8 +1996,8 @@
     // Kick off background syncs AFTER rendering — doesn't delay the UI
     backgroundTiktokSync()
     backgroundInstagramSync()
-    // Show unread drop toasts
-    setTimeout(showDeliverableToasts, 600)
+    // Toasts disabled — delivered items shown in "Next for you" section
+    // setTimeout(showDeliverableToasts, 600)
   }
 
   // ── Deliverable toasts — rotating single notification ──────────
