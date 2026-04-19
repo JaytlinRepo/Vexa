@@ -13,10 +13,14 @@
 
   overlay.innerHTML = ''
 
-    // ─── HEADER ──────────────────────────────────────────────────
-    + '<header style="padding:20px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(0,0,0,.06)">'
-    + '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:#1a1a1a">SOVEXA</div>'
-    + '<div style="font-size:12px;color:#aaa">Coming soon</div>'
+    // ─── HEADER (matches home page topbar) ─────────────────────
+    + '<header id="vx-wl-topbar" style="position:sticky;top:0;z-index:100;padding:18px 48px;display:flex;align-items:center;justify-content:space-between;background:rgba(250,249,247,.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(0,0,0,.04);transition:all .35s cubic-bezier(.16,1,.3,1)">'
+    + '<a href="#" style="font-family:Cormorant Garamond,Georgia,serif;font-size:20px;font-weight:400;font-style:italic;color:#1a1a1a;text-decoration:none;letter-spacing:-.01em" onclick="document.getElementById(\'vx-waitlist\').scrollTo({top:0,behavior:\'smooth\'});return false">Sovexa</a>'
+    + '<nav style="display:flex;align-items:center;gap:24px;font-family:DM Sans,sans-serif;font-size:13px">'
+    + '<a href="#vx-wl-team" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">The team</a>'
+    + '<a href="#vx-wl-process" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">How it works</a>'
+    + '<a href="mailto:hello@sovexa.ai" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">Contact</a>'
+    + '</nav>'
     + '</header>'
 
     // ─── HERO / WAITLIST FORM ────────────────────────────────────
@@ -47,7 +51,7 @@
     + '</section>'
 
     // ─── YOUR AI TEAM (matches home page team-row layout) ─────────
-    + '<section style="padding:clamp(60px,8vw,100px) 20px">'
+    + '<section id="vx-wl-team" style="padding:clamp(60px,8vw,100px) 20px;scroll-margin-top:80px">'
     + '<div style="max-width:960px;margin:0 auto">'
     + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
     + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Your AI team</span>'
@@ -111,7 +115,7 @@
     + '</section>'
 
     // ─── PROCESS (matches home page how-grid layout) ─────────────
-    + '<section style="padding:clamp(60px,8vw,100px) 20px;border-top:1px solid rgba(0,0,0,.06)">'
+    + '<section id="vx-wl-process" style="padding:clamp(60px,8vw,100px) 20px;border-top:1px solid rgba(0,0,0,.06);scroll-margin-top:80px">'
     + '<div style="max-width:960px;margin:0 auto">'
     + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
     + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Process</span>'
@@ -227,6 +231,44 @@
         btn.textContent = 'Join the waitlist'
         btn.disabled = false
       })
+  })
+
+  // Topbar scroll island morph (matches home page)
+  var wlTopbar = document.getElementById('vx-wl-topbar')
+  var wlCurrentP = 0
+  var ISLAND_START = 4
+  var ISLAND_RANGE = 260
+
+  overlay.addEventListener('scroll', function () {
+    var y = overlay.scrollTop
+    var targetP = Math.max(0, Math.min(1, (y - ISLAND_START) / ISLAND_RANGE))
+    wlCurrentP += (targetP - wlCurrentP) * 0.14
+    if (Math.abs(targetP - wlCurrentP) < 0.002) wlCurrentP = targetP
+
+    var p = wlCurrentP
+    var maxW = Math.min(1040, overlay.clientWidth - 40)
+    wlTopbar.style.width = 'calc(100% - ' + (p * (overlay.clientWidth - maxW)) + 'px)'
+    wlTopbar.style.marginLeft = (p * (overlay.clientWidth - maxW) / 2) + 'px'
+    wlTopbar.style.borderRadius = (p * 100) + 'px'
+    wlTopbar.style.top = (p * 12) + 'px'
+    wlTopbar.style.padding = (18 - 8 * p) + 'px ' + (48 - 20 * p) + 'px'
+    wlTopbar.style.boxShadow = p > 0.01
+      ? '0 ' + (p * 18) + 'px ' + (p * 52) + 'px rgba(0,0,0,.04), 0 0 0 ' + (p * 1) + 'px rgba(0,0,0,.04)'
+      : 'none'
+    wlTopbar.style.borderBottomColor = 'rgba(0,0,0,' + (0.04 + p * 0.02) + ')'
+
+    if (Math.abs(targetP - wlCurrentP) > 0.003) {
+      requestAnimationFrame(function () { overlay.dispatchEvent(new Event('scroll')) })
+    }
+  }, { passive: true })
+
+  // Smooth scroll for nav links
+  overlay.querySelectorAll('a[href^="#vx-wl-"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault()
+      var target = document.querySelector(a.getAttribute('href'))
+      if (target) target.scrollIntoView({ behavior: 'smooth' })
+    })
   })
 
   // Focus styling
