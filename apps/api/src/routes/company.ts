@@ -471,4 +471,113 @@ router.delete('/goal', requireAuth, async (req, res, next) => {
   }
 })
 
+// ── Schedule Preferences ─────────────────────────────────────────────────────
+
+import { SCHEDULE_DEFAULTS, formatSchedule, type ScheduleEntry } from '../lib/schedulePrefs'
+
+// GET /api/company/schedules — get all schedule preferences for the user's company
+router.get('/schedules', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      select: { agentTools: true },
+    })
+    if (!company) { res.status(404).json({ error: 'no_company' }); return }
+
+    const tools = (company.agentTools || {}) as Record<string, unknown>
+    const userPrefs = (tools.schedules || {}) as Record<string, ScheduleEntry>
+
+    // Merge defaults with user overrides
+    const schedules = Object.entries(SCHEDULE_DEFAULTS).map(([key, def]) => {
+      const entry = userPrefs[key] || def
+      return {
+        key,
+        label: def.label,
+        agent: def.agent,
+        description: def.description,
+        day: entry.day,
+        dayOfMonth: entry.dayOfMonth,
+        hour: entry.hour,
+        formatted: formatSchedule(entry),
+        isCustom: !!userPrefs[key],
+      }
+    })
+
+    res.json({ schedules })
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/company/schedules — update a schedule preference
+const scheduleUpdateSchema = z.object({
+  key: z.string(),
+  day: z.number().min(0).max(6).optional(),
+  dayOfMonth: z.number().min(1).max(28).optional(),
+  hour: z.number().min(0).max(23),
+})
+
+router.patch('/schedules', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const data = scheduleUpdateSchema.parse(req.body)
+
+    if (!SCHEDULE_DEFAULTS[data.key]) {
+      res.status(400).json({ error: 'invalid_schedule_key' })
+      return
+    }
+
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      select: { id: true, agentTools: true },
+    })
+    if (!company) { res.status(404).json({ error: 'no_company' }); return }
+
+    const tools = (company.agentTools || {}) as Record<string, unknown>
+    const schedules = (tools.schedules || {}) as Record<string, ScheduleEntry>
+
+    // Set the new preference
+    const entry: ScheduleEntry = { hour: data.hour }
+    if (data.dayOfMonth !== undefined) entry.dayOfMonth = data.dayOfMonth
+    else if (data.day !== undefined) entry.day = data.day
+
+    schedules[data.key] = entry
+
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { agentTools: { ...tools, schedules } as never },
+    })
+
+    res.json({ ok: true, schedule: { ...entry, formatted: formatSchedule(entry) } })
+  } catch (err) {
+    if (err instanceof z.ZodError) { res.status(400).json({ error: 'invalid_input', issues: err.issues }); return }
+    next(err)
+  }
+})
+
+// DELETE /api/company/schedules/:key — reset a schedule to default
+router.delete('/schedules/:key', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const key = req.params.key
+
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      select: { id: true, agentTools: true },
+    })
+    if (!company) { res.status(404).json({ error: 'no_company' }); return }
+
+    const tools = (company.agentTools || {}) as Record<string, unknown>
+    const schedules = (tools.schedules || {}) as Record<string, ScheduleEntry>
+    delete schedules[key]
+
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { agentTools: { ...tools, schedules } as never },
+    })
+
+    const def = SCHEDULE_DEFAULTS[key]
+    res.json({ ok: true, schedule: def ? { ...def, formatted: formatSchedule(def) } : null })
+  } catch (err) { next(err) }
+})
+
 export default router

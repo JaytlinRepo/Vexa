@@ -72,6 +72,15 @@
     },
   }
 
+  var AGENT_SCHEDULES = {
+    analyst: ['maya_pulse'],
+    strategist: ['jordan_plan', 'jordan_audit', 'jordan_adjustment', 'jordan_growth'],
+    copywriter: [],
+    creative_director: ['riley_feed_audit', 'riley_format', 'riley_competitor'],
+  }
+
+  var DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
 
   function createDrawer() {
@@ -123,10 +132,12 @@
       + '<p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0">' + esc(agent.personality) + '</p>'
       + '</div>'
 
-      // Schedule
+      // Schedule (editable)
       + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
-      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;font-weight:500">Schedule</div>'
-      + '<p style="font-size:12px;color:var(--t2);line-height:1.5;margin:0">' + esc(agent.schedule) + '</p>'
+      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;font-weight:500">Schedule</div>'
+      + '<div id="vx-drawer-schedules" style="display:flex;flex-direction:column;gap:8px">'
+      + '<div style="font-size:12px;color:var(--t3)">Loading...</div>'
+      + '</div>'
       + '</div>'
 
       // Services
@@ -193,6 +204,9 @@
       })
     })
 
+    // Load schedules for this agent
+    loadAgentSchedules(role)
+
     // Wire review buttons
     drawer.querySelectorAll('[data-vx-review]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -201,6 +215,94 @@
         if (typeof window.navigate === 'function') window.navigate('db-tasks')
       })
     })
+  }
+
+  function loadAgentSchedules(role) {
+    var container = document.getElementById('vx-drawer-schedules')
+    if (!container) return
+    var keys = AGENT_SCHEDULES[role] || []
+    if (keys.length === 0) {
+      container.innerHTML = '<div style="font-size:12px;color:var(--t2);line-height:1.5">Auto-briefed when upstream agent delivers. No fixed schedule.</div>'
+      return
+    }
+
+    fetch('/api/company/schedules', { credentials: 'include' })
+      .then(function (r) { return r.json() })
+      .then(function (data) {
+        var schedules = data.schedules || []
+        var relevant = schedules.filter(function (s) { return keys.indexOf(s.key) !== -1 })
+        if (relevant.length === 0) { container.innerHTML = '<div style="font-size:12px;color:var(--t3)">No schedules configured.</div>'; return }
+
+        container.innerHTML = relevant.map(function (s) {
+          var isMonthly = s.dayOfMonth !== undefined && s.dayOfMonth !== null
+          return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:12px 14px">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+            + '<div style="font-size:12px;font-weight:500;color:var(--t1)">' + esc(s.label) + '</div>'
+            + (s.isCustom ? '<span style="font-size:9px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase">Custom</span>' : '')
+            + '</div>'
+            + '<div style="display:flex;gap:8px;align-items:center">'
+            // Day selector
+            + (isMonthly
+              ? '<select data-sched-key="' + s.key + '" data-sched-field="dayOfMonth" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--bg);color:var(--t1);font-size:11px;font-family:inherit">'
+                + Array.from({length:28}, function(_,i) { return '<option value="' + (i+1) + '"' + ((i+1) === s.dayOfMonth ? ' selected' : '') + '>' + (i+1) + ordinal(i+1) + '</option>' }).join('')
+                + '</select>'
+              : '<select data-sched-key="' + s.key + '" data-sched-field="day" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--bg);color:var(--t1);font-size:11px;font-family:inherit">'
+                + DAY_NAMES.map(function(d, i) { return '<option value="' + i + '"' + (i === s.day ? ' selected' : '') + '>' + d + '</option>' }).join('')
+                + '</select>'
+            )
+            // Hour selector
+            + '<select data-sched-key="' + s.key + '" data-sched-field="hour" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--b1);background:var(--bg);color:var(--t1);font-size:11px;font-family:inherit">'
+            + Array.from({length:24}, function(_,i) {
+                var h = i % 12 || 12
+                var ap = i < 12 ? 'am' : 'pm'
+                return '<option value="' + i + '"' + (i === s.hour ? ' selected' : '') + '>' + h + ap + ' UTC</option>'
+              }).join('')
+            + '</select>'
+            + '</div>'
+            + '</div>'
+        }).join('')
+
+        // Wire change events
+        container.querySelectorAll('select').forEach(function (sel) {
+          sel.addEventListener('change', function () {
+            var key = sel.dataset.schedKey
+            var field = sel.dataset.schedField
+            var value = parseInt(sel.value, 10)
+
+            // Build the update payload
+            var sched = relevant.find(function (s) { return s.key === key })
+            var payload = { key: key, hour: sched.hour }
+            if (sched.dayOfMonth !== undefined && sched.dayOfMonth !== null) payload.dayOfMonth = sched.dayOfMonth
+            else if (sched.day !== undefined) payload.day = sched.day
+            payload[field] = value
+
+            // Update local state
+            sched[field] = value
+
+            fetch('/api/company/schedules', {
+              method: 'PATCH',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }).then(function (r) {
+              if (r.ok) {
+                sel.style.borderColor = '#34d27a'
+                setTimeout(function () { sel.style.borderColor = 'var(--b1)' }, 1500)
+              }
+            }).catch(function () {})
+          })
+        })
+      })
+      .catch(function () {
+        container.innerHTML = '<div style="font-size:12px;color:var(--t3)">Could not load schedules.</div>'
+      })
+  }
+
+  function ordinal(n) {
+    if (n === 1 || n === 21) return 'st'
+    if (n === 2 || n === 22) return 'nd'
+    if (n === 3 || n === 23) return 'rd'
+    return 'th'
   }
 
   function closeDrawer() {
