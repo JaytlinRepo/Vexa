@@ -2,7 +2,7 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
-import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
+import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
 import { syncTiktokAccount } from '../lib/tiktokRefreshSync'
 import { PLAN_LIMITS } from '../lib/plans'
@@ -292,8 +292,8 @@ router.get('/callback', async (req, res) => {
       )
     }
     if (connectPlan.proactiveAnalysis) {
-      void triggerProactiveMayaAnalysis(prisma, companyId).catch((err) =>
-        console.warn('[tiktok] proactive Maya analysis failed (non-blocking)', err),
+      void triggerFirstConnectBatch(prisma, companyId).catch((err) =>
+        console.warn('[tiktok] first-connect batch failed (non-blocking)', err),
       )
     }
 

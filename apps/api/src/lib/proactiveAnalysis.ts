@@ -6,6 +6,32 @@ import { PLAN_LIMITS } from './plans'
 const DEDUP_WINDOW_MS = 6 * 24 * 60 * 60 * 1000 // 6 days
 
 /**
+ * First connect — fires a batch of initial analyses so the user
+ * opens their dashboard to real work, not an empty inbox.
+ * Triggers: Maya performance review + trend report, Jordan weekly plan.
+ */
+export async function triggerFirstConnectBatch(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<void> {
+  // Maya: Performance review (what's working)
+  await triggerProactiveMayaAnalysis(prisma, companyId).catch(() => {})
+
+  // Maya: Trend report (what's trending in your niche)
+  await triggerAgentTask(prisma, companyId, 'analyst' as EmployeeRole, {
+    type: 'trend_analysis',
+    title: 'Trend report — your niche right now',
+    description: 'What\'s trending in your niche this week. Opportunities ranked by urgency and audience fit.',
+    notifTitle: 'Maya spotted trends in your niche',
+    notifBody: 'Your first trend report is ready — see what\'s moving.',
+    dedupDays: 3,
+  }).catch(() => {})
+
+  // Jordan: First content plan
+  await triggerWeeklyPlan(prisma, companyId).catch(() => {})
+}
+
+/**
  * Full performance review — triggered once on first TikTok connect.
  * Deep dive: what's working, what's not, recent activity, trajectory.
  */

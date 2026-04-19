@@ -7,7 +7,7 @@ import { persistPhylloSync } from '../lib/platformSync'
 import { writeMemory } from '../lib/brandMemory'
 import { createNotification } from '../services/notifications/notification.service'
 import { detectNicheFromContent } from '../lib/nicheDetection'
-import { triggerProactiveMayaAnalysis } from '../lib/proactiveAnalysis'
+import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { PLAN_LIMITS } from '../lib/plans'
 
 import prisma from '../lib/prisma'
@@ -230,7 +230,7 @@ router.get('/auth/callback', async (req, res) => {
       void detectNicheFromContent(prisma, companyId).catch(() => {})
     }
     if (plan.proactiveAnalysis) {
-      void triggerProactiveMayaAnalysis(prisma, companyId).catch(() => {})
+      void triggerFirstConnectBatch(prisma, companyId).catch(() => {})
     }
 
     console.log('[instagram] connection saved', { companyId, handle: stub.username, followers: stub.followerCount, posts: stub.postCount })

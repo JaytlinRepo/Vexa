@@ -112,6 +112,7 @@
     } catch (e) {}
 
     var delivered = tasks.filter(function (t) { return t.status === 'delivered' })
+    var working = tasks.filter(function (t) { return t.status === 'pending' || t.status === 'in_progress' || t.status === 'revision' })
     var history = tasks.filter(function (t) { return t.status === 'approved' || t.status === 'rejected' }).slice(0, 5)
 
     drawer.innerHTML = ''
@@ -132,7 +133,41 @@
       + '<p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0">' + esc(agent.personality) + '</p>'
       + '</div>'
 
-      // Schedule (editable)
+      // ── 1. READY FOR REVIEW (delivered work — the primary thing) ──
+      + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
+      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Ready for you</div>'
+      + (delivered.length > 0
+        ? delivered.map(function (t) {
+            return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:14px 16px;margin-bottom:6px">'
+              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+              + '<div style="font-size:13px;color:var(--t1);font-weight:500">' + esc(t.title) + '</div>'
+              + '<button data-vx-review="' + t.id + '" style="background:var(--t1);color:var(--bg);border:none;padding:5px 14px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">Review</button>'
+              + '</div>'
+              + '<div style="font-size:10px;color:var(--t3)">Delivered ' + timeAgo(t.createdAt) + '</div>'
+              + '</div>'
+          }).join('')
+        : (working.length > 0
+          ? '<div style="font-size:12px;color:var(--t2);line-height:1.5;display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:#e8c87a;flex-shrink:0;animation:pulse 2s infinite"></span>' + esc(agent.name) + ' is working on: ' + esc(working[0].title) + '</div>'
+          : '<div style="font-size:12px;color:var(--t3);line-height:1.5">' + esc(agent.name) + ' is on watch. Next delivery: see schedule below.</div>'
+        )
+      )
+      + '</div>'
+
+      // ── 2. IN PROGRESS (what they're working on) ──
+      + (working.length > 0 && delivered.length > 0
+        ? '<div style="padding:16px 28px;border-bottom:1px solid var(--b1)">'
+          + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;font-weight:500">Working on</div>'
+          + working.map(function (t) {
+              return '<div style="font-size:12px;color:var(--t2);display:flex;align-items:center;gap:8px;padding:4px 0">'
+                + '<span style="width:6px;height:6px;border-radius:50%;background:#e8c87a;flex-shrink:0"></span>'
+                + esc(t.title)
+                + '</div>'
+            }).join('')
+          + '</div>'
+        : ''
+      )
+
+      // ── 3. SCHEDULE (editable) ──
       + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
       + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;font-weight:500">Schedule</div>'
       + '<div id="vx-drawer-schedules" style="display:flex;flex-direction:column;gap:8px">'
@@ -140,39 +175,25 @@
       + '</div>'
       + '</div>'
 
-      // Services
+      // ── 4. REQUEST NEW WORK (services — secondary action) ──
       + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
-      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:14px;font-weight:500">What ' + esc(agent.name) + ' can do</div>'
+      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:14px;font-weight:500">Request new work</div>'
       + '<div style="display:flex;flex-direction:column;gap:8px">'
       + agent.services.map(function (s) {
-          return '<button data-vx-service="' + s.kind + '" data-vx-type="' + s.type + '" data-vx-role="' + role + '" data-vx-label="' + esc(s.label) + '" style="text-align:left;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .2s;font-family:inherit">'
-            + '<div style="font-size:13px;font-weight:500;color:var(--t1);margin-bottom:4px">' + esc(s.label) + '</div>'
-            + '<div style="font-size:11px;color:var(--t2);line-height:1.5">' + esc(s.desc) + '</div>'
+          return '<button data-vx-service="' + s.kind + '" data-vx-type="' + s.type + '" data-vx-role="' + role + '" data-vx-label="' + esc(s.label) + '" style="text-align:left;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;font-family:inherit">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between">'
+            + '<div style="font-size:12px;font-weight:500;color:var(--t1)">' + esc(s.label) + '</div>'
+            + '<div style="font-size:10px;color:var(--t3)">Assign</div>'
+            + '</div>'
+            + '<div style="font-size:11px;color:var(--t2);line-height:1.5;margin-top:4px">' + esc(s.desc) + '</div>'
             + '</button>'
         }).join('')
       + '</div>'
       + '</div>'
 
-      // Current work
-      + '<div style="padding:20px 28px;border-bottom:1px solid var(--b1)">'
-      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Current work</div>'
-      + (delivered.length > 0
-        ? delivered.map(function (t) {
-            return '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">'
-              + '<div>'
-              + '<div style="font-size:12px;color:var(--t1);font-weight:500">' + esc(t.title) + '</div>'
-              + '<div style="font-size:10px;color:var(--t3);margin-top:2px">Delivered ' + timeAgo(t.createdAt) + '</div>'
-              + '</div>'
-              + '<button data-vx-review="' + t.id + '" style="background:var(--t1);color:var(--bg);border:none;padding:5px 12px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">Review</button>'
-              + '</div>'
-          }).join('')
-        : '<div style="font-size:12px;color:var(--t3);line-height:1.5">No deliverables waiting. Assign a task above or wait for ' + esc(agent.name) + '\'s next scheduled delivery.</div>'
-      )
-      + '</div>'
-
-      // History
+      // ── 5. HISTORY ──
       + '<div style="padding:20px 28px 32px">'
-      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Recent history</div>'
+      + '<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">History</div>'
       + (history.length > 0
         ? history.map(function (t) {
             var icon = t.status === 'approved' ? '<span style="color:#34d27a">&#10003;</span>' : '<span style="color:#e87a7a">&#10007;</span>'
@@ -255,7 +276,7 @@
             + Array.from({length:24}, function(_,i) {
                 var h = i % 12 || 12
                 var ap = i < 12 ? 'am' : 'pm'
-                return '<option value="' + i + '"' + (i === s.hour ? ' selected' : '') + '>' + h + ap + ' UTC</option>'
+                return '<option value="' + i + '"' + (i === s.hour ? ' selected' : '') + '>' + h + ap + '</option>'
               }).join('')
             + '</select>'
             + '</div>'
