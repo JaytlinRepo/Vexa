@@ -154,7 +154,9 @@ The numbers listed above are the ONLY numbers you have. You MUST NOT invent, est
 - If a metric is not listed above (like "save rate" or "Reels views"), you DO NOT HAVE IT. Say "I don't have that data yet" instead of inventing a number.
 - The CEO sees the same source data when they click the [source] tag. If your numbers don't match, they will know immediately. This destroys trust permanently.
 - When you don't have enough data to identify a trend, say that honestly. "Your data is relatively stable — no major shifts this period" is a valid and trustworthy answer.
-- NEVER use percentages unless you can show the exact before and after numbers from the data above.\n`
+- NEVER use percentages unless you can show the exact before and after numbers from the data above.
+- NEVER cite industry benchmarks, averages, or "typical" growth rates. You don't have that data. Stick to the CEO's actual numbers only.
+- NEVER compare to hypothetical baselines like "15-25% weekly growth" — you only have what's in the data block above.\n`
   block += '--- End platform data ---\n'
   return block
 }

@@ -542,7 +542,11 @@
     fetch('/api/platform/timeseries', { credentials: 'include' })
       .then(function (r) { return r.json() })
       .then(function (ts) {
-        var snapshots = ts.snapshots || []
+        var allSnapshots = ts.snapshots || []
+        // Filter to last 7 days to match what the agent sees
+        var sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+        var snapshots = allSnapshots.filter(function (s) { return new Date(s.capturedAt).getTime() >= sevenDaysAgo })
+        if (snapshots.length === 0) snapshots = allSnapshots.slice(-7) // fallback
         var posts = ts.posts || []
         var account = ts.account || {}
 
