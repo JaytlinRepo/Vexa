@@ -1976,7 +1976,7 @@
           ${sectionOverview()}
           ${sectionTeamPulseBanner()}
           ${sectionReviewQueue()}
-          ${''}<!-- team section moved to Work page -->
+          ${sectionTeam()}
           ${sectionPerformance()}
           ${sectionTiktok()}
           ${sectionActivity()}
