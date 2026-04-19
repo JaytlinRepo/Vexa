@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             document.documentElement.dataset.vxAuthed='1';
             var s=document.createElement('style');
             s.id='vx-auth-gate';
-            s.textContent='.view{display:none!important}#view-db-dashboard{display:block!important}';
+            s.textContent='.view{display:none!important}#view-db-dashboard{display:block!important}#nav-marketing{display:none!important}#topbar-login{display:none!important}#topbar-cta{display:none!important}#nav-app{display:flex!important}';
             document.head.appendChild(s);
           }}catch(e){}
         `}</Script>
