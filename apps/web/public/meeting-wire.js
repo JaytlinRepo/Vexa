@@ -14,8 +14,25 @@
   }
 
   let history = []
-  // Cache meeting topic responses — key: "role:topic", value: { text, timestamp }
+  // Cache meeting topic responses — persisted to sessionStorage so refreshes don't regenerate
   var meetingCache = {}
+  try {
+    var stored = sessionStorage.getItem('vx-meeting-cache')
+    if (stored) {
+      meetingCache = JSON.parse(stored)
+      // Clean expired entries (older than 24h)
+      var now = Date.now()
+      var oneDay = 24 * 60 * 60 * 1000
+      Object.keys(meetingCache).forEach(function (k) {
+        if (!meetingCache[k].timestamp || meetingCache[k].timestamp < now - oneDay) {
+          delete meetingCache[k]
+        }
+      })
+    }
+  } catch {}
+  function saveMeetingCache() {
+    try { sessionStorage.setItem('vx-meeting-cache', JSON.stringify(meetingCache)) } catch {}
+  }
   let currentRole = 'copywriter'
   let currentName = 'Alex'
   let streaming = false
@@ -155,6 +172,7 @@
                   history.push({ role: 'assistant', content: assistantText })
                   // Cache this response for same-day replays
                   meetingCache[cacheKey] = { text: assistantText, timestamp: Date.now() }
+                  saveMeetingCache()
                 } else if (typeof evt.knowledgeCount === 'number') {
                   renderKnowledgeBadge(evt.knowledgeCount, evt.niche, evt.memoryCount)
                 }
