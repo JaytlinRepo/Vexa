@@ -696,12 +696,17 @@
             // ── AUDIENCE ── demographics
             var audiences = ts.audiences || []
             var latestAud = audiences[0]
-            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Audience</div>'
-              + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
-              + metricTile('Followers', fmtNum(acctData.followerCount))
-              + metricTile('Platform', platLabel)
-              + '</div>'
-              + (latestAud ? audienceBreakdown(latestAud) : '<div style="font-size:11px;color:var(--t3)">Detailed demographics sync on next update.</div>')
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
+            if (latestAud && (latestAud.ageBreakdown || latestAud.genderBreakdown)) {
+              content += audienceBreakdown(latestAud)
+              content += '<div style="font-size:10px;color:var(--t3);margin-top:10px">' + fmtNum(acctData.followerCount) + ' followers on ' + platLabel + '</div>'
+            } else {
+              content += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+                + metricTile('Followers', fmtNum(acctData.followerCount))
+                + metricTile('Platform', platLabel)
+                + '</div>'
+                + '<div style="font-size:11px;color:var(--t3)">Demographics sync on next update.</div>'
+            }
 
           } else {
             // ── OVERVIEW ── full account card (fallback)
@@ -801,18 +806,36 @@
   }
 
   function audienceBreakdown(aud) {
-    var groups = []
-    try { groups = typeof aud.ageGroups === 'string' ? JSON.parse(aud.ageGroups) : (aud.ageGroups || []) } catch {}
-    if (!Array.isArray(groups) || groups.length === 0) return ''
-    return '<div style="margin-top:8px;font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Age breakdown</div>'
-      + groups.slice(0, 4).map(function (g) {
-          var pct = ((g.share || g.percentage || 0) * 100).toFixed(0)
+    var ages = Array.isArray(aud.ageBreakdown) ? aud.ageBreakdown : []
+    var genders = Array.isArray(aud.genderBreakdown) ? aud.genderBreakdown : []
+    var countries = Array.isArray(aud.topCountries) ? aud.topCountries : []
+    if (ages.length === 0 && genders.length === 0) return ''
+
+    var html = ''
+    if (ages.length > 0) {
+      html += '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Age</div>'
+      html += ages.slice(0, 5).map(function (g) {
+          var pct = ((g.share || 0) * 100).toFixed(0)
           return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
-            + '<div style="font-size:11px;color:var(--t2);width:50px">' + escapeHtml(g.bucket || g.range || '?') + '</div>'
+            + '<div style="font-size:11px;color:var(--t2);width:50px">' + escapeHtml(g.bucket || '?') + '</div>'
             + '<div style="flex:1;height:6px;background:var(--b1);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--t1);border-radius:3px;width:' + pct + '%"></div></div>'
             + '<div style="font-size:10px;color:var(--t3);width:30px;text-align:right">' + pct + '%</div>'
             + '</div>'
         }).join('')
+    }
+    if (genders.length > 0) {
+      html += '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin:10px 0 6px">Gender</div>'
+      html += '<div style="display:flex;gap:12px">' + genders.map(function (g) {
+          return '<div style="font-size:11px;color:var(--t2)">' + escapeHtml(g.bucket || '?') + ': <strong>' + ((g.share || 0) * 100).toFixed(0) + '%</strong></div>'
+        }).join('') + '</div>'
+    }
+    if (countries.length > 0) {
+      html += '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin:10px 0 6px">Top countries</div>'
+      html += '<div style="display:flex;gap:12px">' + countries.slice(0, 4).map(function (c) {
+          return '<div style="font-size:11px;color:var(--t2)">' + escapeHtml(c.bucket || '?') + ': <strong>' + ((c.share || 0) * 100).toFixed(0) + '%</strong></div>'
+        }).join('') + '</div>'
+    }
+    return html
   }
 
   function metricTile(label, value) {
