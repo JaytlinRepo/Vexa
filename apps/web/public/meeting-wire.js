@@ -527,62 +527,146 @@
 
     var content = ''
 
-    if (key === 'tiktok' && state.tiktok) {
-      var tt = state.tiktok
-      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">TikTok @' + escapeHtml(tt.handle || '') + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
-        + metricTile('Followers', fmtNum(tt.followerCount))
-        + metricTile('Avg Views', fmtNum(tt.avgViews))
-        + metricTile('Engagement', ((tt.engagementRate || 0) * 100).toFixed(1) + '%')
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        + metricTile('Videos', tt.videoCount)
-        + metricTile('Total Likes', fmtNum(tt.totalLikes || 0))
-        + '</div>'
-        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your connected TikTok account</div>'
-    } else if (key === 'instagram' && state.insights) {
-      var ig = state.insights
-      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Instagram @' + escapeHtml(ig.handle || '') + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
-        + metricTile('Followers', fmtNum(ig.followerCount))
-        + metricTile('Avg Reach', fmtNum(ig.avgReach))
-        + metricTile('Engagement', (ig.engagementRate || 0).toFixed(1) + '%')
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-        + metricTile('Posts', ig.postCount)
-        + metricTile('Avg Impressions', fmtNum(ig.avgImpressions || 0))
-        + '</div>'
-        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your connected Instagram account</div>'
-    } else if (key === 'audience') {
-      var aud = state.tiktok || state.insights
-      if (aud) {
-        content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
-          + '<div style="font-size:13px;color:var(--t1);margin-bottom:8px">' + fmtNum(aud.followerCount) + ' followers</div>'
-          + '<div style="font-size:12px;color:var(--t2)">Audience demographics are pulled from your connected accounts and updated on each sync.</div>'
-      } else {
-        content = '<div style="color:var(--t3)">No audience data — connect a platform in Settings.</div>'
-      }
-    } else if (key === 'trends') {
-      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Trend Data</div>'
-        + '<div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">Sourced from Google Trends, Reddit, YouTube, and RSS feeds for your content category. Updated daily.</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-        + metricTile('Sources scanned', '5 feeds')
-        + metricTile('Updated', 'Today')
-        + '</div>'
-    } else if (key === 'competitors') {
-      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Competitor Analysis</div>'
-        + '<div style="font-size:12px;color:var(--t2);line-height:1.6">Based on top-performing creators in your content category. Maya tracks posting patterns, format performance, and engagement benchmarks.</div>'
-    } else {
-      content = '<div style="color:var(--t3)">No data available for this source. Connect a platform in Settings.</div>'
-    }
-
-    panel.innerHTML = content
-    // Insert panel after the source button's parent bubble
+    // Show loading state first, then fetch timeseries
+    panel.innerHTML = '<div style="color:var(--t3);font-size:11px">Loading data...</div>'
     var bubble = btn.closest('.mr-bubble')
-    if (bubble) {
-      bubble.parentNode.insertBefore(panel, bubble.nextSibling)
-    }
+    if (bubble) bubble.parentNode.insertBefore(panel, bubble.nextSibling)
+
+    // Fetch actual timeseries data
+    fetch('/api/platform/timeseries', { credentials: 'include' })
+      .then(function (r) { return r.json() })
+      .then(function (ts) {
+        var snapshots = ts.snapshots || []
+        var posts = ts.posts || []
+        var account = ts.account || {}
+
+        if (key === 'tiktok' && state.tiktok) {
+          var tt = state.tiktok
+          var followerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
+          var engHistory = snapshots.map(function (s) { return s.engagementRate || 0 })
+          var prevFollowers = snapshots.length >= 2 ? snapshots[snapshots.length - 2].followerCount : tt.followerCount
+          var followerDelta = tt.followerCount - prevFollowers
+          var deltaSign = followerDelta >= 0 ? '+' : ''
+
+          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">TikTok @' + escapeHtml(tt.handle || '') + '</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+            + metricTileWithDelta('Followers', fmtNum(tt.followerCount), deltaSign + fmtNum(followerDelta))
+            + metricTile('Avg Views', fmtNum(tt.avgViews))
+            + metricTile('Engagement', ((tt.engagementRate || 0) * 100).toFixed(1) + '%')
+            + '</div>'
+            + sparklineRow(followerHistory, 'Followers over time')
+            + recentPostsRow(posts.slice(0, 5))
+            + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your TikTok account' + (snapshots.length > 0 ? ' · ' + snapshots.length + ' data points' : '') + '</div>'
+        } else if (key === 'instagram' && state.insights) {
+          var ig = state.insights
+          var igFollowerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
+          var igPrevFollowers = snapshots.length >= 2 ? snapshots[snapshots.length - 2].followerCount : ig.followerCount
+          var igDelta = ig.followerCount - igPrevFollowers
+          var igSign = igDelta >= 0 ? '+' : ''
+
+          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Instagram @' + escapeHtml(ig.handle || '') + '</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+            + metricTileWithDelta('Followers', fmtNum(ig.followerCount), igSign + fmtNum(igDelta))
+            + metricTile('Avg Reach', fmtNum(ig.avgReach))
+            + metricTile('Engagement', (ig.engagementRate || 0).toFixed(1) + '%')
+            + '</div>'
+            + sparklineRow(igFollowerHistory, 'Followers over time')
+            + recentPostsRow(posts.slice(0, 5))
+            + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your Instagram account' + (snapshots.length > 0 ? ' · ' + snapshots.length + ' data points' : '') + '</div>'
+        } else if (key === 'audience') {
+          var audiences = ts.audiences || []
+          var latestAud = audiences[0]
+          var aud = state.tiktok || state.insights
+          if (aud) {
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+              + metricTile('Followers', fmtNum(aud.followerCount))
+              + metricTile('Platform', account.platform || 'Connected')
+              + metricTile('Data points', String(snapshots.length))
+              + '</div>'
+              + (latestAud && latestAud.ageGroups ? audienceBreakdown(latestAud) : '<div style="font-size:11px;color:var(--t3)">Detailed demographics sync on next update.</div>')
+          } else {
+            content = '<div style="color:var(--t3)">No audience data — connect a platform in Settings.</div>'
+          }
+        } else if (key === 'trends') {
+          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Trend Data</div>'
+            + '<div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">Sourced from Google Trends, Reddit, YouTube, and RSS feeds. Updated daily.</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+            + metricTile('Sources', 'Google Trends, Reddit, YouTube, RSS')
+            + metricTile('Updated', 'Today')
+            + '</div>'
+        } else if (key === 'competitors') {
+          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Competitor Analysis</div>'
+            + '<div style="font-size:12px;color:var(--t2);line-height:1.6">Based on top creators in your content category. Tracks posting patterns, format performance, and engagement benchmarks.</div>'
+        } else {
+          content = '<div style="color:var(--t3)">No data available for this source.</div>'
+        }
+
+        panel.innerHTML = content
+      })
+      .catch(function () {
+        panel.innerHTML = '<div style="color:var(--t3)">Could not load data.</div>'
+      })
+    return // panel already inserted above
   })
+
+  function metricTileWithDelta(label, value, delta) {
+    var color = delta.startsWith('+') ? '#34d27a' : delta.startsWith('-') ? '#e87a7a' : 'var(--t3)'
+    return '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">'
+      + '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">' + escapeHtml(label) + '</div>'
+      + '<div style="font-size:16px;font-weight:500;color:var(--t1)">' + escapeHtml(String(value)) + '</div>'
+      + '<div style="font-size:10px;color:' + color + ';margin-top:2px">' + escapeHtml(delta) + '</div>'
+      + '</div>'
+  }
+
+  function sparklineRow(data, label) {
+    if (!data || data.length < 2) return ''
+    var max = Math.max.apply(null, data)
+    var min = Math.min.apply(null, data)
+    var range = max - min || 1
+    var w = 100
+    var h = 32
+    var points = data.map(function (v, i) {
+      return (i / (data.length - 1) * w).toFixed(1) + ',' + (h - ((v - min) / range * h)).toFixed(1)
+    }).join(' ')
+    return '<div style="margin:10px 0">'
+      + '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">' + escapeHtml(label) + '</div>'
+      + '<svg width="100%" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="display:block">'
+      + '<polyline points="' + points + '" fill="none" stroke="var(--t1)" stroke-width="1.5" stroke-linejoin="round"/>'
+      + '</svg>'
+      + '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);margin-top:2px"><span>' + fmtNum(data[0]) + '</span><span>' + fmtNum(data[data.length - 1]) + '</span></div>'
+      + '</div>'
+  }
+
+  function recentPostsRow(posts) {
+    if (!posts || posts.length === 0) return ''
+    return '<div style="margin:10px 0">'
+      + '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Recent posts</div>'
+      + posts.map(function (p) {
+          var caption = (p.caption || p.title || 'Untitled').slice(0, 50)
+          var views = p.viewCount || p.likeCount || 0
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1);font-size:11px">'
+            + '<div style="color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px">' + escapeHtml(caption) + '</div>'
+            + '<div style="color:var(--t3);flex-shrink:0">' + fmtNum(views) + (p.viewCount ? ' views' : ' likes') + '</div>'
+            + '</div>'
+        }).join('')
+      + '</div>'
+  }
+
+  function audienceBreakdown(aud) {
+    var groups = []
+    try { groups = typeof aud.ageGroups === 'string' ? JSON.parse(aud.ageGroups) : (aud.ageGroups || []) } catch {}
+    if (!Array.isArray(groups) || groups.length === 0) return ''
+    return '<div style="margin-top:8px;font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Age breakdown</div>'
+      + groups.slice(0, 4).map(function (g) {
+          var pct = ((g.share || g.percentage || 0) * 100).toFixed(0)
+          return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+            + '<div style="font-size:11px;color:var(--t2);width:50px">' + escapeHtml(g.bucket || g.range || '?') + '</div>'
+            + '<div style="flex:1;height:6px;background:var(--b1);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--t1);border-radius:3px;width:' + pct + '%"></div></div>'
+            + '<div style="font-size:10px;color:var(--t3);width:30px;text-align:right">' + pct + '%</div>'
+            + '</div>'
+        }).join('')
+  }
 
   function metricTile(label, value) {
     return '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">'
