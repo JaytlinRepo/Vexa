@@ -1987,6 +1987,27 @@
     wireEvents(root)
     // Remove the auth gate style now that v2 owns the DOM
     document.getElementById('vx-auth-gate')?.remove()
+
+    // Switch topbar to app nav (in case enterDashboard wasn't called, e.g. page reload)
+    if (STATE.me?.user) {
+      var mktNav = document.getElementById('nav-marketing')
+      var appNav = document.getElementById('nav-app')
+      var loginBtn = document.getElementById('topbar-login')
+      var ctaBtn = document.getElementById('topbar-cta')
+      var notifBtn = document.getElementById('notif-btn')
+      if (mktNav) mktNav.style.display = 'none'
+      if (appNav) appNav.style.display = 'flex'
+      if (loginBtn) loginBtn.style.display = 'none'
+      if (ctaBtn) ctaBtn.style.display = 'none'
+      if (notifBtn) notifBtn.style.display = 'flex'
+      var nameEl = document.getElementById('nav-username')
+      var planEl = document.getElementById('nav-userplan')
+      var avatarEl = document.getElementById('nav-avatar')
+      var company = STATE.me.companies?.[0]
+      if (nameEl) nameEl.textContent = company?.name || 'My Company'
+      if (planEl) planEl.textContent = (STATE.me.user.plan || 'starter') + ' plan'
+      if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
+    }
     // Animations — staggered reveal + counters + sparkline draw
     requestAnimationFrame(function () {
       animateOnReveal(root)
