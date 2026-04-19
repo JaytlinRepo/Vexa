@@ -114,7 +114,7 @@
       // Agent header
       + '<div style="padding:8px 28px 28px;border-bottom:1px solid var(--b1)">'
       + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'
-      + '<div style="width:48px;height:48px;border-radius:12px;background:' + agent.color + '20;color:' + agent.color + ';display:grid;place-items:center;font-weight:700;font-size:18px;font-family:Syne,sans-serif;flex-shrink:0">' + agent.init + '</div>'
+      + '<div style="width:48px;height:48px;border-radius:12px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:18px;font-family:Syne,sans-serif;flex-shrink:0">' + agent.init + '</div>'
       + '<div>'
       + '<div style="font-size:20px;font-weight:600;color:var(--t1)">' + esc(agent.name) + '</div>'
       + '<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">' + esc(agent.title) + '</div>'
@@ -288,7 +288,7 @@
       var tab = document.createElement('button')
       tab.dataset.vxTab = role
       tab.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 14px;border:none;border-radius:10px 0 0 10px;cursor:pointer;font-family:DM Sans,sans-serif;transition:all .25s cubic-bezier(.16,1,.3,1);background:var(--s1);border:1px solid var(--b1);border-right:none;box-shadow:-4px 2px 12px rgba(0,0,0,.04)'
-      tab.innerHTML = '<div style="width:28px;height:28px;border-radius:7px;background:' + a.color + '18;color:' + a.color + ';display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0">' + a.init + '</div>'
+      tab.innerHTML = '<div style="width:28px;height:28px;border-radius:7px;background:var(--s2,#f0efed);color:var(--t1,#1a1a1a);display:grid;place-items:center;font-weight:700;font-size:11px;font-family:Syne,sans-serif;flex-shrink:0">' + a.init + '</div>'
         + '<div style="overflow:hidden;max-width:0;transition:max-width .25s cubic-bezier(.16,1,.3,1);white-space:nowrap">'
         + '<div style="font-size:11px;font-weight:600;color:var(--t1);line-height:1.2">' + esc(a.name) + '</div>'
         + '<div style="font-size:9px;color:var(--t3)">' + esc(a.title.split(' ')[0]) + '</div>'
