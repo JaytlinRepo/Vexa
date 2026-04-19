@@ -510,7 +510,7 @@
   // Show a discreet "Knowledge: N · niche" badge inside the meeting room
   // so the CEO can see the agent is reasoning from a real knowledge base,
   // not generic LLM defaults.
-  // Source card click → show data panel inline below the source button
+  // Source card click → show scoped data panel inline
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.vx-source-btn')
     if (!btn) return
@@ -519,7 +519,13 @@
     // Remove any existing open panel
     document.querySelectorAll('.vx-source-panel').forEach(function (p) { p.remove() })
 
-    var key = btn.dataset.source
+    var rawKey = btn.dataset.source
+    // Parse scoped format: "tiktok/post/collecting moments" → {platform:"tiktok", metric:"post", detail:"collecting moments"}
+    var parts = rawKey.split('/')
+    var platform = parts[0] // tiktok, instagram, trends, competitors, audience
+    var metric = parts[1] || 'overview' // post, followers, engagement, overview, audience
+    var detail = parts.slice(2).join('/') // caption fragment for post lookup
+    var key = platform // backward compat for trends/competitors
     var state = window.__vxDashState || {}
     var panel = document.createElement('div')
     panel.className = 'vx-source-panel'
@@ -540,39 +546,89 @@
         var posts = ts.posts || []
         var account = ts.account || {}
 
-        if (key === 'tiktok' && state.tiktok) {
-          var tt = state.tiktok
-          var followerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
-          var engHistory = snapshots.map(function (s) { return s.engagementRate || 0 })
-          var prevFollowers = snapshots.length >= 2 ? snapshots[snapshots.length - 2].followerCount : tt.followerCount
-          var followerDelta = tt.followerCount - prevFollowers
-          var deltaSign = followerDelta >= 0 ? '+' : ''
+        var acctData = platform === 'instagram' ? state.insights : state.tiktok
 
-          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">TikTok @' + escapeHtml(tt.handle || '') + '</div>'
-            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
-            + metricTileWithDelta('Followers', fmtNum(tt.followerCount), deltaSign + fmtNum(followerDelta))
-            + metricTile('Avg Views', fmtNum(tt.avgViews))
-            + metricTile('Engagement', ((tt.engagementRate || 0) * 100).toFixed(1) + '%')
-            + '</div>'
-            + sparklineRow(followerHistory, 'Followers over time')
-            + recentPostsRow(posts.slice(0, 5))
-            + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your TikTok account' + (snapshots.length > 0 ? ' · ' + snapshots.length + ' data points' : '') + '</div>'
-        } else if (key === 'instagram' && state.insights) {
-          var ig = state.insights
-          var igFollowerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
-          var igPrevFollowers = snapshots.length >= 2 ? snapshots[snapshots.length - 2].followerCount : ig.followerCount
-          var igDelta = ig.followerCount - igPrevFollowers
-          var igSign = igDelta >= 0 ? '+' : ''
+    if ((platform === 'tiktok' || platform === 'instagram') && acctData) {
+          var handle = acctData.handle || ''
+          var platLabel = platform === 'tiktok' ? 'TikTok' : 'Instagram'
 
-          content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Instagram @' + escapeHtml(ig.handle || '') + '</div>'
-            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
-            + metricTileWithDelta('Followers', fmtNum(ig.followerCount), igSign + fmtNum(igDelta))
-            + metricTile('Avg Reach', fmtNum(ig.avgReach))
-            + metricTile('Engagement', (ig.engagementRate || 0).toFixed(1) + '%')
-            + '</div>'
-            + sparklineRow(igFollowerHistory, 'Followers over time')
-            + recentPostsRow(posts.slice(0, 5))
-            + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your Instagram account' + (snapshots.length > 0 ? ' · ' + snapshots.length + ' data points' : '') + '</div>'
+          if (metric === 'post' && detail) {
+            // ── SPECIFIC POST ── find the post by caption fragment
+            var matchPost = posts.find(function (p) {
+              return (p.caption || '').toLowerCase().indexOf(detail.toLowerCase()) !== -1
+            })
+            if (matchPost) {
+              var avgViews = posts.length > 0 ? Math.round(posts.reduce(function (s, p) { return s + (p.viewCount || 0) }, 0) / posts.length) : 0
+              var vsAvg = avgViews > 0 ? ((matchPost.viewCount / avgViews) * 100 - 100).toFixed(0) : '0'
+              var vsSign = Number(vsAvg) >= 0 ? '+' : ''
+              content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Post</div>'
+                + '<div style="font-size:13px;color:var(--t1);font-style:italic;margin-bottom:12px;line-height:1.5">"' + escapeHtml((matchPost.caption || '').slice(0, 100)) + '"</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">'
+                + metricTile('Views', fmtNum(matchPost.viewCount || 0))
+                + metricTile('Likes', fmtNum(matchPost.likeCount || 0))
+                + metricTile('Comments', fmtNum(matchPost.commentCount || 0))
+                + '</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+                + metricTileWithDelta('vs Your Avg', fmtNum(matchPost.viewCount || 0) + ' views', vsSign + vsAvg + '%')
+                + metricTile('Your Avg', fmtNum(avgViews) + ' views')
+                + '</div>'
+                + (matchPost.publishedAt ? '<div style="font-size:10px;color:var(--t3);margin-top:10px">Posted ' + timeAgo(matchPost.publishedAt) + '</div>' : '')
+            } else {
+              content = '<div style="color:var(--t3);font-size:12px">Could not find that post in your recent data.</div>'
+            }
+
+          } else if (metric === 'followers') {
+            // ── FOLLOWERS ── sparkline + delta
+            var followerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
+            var oldest = snapshots.length >= 2 ? snapshots[0].followerCount : acctData.followerCount
+            var latest = acctData.followerCount
+            var fDelta = latest - oldest
+            var fSign = fDelta >= 0 ? '+' : ''
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Followers · Last 7 days</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+              + metricTileWithDelta('Current', fmtNum(latest), fSign + fmtNum(fDelta) + ' this week')
+              + metricTile('7 days ago', fmtNum(oldest))
+              + '</div>'
+              + sparklineRow(followerHistory, 'Daily follower count')
+
+          } else if (metric === 'engagement') {
+            // ── ENGAGEMENT ── rate + history
+            var engHistory = snapshots.map(function (s) { return (s.engagementRate || 0) * 100 })
+            var engRate = platform === 'tiktok' ? ((acctData.engagementRate || 0) * 100).toFixed(1) : (acctData.engagementRate || 0).toFixed(1)
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Engagement</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+              + metricTile('Engagement Rate', engRate + '%')
+              + metricTile('Data Points', snapshots.length + ' syncs')
+              + '</div>'
+              + sparklineRow(engHistory, 'Engagement rate over time')
+
+          } else if (metric === 'audience') {
+            // ── AUDIENCE ── demographics
+            var audiences = ts.audiences || []
+            var latestAud = audiences[0]
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' Audience</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+              + metricTile('Followers', fmtNum(acctData.followerCount))
+              + metricTile('Platform', platLabel)
+              + '</div>'
+              + (latestAud ? audienceBreakdown(latestAud) : '<div style="font-size:11px;color:var(--t3)">Detailed demographics sync on next update.</div>')
+
+          } else {
+            // ── OVERVIEW ── full account card (fallback)
+            var oFollowerHistory = snapshots.map(function (s) { return s.followerCount || 0 })
+            var oPrev = snapshots.length >= 2 ? snapshots[0].followerCount : acctData.followerCount
+            var oLatest = acctData.followerCount
+            var oDelta = oLatest - oPrev
+            var oSign = oDelta >= 0 ? '+' : ''
+            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">' + platLabel + ' @' + escapeHtml(handle) + '</div>'
+              + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+              + metricTileWithDelta('Followers', fmtNum(oLatest), oSign + fmtNum(oDelta))
+              + metricTile('Avg Views', fmtNum(acctData.avgViews || acctData.avgReach || 0))
+              + metricTile('Engagement', (platform === 'tiktok' ? ((acctData.engagementRate || 0) * 100).toFixed(1) : (acctData.engagementRate || 0).toFixed(1)) + '%')
+              + '</div>'
+              + sparklineRow(oFollowerHistory, 'Followers over time')
+              + recentPostsRow(posts.slice(0, 5))
+          }
         } else if (key === 'audience') {
           var audiences = ts.audiences || []
           var latestAud = audiences[0]
@@ -724,6 +780,18 @@
     competitors: '',
   }
 
+  function scopedLabel(platform, metric) {
+    var platName = platform === 'tiktok' ? 'TikTok' : platform === 'instagram' ? 'Instagram' : platform.charAt(0).toUpperCase() + platform.slice(1)
+    var metricLabels = {
+      post: platName + ' Post',
+      followers: platName + ' Followers',
+      engagement: platName + ' Engagement',
+      audience: platName + ' Audience',
+      overview: platName + ' Data',
+    }
+    return metricLabels[metric] || platName + ' ' + (metric || 'Data')
+  }
+
   function renderAgentMarkdown(raw) {
     const safe = escapeHtml(raw || '')
     const lines = safe.split('\n')
@@ -747,13 +815,15 @@
     let html = out.join('')
     // Bold (run after structural pass so we don't break bullet detection)
     html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:var(--t1);font-weight:600">$1</strong>')
-    // Source cards — [source: tiktok] becomes a clickable data card
+    // Source cards — [source: tiktok/post/breakfast] becomes a scoped clickable card
     html = html.replace(/\[source:\s*([^\]]+)\]/g, function (_, src) {
       var key = src.trim().toLowerCase()
-      var label = SOURCE_LABELS[key] || src.trim()
-      var icon = SOURCE_ICONS[key] || ''
+      var parts = key.split('/')
+      var platform = parts[0]
+      var metric = parts[1] || 'overview'
+      var label = scopedLabel(platform, metric)
       return '<button class="vx-source-btn" data-source="' + escapeHtml(key) + '" style="display:inline-flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.04em;color:var(--t3);background:var(--s2,rgba(0,0,0,.04));padding:3px 10px;border-radius:4px;margin-left:4px;vertical-align:middle;border:1px solid var(--b1);cursor:pointer;font-family:inherit;transition:border-color .2s">'
-        + icon + escapeHtml(label) + ' <span style="font-size:8px;opacity:.5">View</span></button>'
+        + escapeHtml(label) + ' <span style="font-size:8px;opacity:.5">View</span></button>'
     })
     return html
   }
