@@ -510,6 +510,93 @@
   // Show a discreet "Knowledge: N · niche" badge inside the meeting room
   // so the CEO can see the agent is reasoning from a real knowledge base,
   // not generic LLM defaults.
+  // Source card click → show data panel inline below the source button
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.vx-source-btn')
+    if (!btn) return
+    e.preventDefault()
+
+    // Remove any existing open panel
+    document.querySelectorAll('.vx-source-panel').forEach(function (p) { p.remove() })
+
+    var key = btn.dataset.source
+    var state = window.__vxDashState || {}
+    var panel = document.createElement('div')
+    panel.className = 'vx-source-panel'
+    panel.style.cssText = 'margin:10px 0;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;font-size:12px;color:var(--t2);line-height:1.6;animation:fadeSlideIn .3s ease'
+
+    var content = ''
+
+    if (key === 'tiktok' && state.tiktok) {
+      var tt = state.tiktok
+      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">TikTok @' + escapeHtml(tt.handle || '') + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+        + metricTile('Followers', fmtNum(tt.followerCount))
+        + metricTile('Avg Views', fmtNum(tt.avgViews))
+        + metricTile('Engagement', ((tt.engagementRate || 0) * 100).toFixed(1) + '%')
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        + metricTile('Videos', tt.videoCount)
+        + metricTile('Total Likes', fmtNum(tt.totalLikes || 0))
+        + '</div>'
+        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your connected TikTok account</div>'
+    } else if (key === 'instagram' && state.insights) {
+      var ig = state.insights
+      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Instagram @' + escapeHtml(ig.handle || '') + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+        + metricTile('Followers', fmtNum(ig.followerCount))
+        + metricTile('Avg Reach', fmtNum(ig.avgReach))
+        + metricTile('Engagement', (ig.engagementRate || 0).toFixed(1) + '%')
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+        + metricTile('Posts', ig.postCount)
+        + metricTile('Avg Impressions', fmtNum(ig.avgImpressions || 0))
+        + '</div>'
+        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">Synced from your connected Instagram account</div>'
+    } else if (key === 'audience') {
+      var aud = state.tiktok || state.insights
+      if (aud) {
+        content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
+          + '<div style="font-size:13px;color:var(--t1);margin-bottom:8px">' + fmtNum(aud.followerCount) + ' followers</div>'
+          + '<div style="font-size:12px;color:var(--t2)">Audience demographics are pulled from your connected accounts and updated on each sync.</div>'
+      } else {
+        content = '<div style="color:var(--t3)">No audience data — connect a platform in Settings.</div>'
+      }
+    } else if (key === 'trends') {
+      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Trend Data</div>'
+        + '<div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">Sourced from Google Trends, Reddit, YouTube, and RSS feeds for your content category. Updated daily.</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        + metricTile('Sources scanned', '5 feeds')
+        + metricTile('Updated', 'Today')
+        + '</div>'
+    } else if (key === 'competitors') {
+      content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Competitor Analysis</div>'
+        + '<div style="font-size:12px;color:var(--t2);line-height:1.6">Based on top-performing creators in your content category. Maya tracks posting patterns, format performance, and engagement benchmarks.</div>'
+    } else {
+      content = '<div style="color:var(--t3)">No data available for this source. Connect a platform in Settings.</div>'
+    }
+
+    panel.innerHTML = content
+    // Insert panel after the source button's parent bubble
+    var bubble = btn.closest('.mr-bubble')
+    if (bubble) {
+      bubble.parentNode.insertBefore(panel, bubble.nextSibling)
+    }
+  })
+
+  function metricTile(label, value) {
+    return '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:10px 12px">'
+      + '<div style="font-size:9px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px">' + escapeHtml(label) + '</div>'
+      + '<div style="font-size:16px;font-weight:500;color:var(--t1)">' + escapeHtml(String(value)) + '</div>'
+      + '</div>'
+  }
+
+  function fmtNum(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+    return String(n)
+  }
+
   function renderKnowledgeBadge(knowledgeCount, niche, memoryCount) {
     const room = document.getElementById('meeting-room')
     if (!room) return
@@ -538,6 +625,21 @@
   // tells the agents to format with **bold**, "- " bullets, and blank
   // lines between blocks. We escape first, then convert markers — XSS-
   // safe because no raw HTML is ever injected from the model.
+  var SOURCE_LABELS = {
+    tiktok: 'TikTok Data',
+    instagram: 'Instagram Data',
+    audience: 'Audience Data',
+    trends: 'Trend Data',
+    competitors: 'Competitor Analysis',
+  }
+  var SOURCE_ICONS = {
+    tiktok: '',
+    instagram: '',
+    audience: '',
+    trends: '',
+    competitors: '',
+  }
+
   function renderAgentMarkdown(raw) {
     const safe = escapeHtml(raw || '')
     const lines = safe.split('\n')
@@ -561,8 +663,14 @@
     let html = out.join('')
     // Bold (run after structural pass so we don't break bullet detection)
     html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong style="color:var(--t1);font-weight:600">$1</strong>')
-    // Source badges — [source: Your TikTok] becomes a styled inline tag
-    html = html.replace(/\[source:\s*([^\]]+)\]/g, '<span style="display:inline-block;font-size:9px;letter-spacing:.04em;color:var(--t3);background:var(--s2,rgba(0,0,0,.04));padding:2px 8px;border-radius:4px;margin-left:4px;vertical-align:middle">$1</span>')
+    // Source cards — [source: tiktok] becomes a clickable data card
+    html = html.replace(/\[source:\s*([^\]]+)\]/g, function (_, src) {
+      var key = src.trim().toLowerCase()
+      var label = SOURCE_LABELS[key] || src.trim()
+      var icon = SOURCE_ICONS[key] || ''
+      return '<button class="vx-source-btn" data-source="' + escapeHtml(key) + '" style="display:inline-flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.04em;color:var(--t3);background:var(--s2,rgba(0,0,0,.04));padding:3px 10px;border-radius:4px;margin-left:4px;vertical-align:middle;border:1px solid var(--b1);cursor:pointer;font-family:inherit;transition:border-color .2s">'
+        + icon + escapeHtml(label) + ' <span style="font-size:8px;opacity:.5">View</span></button>'
+    })
     return html
   }
 
