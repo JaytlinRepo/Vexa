@@ -310,6 +310,9 @@
     const inp0 = document.getElementById('mr-input-field')
     if (inp0) {
       inp0.placeholder = `Reply to ${name}…`
+      inp0.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.mrSendBtn() }
+      })
     }
 
     const presentation = output?.content?.presentation

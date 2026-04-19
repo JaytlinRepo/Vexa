@@ -100,6 +100,10 @@
   // Escape key closes the modal
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && authModal.classList.contains('active')) window.closeAuth()
+    if (e.key === 'Enter' && authModal.classList.contains('active') && e.target.tagName === 'INPUT') {
+      e.preventDefault()
+      window.submitAuth()
+    }
   })
 
   let authMode = 'signup'  // 'signup' | 'login'
