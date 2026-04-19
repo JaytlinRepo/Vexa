@@ -55,6 +55,8 @@
     // Only set the flag, never remove it here — removal happens on explicit logout.
     // Removing on failed /api/auth/me causes the home page to flash on refresh.
     try { if (me?.user) localStorage.setItem('vx-authed', '1') } catch {}
+    // Expose state for agent drawer
+    window.__vxDashState = STATE
 
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
@@ -908,7 +910,7 @@
     const avClass = avatarRing ? 'vx-team-avatar-ring' : ''
 
     return `
-      <div class="vx-dcard" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px">
+      <div class="vx-dcard" data-vx-agent-card="${role}" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .2s">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div class="${avClass}" style="width:26px;height:26px;border-radius:7px;background:var(--s3);color:var(--t1);display:grid;place-items:center;font-weight:600;font-size:12px;font-family:'Syne',sans-serif;flex-shrink:0">${r.init}</div>
           <div style="min-width:0">
@@ -1875,6 +1877,13 @@
         const r = bf.dataset.v2Brief
         const name = bf.dataset.v2BriefName
         if (typeof window.vxOpenAssignModal === 'function') window.vxOpenAssignModal(r, name)
+        return
+      }
+      // Agent card click → open drawer (only if not clicking Brief/Meeting buttons)
+      const ac = e.target.closest('[data-vx-agent-card]')
+      if (ac) {
+        const role = ac.dataset.vxAgentCard
+        if (typeof window.openAgentDrawer === 'function') window.openAgentDrawer(role)
       }
     })
   }

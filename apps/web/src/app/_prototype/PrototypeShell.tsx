@@ -49,6 +49,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/billing-wire.js')} strategy="afterInteractive" />
       <Script src={v('/memory-wire.js')} strategy="afterInteractive" />
       <Script src={v('/insights-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/agent-drawer.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-v2.js')} strategy="afterInteractive" />
       <Script src={v('/phyllo-wire.js')} strategy="afterInteractive" />
       <Script src={v('/trajectory-wire.js')} strategy="afterInteractive" />
