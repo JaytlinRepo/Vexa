@@ -513,8 +513,9 @@ router.post('/reply', requireAuth, async (req, res, next) => {
             take: 10,
             select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
           }),
+          // Audience may be on a different platform account (e.g. Instagram has demographics, TikTok doesn't)
           prisma.platformAudience.findFirst({
-            where: { accountId: platformAccount.id },
+            where: { account: { companyId: company.id } },
             orderBy: { capturedAt: 'desc' },
           }),
         ])
@@ -526,6 +527,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
         }
       }
 
+      console.log('[meeting] audience data:', audienceData ? 'found' : 'null', audienceData ? Object.keys(audienceData) : [])
       platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts, audienceData)
       // Pull niche-specific knowledge for this agent's role, scored
       // against the CEO's current message so the most relevant entries
