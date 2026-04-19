@@ -516,8 +516,14 @@
     if (!btn) return
     e.preventDefault()
 
-    // Remove any existing open panel
-    document.querySelectorAll('.vx-source-panel').forEach(function (p) { p.remove() })
+    // Toggle — if clicking the same source, close it
+    var existing = document.querySelectorAll('.vx-source-panel')
+    var wasOpen = false
+    existing.forEach(function (p) {
+      if (p.dataset.sourceKey === rawKey) wasOpen = true
+      p.remove()
+    })
+    if (wasOpen) return
 
     var rawKey = btn.dataset.source
     // Parse scoped format: "tiktok/post/collecting moments" → {platform:"tiktok", metric:"post", detail:"collecting moments"}
@@ -529,6 +535,7 @@
     var state = window.__vxDashState || {}
     var panel = document.createElement('div')
     panel.className = 'vx-source-panel'
+    panel.dataset.sourceKey = rawKey
     panel.style.cssText = 'margin:10px 0;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px;font-size:12px;color:var(--t2);line-height:1.6;animation:fadeSlideIn .3s ease'
 
     var content = ''
@@ -551,6 +558,18 @@
         var account = ts.account || {}
 
         var acctData = platform === 'instagram' ? state.insights : state.tiktok
+        // Fallback: if dashboard state hasn't loaded, build from timeseries account data
+        if (!acctData && account && account.handle) {
+          acctData = {
+            handle: account.handle,
+            followerCount: snapshots.length > 0 ? snapshots[snapshots.length - 1].followerCount : 0,
+            avgViews: snapshots.length > 0 ? snapshots[snapshots.length - 1].avgReach : 0,
+            avgReach: snapshots.length > 0 ? snapshots[snapshots.length - 1].avgReach : 0,
+            engagementRate: snapshots.length > 0 ? snapshots[snapshots.length - 1].engagementRate : 0,
+            postCount: posts.length,
+            videoCount: posts.length,
+          }
+        }
 
     if ((platform === 'tiktok' || platform === 'instagram') && acctData) {
           var handle = acctData.handle || ''
