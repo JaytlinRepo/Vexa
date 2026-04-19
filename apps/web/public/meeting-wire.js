@@ -693,15 +693,14 @@
               + sparklineRow(engHistory, 'Engagement rate over time')
 
           } else if (metric === 'audience') {
-            // ── AUDIENCE ── demographics
+            // ── AUDIENCE ── scoped by detail (age, gender, country, or full)
             var audiences = ts.audiences || []
             var latestAud = audiences[0]
-            content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
             if (latestAud && (latestAud.ageBreakdown || latestAud.genderBreakdown)) {
-              content += audienceBreakdown(latestAud)
-              content += '<div style="font-size:10px;color:var(--t3);margin-top:10px">' + fmtNum(acctData.followerCount) + ' followers on ' + platLabel + '</div>'
+              content = audienceScopedCard(latestAud, detail, acctData.followerCount, platLabel)
             } else {
-              content += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
+              content = '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Your Audience</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'
                 + metricTile('Followers', fmtNum(acctData.followerCount))
                 + metricTile('Platform', platLabel)
                 + '</div>'
@@ -803,6 +802,53 @@
             + '</div>'
         }).join('')
       + '</div>'
+  }
+
+  function audienceScopedCard(aud, scope, followerCount, platLabel) {
+    var ages = Array.isArray(aud.ageBreakdown) ? aud.ageBreakdown : []
+    var genders = Array.isArray(aud.genderBreakdown) ? aud.genderBreakdown : []
+    var countries = Array.isArray(aud.topCountries) ? aud.topCountries : []
+    var cities = Array.isArray(aud.topCities) ? aud.topCities : []
+
+    if (scope === 'age' && ages.length > 0) {
+      return '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Age Breakdown</div>'
+        + ages.map(function (g) {
+            var pct = ((g.share || 0) * 100).toFixed(0)
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+              + '<div style="font-size:11px;color:var(--t2);width:50px">' + escapeHtml(g.bucket || '?') + '</div>'
+              + '<div style="flex:1;height:6px;background:var(--b1);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--t1);border-radius:3px;width:' + pct + '%"></div></div>'
+              + '<div style="font-size:10px;color:var(--t3);width:30px;text-align:right">' + pct + '%</div></div>'
+          }).join('')
+        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">' + fmtNum(followerCount) + ' followers on ' + platLabel + '</div>'
+    }
+
+    if (scope === 'gender' && genders.length > 0) {
+      return '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Gender Split</div>'
+        + genders.map(function (g) {
+            var pct = ((g.share || 0) * 100).toFixed(0)
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+              + '<div style="font-size:12px;color:var(--t2);width:70px;font-weight:500">' + escapeHtml(g.bucket || '?') + '</div>'
+              + '<div style="flex:1;height:8px;background:var(--b1);border-radius:4px;overflow:hidden"><div style="height:100%;background:var(--t1);border-radius:4px;width:' + pct + '%"></div></div>'
+              + '<div style="font-size:11px;color:var(--t1);width:35px;text-align:right;font-weight:500">' + pct + '%</div></div>'
+          }).join('')
+        + '<div style="font-size:10px;color:var(--t3);margin-top:10px">' + fmtNum(followerCount) + ' followers</div>'
+    }
+
+    if ((scope === 'country' || scope === 'location') && countries.length > 0) {
+      return '<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;font-weight:500">Top Locations</div>'
+        + countries.slice(0, 5).map(function (c) {
+            var pct = ((c.share || 0) * 100).toFixed(0)
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+              + '<div style="font-size:11px;color:var(--t2);width:50px">' + escapeHtml(c.bucket || '?') + '</div>'
+              + '<div style="flex:1;height:6px;background:var(--b1);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--t1);border-radius:3px;width:' + pct + '%"></div></div>'
+              + '<div style="font-size:10px;color:var(--t3);width:30px;text-align:right">' + pct + '%</div></div>'
+          }).join('')
+        + (cities.length > 0 ? '<div style="font-size:9px;color:var(--t3);margin-top:8px">Top cities: ' + cities.slice(0, 3).map(function (c) { return escapeHtml(c.bucket) }).join(', ') + '</div>' : '')
+    }
+
+    // Default: full breakdown
+    return audienceBreakdown(aud)
+      + '<div style="font-size:10px;color:var(--t3);margin-top:10px">' + fmtNum(followerCount) + ' followers on ' + platLabel + '</div>'
   }
 
   function audienceBreakdown(aud) {

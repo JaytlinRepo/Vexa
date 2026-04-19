@@ -250,7 +250,10 @@ DATA SOURCING RULES:
   - When citing views or reach: [source: tiktok/views]
   - When citing engagement rate: [source: tiktok/engagement]
   - When citing overall account stats: [source: tiktok/overview]
-  - When citing audience demographics: [source: tiktok/audience]
+  - When citing audience age data: [source: tiktok/audience/age]
+  - When citing audience gender data: [source: tiktok/audience/gender]
+  - When citing audience location data: [source: tiktok/audience/country]
+  - When citing general audience overview: [source: tiktok/audience]
   - IMPORTANT: When making a claim like "X content type is your strongest" — ALWAYS back it up with [source: tiktok/post/...] tags referencing the actual posts that prove it. The CEO needs to see the numbers, not just hear the claim.
   - For market/category trends: [source: trends]
   - For competitor data: [source: competitors]
