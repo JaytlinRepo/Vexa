@@ -5,6 +5,9 @@
  */
 ;(function () {
   if (document.cookie.indexOf('vx_session') !== -1) return
+  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
+  var host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
 
   var overlay = document.createElement('div')
   overlay.id = 'vx-waitlist'

@@ -7,6 +7,9 @@
 ;(function () {
   // Don't show for logged-in users
   if (document.cookie.indexOf('vx_session') !== -1) return
+  // Only show on production — skip on dev/localhost
+  var host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
 
   // Create overlay
   var overlay = document.createElement('div')
