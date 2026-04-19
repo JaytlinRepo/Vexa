@@ -109,27 +109,39 @@ function buildFullPlatformBlock(
     return `\n--- Platform data ---\nNO PLATFORMS CONNECTED. You have no follower counts, engagement rates, or post data. If the CEO asks about stats, say "Connect your accounts in Settings and I'll pull real numbers." Never invent figures.\n--- End platform data ---\n`
   }
 
-  // Snapshot history — shows actual changes over time
+  // Pre-computed weekly analysis — these are the ONLY facts the agent can cite
   if (snapshots.length >= 2) {
-    block += '\nLast 7 days (' + snapshots.length + ' data points):\n'
     const oldest = snapshots[0]
     const latest = snapshots[snapshots.length - 1]
     const followerChange = latest.followerCount - oldest.followerCount
     const sign = followerChange >= 0 ? '+' : ''
-    block += `  Followers: ${oldest.followerCount.toLocaleString()} → ${latest.followerCount.toLocaleString()} (${sign}${followerChange.toLocaleString()})\n`
-    if (oldest.avgReach !== latest.avgReach) {
-      block += `  Avg reach: ${oldest.avgReach.toLocaleString()} → ${latest.avgReach.toLocaleString()}\n`
-    }
-    block += `  Period: ${oldest.capturedAt.toISOString().slice(0, 10)} to ${latest.capturedAt.toISOString().slice(0, 10)}\n`
+    const reachChange = latest.avgReach - oldest.avgReach
+    const reachSign = reachChange >= 0 ? '+' : ''
+
+    block += `\n=== YOUR WEEKLY NUMBERS (these are the ONLY numbers you may cite) ===\n`
+    block += `Followers this week: ${oldest.followerCount.toLocaleString()} → ${latest.followerCount.toLocaleString()} (${sign}${followerChange.toLocaleString()})\n`
+    block += `Avg reach this week: ${oldest.avgReach.toLocaleString()} → ${latest.avgReach.toLocaleString()} (${reachSign}${reachChange.toLocaleString()})\n`
+    block += `Engagement rate: ${(latest.engagementRate * 100).toFixed(1)}%\n`
+    block += `Period: ${oldest.capturedAt.toISOString().slice(0, 10)} to ${latest.capturedAt.toISOString().slice(0, 10)}\n`
+    block += `=== END WEEKLY NUMBERS ===\n`
   }
 
-  // Recent posts — the agent can reference actual content
   if (recentPosts.length > 0) {
-    block += '\nRecent posts (newest first):\n'
+    // Compute actual post performance stats
+    const views = recentPosts.map(p => p.viewCount)
+    const avgViews = Math.round(views.reduce((a, b) => a + b, 0) / views.length)
+    const maxView = Math.max(...views)
+    const minView = Math.min(...views)
+    const topPost = recentPosts.reduce((best, p) => p.viewCount > best.viewCount ? p : best, recentPosts[0])
+
+    block += `\n=== YOUR RECENT POSTS (cite these exact numbers) ===\n`
+    block += `${recentPosts.length} recent posts. Avg views: ${avgViews.toLocaleString()}. Range: ${minView.toLocaleString()} – ${maxView.toLocaleString()}\n`
+    block += `Best performing: "${(topPost.caption || 'untitled').slice(0, 50)}" — ${topPost.viewCount.toLocaleString()} views, ${topPost.likeCount.toLocaleString()} likes\n`
     for (const p of recentPosts.slice(0, 5)) {
-      const caption = (p.caption || 'untitled').slice(0, 60)
+      const caption = (p.caption || 'untitled').slice(0, 50)
       block += `  - "${caption}" — ${p.viewCount.toLocaleString()} views, ${p.likeCount.toLocaleString()} likes, ${p.commentCount.toLocaleString()} comments\n`
     }
+    block += `=== END RECENT POSTS ===\n`
   }
 
   block += '\n'
@@ -472,6 +484,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     }
 
     if (hasBedrockCreds()) {
+      console.log('[meeting] platform block sent to agent:\n' + platformBlock)
       await streamBedrock(res, data.employeeRole, sanitizedHistory, data.message, memoryBlock + platformBlock + knowledgeBlock)
     } else {
       await streamMock(res, mockReply(data.employeeRole, data.message))
