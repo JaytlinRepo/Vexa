@@ -1998,6 +1998,9 @@
 
   function showDeliverableToasts() {
     if (toastsStarted) return
+    // Only show toasts when the dashboard is actually visible
+    var dbView = document.getElementById('view-db-dashboard')
+    if (!dbView || !dbView.classList.contains('active')) return
     var delivered = STATE.tasks.filter(function (t) { return t.status === 'delivered' })
     if (delivered.length === 0) return
     toastsStarted = true
