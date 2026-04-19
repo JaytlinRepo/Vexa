@@ -7,7 +7,7 @@ import { trackBedrockCall } from '../../lib/bedrockUsage'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 
-const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0'
+const DEFAULT_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0'
 const BEDROCK_REGION = process.env.AWS_BEDROCK_REGION || 'us-east-1'
 
 const client = new BedrockRuntimeClient({ region: BEDROCK_REGION })
@@ -28,6 +28,7 @@ interface InvokeOptions {
   messages: BedrockMessage[]
   maxTokens?: number
   temperature?: number
+  modelId?: string
   companyId?: string
 }
 
@@ -44,7 +45,8 @@ interface StreamOptions extends InvokeOptions {
  * Used for: trend reports, content plans, hooks, scripts, shot lists.
  */
 export async function invokeAgent(options: InvokeOptions): Promise<string> {
-  const { systemPrompt, messages, maxTokens = 2048, temperature = 0.7 } = options
+  const { systemPrompt, messages, maxTokens = 2048, temperature = 0.7, modelId } = options
+  const useModel = modelId || DEFAULT_MODEL_ID
 
   const body = JSON.stringify({
     anthropic_version: 'bedrock-2023-05-31',
@@ -55,7 +57,7 @@ export async function invokeAgent(options: InvokeOptions): Promise<string> {
   })
 
   const command = new InvokeModelCommand({
-    modelId: MODEL_ID,
+    modelId: useModel,
     body,
     contentType: 'application/json',
     accept: 'application/json',
@@ -81,7 +83,8 @@ export async function invokeAgent(options: InvokeOptions): Promise<string> {
  * Gives real-time feel as the employee "responds" in the meeting room.
  */
 export async function invokeAgentStream(options: StreamOptions): Promise<void> {
-  const { systemPrompt, messages, maxTokens = 1024, temperature = 0.8, onChunk, onComplete, onError } = options
+  const { systemPrompt, messages, maxTokens = 1024, temperature = 0.8, modelId, onChunk, onComplete, onError } = options
+  const useModel = modelId || DEFAULT_MODEL_ID
 
   const body = JSON.stringify({
     anthropic_version: 'bedrock-2023-05-31',
@@ -92,7 +95,7 @@ export async function invokeAgentStream(options: StreamOptions): Promise<void> {
   })
 
   const command = new InvokeModelWithResponseStreamCommand({
-    modelId: MODEL_ID,
+    modelId: useModel,
     body,
     contentType: 'application/json',
     accept: 'application/json',

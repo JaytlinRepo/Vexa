@@ -321,6 +321,7 @@ async function streamBedrock(
 ): Promise<void> {
   // Lazy-load bedrock so missing creds at boot don't crash the API.
   const { invokeAgentStream } = await import('../services/bedrock/bedrock.service')
+  const { getModelForMeeting } = await import('../lib/modelRouting')
   const p = PERSONA[role]
   const systemPrompt = `${p.brief}
 
@@ -371,6 +372,7 @@ The CEO is reading on mobile, fast. Walls of text fail. Every reply must:
       messages: [...history, { role: 'user', content: message }],
       maxTokens: 512,
       temperature: 0.8,
+      modelId: getModelForMeeting(),
       onChunk: (text: string) => {
         res.write(`data: ${JSON.stringify({ chunk: text })}\n\n`)
       },

@@ -8,6 +8,7 @@ import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { AgentRole } from '../lib/nicheKnowledge'
+import { getModelForTask } from '../lib/modelRouting'
 
 
 // ─── ORCHESTRATE TASK ─────────────────────────────────────────────────────────
@@ -241,6 +242,7 @@ async function executeMayaPerformanceReview(ctx: {
     messages: [{ role: 'user', content: taskPrompt }],
     maxTokens: 3072,
     temperature: 0.5,
+    modelId: getModelForTask('performance_review'),
   })
 
   return parseAgentOutput<PerformanceReview>(raw)
@@ -293,6 +295,7 @@ async function executeMayaWeeklyPulse(ctx: {
     messages: [{ role: 'user', content: taskPrompt }],
     maxTokens: 1024,
     temperature: 0.5,
+    modelId: getModelForTask('weekly_pulse'),
   })
 
   return parseAgentOutput<WeeklyPulse>(raw)
