@@ -889,7 +889,7 @@
     var content = output.content || {}
 
     // Build a readable summary from the structured output
-    var summary = '**Here is the report I delivered ' + timeAgo(match.createdAt) + ' — same data window, no need to regenerate.**\n\n'
+    var summary = ''
 
     if (content.trends && Array.isArray(content.trends)) {
       summary += content.trends.map(function (t, i) {
@@ -914,7 +914,7 @@
       summary += JSON.stringify(content).slice(0, 300)
     }
 
-    summary += '\n\n*This is the same report from ' + timeAgo(match.createdAt) + '. Ask me anything about it, or I can run a fresh analysis if the data has changed.*'
+    summary += '\n\n**What do you want to dig into?**'
 
     return { summary: summary, task: match }
   }
