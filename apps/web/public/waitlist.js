@@ -19,7 +19,7 @@
     + '<nav style="display:flex;align-items:center;gap:24px;font-family:DM Sans,sans-serif;font-size:13px">'
     + '<a href="#vx-wl-team" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">The team</a>'
     + '<a href="#vx-wl-process" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">How it works</a>'
-    + '<a href="mailto:hello@sovexa.ai" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">Contact</a>'
+    + '<a href="#" id="vx-wl-contact-link" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">Contact</a>'
     + '</nav>'
     + '</header>'
 
@@ -172,7 +172,7 @@
     // Company column
     + '<div style="display:flex;flex-direction:column;gap:10px">'
     + '<div style="font-family:Syne,sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px">Company</div>'
-    + '<a href="mailto:hello@sovexa.ai" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Contact</a>'
+    + '<a href="#" id="vx-wl-contact-footer" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Contact</a>'
     + '<a href="#" id="vx-wl-terms" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Terms</a>'
     + '<a href="#" id="vx-wl-privacy" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Privacy</a>'
     + '<a href="#" id="vx-wl-security" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Security</a>'
@@ -360,4 +360,67 @@
   document.getElementById('vx-wl-terms').addEventListener('click', function (e) { e.preventDefault(); openLegal('terms') })
   document.getElementById('vx-wl-privacy').addEventListener('click', function (e) { e.preventDefault(); openLegal('privacy') })
   document.getElementById('vx-wl-security').addEventListener('click', function (e) { e.preventDefault(); openLegal('security') })
+
+  // Contact modal
+  function openContact() {
+    var existing = document.getElementById('vx-wl-contact')
+    if (existing) existing.remove()
+    var modal = document.createElement('div')
+    modal.id = 'vx-wl-contact'
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
+    modal.innerHTML = '<div style="width:100%;max-width:480px;background:#fff;border-radius:14px;padding:32px;color:#1a1a1a;font-family:DM Sans,sans-serif">'
+      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:26px;font-weight:400;margin:0 0 6px">Get in touch.</h3>'
+      + '<p style="font-size:13px;color:#888;margin:0 0 24px">We reply within one business day.</p>'
+      + '<form id="vx-wl-contact-form" style="display:flex;flex-direction:column;gap:14px">'
+      + '<input name="name" type="text" placeholder="Your name" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none" />'
+      + '<input name="email" type="email" placeholder="Your email" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none" />'
+      + '<select name="reason" style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none">'
+      + '<option value="sales">Sales — interested in a plan</option>'
+      + '<option value="support">Support — question or issue</option>'
+      + '<option value="partnership">Partnership or press</option>'
+      + '<option value="other">Something else</option>'
+      + '</select>'
+      + '<textarea name="message" rows="4" placeholder="Your message" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none;resize:vertical"></textarea>'
+      + '<div style="display:flex;gap:12px;align-items:center">'
+      + '<button type="submit" id="vx-wl-contact-send" style="padding:12px 24px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font:600 13px/1 DM Sans,sans-serif;cursor:pointer">Send message</button>'
+      + '<span id="vx-wl-contact-hint" style="font-size:12px;color:#e87a7a"></span>'
+      + '</div>'
+      + '</form>'
+      + '<div id="vx-wl-contact-done" style="display:none;text-align:center;padding:20px 0">'
+      + '<div style="width:48px;height:48px;border-radius:50%;background:rgba(52,210,122,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="22" height="22" fill="none" stroke="#34d27a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
+      + '<h4 style="font-family:Cormorant Garamond,Georgia,serif;font-size:22px;font-weight:400;font-style:italic;margin:0 0 8px">Got it — talk soon.</h4>'
+      + '<p style="font-size:13px;color:#888;margin:0">We\'ll reply to the email you entered within one business day.</p>'
+      + '</div>'
+      + '</div>'
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove() })
+    document.body.appendChild(modal)
+
+    document.getElementById('vx-wl-contact-form').addEventListener('submit', function (e) {
+      e.preventDefault()
+      var form = e.target
+      var btn = document.getElementById('vx-wl-contact-send')
+      var name = form.name.value.trim()
+      var email = form.email.value.trim()
+      var message = form.message.value.trim()
+      var reason = form.reason.value
+      if (!name || !email || !message) {
+        document.getElementById('vx-wl-contact-hint').textContent = 'All fields required.'
+        return
+      }
+      btn.textContent = 'Sending...'
+      btn.disabled = true
+      fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: email, reason: reason, message: message }),
+      }).catch(function () {})
+      .finally(function () {
+        document.getElementById('vx-wl-contact-form').style.display = 'none'
+        document.getElementById('vx-wl-contact-done').style.display = 'block'
+      })
+    })
+  }
+
+  document.getElementById('vx-wl-contact-link').addEventListener('click', function (e) { e.preventDefault(); openContact() })
+  document.getElementById('vx-wl-contact-footer').addEventListener('click', function (e) { e.preventDefault(); openContact() })
 })()
