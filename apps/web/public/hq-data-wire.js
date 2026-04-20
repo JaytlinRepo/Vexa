@@ -531,7 +531,7 @@
       var mediaType = (p.mediaType || 'POST').toUpperCase()
       var caption = (p.caption || '').slice(0, 60) || '(no caption)'
       var views = p.viewCount || p.reachCount || p.impressionCount || 0
-      var engRate = p.engagementRate || 0
+      var engRate = Math.min(1, p.engagementRate || 0)
       var eng = engRate > 0 ? (engRate * 100).toFixed(1) + '%' : '—'
       var saves = p.saveCount || 0
       var ret = saves > 0 ? fmt(saves) : '—'
