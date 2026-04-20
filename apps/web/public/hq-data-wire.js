@@ -52,7 +52,6 @@
         var name = user.fullName || user.username || 'CEO'
         var delivered = tasks.filter(function (t) { return t.status === 'delivered' }).length
         h1.innerHTML = greeting + ', ' + esc(name) + '.'
-        if (delivered > 0) h1.innerHTML += '<br/>Your team has <em>' + delivered + '</em> deliverable' + (delivered > 1 ? 's' : '') + ' ready.'
       }
       // Update sub text
       var sub = masthead.querySelector('.sub')
