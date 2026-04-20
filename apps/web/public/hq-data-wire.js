@@ -55,22 +55,9 @@
       }
       // Update sub text
       var sub = masthead.querySelector('.sub')
-      if (sub && tasks.length > 0) {
-        var byAgent = {}
-        tasks.forEach(function(t) {
-          var n = t.employee ? t.employee.name : 'Agent'
-          if (!byAgent[n]) byAgent[n] = []
-          byAgent[n].push(t.status)
-        })
-        var parts = Object.keys(byAgent).map(function(n) {
-          var statuses = byAgent[n]
-          var del = statuses.filter(function(s){ return s === 'delivered' }).length
-          var prog = statuses.filter(function(s){ return s === 'in_progress' }).length
-          if (del > 0) return n + ' has ' + del + ' deliverable' + (del > 1 ? 's' : '') + ' ready'
-          if (prog > 0) return n + ' is working'
-          return n + ' is idle'
-        })
-        sub.textContent = parts.join('. ') + '.'
+      if (sub) {
+        var companyName = (company && company.name) || ''
+        sub.textContent = companyName ? companyName + ' · ' + (company.niche || '') : ''
       }
     }
 
