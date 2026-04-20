@@ -431,35 +431,99 @@
     })
   }
 
+  var allPostsCache = null
+  var acctMapCache = null
+
   function populateSidebarPosts(posts, acctMap) {
-    // The "Recent posts" card in the HQ main column
+    allPostsCache = posts
+    acctMapCache = acctMap
     var postsCard = document.querySelector('#view-db-dashboard .posts-card')
     if (!postsCard) return
-
-    // Update header count
     var ph = postsCard.querySelector('.ph h4')
     if (ph) ph.innerHTML = 'Recent <em>posts</em> · ' + posts.length
 
-    // The table body is .posts-tbl tbody — already populated above.
-    // But also show thumbnails in a visual strip if available
-    var thumbPosts = posts.filter(function(p){ return p.thumbnailUrl }).slice(0, 5)
-    if (thumbPosts.length === 0) return
+    // Wire tab clicks
+    var tabs = postsCard.querySelectorAll('.ph .f span')
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        tabs.forEach(function(t) { t.classList.remove('on') })
+        tab.classList.add('on')
+        renderPostsTable(tab.textContent.trim())
+      })
+    })
+  }
 
-    // Check if a thumb strip already exists
-    if (postsCard.querySelector('.vx-thumb-strip')) return
+  function renderPostsTable(filter) {
+    if (!allPostsCache) return
+    var tbody = document.querySelector('#view-db-dashboard .posts-tbl tbody')
+    if (!tbody) return
 
-    var strip = document.createElement('div')
-    strip.className = 'vx-thumb-strip'
-    strip.style.cssText = 'display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--b1);overflow-x:auto'
-    strip.innerHTML = thumbPosts.map(function(p) {
+    var posts = allPostsCache.slice()
+    var acctMap = acctMapCache || {}
+
+    // Filter by platform
+    if (filter === 'IG') {
+      posts = posts.filter(function(p) { return acctMap[p.accountId] === 'instagram' })
+    } else if (filter === 'TT') {
+      posts = posts.filter(function(p) { return acctMap[p.accountId] === 'tiktok' })
+    } else if (filter === 'YT') {
+      posts = posts.filter(function(p) { return acctMap[p.accountId] === 'youtube' })
+    }
+
+    // Sort
+    if (filter === 'TOP') {
+      posts.sort(function(a, b) { return (b.engagementRate || 0) - (a.engagementRate || 0) })
+    } else {
+      posts.sort(function(a, b) { return (b.viewCount || b.reachCount || 0) - (a.viewCount || a.reachCount || 0) })
+    }
+
+    var display = posts.slice(0, 5)
+    var avgEng = posts.length > 0 ? posts.reduce(function(s, x) { return s + (x.engagementRate || 0) }, 0) / posts.length : 0
+
+    // Update header
+    var ph = document.querySelector('#view-db-dashboard .posts-card .ph h4')
+    if (ph) {
+      var label = filter === 'TOP' ? 'Top' : 'Recent'
+      ph.innerHTML = label + ' <em>posts</em> · ' + posts.length
+    }
+
+    tbody.innerHTML = display.map(function(p) {
       var platform = acctMap[p.accountId] || 'instagram'
-      var views = p.viewCount || p.reachCount || 0
-      return '<a href="' + esc(p.url || '#') + '" target="_blank" rel="noopener" style="flex-shrink:0;width:80px;text-decoration:none">'
-        + '<div style="width:80px;height:80px;border-radius:8px;background:var(--s2) url(' + esc(p.thumbnailUrl) + ') center/cover;border:1px solid var(--b1)"></div>'
-        + '<div style="font-size:10px;color:var(--t2);margin-top:4px;text-align:center">' + fmt(views) + ' views</div>'
-        + '</a>'
+      var pf = platform === 'tiktok' ? 'tt' : platform === 'youtube' ? 'yt' : 'ig'
+      var pfName = platform === 'tiktok' ? 'TIKTOK' : platform === 'youtube' ? 'YOUTUBE' : 'INSTAGRAM'
+      var mediaType = (p.mediaType || 'POST').toUpperCase()
+      var caption = (p.caption || '').slice(0, 60) || '(no caption)'
+      var views = p.viewCount || p.reachCount || p.impressionCount || 0
+      var engRate = p.engagementRate || 0
+      var eng = engRate > 0 ? (engRate * 100).toFixed(1) + '%' : '—'
+      var saves = p.saveCount || 0
+      var ret = saves > 0 ? fmt(saves) : '—'
+      var ago = timeAgo(p.publishedAt)
+      var thumb = p.thumbnailUrl
+      var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'
+      var thumbHtml = thumb
+        ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px;border:1px solid var(--b1)"></div>'
+        : '<div class="thumb" style="background:var(--s2);color:var(--' + pf + ');font-size:16px;border:1px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center">' + typeIcon + '</div>'
+      var engDelta = avgEng > 0 ? ((engRate - avgEng) / avgEng * 100) : 0
+      var deltaCol = engDelta > 5 ? '<span style="color:var(--ok)">▲ ' + Math.round(engDelta) + '%</span>'
+        : engDelta < -5 ? '<span style="color:var(--down,#d68a8a)">▼ ' + Math.round(Math.abs(engDelta)) + '%</span>'
+        : '<span style="color:var(--t3)">—</span>'
+      var trendSvg = ''
+      if (engRate > 0) {
+        var barH = Math.min(20, Math.max(4, engRate * 100))
+        trendSvg = '<svg viewBox="0 0 52 22" preserveAspectRatio="none"><rect x="20" y="' + (22 - barH) + '" width="12" height="' + barH + '" rx="2" fill="' + (engDelta >= 0 ? 'var(--accent)' : 'var(--down,#d68a8a)') + '" opacity=".6"/></svg>'
+      }
+      return '<tr>'
+        + '<td><div class="cell-first">' + thumbHtml
+        + '<div><div class="ttl">' + esc(caption) + '</div>'
+        + '<div class="meta"><span class="pf ' + pf + '"><span class="dot"></span>' + pfName + ' · ' + mediaType + '</span><span>' + ago + '</span></div></div></div></td>'
+        + '<td class="num"><em>' + fmt(views) + '</em></td>'
+        + '<td class="num">' + eng + '</td>'
+        + '<td class="num">' + ret + '</td>'
+        + '<td class="delta">' + deltaCol + '</td>'
+        + '<td class="tl">' + trendSvg + '</td>'
+        + '</tr>'
     }).join('')
-    postsCard.appendChild(strip)
   }
 
   function populateAudience(audience) {
