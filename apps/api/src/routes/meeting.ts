@@ -495,41 +495,32 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       const memories = await readTopMemories(prisma, company.id, 10)
       memoryBlock = formatMemoryForPrompt(memories)
 
-      // Load snapshot history + recent posts for the platform block
-      const platformAccount = await prisma.platformAccount.findFirst({
-        where: { companyId: company.id },
-        orderBy: { lastSyncedAt: 'desc' },
-      })
+      // Load snapshot history + recent posts from ALL connected accounts
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       let snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = []
       let recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = []
       let audienceData: { ageBreakdown: unknown; genderBreakdown: unknown; topCountries: unknown; topCities: unknown } | null = null
-      if (platformAccount) {
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        const [snaps, posts, audienceRows] = await Promise.all([
-          prisma.platformSnapshot.findMany({
-            where: { accountId: platformAccount.id, capturedAt: { gte: sevenDaysAgo } },
-            orderBy: { capturedAt: 'asc' },
-            select: { capturedAt: true, followerCount: true, engagementRate: true, avgReach: true },
-          }),
-          prisma.platformPost.findMany({
-            where: { accountId: platformAccount.id },
-            orderBy: { publishedAt: 'desc' },
-            take: 10,
-            select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
-          }),
-          // Audience may be on a different platform account (e.g. Instagram has demographics, TikTok doesn't)
-          prisma.platformAudience.findFirst({
-            where: { account: { companyId: company.id } },
-            orderBy: { capturedAt: 'desc' },
-          }),
-        ])
-        snapshots = snaps
-        recentPosts = posts
-        // Add audience data to platform block if available
-        if (audienceRows) {
-          audienceData = audienceRows
-        }
-      }
+
+      const [snaps, posts, audienceRows] = await Promise.all([
+        prisma.platformSnapshot.findMany({
+          where: { account: { companyId: company.id }, capturedAt: { gte: sevenDaysAgo } },
+          orderBy: { capturedAt: 'asc' },
+          select: { capturedAt: true, followerCount: true, engagementRate: true, avgReach: true },
+        }),
+        prisma.platformPost.findMany({
+          where: { account: { companyId: company.id } },
+          orderBy: { publishedAt: 'desc' },
+          take: 15,
+          select: { caption: true, viewCount: true, likeCount: true, commentCount: true, publishedAt: true },
+        }),
+        prisma.platformAudience.findFirst({
+          where: { account: { companyId: company.id } },
+          orderBy: { capturedAt: 'desc' },
+        }),
+      ])
+      snapshots = snaps
+      recentPosts = posts
+      if (audienceRows) audienceData = audienceRows
 
       console.log('[meeting] audience data:', audienceData ? 'found' : 'null', audienceData ? Object.keys(audienceData) : [])
       platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts, audienceData)
