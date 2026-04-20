@@ -191,7 +191,8 @@ The numbers listed above are the ONLY numbers you have. You MUST NOT invent, est
 - When you don't have enough data to identify a trend, say that honestly. "Your data is relatively stable — no major shifts this period" is a valid and trustworthy answer.
 - NEVER use percentages unless you can show the exact before and after numbers from the data above.
 - NEVER cite industry benchmarks, averages, or "typical" growth rates. You don't have that data. Stick to the CEO's actual numbers only.
-- NEVER compare to hypothetical baselines like "15-25% weekly growth" — you only have what's in the data block above.\n`
+- NEVER compare to hypothetical baselines like "15-25% weekly growth" — you only have what's in the data block above.
+- When MULTIPLE platforms are connected, ALWAYS reference data from ALL of them. Compare how the audience behaves across platforms. Don't ignore one platform just because another has more data. The CEO connected both for a reason.\n`
   block += '--- End platform data ---\n'
   return block
 }
