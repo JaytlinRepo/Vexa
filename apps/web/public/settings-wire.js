@@ -119,9 +119,9 @@
 
   // ── Billing ──────────────────────────────────────────────
   var PLANS = [
-    { id:'starter', name:'Starter', price:'$29', annual:'$22', features:['2 employees (Maya + Alex)','30 tasks/month','Basic brand voice','No meetings'] },
-    { id:'pro', name:'Pro', price:'$79', annual:'$59', features:['All 4 employees','Unlimited tasks','Meetings + brand memory','Weekly reports','Knowledge feed'], popular:true },
-    { id:'agency', name:'Agency', price:'$149', annual:'$112', features:['Up to 5 workspaces','Everything in Pro','Priority processing','Advanced analytics'] },
+    { id:'starter', name:'Starter', price:'$14.99', features:['2 employees (Maya + Alex)','30 tasks/month','Basic brand voice','No meetings'] },
+    { id:'pro', name:'Pro', price:'$49.99', features:['All 4 employees','Unlimited tasks','Meetings + brand memory','Weekly reports','Knowledge feed'], popular:true },
+    { id:'agency', name:'Agency', price:'$89.99', features:['Up to 5 workspaces','Everything in Pro','Priority processing','Advanced analytics'] },
   ]
 
   async function loadBilling() {

@@ -440,7 +440,7 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 
 ## Subscription Plans
 
-### Starter — $29/mo ($22/mo annual)
+### Starter — $14.99/mo
 - 2 employees (Maya + Alex)
 - 20 tasks/month
 - Basic brand voice
@@ -448,7 +448,7 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 - No meeting feature
 - No video generation
 
-### Pro — $79/mo ($59/mo annual)
+### Pro — $49.99/mo
 - All 4 employees
 - Unlimited tasks
 - Full brand voice + memory
@@ -457,7 +457,7 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 - Video generation (10/month)
 - Monday trend reports (automatic)
 
-### Agency — $149/mo ($112/mo annual)
+### Agency — $89.99/mo
 - Up to 5 brand workspaces
 - Everything in Pro per workspace
 - Priority Bedrock processing

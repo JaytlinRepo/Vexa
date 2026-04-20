@@ -80,9 +80,9 @@ All platform data normalizes into `PlatformAccount` / `PlatformSnapshot` / `Plat
 
 | Plan | Monthly | Includes |
 |---|---|---|
-| **Starter** | $29/mo | Maya + Alex, 60 Bedrock calls/mo, proactive analysis, niche detection |
-| **Pro** | $79/mo | Full team (4 agents), 500 calls/mo, meetings, weekly pulse |
-| **Agency** | $149/mo | 5 workspaces, 2000 calls/mo, 2-min cooldown, all features |
+| **Starter** | $14.99/mo | Maya + Alex, 60 Bedrock calls/mo, proactive analysis, niche detection |
+| **Pro** | $49.99/mo | Full team (4 agents), 500 calls/mo, meetings, weekly pulse |
+| **Agency** | $89.99/mo | 5 workspaces, 2000 calls/mo, 2-min cooldown, all features |
 
 All plans: 7-day free trial, no credit card required.
 
