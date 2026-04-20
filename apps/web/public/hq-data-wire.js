@@ -408,7 +408,8 @@
         var platform = acctMap[p.accountId] || 'instagram'
         var pf = platform === 'tiktok' ? 'tt' : platform === 'youtube' ? 'yt' : 'ig'
         var pfName = platform === 'tiktok' ? 'TIKTOK' : platform === 'youtube' ? 'YOUTUBE' : 'INSTAGRAM'
-        var mediaType = (p.mediaType || 'POST').toUpperCase()
+        var rawType = (p.mediaType || 'POST').toUpperCase()
+        var mediaType = rawType === 'CAROUSEL_ALBUM' ? 'SLIDESHOW' : rawType
         var caption = (p.caption || '').slice(0, 60) || '(no caption)'
         var views = p.viewCount || p.reachCount || p.impressionCount || 0
         var engRate = p.engagementRate || 0
@@ -417,7 +418,7 @@
         var ret = saves > 0 ? fmt(saves) : '—'
         var ago = timeAgo(p.publishedAt)
         var thumb = p.thumbnailUrl
-        var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'
+        var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'SLIDESHOW' ? '◉' : '✦'
         var thumbHtml = thumb
           ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px;border:1px solid var(--b1)"></div>'
           : '<div class="thumb" style="background:var(--s2);color:var(--' + pf + ');font-size:16px;border:1px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center">' + typeIcon + '</div>'

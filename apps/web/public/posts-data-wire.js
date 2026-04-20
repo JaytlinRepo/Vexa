@@ -84,7 +84,8 @@
         var platform = plat === 'tiktok' ? 'tt' : plat === 'youtube' ? 'yt' : 'ig'
 
         var pfLabel = platform === 'tt' ? 'TT' : platform === 'yt' ? 'YT' : 'IG'
-        var mediaType = (p.mediaType || 'POST').toUpperCase()
+        var rawType = (p.mediaType || 'POST').toUpperCase()
+        var mediaType = rawType === 'CAROUSEL_ALBUM' ? 'SLIDESHOW' : rawType
         var caption = (p.caption || '').slice(0, 80)
         var shortCaption = caption.split('.')[0] || caption.slice(0, 40)
         var reach = p.reachCount || p.viewCount || p.impressionCount || 0
@@ -100,7 +101,7 @@
           + '<div class="th a' + colorIdx + '"' + (thumb ? ' style="background:url(' + esc(thumb) + ') center/cover"' : '') + '>'
           + '<span class="plat"><span class="d ' + platform + '"></span>' + pfLabel + '</span>'
           + '<span class="fmt">' + mediaType + '</span>'
-          + (reach > 0 ? '<span class="play">▷</span>' : '')
+          + '<span class="play">' + (mediaType === 'SLIDESHOW' ? '◉' : mediaType === 'VIDEO' || mediaType === 'REEL' ? '▷' : '✦') + '</span>'
           + '<span class="qt">"' + esc(shortCaption.slice(0, 30)) + '"</span>'
           + '</div>'
           + '<div class="body">'
