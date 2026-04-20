@@ -433,9 +433,10 @@
         var ret = saves > 0 ? fmt(saves) : '—'
         var ago = timeAgo(p.publishedAt)
         var thumb = p.thumbnailUrl
+        var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'
         var thumbHtml = thumb
-          ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px"></div>'
-          : '<div class="thumb">▶</div>'
+          ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px;border:1px solid var(--b1)"></div>'
+          : '<div class="thumb" style="background:var(--s2);color:var(--' + pf + ');font-size:16px;border:1px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center">' + typeIcon + '</div>'
 
         // Delta: compare engagement to average
         var avgEng = sorted.reduce(function(s,x){ return s + (x.engagementRate||0) }, 0) / sorted.length
