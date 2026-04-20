@@ -74,44 +74,6 @@
         sub.textContent = parts.join('. ') + '.'
       }
 
-      // Stats grid
-      if (ov) {
-        var stats = masthead.querySelectorAll('.stat')
-        if (stats.length >= 2) {
-          // Stat 0: Total reach (use combinedFollowers as proxy)
-          var s0 = stats[0]
-          var s0lbl = s0.querySelector('.lbl')
-          var s0v = s0.querySelector('.v')
-          var s0d = s0.querySelector('.d')
-          if (s0lbl) s0lbl.textContent = 'Total followers'
-          if (s0v && ov.combinedFollowers != null) {
-            s0v.innerHTML = '<em>' + fmt(ov.combinedFollowers) + '</em>'
-          }
-          if (s0d && ov.combinedFollowersDelta != null) {
-            s0d.innerHTML = deltaHtml(ov.combinedFollowersDelta) + ' · 7d'
-          }
-          // Stat 1: Platforms connected
-          var s1 = stats[1]
-          var s1lbl = s1.querySelector('.lbl')
-          var s1v = s1.querySelector('.v')
-          var s1d = s1.querySelector('.d')
-          if (s1lbl) s1lbl.textContent = 'Platforms'
-          if (s1v) s1v.textContent = ov.accounts ? ov.accounts.length : 0
-          if (s1d) s1d.textContent = ov.accounts ? ov.accounts.map(function(a){ return a.platform }).join(' + ') : ''
-        }
-        // Tasks used / limit
-        if (stats.length >= 3 && usage) {
-          var s2 = stats[2]
-          var s2lbl = s2.querySelector('.lbl')
-          var s2v = s2.querySelector('.v')
-          var s2d = s2.querySelector('.d')
-          var tasksUsed = usage.tasks ? usage.tasks.used : 0
-          var tasksLimit = usage.tasks ? usage.tasks.limit : 0
-          if (s2lbl) s2lbl.textContent = 'Tasks used'
-          if (s2v) s2v.innerHTML = tasksUsed + '<span style="color:var(--t3);font-size:16px">/' + (tasksLimit > 9999 ? '∞' : tasksLimit) + '</span>'
-          if (s2d) s2d.textContent = (usage.plan || 'starter') + ' plan'
-        }
-      }
     }
 
     // ── PLATFORM TILES ──

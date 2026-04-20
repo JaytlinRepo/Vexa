@@ -95,6 +95,30 @@
       location.reload()
     })
   }
+  // Usage stats in profile dropdown
+  function populateUsage() {
+    var S = window.__vxDashState
+    if (!S || !S.usage) return
+    var u = S.usage
+    var tasksEl = document.getElementById('vx-usage-tasks')
+    var fillEl = document.getElementById('vx-usage-fill')
+    var planEl = document.getElementById('vx-usage-plan')
+    if (!tasksEl) return
+
+    var used = u.tasks ? u.tasks.used : 0
+    var limit = u.tasks ? u.tasks.limit : 0
+    var isUnlimited = limit > 9999
+    tasksEl.textContent = 'Tasks: ' + used + (isUnlimited ? ' / unlimited' : ' / ' + limit)
+    if (fillEl) fillEl.style.width = isUnlimited ? '0%' : Math.min(100, Math.round(used / limit * 100)) + '%'
+    if (planEl) planEl.textContent = (u.plan || 'starter').charAt(0).toUpperCase() + (u.plan || 'starter').slice(1) + ' plan'
+  }
+
+  // Run usage on dropdown open
+  var avatarBtn = document.getElementById('vx-profile-avatar')
+  if (avatarBtn) {
+    avatarBtn.addEventListener('click', function () { setTimeout(populateUsage, 50) })
+  }
+
   // Theme label — show opposite of current theme
   function updateThemeLabel() {
     var el = document.getElementById('vx-profile-theme')
