@@ -40,11 +40,17 @@ var companyName=''
 var sectionNames={
   home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',contact:'Contact',
   knowledge:'Knowledge Feed',pricing:'Pricing',faq:'FAQ',
-  'db-dashboard':'Dashboard','db-team':'My Team','db-tasks':'Tasks',
-  'db-outputs':'Outputs','db-knowledge':'Knowledge Feed','db-settings':'Settings'
+  'db-dashboard':'HQ','db-pipeline':'Pipeline','db-posts':'Posts',
+  'db-audience':'Audience','db-team':'Team','db-tasks':'Work',
+  'db-outputs':'Outputs','db-knowledge':'Knowledge','db-settings':'Settings'
 }
 
 function navigate(id){
+  // Remove the auth-gate style that uses !important to hide views —
+  // once navigate() runs, the .active class handles visibility.
+  var gate=document.getElementById('vx-auth-gate')
+  if(gate)gate.remove()
+
   if(currentView===id)return
   const prev=document.getElementById('view-'+currentView)
   const next=document.getElementById('view-'+id)
@@ -58,7 +64,8 @@ function navigate(id){
   const pt=document.getElementById('page-trans')
   const topbar=document.getElementById('topbar-section')
   const doSwap=()=>{
-    if(prev)prev.classList.remove('active')
+    // Hide ALL views first, then show the target
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'))
     next.classList.add('active')
     if(topbar)topbar.textContent=sectionNames[id]||id
     currentView=id
@@ -184,6 +191,12 @@ function enterDashboard(){
   isLoggedIn=true
   document.getElementById('onboarding').classList.remove('active')
 
+  // Hide landing page atmosphere
+  var atmo=document.getElementById('landing-atmo')
+  if(atmo){atmo.style.opacity='0';atmo.style.pointerEvents='none'}
+  // Set auth attribute so CSS rules for logged-in state apply
+  document.documentElement.dataset.vxAuthed='1'
+
   // Switch nav — nav-app is a .topnav-group (flex), so use 'flex' not 'block'.
   document.getElementById('nav-marketing').style.display='none'
   document.getElementById('nav-app').style.display='flex'
@@ -196,13 +209,6 @@ function enterDashboard(){
   document.getElementById('nav-userplan').textContent='Pro Plan'
   document.getElementById('nav-avatar').textContent=
     (companyName||'M')[0].toUpperCase()
-
-  // Update dashboard greeting
-  const h=new Date().getHours()
-  document.getElementById('db-greeting').textContent=
-    (h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', CEO.'
-  document.getElementById('db-company').textContent=
-    (companyName||'Your company')+' — your team is active and has work ready for your review.'
 
   navigate('db-dashboard')
   setTimeout(initInsights, 420)

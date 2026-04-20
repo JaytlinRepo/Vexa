@@ -1,0 +1,541 @@
+/* HQ Dashboard — wire real data into the static Vexa-2 layout.
+ * Reads from window.__vxDashState (populated by dashboard-v2.js fetchAll)
+ * and fetches /api/platform/timeseries for chart detail.
+ */
+;(function () {
+  'use strict'
+
+  var get = function (u) { return fetch(u, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
+
+  function esc(s) { return String(s || '').replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] }) }
+  function fmt(n) { if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return String(n) }
+  function pct(n) { return (n >= 0 ? '+' : '') + n.toFixed(1) + '%' }
+  function delta(n) { return n >= 0 ? '▲ ' + fmt(Math.abs(n)) : '▼ ' + fmt(Math.abs(n)) }
+  function deltaHtml(n) {
+    if (n > 0) return '<span style="color:var(--ok)">▲ ' + fmt(n) + '</span>'
+    if (n < 0) return '<span style="color:var(--down,#d68a8a)">▼ ' + fmt(Math.abs(n)) + '</span>'
+    return '<span style="color:var(--t3)">— flat</span>'
+  }
+
+  function waitForState(cb) {
+    var attempts = 0
+    function check() {
+      var S = window.__vxDashState
+      // Wait until overview is loaded (it comes in the second batch after me/tasks)
+      if (S && S.me && S.overview) { cb(S); return }
+      // After 30 attempts (~7.5s), run with whatever we have
+      if (S && S.me && ++attempts >= 30) { cb(S); return }
+      if (++attempts < 60) setTimeout(check, 250)
+    }
+    check()
+  }
+
+  var hqPopulated = false
+  function populateHQ(S) {
+    if (hqPopulated) return
+    hqPopulated = true
+    var ov = S.overview
+    var me = S.me
+    var tasks = S.tasks || []
+    var usage = S.usage
+    var user = me && me.user
+    var company = me && me.companies && me.companies[0]
+    if (!user) return
+
+    // ── MASTHEAD ──
+    var masthead = document.querySelector('#view-db-dashboard .masthead')
+    if (masthead) {
+      var h1 = masthead.querySelector('h1')
+      if (h1) {
+        var hour = new Date().getHours()
+        var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+        var name = user.fullName || user.username || 'CEO'
+        var delivered = tasks.filter(function (t) { return t.status === 'delivered' }).length
+        h1.innerHTML = greeting + ', ' + esc(name) + '.'
+        if (delivered > 0) h1.innerHTML += '<br/>Your team has <em>' + delivered + '</em> deliverable' + (delivered > 1 ? 's' : '') + ' ready.'
+      }
+      // Update sub text
+      var sub = masthead.querySelector('.sub')
+      if (sub && tasks.length > 0) {
+        var byAgent = {}
+        tasks.forEach(function(t) {
+          var n = t.employee ? t.employee.name : 'Agent'
+          if (!byAgent[n]) byAgent[n] = []
+          byAgent[n].push(t.status)
+        })
+        var parts = Object.keys(byAgent).map(function(n) {
+          var statuses = byAgent[n]
+          var del = statuses.filter(function(s){ return s === 'delivered' }).length
+          var prog = statuses.filter(function(s){ return s === 'in_progress' }).length
+          if (del > 0) return n + ' has ' + del + ' deliverable' + (del > 1 ? 's' : '') + ' ready'
+          if (prog > 0) return n + ' is working'
+          return n + ' is idle'
+        })
+        sub.textContent = parts.join('. ') + '.'
+      }
+
+      // Stats grid
+      if (ov) {
+        var stats = masthead.querySelectorAll('.stat')
+        if (stats.length >= 2) {
+          // Stat 0: Total reach (use combinedFollowers as proxy)
+          var s0 = stats[0]
+          var s0lbl = s0.querySelector('.lbl')
+          var s0v = s0.querySelector('.v')
+          var s0d = s0.querySelector('.d')
+          if (s0lbl) s0lbl.textContent = 'Total followers'
+          if (s0v && ov.combinedFollowers != null) {
+            s0v.innerHTML = '<em>' + fmt(ov.combinedFollowers) + '</em>'
+          }
+          if (s0d && ov.combinedFollowersDelta != null) {
+            s0d.innerHTML = deltaHtml(ov.combinedFollowersDelta) + ' · 7d'
+          }
+          // Stat 1: Platforms connected
+          var s1 = stats[1]
+          var s1lbl = s1.querySelector('.lbl')
+          var s1v = s1.querySelector('.v')
+          var s1d = s1.querySelector('.d')
+          if (s1lbl) s1lbl.textContent = 'Platforms'
+          if (s1v) s1v.textContent = ov.accounts ? ov.accounts.length : 0
+          if (s1d) s1d.textContent = ov.accounts ? ov.accounts.map(function(a){ return a.platform }).join(' + ') : ''
+        }
+        // Tasks used / limit
+        if (stats.length >= 3 && usage) {
+          var s2 = stats[2]
+          var s2lbl = s2.querySelector('.lbl')
+          var s2v = s2.querySelector('.v')
+          var s2d = s2.querySelector('.d')
+          var tasksUsed = usage.tasks ? usage.tasks.used : 0
+          var tasksLimit = usage.tasks ? usage.tasks.limit : 0
+          if (s2lbl) s2lbl.textContent = 'Tasks used'
+          if (s2v) s2v.innerHTML = tasksUsed + '<span style="color:var(--t3);font-size:16px">/' + (tasksLimit > 9999 ? '∞' : tasksLimit) + '</span>'
+          if (s2d) s2d.textContent = (usage.plan || 'starter') + ' plan'
+        }
+      }
+    }
+
+    // ── PLATFORM TILES ──
+    if (ov && ov.accounts) {
+      // Get follower counts from sparkline last entry (accounts don't have followerCount)
+      var lastSparkline = ov.sparkline && ov.sparkline.length > 0 ? ov.sparkline[ov.sparkline.length - 1] : null
+      var byPlatform = lastSparkline && lastSparkline.byPlatform ? lastSparkline.byPlatform : {}
+
+      var platRow = document.querySelector('#view-db-dashboard .plat-row')
+      if (platRow) {
+        var tiles = platRow.querySelectorAll('.plat')
+        ov.accounts.forEach(function (acct, i) {
+          if (i >= tiles.length) return
+          var tile = tiles[i]
+          var platform = (acct.platform || '').toLowerCase()
+          var followers = acct.latestFollowers || acct.followerCount || byPlatform[platform] || 0
+          var big = tile.querySelector('.big')
+          var sub = tile.querySelector('.sub')
+          var nm = tile.querySelector('.nm')
+          var handle = tile.querySelector('.s') || tile.querySelector('.nm span')
+          if (big) big.innerHTML = '<em>' + fmt(followers) + '</em>'
+          if (sub) sub.textContent = 'followers'
+          if (nm) {
+            var pName = platform === 'instagram' ? 'Instagram' : platform === 'tiktok' ? 'TikTok' : platform === 'youtube' ? 'YouTube' : acct.platform
+            nm.childNodes[0].textContent = pName
+          }
+          if (handle && acct.handle) handle.textContent = '@' + acct.handle
+
+          // Update platform class for correct color
+          tile.className = tile.className.replace(/\b(ig|tt|yt)\b/g, '')
+          tile.classList.add(platform === 'instagram' ? 'ig' : platform === 'tiktok' ? 'tt' : 'yt')
+          var tag = tile.querySelector('.tag')
+          if (tag) tag.textContent = platform === 'instagram' ? 'IG' : platform === 'tiktok' ? 'TT' : 'YT'
+        })
+        // Hide extra placeholder tiles
+        for (var t = ov.accounts.length; t < tiles.length; t++) {
+          tiles[t].style.display = 'none'
+        }
+      }
+    }
+
+    // ── FOLLOWER KPI CARD (above chart) ──
+    if (ov) {
+      var kpiHead = document.querySelector('#view-db-dashboard .kpi-head')
+      if (kpiHead) {
+        var kpiV = kpiHead.querySelector('.l .v')
+        var kpiD = kpiHead.querySelector('.l .d')
+        if (kpiV && ov.combinedFollowers != null) {
+          kpiV.innerHTML = '<em>' + Number(ov.combinedFollowers).toLocaleString() + '</em>'
+        }
+        if (kpiD) {
+          var totalDelta = ov.combinedFollowersDelta || 0
+          var totalFollowers = ov.combinedFollowers || 1
+          var growthPct = ((totalDelta / (totalFollowers - totalDelta)) * 100).toFixed(1)
+          kpiD.innerHTML = deltaHtml(totalDelta) + ' · ' + (totalDelta >= 0 ? '+' : '') + growthPct + '% · 7d'
+        }
+      }
+    }
+
+    // ── FOLLOWER CHART ──
+    if (ov && ov.sparkline && ov.sparkline.length > 1) {
+      var chartSvg = document.getElementById('chart')
+      if (chartSvg) {
+        populateFollowerChart(chartSvg, ov)
+      }
+      wireChartTabs(ov)
+    }
+
+    // ── POSTS TABLE ──
+    if (ov && ov.topPost) {
+      populatePostsTable(S)
+    }
+
+    // ── AUDIENCE SNAPSHOT ──
+    if (ov && ov.audience) {
+      populateAudience(ov.audience)
+    }
+
+    // ── APPROVALS SIDEBAR ──
+    populateApprovals(tasks)
+
+    // ── CHART LEGEND ──
+    if (ov && ov.accounts && ov.sparkline && ov.sparkline.length > 0) {
+      var lastSp = ov.sparkline[ov.sparkline.length - 1]
+      var byPlat = lastSp.byPlatform || {}
+      var legend = document.querySelector('#view-db-dashboard .chart-legend')
+      if (legend) {
+        var lis = legend.querySelectorAll('.li')
+        ov.accounts.forEach(function (acct, i) {
+          if (i >= lis.length) return
+          var platform = (acct.platform || '').toLowerCase()
+          var pName = platform === 'instagram' ? 'Instagram' : platform === 'tiktok' ? 'TikTok' : platform === 'youtube' ? 'YouTube' : acct.platform
+          var count = byPlat[platform] || 0
+          lis[i].innerHTML = '<span class="sw ' + (platform === 'instagram' ? 'ig' : platform === 'tiktok' ? 'tt' : 'yt') + '"></span>' + pName + ' · ' + fmt(count)
+        })
+        // Hide extra legend items
+        for (var li = ov.accounts.length; li < lis.length; li++) {
+          lis[li].style.display = 'none'
+        }
+      }
+    }
+  }
+
+  function populateFollowerChart(svg, ov) {
+    var sparkline = ov.sparkline
+    if (!sparkline || sparkline.length < 2) return
+
+    var w = 600, h = 180, pad = 10
+
+    // Collect all platform keys
+    var platforms = []
+    var bp = sparkline[0].byPlatform || {}
+    for (var k in bp) platforms.push(k)
+    if (platforms.length === 0) platforms = ['total']
+
+    // Find min/max PER platform so each line uses full chart height
+    var platformRanges = {}
+    platforms.forEach(function (p) {
+      var vals = sparkline.map(function (d) {
+        return p === 'total' ? (d.total || 0) : ((d.byPlatform || {})[p] || 0)
+      })
+      var mn = Math.min.apply(null, vals)
+      var mx = Math.max.apply(null, vals)
+      var rng = mx - mn || 1
+      // Expand range by 20% so the line doesn't touch edges
+      platformRanges[p] = { min: mn - rng * 0.1, range: rng * 1.2 }
+    })
+
+    var colors = { instagram: 'var(--ig)', tiktok: 'var(--tt)', youtube: 'var(--yt)', total: 'var(--accent)' }
+    var gradIds = { instagram: 'gIG', tiktok: 'gTT', youtube: 'gYT' }
+
+    // Clear existing paths/circles (keep defs + grid)
+    var toRemove = svg.querySelectorAll('path, circle, line[stroke-dasharray]')
+    toRemove.forEach(function (el) { el.remove() })
+
+    // Draw per-platform lines
+    platforms.forEach(function (plat, pi) {
+      var series = sparkline.map(function (d) {
+        return plat === 'total' ? (d.total || 0) : ((d.byPlatform || {})[plat] || 0)
+      })
+
+      var pr = platformRanges[plat]
+      var pts = series.map(function (v, i) {
+        var x = (i / (series.length - 1)) * w
+        var y = h - ((v - pr.min) / pr.range) * (h - 2 * pad) - pad
+        return { x: x, y: y }
+      })
+
+      var pathD = 'M' + pts.map(function (p) { return p.x.toFixed(1) + ',' + p.y.toFixed(1) }).join(' L')
+      var fillD = pathD + ' L' + w + ',' + h + ' L0,' + h + ' Z'
+      var color = colors[plat] || 'var(--t2)'
+
+      // Fill area (only for first platform for clarity)
+      if (pi === 0 && gradIds[plat]) {
+        var fill = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+        fill.setAttribute('d', fillD)
+        fill.setAttribute('fill', 'url(#' + gradIds[plat] + ')')
+        svg.appendChild(fill)
+      }
+
+      // Line
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      line.setAttribute('d', pathD)
+      line.setAttribute('fill', 'none')
+      line.setAttribute('stroke', color)
+      line.setAttribute('stroke-width', pi === 0 ? '1.8' : '1.5')
+      svg.appendChild(line)
+
+      // End dot
+      var lastPt = pts[pts.length - 1]
+      var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+      dot.setAttribute('cx', lastPt.x.toFixed(1))
+      dot.setAttribute('cy', lastPt.y.toFixed(1))
+      dot.setAttribute('r', '3')
+      dot.setAttribute('fill', color)
+      svg.appendChild(dot)
+    })
+  }
+
+  // ── CHART SCOPE BUTTONS ──
+  var fullSparkline = null
+  var fullSnapshots = null
+
+  function wireChartTabs(ov) {
+    var tabs = document.querySelector('#view-db-dashboard .section-head .tabs')
+    if (!tabs) return
+
+    fullSparkline = ov.sparkline || []
+
+    // Also fetch timeseries for 90d snapshots
+    get('/api/platform/timeseries').then(function (ts) {
+      if (ts && ts.snapshots && ts.snapshots.length > 0) {
+        // Build sparkline-like data from snapshots
+        var byDate = {}
+        ts.snapshots.forEach(function (s) {
+          var d = (s.capturedAt || '').slice(0, 10)
+          if (!byDate[d]) byDate[d] = { date: d, total: 0, byPlatform: {} }
+          var platform = null
+          // Map accountId to platform
+          if (ov.accounts) {
+            // Use sparkline's byPlatform keys to infer
+            var lastSp = fullSparkline[fullSparkline.length - 1]
+            if (lastSp && lastSp.byPlatform) {
+              var platforms = Object.keys(lastSp.byPlatform)
+              // If this snapshot's follower count matches a platform in the last sparkline entry
+              // Simple approach: assign based on magnitude
+              platform = s.followerCount > 5000 ? 'instagram' : 'tiktok'
+            }
+          }
+          byDate[d].total += (s.followerCount || 0)
+          if (platform) byDate[d].byPlatform[platform] = (byDate[d].byPlatform[platform] || 0) + (s.followerCount || 0)
+        })
+        fullSnapshots = Object.keys(byDate).sort().map(function (d) { return byDate[d] })
+      }
+    })
+
+    tabs.addEventListener('click', function (e) {
+      var btn = e.target.closest('button')
+      if (!btn) return
+      tabs.querySelectorAll('button').forEach(function (b) { b.classList.remove('on') })
+      btn.classList.add('on')
+
+      var label = btn.textContent.trim().toUpperCase()
+      var days = 30
+      if (label === '24H') days = 1
+      else if (label === '7D') days = 7
+      else if (label === '30D') days = 30
+      else if (label === '90D') days = 90
+
+      var source = days > 30 && fullSnapshots && fullSnapshots.length > 0 ? fullSnapshots : fullSparkline
+      if (!source || source.length === 0) return
+
+      // Filter to requested range
+      var cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - days)
+      var cutoffStr = cutoff.toISOString().slice(0, 10)
+      var filtered = source.filter(function (d) { return d.date >= cutoffStr })
+      if (filtered.length < 2) filtered = source.slice(-Math.min(days, source.length))
+
+      // Update KPI card values
+      var kpiHead = document.querySelector('#view-db-dashboard .kpi-head')
+      if (kpiHead && filtered.length >= 2) {
+        var kpiD = kpiHead.querySelector('.l .d')
+        var first = filtered[0].total || 0
+        var last = filtered[filtered.length - 1].total || 0
+        var diff = last - first
+        var pctChange = first > 0 ? (diff / first * 100).toFixed(1) : '0'
+        if (kpiD) kpiD.innerHTML = deltaHtml(diff) + ' · ' + (diff >= 0 ? '+' : '') + pctChange + '% · last ' + filtered.length + 'd'
+      }
+
+      // Redraw chart
+      var chartSvg = document.getElementById('chart')
+      if (chartSvg) {
+        var fakeOv = { sparkline: filtered }
+        populateFollowerChart(chartSvg, fakeOv)
+      }
+
+      // Update legend with scoped values
+      var legend = document.querySelector('#view-db-dashboard .chart-legend')
+      if (legend && filtered.length >= 2) {
+        var firstEntry = filtered[0]
+        var lastEntry = filtered[filtered.length - 1]
+        var lastBP = lastEntry.byPlatform || {}
+        var firstBP = firstEntry.byPlatform || {}
+        var lis = legend.querySelectorAll('.li')
+        var platKeys = Object.keys(lastBP)
+        platKeys.forEach(function (plat, i) {
+          if (i >= lis.length) return
+          var pName = plat === 'instagram' ? 'Instagram' : plat === 'tiktok' ? 'TikTok' : plat === 'youtube' ? 'YouTube' : plat
+          var cls = plat === 'instagram' ? 'ig' : plat === 'tiktok' ? 'tt' : 'yt'
+          var current = lastBP[plat] || 0
+          var prev = firstBP[plat] || 0
+          var d = current - prev
+          var dStr = deltaHtml(d)
+          lis[i].innerHTML = '<span class="sw ' + cls + '"></span>' + pName + ' · ' + fmt(current) + ' · ' + dStr
+        })
+      }
+    })
+  }
+
+  function populatePostsTable(S) {
+    // Fetch timeseries for real post data
+    get('/api/platform/timeseries').then(function (ts) {
+      if (!ts || !ts.posts || ts.posts.length === 0) return
+      var tbody = document.querySelector('#view-db-dashboard .posts-tbl tbody')
+      if (!tbody) return
+
+      // Build accountId→platform map from timeseries account + overview
+      var acctMap = {}
+      if (ts.account && ts.account.id) acctMap[ts.account.id] = ts.account.platform
+      // For posts from other accounts, infer platform from overview
+      if (S.overview && S.overview.accounts) {
+        var knownPlatforms = S.overview.accounts.map(function(a){ return a.platform })
+        var knownId = ts.account ? ts.account.id : null
+        var knownPlatform = ts.account ? ts.account.platform : null
+        ts.posts.forEach(function(p) {
+          if (!acctMap[p.accountId] && knownId && p.accountId !== knownId) {
+            // This post belongs to the OTHER platform
+            var other = knownPlatforms.find(function(pl){ return pl !== knownPlatform })
+            if (other) acctMap[p.accountId] = other
+          }
+        })
+      }
+
+      var posts = ts.posts.slice(0, 5)
+      tbody.innerHTML = posts.map(function (p) {
+        var platform = acctMap[p.accountId] || 'instagram'
+        var pf = platform === 'tiktok' ? 'tt' : platform === 'youtube' ? 'yt' : 'ig'
+        var pfName = platform === 'tiktok' ? 'TIKTOK' : platform === 'youtube' ? 'YOUTUBE' : 'INSTAGRAM'
+        var mediaType = (p.mediaType || 'POST').toUpperCase()
+        var caption = (p.caption || '').slice(0, 60)
+        var views = p.viewCount || p.reachCount || p.impressionCount || 0
+        var likes = p.likeCount || 0
+        var comments = p.commentCount || 0
+        var engVal = views > 0 ? ((likes + comments) / views * 100) : 0
+        var eng = engVal > 0 ? engVal.toFixed(1) + '%' : '—'
+        var ret = '—'
+        var ago = timeAgo(p.publishedAt)
+
+        return '<tr>'
+          + '<td><div class="cell-first"><div class="thumb">▶</div>'
+          + '<div><div class="ttl">' + esc(caption) + '</div>'
+          + '<div class="meta"><span class="pf ' + pf + '"><span class="dot"></span>' + pfName + ' · ' + mediaType + '</span><span>' + ago + '</span></div></div></div></td>'
+          + '<td class="num"><em>' + fmt(views) + '</em></td>'
+          + '<td class="num">' + eng + '</td>'
+          + '<td class="num">' + ret + '</td>'
+          + '<td class="delta u">' + (p.engagementRate > 0.05 ? '▲' : '—') + '</td>'
+          + '<td class="tl"></td>'
+          + '</tr>'
+      }).join('')
+    })
+  }
+
+  function populateAudience(audience) {
+    var audCard = document.querySelector('#view-db-dashboard .aud-card')
+    if (!audCard) return
+
+    var buckets = audCard.querySelectorAll('.bucket')
+
+    // Age breakdown
+    if (buckets.length >= 1 && audience.ageBreakdown && audience.ageBreakdown.length > 0) {
+      var ageBucket = buckets[0]
+      var rows = ageBucket.querySelectorAll('.aud-row')
+      audience.ageBreakdown.slice(0, rows.length).forEach(function (age, i) {
+        if (!rows[i]) return
+        var spans = rows[i].querySelectorAll('span')
+        if (spans[0]) spans[0].textContent = age.bucket
+        var bar = rows[i].querySelector('.tr span')
+        if (bar) bar.style.width = Math.min(100, Math.round(age.share * 100 * 2)) + '%'
+        var pctEl = rows[i].querySelector('.pct')
+        if (pctEl) pctEl.textContent = Math.round(age.share * 100) + '%'
+      })
+    }
+
+    // Geo breakdown
+    if (buckets.length >= 2 && audience.topCountries && audience.topCountries.length > 0) {
+      var geoBucket = buckets[1]
+      var geoRows = geoBucket.querySelectorAll('.aud-row')
+      audience.topCountries.slice(0, geoRows.length).forEach(function (geo, i) {
+        if (!geoRows[i]) return
+        var spans = geoRows[i].querySelectorAll('span')
+        if (spans[0]) spans[0].textContent = geo.bucket
+        var bar = geoRows[i].querySelector('.tr span')
+        if (bar) bar.style.width = Math.min(100, Math.round(geo.share * 100 * 2)) + '%'
+        var pctEl = geoRows[i].querySelector('.pct')
+        if (pctEl) pctEl.textContent = Math.round(geo.share * 100) + '%'
+      })
+    }
+  }
+
+  function populateApprovals(tasks) {
+    var mod = document.querySelector('#view-db-dashboard .dash-side .mod')
+    if (!mod) return
+    var delivered = tasks.filter(function (t) { return t.status === 'delivered' })
+    if (delivered.length === 0) return
+
+    // Update the count
+    var modHead = mod.querySelector('.mod-head h4')
+    if (modHead) modHead.textContent = 'Approvals · ' + delivered.length
+
+    // Replace approval cards with real tasks
+    var cards = mod.querySelectorAll('.app-card')
+    delivered.slice(0, cards.length).forEach(function (t, i) {
+      var card = cards[i]
+      if (!card) return
+      var emp = t.employee || {}
+      var init = (emp.name || 'V').charAt(0).toUpperCase()
+      var role = (emp.role || '').replace('_', ' ').toUpperCase()
+      var title = t.title || 'New deliverable'
+
+      var hdr = card.querySelector('.hdr')
+      if (hdr) {
+        var av = hdr.querySelector('.av')
+        if (av) av.textContent = init
+        var empEl = hdr.querySelector('.emp')
+        if (empEl) empEl.innerHTML = esc(emp.name || 'Agent') + '<div class="role">' + esc(role) + '</div>'
+      }
+      var tEl = card.querySelector('.t')
+      if (tEl) tEl.innerHTML = esc(title)
+      var pEl = card.querySelector('.p')
+      if (pEl) pEl.textContent = t.description || ''
+    })
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return ''
+    var diff = Date.now() - new Date(dateStr).getTime()
+    var mins = Math.floor(diff / 60000)
+    if (mins < 60) return mins + 'm ago'
+    var hrs = Math.floor(mins / 60)
+    if (hrs < 24) return hrs + 'h ago'
+    var days = Math.floor(hrs / 24)
+    return days + 'd ago'
+  }
+
+  // Run when state is ready
+  waitForState(populateHQ)
+
+  // Re-run on navigation to dashboard
+  var origNav = window.navigate
+  if (typeof origNav === 'function') {
+    // Don't re-wrap if already wrapped — just hook into vx-task-changed
+  }
+  window.addEventListener('vx-task-changed', function () {
+    if (window.__vxDashState) populateHQ(window.__vxDashState)
+  })
+})()

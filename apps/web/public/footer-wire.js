@@ -10,7 +10,7 @@
  */
 ;(function () {
   const MARKETING_VIEWS = [
-    'view-home', 'view-team', 'view-how',
+    'view-team', 'view-how',
     'view-outputs', 'view-knowledge',
     'view-pricing', 'view-faq',
   ]

@@ -55,6 +55,8 @@
   // Top-right profile chip + dropdown (Name · Plan · Settings · Sign out).
   // Replaces the old sidebar logout button — the sidebar itself is gone now.
   function ensureProfileMenu(user, company) {
+    // Skip if the new profile avatar (#vx-profile) exists in body.html
+    if (document.getElementById('vx-profile')) return
     const host = document.querySelector('#topbar .topbar-right')
     if (!host) return
     let chip = document.getElementById('vx-profile-chip')
@@ -277,7 +279,22 @@
   // ── On page load, auto-enter dashboard if already onboarded ───────────────
   async function init() {
     const me = await fetchMe()
-    if (!me?.user) return
+    if (!me?.user) {
+      // Session expired or was never valid — the optimistic dashboard-v2
+      // sync block may have already shown the dashboard based on the
+      // localStorage flag. Undo that and show the home page instead.
+      // Clear the flag so it doesn't persist after session expiry, but
+      // note: the login flow re-sets it before calling location.reload().
+      try { localStorage.removeItem('vx-authed') } catch {}
+      const dashView = document.getElementById('view-db-dashboard')
+      if (dashView?.classList.contains('active')) {
+        dashView.classList.remove('active')
+        const homeView = document.getElementById('view-home')
+        if (homeView) homeView.classList.add('active')
+        if (typeof window.currentView !== 'undefined') window.currentView = 'home'
+      }
+      return
+    }
     const company = me.companies?.[0]
     if (!company) return
     // Skip marketing — jump straight to the dashboard

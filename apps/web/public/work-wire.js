@@ -545,9 +545,8 @@
   var origNavigate = window.navigate
   window.navigate = function (id) {
     if (id === 'db-team') {
-      currentTab = 'team'
-      var r = typeof origNavigate === 'function' ? origNavigate('db-tasks') : undefined
-      setTimeout(injectWork, 60)
+      // New standalone Team page — don't redirect to Work anymore
+      var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
       return r
     }
     if (id === 'db-outputs') {

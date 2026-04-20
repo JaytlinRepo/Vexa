@@ -250,14 +250,64 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 .notif-btn:hover{color:var(--t1)}
 .notif-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent);border:1.5px solid var(--bg);box-shadow:0 0 0 3px var(--accent-soft)}
 
+/* Hide standalone theme btn + notif when profile avatar is visible */
+html[data-vx-authed] #topbar-theme-btn{display:none}
+
+/* ══ PROFILE AVATAR ════════════════════════════════════ */
+.vx-profile{position:relative}
+.vx-profile-avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--s2);border:1.5px solid var(--b2);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;
+  transition:border-color .2s;flex-shrink:0;
+}
+.vx-profile-avatar:hover{border-color:var(--accent)}
+.vx-profile-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.vx-profile-avatar span{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--t1)}
+.vx-profile-dropdown{
+  display:none;position:absolute;top:calc(100% + 10px);right:0;
+  width:240px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;
+  box-shadow:0 12px 40px rgba(0,0,0,.4);z-index:200;overflow:hidden;
+  animation:vxDropIn .2s ease;
+}
+@keyframes vxDropIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.vx-profile.open .vx-profile-dropdown{display:block}
+.vx-profile-header{padding:16px;display:flex;align-items:center;gap:12px}
+.vx-profile-avatar-lg{
+  width:44px;height:44px;border-radius:50%;background:var(--s3);border:1.5px solid var(--b2);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;flex-shrink:0;
+}
+.vx-profile-avatar-lg img{width:100%;height:100%;object-fit:cover;display:block}
+.vx-profile-avatar-lg span{font-family:'Inter',sans-serif;font-size:18px;font-weight:500;color:var(--t1)}
+.vx-profile-upload{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.5);opacity:0;transition:opacity .2s;cursor:pointer;border-radius:50%;
+}
+.vx-profile-avatar-lg:hover .vx-profile-upload{opacity:1}
+.vx-profile-upload-icon{color:#fff;font-size:18px;font-weight:300;line-height:1}
+.vx-profile-info{flex:1;min-width:0}
+.vx-profile-name{font-size:13px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-profile-plan{font-size:11px;color:var(--t2);letter-spacing:.04em}
+.vx-profile-divider{height:1px;background:var(--b1);margin:4px 0}
+.vx-profile-item{
+  display:block;padding:10px 16px;font-size:12px;color:var(--t2);cursor:pointer;
+  transition:background .15s,color .15s;text-decoration:none;
+}
+.vx-profile-item:hover{background:var(--s2);color:var(--t1)}
+.vx-profile-logout{color:var(--accent)}
+.vx-profile-logout:hover{background:rgba(212,165,116,.08)}
+
 /* ══ VIEWS ══════════════════════════════════════════════ */
 .view{
   position:absolute;inset:0;overflow-y:auto;
   padding:92px 0 0;
-  opacity:0;pointer-events:none;
-  transition:opacity .4s ease;
+  visibility:hidden;pointer-events:none;
+  background:var(--bg);
+  z-index:0;
 }
-.view.active{opacity:1;pointer-events:all}
+.view.active{visibility:visible;pointer-events:all;z-index:1}
+#view-home{background:transparent;padding-top:0}
+#landing-atmo{transition:opacity .4s ease}
+html[data-vx-authed] #landing-atmo{opacity:0;pointer-events:none}
 .view-inner{padding:56px 64px 96px}
 .home-merged-section{margin-top:120px;padding-top:80px;border-top:1px solid var(--b1)}
 .home-merged-section:first-of-type{margin-top:120px}
@@ -451,8 +501,7 @@ input,textarea{cursor:text}
   .home-carousel-track{transition:none}
 }
 
-#view-db-dashboard { overflow: hidden; }
-#view-db-dashboard > .db-layout { height: 100%; }
+/* Old db-layout overflow rules removed — new HQ uses natural scroll */
 
 /* ══ PAGE TRANSITION ═════════════════════════════════════ */
 #page-trans{
@@ -533,8 +582,8 @@ input,textarea{cursor:text}
 .team-row-meta{padding:40px 36px;border-left:1px solid var(--b1);display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between}
 .team-schedule{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);text-align:right}
 
-/* How it works */
-.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
+/* How it works (old marketing view — scoped to avoid conflict with landing .how-grid) */
+#view-how .how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden;margin-top:40px}
 .how-cell{background:var(--s1);padding:44px 36px;transition:background .25s}
 .how-cell:hover{background:var(--s2)}
 .how-n{font-family:'Cormorant Garamond',serif;font-size:72px;font-weight:300;color:var(--b2);line-height:1;margin-bottom:20px;transition:color .25s}
@@ -1623,21 +1672,7 @@ input,textarea{cursor:text}
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
     gap: 14px;
   }
-  /* Dashboard v2 stacks: 2-pane → single column.
-     The height:100% + overflow:hidden from desktop squashes <main> when
-     the inner flex switches to column, so we let the whole view scroll
-     normally once we're stacked. */
-  #view-db-dashboard { overflow-y: auto !important; }
-  #view-db-dashboard .db-layout { height: auto !important; overflow: visible !important; }
-  #view-db-dashboard .db-layout > div[style*="display:flex"] {
-    flex-direction: column !important;
-    height: auto !important;
-    min-height: 0 !important;
-  }
-  #view-db-dashboard .db-layout > div[style*="display:flex"] > main {
-    overflow: visible !important;
-    flex: 0 0 auto !important;
-  }
+  /* Old db-layout mobile overrides removed — new HQ uses natural scroll */
   #view-db-dashboard aside {
     width: 100% !important;
     border-left: none !important;

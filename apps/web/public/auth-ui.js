@@ -198,7 +198,15 @@
         if (!res.ok) throw new Error(json.error || json.message || 'login_failed')
         authedUser = json.user
         try { localStorage.setItem('vx-authed', '1') } catch {}
-        location.reload()
+        // Close the auth modal and enter the dashboard directly instead
+        // of reloading the page — avoids a flash of the home view when
+        // the reload races script loading.
+        if (typeof window.closeAuth === 'function') window.closeAuth()
+        if (typeof window.enterDashboard === 'function') {
+          window.enterDashboard()
+        } else {
+          location.reload()
+        }
       }
     } catch (e) {
       console.error('[auth] error:', e.message, e)

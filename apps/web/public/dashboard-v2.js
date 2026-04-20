@@ -1961,6 +1961,12 @@
   async function render() {
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
+    // If the new Vexa-2 HQ layout is present, skip the old JS-generated dashboard.
+    // The new layout is static HTML styled by vexa-shared.css.
+    if (view.querySelector('.masthead') || view.querySelector('.pipe-wrap')) {
+      try { await fetchAll() } catch (e) {}
+      return
+    }
     try { await fetchAll() } catch (e) { console.warn('[v2] fetchAll failed, rendering with partial data', e) }
     injectMotionStyles()
     const root = view.querySelector('.db-layout') || view
@@ -2173,24 +2179,37 @@
   // having to reload.
   window.addEventListener('vx-task-changed', () => { setTimeout(render, 80) })
 
-  // When the user returns from the TikTok OAuth callback (?tiktokConnected=1),
-  // jump straight to the dashboard and scroll the TikTok section into view.
-  function maybeHandleTiktokReturn() {
+  // When the user returns from a platform OAuth callback (?tiktokConnected=1
+  // or ?instagramConnected=1), verify the session is still valid, then jump
+  // to the dashboard and refresh data. If the session expired during OAuth,
+  // fall back to the home/login page instead of showing a broken dashboard.
+  function maybeHandlePlatformReturn() {
     try {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('tiktokConnected') !== '1') return
+      const isTiktok = params.get('tiktokConnected') === '1'
+      const isInstagram = params.get('instagramConnected') === '1'
+      if (!isTiktok && !isInstagram) return
       // Clear the query param so a refresh doesn't re-trigger.
       const clean = window.location.pathname + (window.location.hash || '')
       window.history.replaceState({}, '', clean)
       setTimeout(async () => {
-        if (typeof window.navigate === 'function') window.navigate('db-dashboard')
+        // Verify the user is still logged in before showing the dashboard
+        const me = await fetch('/api/auth/me', { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+        if (!me?.user) {
+          if (typeof window.navigate === 'function') window.navigate('home')
+          return
+        }
+        if (typeof window.enterDashboard === 'function') window.enterDashboard()
         await refresh()
-        setTimeout(() => {
-          document.getElementById('tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 250)
+        if (isTiktok) {
+          setTimeout(() => {
+            document.getElementById('tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }, 250)
+        }
       }, 400)
     } catch { /* noop */ }
   }
-  if (document.readyState !== 'loading') maybeHandleTiktokReturn()
-  document.addEventListener('DOMContentLoaded', maybeHandleTiktokReturn)
+  if (document.readyState !== 'loading') maybeHandlePlatformReturn()
+  document.addEventListener('DOMContentLoaded', maybeHandlePlatformReturn)
 })()
