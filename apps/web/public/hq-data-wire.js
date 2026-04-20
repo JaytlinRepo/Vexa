@@ -506,10 +506,12 @@
     }
 
     // Sort
-    if (filter === 'TOP') {
+    if (filter === 'TOP ENG') {
       posts.sort(function(a, b) { return (b.engagementRate || 0) - (a.engagementRate || 0) })
-    } else {
+    } else if (filter === 'TOP VIEWS') {
       posts.sort(function(a, b) { return (b.viewCount || b.reachCount || 0) - (a.viewCount || a.reachCount || 0) })
+    } else {
+      posts.sort(function(a, b) { return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0) })
     }
 
     var display = posts.slice(0, 5)
@@ -518,7 +520,7 @@
     // Update header
     var ph = document.querySelector('#view-db-dashboard .posts-card .ph h4')
     if (ph) {
-      var label = filter === 'TOP' ? 'Top' : 'Recent'
+      var label = filter === 'TOP VIEWS' ? 'Top by views' : filter === 'TOP ENG' ? 'Top by engagement' : 'Recent'
       ph.innerHTML = label + ' <em>posts</em> · ' + posts.length
     }
 
