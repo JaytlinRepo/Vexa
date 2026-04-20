@@ -180,7 +180,18 @@ export async function persistTiktokSnapshot(
         impressionCount: v.viewCount,
       },
     })
+    // Capture metric snapshot for delta tracking
+    const { capturePostMetrics } = await import('./metricTracking')
+    const upserted = await prisma.platformPost.findFirst({
+      where: { accountId: account.id, platformPostId: v.id },
+      select: { id: true },
+    })
+    if (upserted) await capturePostMetrics(prisma, upserted.id).catch(() => {})
   }
+
+  // Compute weekly summary after all posts synced
+  const { computeWeeklySummary } = await import('./metricTracking')
+  await computeWeeklySummary(prisma, account.id).catch((e) => console.warn('[tiktokSync] weekly summary failed:', e))
 
   // 4. Maya's drop-detection. On the very first snapshot this no-ops
   //    (needs history to compute a delta), but wiring it here means the

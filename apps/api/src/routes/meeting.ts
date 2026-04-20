@@ -73,6 +73,7 @@ function buildFullPlatformBlock(
   snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = [],
   recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = [],
   audience: { ageBreakdown: unknown; genderBreakdown: unknown; topCountries: unknown; topCities: unknown } | null = null,
+  weeklySummaries: Array<{ followerStart: number; followerEnd: number; followerDelta: number; postsPublished: number; totalViews: number; totalLikes: number; totalComments: number; topPostCaption: string | null; topPostViews: number; bestDay: string | null; bestFormat: string | null }> = [],
 ): string {
   const connected: string[] = []
   const notConnected: string[] = []
@@ -110,8 +111,24 @@ function buildFullPlatformBlock(
     return `\n--- Platform data ---\nNO PLATFORMS CONNECTED. You have no follower counts, engagement rates, or post data. If the CEO asks about stats, say "Connect your accounts in Settings and I'll pull real numbers." Never invent figures.\n--- End platform data ---\n`
   }
 
-  // Pre-computed weekly analysis — these are the ONLY facts the agent can cite
-  if (snapshots.length >= 2) {
+  // Weekly summary (pre-computed, these are WEEKLY deltas not lifetime)
+  if (weeklySummaries.length > 0) {
+    block += `\n=== THIS WEEK'S GROWTH (these are WEEKLY deltas — new activity this week only) ===\n`
+    for (const ws of weeklySummaries) {
+      block += `Followers: ${ws.followerStart.toLocaleString()} → ${ws.followerEnd.toLocaleString()} (${ws.followerDelta >= 0 ? '+' : ''}${ws.followerDelta})\n`
+      block += `New views this week: ${ws.totalViews.toLocaleString()} (across all posts)\n`
+      block += `New likes this week: ${ws.totalLikes.toLocaleString()}\n`
+      block += `New comments this week: ${ws.totalComments.toLocaleString()}\n`
+      block += `Posts published this week: ${ws.postsPublished}\n`
+      if (ws.bestDay) block += `Best day for posting: ${ws.bestDay}\n`
+      if (ws.bestFormat) block += `Best format: ${ws.bestFormat}\n`
+      if (ws.topPostCaption) block += `Top post: "${ws.topPostCaption.slice(0, 50)}" — ${ws.topPostViews.toLocaleString()} views\n`
+    }
+    block += `=== END THIS WEEK'S GROWTH ===\n`
+  }
+
+  // Fallback: raw snapshots if no weekly summary computed yet
+  if (weeklySummaries.length === 0 && snapshots.length >= 2) {
     const oldest = snapshots[0]
     const latest = snapshots[snapshots.length - 1]
     const followerChange = latest.followerCount - oldest.followerCount
@@ -502,6 +519,7 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       let snapshots: Array<{ capturedAt: Date; followerCount: number; engagementRate: number; avgReach: number }> = []
       let recentPosts: Array<{ caption: string | null; viewCount: number; likeCount: number; commentCount: number; publishedAt: Date | null }> = []
       let audienceData: { ageBreakdown: unknown; genderBreakdown: unknown; topCountries: unknown; topCities: unknown } | null = null
+      let weeklySummaries: Array<{ accountId: string; followerStart: number; followerEnd: number; followerDelta: number; postsPublished: number; totalViews: number; totalLikes: number; totalComments: number; topPostCaption: string | null; topPostViews: number; bestDay: string | null; bestFormat: string | null }> = []
 
       const [snaps, posts, audienceRows] = await Promise.all([
         prisma.platformSnapshot.findMany({
@@ -524,8 +542,19 @@ router.post('/reply', requireAuth, async (req, res, next) => {
       recentPosts = posts
       if (audienceRows) audienceData = audienceRows
 
-      console.log('[meeting] audience data:', audienceData ? 'found' : 'null', audienceData ? Object.keys(audienceData) : [])
-      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts, audienceData)
+      // Load weekly summaries
+      const now = new Date()
+      const mondayOffset = now.getUTCDay() === 0 ? -6 : 1 - now.getUTCDay()
+      const thisMonday = new Date(now)
+      thisMonday.setUTCDate(now.getUTCDate() + mondayOffset)
+      thisMonday.setUTCHours(0, 0, 0, 0)
+
+      const summaries = await prisma.weeklySummary.findMany({
+        where: { account: { companyId: company.id }, weekStart: thisMonday },
+      })
+      weeklySummaries = summaries
+
+      platformBlock = buildFullPlatformBlock(company.instagram, company.tiktok, snapshots, recentPosts, audienceData, weeklySummaries)
       // Pull niche-specific knowledge for this agent's role, scored
       // against the CEO's current message so the most relevant entries
       // surface (e.g. asking about hooks pulls hook_pattern entries).

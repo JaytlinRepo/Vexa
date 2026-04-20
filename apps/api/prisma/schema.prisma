@@ -261,8 +261,9 @@ model PlatformAccount {
 
   company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   snapshots PlatformSnapshot[]
-  posts     PlatformPost[]
-  audiences PlatformAudience[]
+  posts           PlatformPost[]
+  audiences       PlatformAudience[]
+  weeklySummaries WeeklySummary[]
 
   @@unique([companyId, platform, handle])
   @@index([companyId])
@@ -304,11 +305,70 @@ model PlatformPost {
   impressionCount Int       @default(0) @map("impression_count")
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
-  account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account         PlatformAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  metricSnapshots PostMetricSnapshot[]
 
   @@unique([accountId, platformPostId])
   @@index([accountId, publishedAt])
   @@map("platform_posts")
+}
+
+// Per-post metric snapshots — stored on every sync so we can compute
+// weekly deltas (e.g. "this post gained 10 likes this week").
+model PostMetricSnapshot {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  capturedAt DateTime @default(now()) @map("captured_at")
+  likeCount     Int  @default(0) @map("like_count")
+  commentCount  Int  @default(0) @map("comment_count")
+  shareCount    Int  @default(0) @map("share_count")
+  saveCount     Int  @default(0) @map("save_count")
+  viewCount     Int  @default(0) @map("view_count")
+  reachCount    Int  @default(0) @map("reach_count")
+
+  post PlatformPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, capturedAt])
+  @@map("post_metric_snapshots")
+}
+
+// Weekly summary per account — pre-computed after each sync.
+// Agents read this instead of computing from raw snapshots.
+model WeeklySummary {
+  id           String   @id @default(uuid())
+  accountId    String   @map("account_id")
+  weekStart    DateTime @map("week_start") // Monday 00:00 UTC
+  weekEnd      DateTime @map("week_end")   // Sunday 23:59 UTC
+
+  // Account-level deltas
+  followerStart  Int @default(0) @map("follower_start")
+  followerEnd    Int @default(0) @map("follower_end")
+  followerDelta  Int @default(0) @map("follower_delta")
+
+  // Engagement
+  avgEngagement  Float @default(0) @map("avg_engagement")
+  avgReach       Int   @default(0) @map("avg_reach")
+
+  // Post activity
+  postsPublished Int @default(0) @map("posts_published")
+  totalViews     Int @default(0) @map("total_views")
+  totalLikes     Int @default(0) @map("total_likes")
+  totalComments  Int @default(0) @map("total_comments")
+
+  // Top post this week
+  topPostId      String? @map("top_post_id")
+  topPostViews   Int     @default(0) @map("top_post_views")
+  topPostCaption String? @map("top_post_caption")
+
+  // Computed insights
+  bestDay        String? @map("best_day")      // "Monday", "Tuesday", etc.
+  bestFormat     String? @map("best_format")    // "REEL", "CAROUSEL", "IMAGE"
+
+  account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, weekStart])
+  @@index([accountId, weekStart])
+  @@map("weekly_summaries")
 }
 
 model PlatformAudience {

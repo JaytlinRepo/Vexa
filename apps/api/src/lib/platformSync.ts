@@ -182,7 +182,18 @@ export async function persistPhylloSync(
         impressionCount: m.insights.impressions,
       },
     })
+    // Capture metric snapshot for delta tracking
+    const { capturePostMetrics } = await import('./metricTracking')
+    const upserted = await prisma.platformPost.findFirst({
+      where: { accountId: platformAccount.id, platformPostId: m.id },
+      select: { id: true },
+    })
+    if (upserted) await capturePostMetrics(prisma, upserted.id).catch(() => {})
   }
+
+  // Compute weekly summary after all posts synced
+  const { computeWeeklySummary } = await import('./metricTracking')
+  await computeWeeklySummary(prisma, platformAccount.id).catch((e) => console.warn('[platformSync] weekly summary failed:', e))
 
   return { accountId: platformAccount.id }
 }
