@@ -108,9 +108,15 @@
     var used = u.tasks ? u.tasks.used : 0
     var limit = u.tasks ? u.tasks.limit : 0
     var isUnlimited = limit > 9999
-    tasksEl.textContent = 'Tasks: ' + used + (isUnlimited ? ' / unlimited' : ' / ' + limit)
-    if (fillEl) fillEl.style.width = isUnlimited ? '0%' : Math.min(100, Math.round(used / limit * 100)) + '%'
-    if (planEl) planEl.textContent = (u.plan || 'starter').charAt(0).toUpperCase() + (u.plan || 'starter').slice(1) + ' plan'
+    var pct = isUnlimited ? Math.min(100, used) : (limit > 0 ? Math.min(100, Math.round(used / limit * 100)) : 0)
+    var pctEl = document.getElementById('vx-usage-pct')
+    if (pctEl) pctEl.textContent = pct + '%'
+    if (fillEl) {
+      fillEl.style.width = pct + '%'
+      fillEl.style.background = pct > 80 ? 'var(--down,#d68a8a)' : pct > 50 ? 'var(--accent)' : 'var(--ok)'
+    }
+    tasksEl.textContent = used + (isUnlimited ? ' tasks' : ' / ' + limit + ' tasks')
+    if (planEl) planEl.textContent = (u.plan || 'starter').charAt(0).toUpperCase() + (u.plan || 'starter').slice(1)
   }
 
   // Run usage on dropdown open
