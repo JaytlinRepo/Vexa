@@ -18,11 +18,11 @@
       personality: 'Data-driven and precise. References numbers, spots patterns, and delivers insights with urgency.',
       schedule: 'Delivers a weekly pulse every Monday at 9am automatically. Scans your niche daily.',
       services: [
-        { kind: 'weekly_trends', label: 'Weekly Trends', desc: 'What\'s rising in your content space right now — growth %, urgency, and what to act on.', type: 'trend_analysis', requires: 'platform' },
-        { kind: 'competitor_scan', label: 'Competitor Scan', desc: 'What competitors are doing, what\'s working for them, and where you can win.', type: 'trend_analysis', requires: 'competitors' },
-        { kind: 'audience_deep_dive', label: 'Audience Deep Dive', desc: 'Who your audience really is — demographics, peak times, and what they engage with.', type: 'trend_analysis', requires: 'audience' },
-        { kind: 'hashtag_report', label: 'Hashtag Strategy', desc: 'Big, mid, and small hashtag buckets optimized for your content and audience size.', type: 'trend_analysis', requires: 'hashtags' },
+        { kind: 'weekly_analysis', label: 'Weekly Analysis', desc: 'How your content performed this week — what worked, what didn\'t, and what to do next.', type: 'performance_review', requires: 'platform' },
+        { kind: 'trending_now', label: 'Trending Now', desc: 'What\'s rising in your content space right now from Google Trends, Reddit, YouTube, and RSS.', type: 'trend_analysis', requires: 'feed' },
+        { kind: 'audience_deep_dive', label: 'Audience Breakdown', desc: 'Who your audience really is — age, gender, location, and what content they engage with.', type: 'trend_analysis', requires: 'audience' },
         { kind: 'engagement_diagnosis', label: 'Engagement Diagnosis', desc: 'Why your engagement shifted and exactly what to do about it.', type: 'performance_review', requires: 'platform' },
+        { kind: 'competitor_scan', label: 'Competitor Scan', desc: 'What competitors are doing, what\'s working for them, and where you can win.', type: 'trend_analysis', requires: 'competitors' },
       ],
     },
     strategist: {
@@ -98,6 +98,7 @@
       case 'audience': return hasAudience
       case 'competitors': return hasCompetitors
       case 'hashtags': return false // no hashtag data pipeline yet
+      case 'feed': return !!(state.feed && state.feed.length > 0)
       default: return true
     }
   }

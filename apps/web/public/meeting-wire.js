@@ -15,7 +15,7 @@
 
   let history = []
   // Cache meeting topic responses — persisted to sessionStorage so refreshes don't regenerate
-  var CACHE_VERSION = '2' // bump to invalidate all caches on deploy
+  var CACHE_VERSION = '3' // bump to invalidate all caches on deploy
   var meetingCache = {}
   try {
     var stored = sessionStorage.getItem('vx-meeting-cache')
@@ -191,11 +191,11 @@
 
   function topicGreeting(name, topic) {
     const greetings = {
-      'Weekly Trends': `"${name} here. I've been watching your space — let me pull up what's moving right now and walk you through it."`,
-      'Competitor Scan': `"${name} here. Let me show you what your competitors are doing this week and where you can get ahead of them."`,
-      'Audience Deep Dive': `"${name} here. I've got your audience data pulled up — let's look at who's actually engaging and what they want from you."`,
-      'Hashtag Strategy': `"${name} here. I'll break down the hashtag landscape for your content — the buckets that'll actually move the needle for your size."`,
-      'Engagement Diagnosis': `"${name} here. I noticed some patterns in your recent engagement — let's dig into what's happening and fix it."`,
+      'Weekly Analysis': `"${name} here. I've gone through your content from this week — let me walk you through what performed, what didn't, and where to focus next."`,
+      'Trending Now': `"${name} here. I've been scanning what's moving across your content space — let me show you what's rising and what's worth acting on."`,
+      'Audience Breakdown': `"${name} here. I've got your audience data pulled up — let's look at who's actually engaging and what they respond to."`,
+      'Engagement Diagnosis': `"${name} here. I looked at your recent engagement patterns — let me show you what shifted and what to do about it."`,
+      'Competitor Scan': `"${name} here. Let me show you what similar creators are doing and where you can get ahead of them."`,
       'Weekly Plan': `"${name} here. I've been looking at your content pipeline — let me walk you through what I think next week should look like."`,
       'Pillar Rebuild': `"${name} here. Let's rethink your content pillars from scratch. I'll show you what's working, what's dead weight, and what to build."`,
       'Posting Cadence': `"${name} here. I've analyzed your posting patterns against your audience's peak times. Let's optimize your schedule."`,
@@ -941,11 +941,11 @@
 
   // Map drawer topic labels to task types for cache lookup
   var TOPIC_TO_TASK_TYPE = {
-    'Weekly Trends': ['trend_analysis', 'weekly_pulse'],
-    'Competitor Scan': ['trend_analysis'],
-    'Audience Deep Dive': ['trend_analysis'],
-    'Hashtag Strategy': ['trend_analysis'],
+    'Weekly Analysis': ['performance_review', 'weekly_pulse'],
+    'Trending Now': ['trend_analysis'],
+    'Audience Breakdown': ['trend_analysis'],
     'Engagement Diagnosis': ['performance_review'],
+    'Competitor Scan': ['trend_analysis'],
     'Weekly Plan': ['content_planning', 'content_plan'],
     'Pillar Rebuild': ['content_planning'],
     'Posting Cadence': ['content_planning'],
