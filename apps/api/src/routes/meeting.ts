@@ -135,12 +135,13 @@ function buildFullPlatformBlock(
     const minView = Math.min(...views)
     const topPost = recentPosts.reduce((best, p) => p.viewCount > best.viewCount ? p : best, recentPosts[0])
 
-    block += `\n=== YOUR RECENT POSTS (cite these exact numbers) ===\n`
-    block += `${recentPosts.length} recent posts. Avg views: ${avgViews.toLocaleString()}. Range: ${minView.toLocaleString()} – ${maxView.toLocaleString()}\n`
-    block += `Best performing: "${(topPost.caption || 'untitled').slice(0, 50)}" — ${topPost.viewCount.toLocaleString()} views, ${topPost.likeCount.toLocaleString()} likes\n`
+    block += `\n=== YOUR RECENT POSTS (all numbers are LIFETIME totals, not weekly) ===\n`
+    block += `${recentPosts.length} recent posts. Avg lifetime views: ${avgViews.toLocaleString()}. Range: ${minView.toLocaleString()} – ${maxView.toLocaleString()}\n`
+    block += `Best performing (lifetime): "${(topPost.caption || 'untitled').slice(0, 50)}" — ${topPost.viewCount.toLocaleString()} total views, ${topPost.likeCount.toLocaleString()} total likes\n`
+    block += `IMPORTANT: These are lifetime totals, not this week's numbers. Do NOT say a post "got X views this week" — say "has X total views." We don't track per-week deltas on individual posts yet.\n`
     for (const p of recentPosts.slice(0, 5)) {
       const caption = (p.caption || 'untitled').slice(0, 50)
-      block += `  - "${caption}" — ${p.viewCount.toLocaleString()} views, ${p.likeCount.toLocaleString()} likes, ${p.commentCount.toLocaleString()} comments\n`
+      block += `  - "${caption}" — ${p.viewCount.toLocaleString()} total views, ${p.likeCount.toLocaleString()} total likes, ${p.commentCount.toLocaleString()} comments\n`
     }
     block += `=== END RECENT POSTS ===\n`
   }

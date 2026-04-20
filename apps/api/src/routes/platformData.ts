@@ -12,35 +12,35 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       res.json({ account: null, snapshots: [], posts: [], audiences: [] })
       return
     }
-    const account = await prisma.platformAccount.findFirst({
+    const accounts = await prisma.platformAccount.findMany({
       where: { companyId: company.id },
       orderBy: { lastSyncedAt: 'desc' },
     })
-    if (!account) {
+    if (accounts.length === 0) {
       res.json({ account: null, snapshots: [], posts: [], audiences: [] })
       return
     }
+    const accountIds = accounts.map(a => a.id)
 
     const [snapshots, posts, audiences] = await Promise.all([
       prisma.platformSnapshot.findMany({
-        where: { accountId: account.id },
+        where: { accountId: { in: accountIds } },
         orderBy: { capturedAt: 'asc' },
         take: 500,
       }),
       prisma.platformPost.findMany({
-        where: { accountId: account.id },
+        where: { accountId: { in: accountIds } },
         orderBy: { publishedAt: 'desc' },
         take: 200,
       }),
-      // Audience may be on a different account (e.g. Instagram has demographics, TikTok doesn't)
       prisma.platformAudience.findMany({
-        where: { account: { companyId: company.id } },
+        where: { accountId: { in: accountIds } },
         orderBy: { capturedAt: 'desc' },
         take: 5,
       }),
     ])
 
-    res.json({ account, snapshots, posts, audiences })
+    res.json({ account: accounts[0], snapshots, posts, audiences })
   } catch (err) {
     next(err)
   }
