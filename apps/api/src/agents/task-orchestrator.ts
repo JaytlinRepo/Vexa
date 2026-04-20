@@ -54,6 +54,45 @@ export async function orchestrateTask(taskId: string): Promise<void> {
         completedAt: new Date(),
       },
     })
+
+    // Auto-chain: approve this task and trigger the next agent in the pipeline.
+    // The pipeline flows: Maya (analyst) → Jordan (strategist) → Alex (copywriter) → Riley (creative_director).
+    // Each delivery auto-approves and kicks off the next agent without CEO intervention.
+    try {
+      const freshTask = await prisma.task.findUnique({
+        where: { id: taskId },
+        include: { employee: true, company: true },
+      })
+      if (freshTask && freshTask.employee) {
+        // Auto-approve the delivered task
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { status: 'approved' },
+        })
+
+        // Trigger next agent in pipeline
+        const chainResult = await triggerNextAgentAfterApproval(prisma, {
+          companyId: freshTask.companyId,
+          employee: { role: freshTask.employee.role },
+          id: freshTask.id,
+        })
+
+        if (chainResult.ok) {
+          console.log(`[auto-chain] ${freshTask.employee.name} → ${chainResult.nextEmployeeName}: "${chainResult.title}"`)
+          // Execute the chained task immediately (async, don't block)
+          if (chainResult.nextTaskId) {
+            orchestrateTask(chainResult.nextTaskId).catch((e) =>
+              console.warn(`[auto-chain] chained task failed:`, (e as Error).message)
+            )
+          }
+        } else {
+          console.log(`[auto-chain] ${freshTask.employee.name} pipeline end: ${chainResult.reason}`)
+        }
+      }
+    } catch (chainErr) {
+      console.warn('[auto-chain] failed:', (chainErr as Error).message)
+      // Don't fail the original task if chain fails
+    }
   } catch (error) {
     await prisma.task.update({
       where: { id: taskId },

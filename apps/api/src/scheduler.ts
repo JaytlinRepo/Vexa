@@ -48,6 +48,24 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
           try { await syncInstagramAccount(prisma, companyId) } catch {}
         }
       } catch {}
+
+      // ── Post-sync trigger: Maya analyzes what changed ──
+      // After all platforms sync, trigger Maya's performance analysis
+      // for each company so the pipeline always has fresh activity.
+      try {
+        const companies = await prisma.company.findMany({
+          where: { OR: [{ tiktok: { isNot: null } }, { instagram: { isNot: null } }] },
+          select: { id: true },
+        })
+        for (const { id } of companies) {
+          try {
+            await triggerWeeklyPulse(prisma, id)
+            console.log(`[scheduler] post-sync: triggered Maya pulse for ${id}`)
+          } catch (e) {
+            console.warn(`[scheduler] post-sync Maya pulse failed for ${id}:`, (e as Error).message)
+          }
+        }
+      } catch {}
     } catch (err) {
       console.error('[scheduler] platform sync threw', err)
     } finally {
@@ -73,6 +91,38 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     } catch {}
   })
   console.log('[scheduler] registered stuck task cleanup (every 10 min)')
+
+  // ── Daily 14:00 UTC — Proactive agent cycle ──
+  // Triggers idle agents to produce work. Maya scans, Jordan plans,
+  // Alex drafts, Riley analyzes. Auto-chain handles the rest.
+  cron.schedule('0 14 * * *', async () => {
+    try {
+      const companies = await prisma.company.findMany({
+        where: { OR: [{ tiktok: { isNot: null } }, { instagram: { isNot: null } }] },
+        include: { employees: true },
+      })
+      for (const company of companies) {
+        // Check if Maya has delivered anything in the last 12 hours
+        const recentMaya = await prisma.task.findFirst({
+          where: {
+            companyId: company.id,
+            employee: { role: 'analyst' },
+            createdAt: { gt: new Date(Date.now() - 12 * 60 * 60 * 1000) },
+          },
+        })
+        if (!recentMaya) {
+          // Maya is idle — kick off a pulse. Auto-chain will flow to Jordan → Alex → Riley.
+          try {
+            await triggerWeeklyPulse(prisma, company.id)
+            console.log(`[scheduler] daily cycle: started Maya pulse for ${company.id}`)
+          } catch (e) {
+            console.warn(`[scheduler] daily cycle failed for ${company.id}:`, (e as Error).message)
+          }
+        }
+      }
+    } catch {}
+  })
+  console.log('[scheduler] registered daily proactive cycle (14:00 UTC)')
 
   // ── Daily 08:00 UTC — Trial ending emails ──
   cron.schedule('0 8 * * *', async () => {
