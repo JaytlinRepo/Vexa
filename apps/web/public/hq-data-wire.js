@@ -416,33 +416,87 @@
         })
       }
 
-      var posts = ts.posts.slice(0, 5)
+      // Sort by views desc for best posts first
+      var sorted = ts.posts.slice().sort(function(a,b){ return (b.viewCount||b.reachCount||0) - (a.viewCount||a.reachCount||0) })
+      var posts = sorted.slice(0, 5)
+
       tbody.innerHTML = posts.map(function (p) {
         var platform = acctMap[p.accountId] || 'instagram'
         var pf = platform === 'tiktok' ? 'tt' : platform === 'youtube' ? 'yt' : 'ig'
         var pfName = platform === 'tiktok' ? 'TIKTOK' : platform === 'youtube' ? 'YOUTUBE' : 'INSTAGRAM'
         var mediaType = (p.mediaType || 'POST').toUpperCase()
-        var caption = (p.caption || '').slice(0, 60)
+        var caption = (p.caption || '').slice(0, 60) || '(no caption)'
         var views = p.viewCount || p.reachCount || p.impressionCount || 0
-        var likes = p.likeCount || 0
-        var comments = p.commentCount || 0
-        var engVal = views > 0 ? ((likes + comments) / views * 100) : 0
-        var eng = engVal > 0 ? engVal.toFixed(1) + '%' : '—'
-        var ret = '—'
+        var engRate = p.engagementRate || 0
+        var eng = engRate > 0 ? (engRate * 100).toFixed(1) + '%' : '—'
+        var saves = p.saveCount || 0
+        var ret = saves > 0 ? fmt(saves) : '—'
         var ago = timeAgo(p.publishedAt)
+        var thumb = p.thumbnailUrl
+        var thumbHtml = thumb
+          ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px"></div>'
+          : '<div class="thumb">▶</div>'
+
+        // Delta: compare engagement to average
+        var avgEng = sorted.reduce(function(s,x){ return s + (x.engagementRate||0) }, 0) / sorted.length
+        var engDelta = avgEng > 0 ? ((engRate - avgEng) / avgEng * 100) : 0
+        var deltaCol = engDelta > 5 ? '<span style="color:var(--ok)">▲ ' + Math.round(engDelta) + '%</span>'
+          : engDelta < -5 ? '<span style="color:var(--down,#d68a8a)">▼ ' + Math.round(Math.abs(engDelta)) + '%</span>'
+          : '<span style="color:var(--t3)">—</span>'
+
+        // Mini trend sparkline from engagement
+        var trendSvg = ''
+        if (engRate > 0) {
+          var barH = Math.min(20, Math.max(4, engRate * 100))
+          trendSvg = '<svg viewBox="0 0 52 22" preserveAspectRatio="none"><rect x="20" y="' + (22-barH) + '" width="12" height="' + barH + '" rx="2" fill="' + (engDelta >= 0 ? 'var(--accent)' : 'var(--down,#d68a8a)') + '" opacity=".6"/></svg>'
+        }
 
         return '<tr>'
-          + '<td><div class="cell-first"><div class="thumb">▶</div>'
+          + '<td><div class="cell-first">' + thumbHtml
           + '<div><div class="ttl">' + esc(caption) + '</div>'
           + '<div class="meta"><span class="pf ' + pf + '"><span class="dot"></span>' + pfName + ' · ' + mediaType + '</span><span>' + ago + '</span></div></div></div></td>'
           + '<td class="num"><em>' + fmt(views) + '</em></td>'
           + '<td class="num">' + eng + '</td>'
           + '<td class="num">' + ret + '</td>'
-          + '<td class="delta u">' + (p.engagementRate > 0.05 ? '▲' : '—') + '</td>'
-          + '<td class="tl"></td>'
+          + '<td class="delta">' + deltaCol + '</td>'
+          + '<td class="tl">' + trendSvg + '</td>'
           + '</tr>'
       }).join('')
+
+      // Also populate the sidebar "Recent posts" section
+      populateSidebarPosts(sorted, acctMap)
     })
+  }
+
+  function populateSidebarPosts(posts, acctMap) {
+    // The "Recent posts" card in the HQ main column
+    var postsCard = document.querySelector('#view-db-dashboard .posts-card')
+    if (!postsCard) return
+
+    // Update header count
+    var ph = postsCard.querySelector('.ph h4')
+    if (ph) ph.innerHTML = 'Recent <em>posts</em> · ' + posts.length
+
+    // The table body is .posts-tbl tbody — already populated above.
+    // But also show thumbnails in a visual strip if available
+    var thumbPosts = posts.filter(function(p){ return p.thumbnailUrl }).slice(0, 5)
+    if (thumbPosts.length === 0) return
+
+    // Check if a thumb strip already exists
+    if (postsCard.querySelector('.vx-thumb-strip')) return
+
+    var strip = document.createElement('div')
+    strip.className = 'vx-thumb-strip'
+    strip.style.cssText = 'display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--b1);overflow-x:auto'
+    strip.innerHTML = thumbPosts.map(function(p) {
+      var platform = acctMap[p.accountId] || 'instagram'
+      var views = p.viewCount || p.reachCount || 0
+      return '<a href="' + esc(p.url || '#') + '" target="_blank" rel="noopener" style="flex-shrink:0;width:80px;text-decoration:none">'
+        + '<div style="width:80px;height:80px;border-radius:8px;background:var(--s2) url(' + esc(p.thumbnailUrl) + ') center/cover;border:1px solid var(--b1)"></div>'
+        + '<div style="font-size:10px;color:var(--t2);margin-top:4px;text-align:center">' + fmt(views) + ' views</div>'
+        + '</a>'
+    }).join('')
+    postsCard.appendChild(strip)
   }
 
   function populateAudience(audience) {
