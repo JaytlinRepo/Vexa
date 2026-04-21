@@ -108,6 +108,9 @@
       console.log('[briefs-loader] briefs injected into pipeline')
     } catch (err) {
       console.error('[briefs-loader] load error:', err)
+      if (typeof window.showNotification === 'function') {
+        window.showNotification('Could not load briefs — check your connection', 'error')
+      }
     }
   }
 

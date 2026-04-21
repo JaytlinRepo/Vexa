@@ -282,7 +282,7 @@ function mrSendBtn(){
   const msgs=document.getElementById('mr-msgs')
   const div=document.createElement('div')
   div.className='mr-msg user'
-  div.innerHTML='<div class="mr-bubble">'+val+'</div>'
+  div.innerHTML='<div class="mr-bubble">'+escAttr(val)+'</div>'
   msgs.appendChild(div)
   inp.value=''
   msgs.scrollTop=msgs.scrollHeight
@@ -401,9 +401,9 @@ function renderMonth() {
         </span>
         <span class="cal-entry-who">${entry.label}</span>
         <div class="cal-entry-actions">
-          ${entry.status==='planned'?`<button class="cal-entry-action-btn approve" onclick="approveEntry('${entry.id}',event)">Approve</button>`:''}
-          <button class="cal-entry-action-btn" onclick="meetingFromEntry('${entry.who}',event)">Meeting</button>
-          <button class="cal-entry-action-btn" onclick="reassignEntry('${entry.id}',event)">Reassign</button>
+          ${entry.status==='planned'?`<button class="cal-entry-action-btn approve" onclick="approveEntry('${escAttr(entry.id)}',event)">Approve</button>`:''}
+          <button class="cal-entry-action-btn" onclick="meetingFromEntry('${escAttr(entry.who)}',event)">Meeting</button>
+          <button class="cal-entry-action-btn" onclick="reassignEntry('${escAttr(entry.id)}',event)">Reassign</button>
         </div>`
       cell.appendChild(el)
     })
@@ -748,6 +748,9 @@ window.navigateSovexaLogo = function () {
 // so no defineProperty needed. The earlier getter approach tripped the
 // "Cannot redefine property" error on HMR re-eval because `var` pins the
 // property as non-configurable.
+
+/* ── Shared escape helper ──────────────────────────── */
+function escAttr(s) { return String(s || '').replace(/[&<>"'\\]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '\\': '&#92;' })[c] || c }) }
 
 /* ── BRIEF SYSTEM EVENT HANDLERS ────────────────────── */
 

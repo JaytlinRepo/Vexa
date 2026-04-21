@@ -169,11 +169,17 @@
     if (!body) return
     body.innerHTML = '<div style="padding:16px;color:var(--t3);font-size:12px">Loading connections…</div>'
 
-    const [accounts, igConn, ttConn] = await Promise.all([
-      fetchAccounts(),
-      fetchIgConnection(),
-      fetchTiktokConnection(),
-    ])
+    var accounts, igConn, ttConn
+    try {
+      ;[accounts, igConn, ttConn] = await Promise.all([
+        fetchAccounts(),
+        fetchIgConnection(),
+        fetchTiktokConnection(),
+      ])
+    } catch {
+      body.innerHTML = '<div style="padding:16px;color:var(--t2);font-size:12px">Could not load connections. Check your internet and refresh.</div>'
+      return
+    }
 
     const byPlatform = new Map()
     for (const a of accounts) {
