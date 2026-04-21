@@ -179,6 +179,8 @@
 
           <a class="topnav-link" id="nav-db-posts" onclick="navigate('db-posts')">Posts</a>
 
+          <a class="topnav-link" id="nav-db-studio" onclick="navigate('db-studio')">Studio</a>
+
           <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')">Knowledge</a>
           <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')">Team</a>
         </div>
@@ -2508,6 +2510,97 @@
           <div class="output-item"><div class="output-item-top"><span class="output-item-type">Video</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Rendered Reel — 5 Gym Mistakes</div><div class="output-item-meta">Riley &middot; Jan 8, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">Preview</button><button class="ab approve" style="font-size:10px;padding:6px 12px">Download</button></div></div>
         </div>
       </div>
+    </div>
+
+    <!-- STUDIO -->
+    <div class="view" id="view-db-studio">
+
+<section class="mast">
+  <div>
+    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Production</span></div>
+    <h1>Clip, edit, and <em>ship</em>.</h1>
+    <p class="sub">Upload raw footage. Riley auto-clips and applies your aesthetic. Then post directly to any platform.</p>
+  </div>
+  <div class="mini-stats">
+    <div class="stat"><div class="lbl">Clips this week</div><div class="v"><em>12</em></div><div class="d">8 posted · 4 ready</div></div>
+    <div class="stat"><div class="lbl">Avg. processing</div><div class="v">4m 42s</div><div class="d">Descript → Runway</div></div>
+    <div class="stat"><div class="lbl">Quality score</div><div class="v"><em>0.87</em></div><div class="d" style="color:var(--ok)">Style match</div></div>
+  </div>
+</section>
+
+<section class="layout" style="max-width:1200px;margin:0 auto">
+  <!-- Upload Area -->
+  <div style="padding:40px;background:linear-gradient(135deg,var(--accent-soft) 0%,rgba(255,193,7,0.05) 100%);border:2px dashed var(--accent);border-radius:12px;text-align:center;cursor:pointer" id="studio-upload-zone" onclick="document.getElementById('studio-file-input').click()">
+    <div style="font-size:48px;margin-bottom:16px">📹</div>
+    <div style="font-size:18px;font-weight:500;margin-bottom:4px">Drag video here or click to upload</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:16px">MP4, MOV, WebM • Up to 2GB • Raw footage welcome</div>
+    <input type="file" id="studio-file-input" accept="video/*" style="display:none">
+    <button class="btn-fill" style="padding:12px 24px;font-size:12px">Choose video</button>
+  </div>
+
+  <!-- Processing Status -->
+  <div id="studio-processing" style="display:none;margin-top:40px;padding:24px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px" id="processing-status">Processing...</div>
+        <div style="font-size:12px;color:var(--t3)" id="processing-detail">Uploading to Descript...</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
+        <div style="font-size:11px;color:var(--t3)">time remaining</div>
+      </div>
+    </div>
+    <div style="background:var(--b1);height:6px;border-radius:4px;overflow:hidden">
+      <div style="background:var(--accent);height:100%;width:0%;transition:width .3s ease" id="processing-bar"></div>
+    </div>
+  </div>
+
+  <!-- Clips Ready to Post -->
+  <div style="margin-top:40px">
+    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Ready to Post · 4 clips</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="studio-clips">
+      <!-- Clips will be injected here -->
+      <div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:12px;text-align:center;color:var(--t3)">
+        Clips will appear here once processed
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics Dashboard -->
+  <div style="margin-top:40px;padding:24px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
+    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Performance · This week</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+      <div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">STYLE MATCH</div>
+        <div style="font-size:28px;font-weight:600;color:var(--ok)">0.87</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">↑ Improving</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">CLIPPING QUALITY</div>
+        <div style="font-size:28px;font-weight:600;color:var(--ok)">0.84</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">→ Stable</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">AVG. PROCESSING</div>
+        <div style="font-size:28px;font-weight:600">4m 42s</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">↓ Faster</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">RECOMMENDATION</div>
+        <div style="font-size:14px;font-weight:600;color:var(--ok);margin-top:8px">✅ Ready to ship</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">10 samples</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<div class="foot-row">
+  <span>SOVEXA · STUDIO · BUILD 087 · PRO</span>
+  <span class="brand">Your content. Run by a team.</span>
+  <span>API 200 · RUNWAY OK · DESCRIPT OK</span>
+</div>
+
     </div>
 
     <!-- KNOWLEDGE -->
