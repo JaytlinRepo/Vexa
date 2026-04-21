@@ -1062,6 +1062,9 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
   trend_hooks: () => ({ status: 'pending', note: 'Trend hooks always use Bedrock — no mock fallback.' }),
   plan_adjustment: () => ({ status: 'pending', note: 'Plan adjustments always use Bedrock — no mock fallback.' }),
   competitor_analysis: () => ({ status: 'pending', note: 'Competitor analyses always use Bedrock — no mock fallback.' }),
+  morning_brief: () => ({ status: 'pending', note: 'Morning briefs always use Bedrock — no mock fallback.' }),
+  midday_check: () => ({ status: 'pending', note: 'Midday checks always use Bedrock — no mock fallback.' }),
+  evening_recap: () => ({ status: 'pending', note: 'Evening recaps always use Bedrock — no mock fallback.' }),
 }
 
 // ─────────────────────────────────────────────────────────────────────
