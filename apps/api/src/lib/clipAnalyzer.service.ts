@@ -29,10 +29,77 @@ export interface ClipDecision {
   transcript: string   // combined transcript of all selected segments
 }
 
+// ── Default editing rules (seeded to memory on first use) ──────────────────
+
+const DEFAULT_EDITING_RULES = `WHAT TO PRIORITIZE (in order):
+1. HUMAN ACTIONS — a person doing something is ALWAYS more interesting than scenery. Closing a door, picking something up, a gesture, a reaction, walking, reaching, handing something to someone. These are the moments that make reels feel alive. NEVER skip a human action
+2. INTERACTIONS — people with pets, people with other people, hands touching objects. Connection moments are gold
+3. REVEALS & TRANSITIONS — opening/closing things, entering/exiting frame, before/after moments
+4. EMOTIONAL BEATS — facial expressions, body language shifts, laughter, surprise
+5. ESTABLISHING CONTEXT — scenery, objects, locations. Important but only needs 1-2 seconds
+
+HOW TO EDIT:
+1. HOOK FIRST — start with the most visually striking HUMAN ACTION (not scenery, not an establishing shot)
+2. EVERY SEGMENT 2-5 SECONDS — this is a reel. One action per cut, then jump
+3. SCAN EVERY FRAME — if you see a person doing ANY action between two frames (e.g. frame at 0:24 shows trunk open, frame at 0:26 shows trunk closed), that action happened between those timestamps. INCLUDE IT
+4. CUT DEAD MOMENTS — standing still, empty scenery, idle waiting. These get cut
+5. REORDER FOR IMPACT — chronological order is NOT sacred. Best moment first
+6. ESTABLISHING SHOTS = 1-2 SECONDS MAX — just enough context, then cut to action`
+
 /**
- * Riley analyzes the video using VISION (keyframes) + audio (transcript) + motion data.
- * This is the full-picture analysis — Riley can actually see what's happening.
+ * Get Riley's editing rules from brand memory. Seeds defaults on first use.
  */
+async function getEditingRules(prisma: PrismaClient, companyId: string): Promise<string> {
+  // Look for existing rules
+  const existing = await prisma.brandMemory.findMany({
+    where: {
+      companyId,
+      content: { path: ['source'], equals: 'riley_rules' },
+    },
+    orderBy: { weight: 'desc' },
+    take: 10,
+  })
+
+  if (existing.length > 0) {
+    // Combine all rules — higher weight first
+    return existing.map(m => (m.content as any).rule).filter(Boolean).join('\n')
+  }
+
+  // First time — seed the default rules as individual memories
+  const rules = [
+    { rule: 'HUMAN ACTIONS are the highest priority. A person doing something is ALWAYS more interesting than scenery. Closing a door, picking something up, a gesture, a reaction — these make reels feel alive. NEVER skip a human action.', category: 'priority', weight: 2.0 },
+    { rule: 'INTERACTIONS between people, pets, or objects are gold. Connection moments engage viewers.', category: 'priority', weight: 1.8 },
+    { rule: 'REVEALS and TRANSITIONS — opening/closing things, entering/exiting frame, before/after moments. Always include these.', category: 'priority', weight: 1.6 },
+    { rule: 'EMOTIONAL BEATS — facial expressions, body language shifts, laughter, surprise. These create empathy.', category: 'priority', weight: 1.4 },
+    { rule: 'ESTABLISHING CONTEXT — scenery, objects, locations. Only needs 1-2 seconds max.', category: 'priority', weight: 1.0 },
+    { rule: 'HOOK FIRST — start with the most visually striking HUMAN ACTION, not scenery or establishing shots.', category: 'technique', weight: 2.0 },
+    { rule: 'EVERY SEGMENT 2-5 SECONDS — one action per cut, then jump. This is a reel, not long-form.', category: 'technique', weight: 1.8 },
+    { rule: 'SCAN BETWEEN FRAMES — if frame at 0:24 shows trunk open and frame at 0:26 shows it closed, that closing action happened between those timestamps. Include it.', category: 'technique', weight: 1.6 },
+    { rule: 'CUT DEAD MOMENTS — standing still, empty scenery, idle waiting. These always get cut.', category: 'technique', weight: 1.5 },
+    { rule: 'REORDER FOR IMPACT — chronological order is NOT sacred. Put the strongest moment first.', category: 'technique', weight: 1.3 },
+  ]
+
+  for (const r of rules) {
+    await prisma.brandMemory.create({
+      data: {
+        companyId,
+        memoryType: 'voice',
+        weight: r.weight,
+        content: {
+          source: 'riley_rules',
+          rule: r.rule,
+          category: r.category,
+          summary: `Riley editing rule: ${r.rule.slice(0, 80)}...`,
+          tags: ['riley', 'editing', r.category],
+        } as any,
+      },
+    })
+  }
+
+  console.log(`[clip-analyzer] Seeded ${rules.length} editing rules for company ${companyId}`)
+  return DEFAULT_EDITING_RULES
+}
+
 /**
  * Fetch past editorial feedback from brand memory, filtered by relevance to current video.
  * Two queries: (1) feedback matching visual keywords in this video, (2) general editing preferences.
@@ -171,29 +238,37 @@ export async function analyzeAndPickClip(
   // Frame descriptions for the prompt
   const frameLabels = frames.map((f, i) => `Frame ${i + 1} at ${fmt(f.timestamp)}`).join(', ')
 
+  // Build a description of current video content for relevance matching
+  const currentVideoContext: string[] = []
+  if (transcript.fullText) currentVideoContext.push(transcript.fullText)
+  if (sceneData) {
+    sceneData.scenes.forEach(s => currentVideoContext.push(s.label))
+  }
+
+  // Fetch Riley's editing rules + user preferences from memory
+  let editingRules = ''
+  let preferencesSection = ''
+  if (prisma && companyId) {
+    editingRules = await getEditingRules(prisma, companyId)
+    preferencesSection = await getUserEditingPreferences(prisma, companyId, currentVideoContext)
+  }
+
+  // Fallback to default rules if none stored yet
+  if (!editingRules) {
+    editingRules = DEFAULT_EDITING_RULES
+  }
+
+  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.5))
+
   const systemPrompt = `You are Riley, a Creative Director who edits reels. You can SEE the actual video frames.
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
 Your job: build a CapCut-style reel — multiple jump cuts of the BEST visual moments. Cut everything boring.
 
-CRITICAL RULES:
+TARGET: ~${targetLen}s from this ${videoDuration.toFixed(0)}s video.
 
-WHAT TO PRIORITIZE (in order):
-1. HUMAN ACTIONS — a person doing something is ALWAYS more interesting than scenery. Closing a door, picking something up, a gesture, a reaction, walking, reaching, handing something to someone. These are the moments that make reels feel alive. NEVER skip a human action
-2. INTERACTIONS — people with pets, people with other people, hands touching objects. Connection moments are gold
-3. REVEALS & TRANSITIONS — opening/closing things, entering/exiting frame, before/after moments
-4. EMOTIONAL BEATS — facial expressions, body language shifts, laughter, surprise
-5. ESTABLISHING CONTEXT — scenery, objects, locations. Important but only needs 1-2 seconds
-
-HOW TO EDIT:
-1. HOOK FIRST — start with the most visually striking HUMAN ACTION (not scenery, not an establishing shot)
-2. EVERY SEGMENT 2-5 SECONDS — this is a reel. One action per cut, then jump
-3. TARGET ~${Math.min(targetDuration, Math.floor(videoDuration * 0.5))}s TOTAL — roughly HALF the input or less
-4. SCAN EVERY FRAME — if you see a person doing ANY action between two frames (e.g. frame at 0:24 shows trunk open, frame at 0:26 shows trunk closed), that action happened between those timestamps. INCLUDE IT
-5. CUT DEAD MOMENTS — standing still, empty scenery, idle waiting. These get cut
-6. REORDER FOR IMPACT — chronological order is NOT sacred. Best moment first
-7. ESTABLISHING SHOTS = 1-2 SECONDS MAX — just enough context, then cut to action
+${editingRules}
 
 Respond in valid JSON only:
 {
@@ -203,19 +278,6 @@ Respond in valid JSON only:
   "hook": "string (describe the opening visual — what grabs attention first)",
   "rationale": "string (why you chose these cuts — reference what you SAW in the frames)"
 }`
-
-  // Build a description of current video content for relevance matching
-  const currentVideoContext: string[] = []
-  if (transcript.fullText) currentVideoContext.push(transcript.fullText)
-  if (sceneData) {
-    sceneData.scenes.forEach(s => currentVideoContext.push(s.label))
-  }
-
-  // Fetch user's editing preferences, filtered by relevance to this video
-  let preferencesSection = ''
-  if (prisma && companyId) {
-    preferencesSection = await getUserEditingPreferences(prisma, companyId, currentVideoContext)
-  }
 
   // Build the message content with interleaved frames and text
   const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = []
