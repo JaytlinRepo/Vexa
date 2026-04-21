@@ -68,6 +68,17 @@ export class StudioCopywritingService {
       take: 5,
     })
 
+    // Get the user's REAL post captions — this is how they actually write
+    const realPosts = await this.prisma.platformPost.findMany({
+      where: {
+        account: { companyId },
+        caption: { not: '' },
+      },
+      orderBy: { engagementRate: 'desc' },
+      take: 10,
+      select: { caption: true, engagementRate: true, mediaType: true },
+    })
+
     // Build prompt context
     const userPrompt = this.buildCopyPrompt(
       contentType,
@@ -75,7 +86,8 @@ export class StudioCopywritingService {
       clipTranscript,
       brandVoice,
       recentOutputs,
-      feedbackHistory
+      feedbackHistory,
+      realPosts,
     )
 
     try {
@@ -104,11 +116,13 @@ You MUST respond in valid JSON with this exact structure:
 
 Rules:
 - Generate exactly 3 hooks that match the VIBE and CATEGORY of the content
-- Generate 1 caption (body text that captures the lifestyle/feeling)
+- Generate 1 caption (body text that captures the lifestyle/feeling — include relevant hashtags)
 - Generate 1 CTA (natural, not salesy)
 - Don't narrate — evoke. Don't describe — capture the mood
 - No generic motivational lines that could apply to any video
-- The caption should feel like it BELONGS with this specific content
+- MATCH THE CREATOR'S VOICE — if they write short and minimal, you write short and minimal
+- Include hashtags that fit the content category and match the creator's hashtag style
+- The caption should feel like the CREATOR wrote it, not a copywriter
 - NEVER add prose outside the JSON`
 
       const raw = await invokeAgent({
@@ -140,46 +154,46 @@ Rules:
     transcript: string,
     brandVoice: any,
     recentOutputs: any[],
-    feedbackHistory: string[]
+    feedbackHistory: string[],
+    realPosts?: Array<{ caption: string | null; engagementRate: number; mediaType: string }>,
   ): string {
-    let prompt = `You are Alex, a professional copywriter. Generate compelling ${contentType === 'video' ? 'hooks and captions' : 'captions'} for social media content.\n\n`
+    let prompt = ''
 
-    if (brandVoice.tone) {
-      prompt += `Brand tone: ${brandVoice.tone}\n`
-    }
-    if (brandVoice.voiceProfile) {
-      prompt += `Brand voice: ${brandVoice.voiceProfile}\n`
+    // Brand voice context
+    if (brandVoice.tone) prompt += `Brand tone: ${brandVoice.tone}\n`
+    if (brandVoice.voiceProfile) prompt += `Brand voice: ${brandVoice.voiceProfile}\n`
+
+    // The user's REAL caption style — this is how they actually write
+    if (realPosts && realPosts.length > 0) {
+      const topCaptions = realPosts
+        .filter(p => p.caption && p.caption.length > 5)
+        .slice(0, 6)
+      if (topCaptions.length > 0) {
+        prompt += `\nTHIS CREATOR'S ACTUAL CAPTION STYLE (from their best-performing posts — MATCH THIS TONE AND LENGTH):\n`
+        topCaptions.forEach(p => {
+          prompt += `- "${p.caption!.slice(0, 200)}" (${(p.engagementRate * 100).toFixed(1)}% engagement)\n`
+        })
+        prompt += `\nStudy these. Match their voice, their length, their energy. If they write short and minimal, you write short and minimal. If they use hashtags, include similar hashtags.\n`
+      }
     }
 
+    // Video context
     if (contentType === 'video') {
-      if (description) {
-        prompt += `\nVideo context: ${description}\n`
-      }
-      if (transcript) {
-        prompt += `\nActual transcript of the clip (USE THIS — captions MUST relate to what's actually said):\n"${transcript.slice(0, 1500)}"\n`
-      }
-      prompt += `\nGenerate 3 compelling hooks that match the actual content of this video. The hooks should reference or play off what's actually said/shown.\n`
+      if (description) prompt += `\nVideo context (what's visually happening):\n${description}\n`
+      if (transcript) prompt += `\nTranscript: "${transcript.slice(0, 500)}"\n`
     } else if (contentType === 'carousel') {
       prompt += `\nCarousel content: ${description}\n`
-      prompt += `\nGenerate 3 carousel captions that tell a story across multiple slides.\n`
     } else {
       prompt += `\nImage content: ${description}\n`
-      prompt += `\nGenerate 3 captions that complement the image.\n`
     }
 
-    if (recentOutputs.length > 0) {
-      prompt += `\nRecent approved examples:\n`
-      recentOutputs.slice(0, 3).forEach((output) => {
-        prompt += `- ${(output.content as any).text?.slice(0, 100)}\n`
-      })
-    }
-
+    // Previous feedback
     if (feedbackHistory.length > 0) {
       prompt += `\nPrevious feedback to improve on:\n`
-      feedbackHistory.forEach((feedback) => {
-        prompt += `- ${feedback}\n`
-      })
+      feedbackHistory.forEach(f => { prompt += `- ${f}\n` })
     }
+
+    prompt += `\nWrite captions and hooks that sound like THIS CREATOR wrote them. Include relevant hashtags based on their hashtag style.\n`
 
     return prompt
   }
