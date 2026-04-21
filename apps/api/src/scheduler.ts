@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { syncInstagramAccount } from './lib/instagramSync'
-import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis } from './lib/proactiveAnalysis'
+import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 import { getScheduleForCompany, shouldRunNow } from './lib/schedulePrefs'
 
@@ -207,6 +207,68 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
   })
   console.log('[scheduler] registered hourly agent schedule check')
+
+  // ── Daily Briefs ──────────────────────────────────────────────────────────
+
+  // 8:00 AM UTC — Morning brief (trends + yesterday + queue)
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let sent = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerMorningBrief(prisma, id)
+          if (result.triggered) sent++
+        } catch (e) {
+          console.error(`[scheduler] morning brief failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] morning briefs: ${sent}/${companies.length} sent`)
+    } catch (e) {
+      console.error('[scheduler] morning brief batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered morning brief at 08:00 UTC')
+
+  // 1:00 PM UTC — Midday check (performance tracking)
+  cron.schedule('0 13 * * *', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let sent = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerMidayCheck(prisma, id)
+          if (result.triggered) sent++
+        } catch (e) {
+          console.error(`[scheduler] midday check failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] midday checks: ${sent}/${companies.length} sent`)
+    } catch (e) {
+      console.error('[scheduler] midday check batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered midday check at 13:00 UTC')
+
+  // 8:00 PM UTC — Evening recap (day summary + tomorrow forecast)
+  cron.schedule('0 20 * * *', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let sent = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerEveningRecap(prisma, id)
+          if (result.triggered) sent++
+        } catch (e) {
+          console.error(`[scheduler] evening recap failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] evening recaps: ${sent}/${companies.length} sent`)
+    } catch (e) {
+      console.error('[scheduler] evening recap batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered evening recap at 20:00 UTC')
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {
