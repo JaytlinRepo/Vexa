@@ -2779,56 +2779,56 @@
     </div>
 
     <!-- Recommendation 1 (Primary) -->
-    <div style="background:var(--s0);border:2px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:12px">
+    <div class="recommendation-card primary">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
         <div>
-          <div style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Primary Recommendation</div>
-          <div style="font-size:18px;font-weight:600">Tuesday, April 29 · 2:00 PM UTC</div>
+          <div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Primary Recommendation</div>
+          <div class="rec-time">Tuesday, April 29 · 2:00 PM UTC</div>
         </div>
-        <div style="text-align:right;padding:6px 12px;background:rgba(0,200,100,0.15);border-radius:6px">
+        <div style="text-align:right;padding:6px 12px;background:rgba(159,179,138,.15);border-radius:6px">
           <div style="font-size:11px;color:var(--ok);font-weight:600">92% confidence</div>
         </div>
       </div>
-      <div style="font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px">
+      <div class="rec-rationale">
         Tuesdays at 2 PM UTC — your audience is most active then. Reels get 23% more views when posted at this time. Your recent posts peaked on Tuesday morning engagement, and this format is trending right now.
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <span style="font-size:11px;background:rgba(0,200,100,0.1);color:var(--ok);padding:4px 8px;border-radius:4px">Audience peak ✓</span>
-        <span style="font-size:11px;background:rgba(255,193,7,0.1);color:var(--accent);padding:4px 8px;border-radius:4px">Format trending</span>
-        <span style="font-size:11px;background:rgba(100,200,255,0.1);color:var(--t2);padding:4px 8px;border-radius:4px">High signal day</span>
+      <div class="rec-tags">
+        <span class="recommendation-tag" style="background:rgba(159,179,138,.15);color:var(--ok)">Audience peak ✓</span>
+        <span class="recommendation-tag" style="background:var(--accent-soft);color:var(--accent)">Format trending</span>
+        <span class="recommendation-tag" style="background:rgba(155,180,220,.15);color:var(--t2)">High signal day</span>
       </div>
       <button class="btn-fill" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T14:00:00Z">✓ Schedule for this time</button>
     </div>
 
     <!-- Recommendation 2 (Secondary) -->
-    <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:16px;margin-bottom:12px">
+    <div class="recommendation-card">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
         <div>
-          <div style="font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Alternative Timing</div>
-          <div style="font-size:18px;font-weight:600">Monday, April 28 · 2:00 PM UTC</div>
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Alternative Timing</div>
+          <div class="rec-time">Monday, April 28 · 2:00 PM UTC</div>
         </div>
-        <div style="text-align:right;padding:6px 12px;background:rgba(255,193,7,0.15);border-radius:6px">
+        <div style="text-align:right;padding:6px 12px;background:var(--accent-soft);border-radius:6px">
           <div style="font-size:11px;color:var(--accent);font-weight:600">84% confidence</div>
         </div>
       </div>
-      <div style="font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px">
+      <div class="rec-rationale">
         Monday is your second-best posting day, same peak hour. Good backup if Tuesday feels crowded or if you want to extend your posting window across the week.
       </div>
       <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-28T14:00:00Z">Schedule for this time</button>
     </div>
 
     <!-- Recommendation 3 (Tertiary) -->
-    <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:16px">
+    <div class="recommendation-card">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
         <div>
-          <div style="font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Testing Window</div>
-          <div style="font-size:18px;font-weight:600">Tuesday, April 29 · 8:00 AM UTC</div>
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Testing Window</div>
+          <div class="rec-time">Tuesday, April 29 · 8:00 AM UTC</div>
         </div>
-        <div style="text-align:right;padding:6px 12px;background:rgba(200,100,100,0.15);border-radius:6px">
-          <div style="font-size:11px;color:var(--t3);font-weight:600">71% confidence</div>
+        <div style="text-align:right;padding:6px 12px;background:rgba(196,138,138,.15);border-radius:6px">
+          <div style="font-size:11px;color:var(--down);font-weight:600">71% confidence</div>
         </div>
       </div>
-      <div style="font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px">
+      <div class="rec-rationale">
         Early morning post (8 AM UTC) — lower competition. Good for testing novel angles or exploring different copy styles before posting at peak time.
       </div>
       <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T08:00:00Z">Schedule for this time</button>

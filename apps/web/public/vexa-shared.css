@@ -20,7 +20,7 @@
 .section-head h3,.posts-card .ph h4,.aud-card .hd h4{font-size:16px !important;font-weight:500 !important;letter-spacing:-.005em !important}
 /* ══ TOKENS ══════════════════ */
 :root{
-  --bg:#0a0a0a; --s1:#111111; --s2:#171717; --s3:#1e1e1e;
+  --bg:#0a0a0a; --s0:#0d0d0d; --s1:#111111; --s2:#171717; --s3:#1e1e1e;
   --b1:rgba(255,255,255,.08); --b2:rgba(255,255,255,.14); --b3:rgba(255,255,255,.22);
   --t1:#edede9; --t2:#8a8880; --t3:#454540;
   --inv:#0a0a0a; --sh:rgba(0,0,0,.6);
@@ -32,7 +32,7 @@
   --ig:#e879a2; --tt:#6fd0cc; --yt:#d68a8a;
 }
 [data-theme="light"]{
-  --bg:#f5f3ee; --s1:#eceae4; --s2:#e4e2db; --s3:#dbd9d1;
+  --bg:#f5f3ee; --s0:#f9f8f5; --s1:#eceae4; --s2:#e4e2db; --s3:#dbd9d1;
   --b1:rgba(0,0,0,.08); --b2:rgba(0,0,0,.14); --b3:rgba(0,0,0,.22);
   --t1:#111110; --t2:#7a776f; --t3:#b0ada6;
   --inv:#f5f3ee; --sh:rgba(0,0,0,.1); --grain:.02;
@@ -320,10 +320,18 @@ body::before{
 
 /* ══ STUDIO TAB ══════════════════ */
 .studio-section{margin-top:40px}
-.studio-upload{padding:40px;background:linear-gradient(135deg,var(--accent-soft) 0%,rgba(212,165,116,.05) 100%);border:2px dashed var(--accent);border-radius:12px;text-align:center;cursor:pointer}
+.studio-upload{padding:40px;background:linear-gradient(135deg,var(--accent-soft) 0%,rgba(212,165,116,.05) 100%);border:2px dashed var(--accent);border-radius:12px;text-align:center;cursor:pointer;font-family:'DM Sans',sans-serif}
+.studio-section h3{font-family:'Inter',sans-serif;font-weight:300;font-size:22px;color:var(--t1)}
+.studio-section h3 em{font-style:italic;color:var(--accent)}
+.recommendation-card{background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:16px;margin-bottom:12px;font-family:'DM Sans',sans-serif}
+.recommendation-card.primary{border:2px solid var(--accent)}
+.recommendation-card .rec-time{font-size:18px;font-weight:600;color:var(--t1);margin-bottom:8px;letter-spacing:-.01em}
+.recommendation-card .rec-rationale{font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px}
+.recommendation-card .rec-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.recommendation-tag{font-size:11px;padding:4px 8px;border-radius:4px;background:rgba(212,165,116,.1);color:var(--t2)}
 .metric{display:flex;flex-direction:column}
-.metric .lbl{font-size:12px;color:var(--t3);margin-bottom:4px;letter-spacing:.15em;text-transform:uppercase;font-weight:500}
-.metric .v{font-size:28px;font-weight:600;letter-spacing:-.03em;font-feature-settings:"tnum" 1,"ss01" 1}
+.metric .lbl{font-size:10px;color:var(--t3);margin-bottom:4px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;font-family:'Inter',sans-serif}
+.metric .v{font-size:28px;font-weight:600;letter-spacing:-.03em;font-feature-settings:"tnum" 1,"ss01" 1;color:var(--t1)}
 .metric .d{font-size:11px;color:var(--t3);margin-top:4px}
 
 /* ══ TWEAKS PANEL ══════════════════ */
