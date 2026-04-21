@@ -75,6 +75,11 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
             const result = await evaluateOutputPerformance(prisma, id)
             if (result.evaluated > 0) console.log(`[scheduler] learning: ${result.wellPerformed}/${result.evaluated} outputs performed well for ${id}`)
           } catch {}
+          // Capture daily engagement snapshot
+          try {
+            const { captureDailyEngagement } = await import('./lib/metricTracking')
+            await captureDailyEngagement(prisma, id)
+          } catch {}
         }
       } catch {}
     } catch (err) {

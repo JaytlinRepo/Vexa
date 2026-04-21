@@ -245,3 +245,71 @@ export async function evaluateOutputPerformance(
 
   return { evaluated, wellPerformed }
 }
+
+/**
+ * Capture a daily engagement snapshot for a company.
+ * Sums current totals across all posts from all connected accounts.
+ * Run once per day after platform sync completes.
+ * Delta between consecutive days = engagement gained that day.
+ */
+export async function captureDailyEngagement(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<void> {
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { id: true },
+  })
+  if (accounts.length === 0) return
+
+  const accountIds = accounts.map(a => a.id)
+  const posts = await prisma.platformPost.findMany({
+    where: { accountId: { in: accountIds } },
+    select: {
+      likeCount: true,
+      commentCount: true,
+      saveCount: true,
+      shareCount: true,
+      reachCount: true,
+      viewCount: true,
+    },
+  })
+
+  const totalLikes = posts.reduce((s, p) => s + p.likeCount, 0)
+  const totalComments = posts.reduce((s, p) => s + p.commentCount, 0)
+  const totalSaves = posts.reduce((s, p) => s + p.saveCount, 0)
+  const totalShares = posts.reduce((s, p) => s + p.shareCount, 0)
+  const totalReach = posts.reduce((s, p) => s + (p.reachCount || p.viewCount || 0), 0)
+  const totalViews = posts.reduce((s, p) => s + (p.viewCount || 0), 0)
+  const totalInteractions = totalLikes + totalComments + totalSaves + totalShares
+  const engagementRate = totalReach > 0 ? totalInteractions / totalReach : 0
+
+  await prisma.dailyEngagement.upsert({
+    where: { companyId_date: { companyId, date: today } },
+    update: {
+      totalLikes,
+      totalComments,
+      totalSaves,
+      totalShares,
+      totalReach,
+      totalViews,
+      postCount: posts.length,
+      engagementRate,
+    },
+    create: {
+      companyId,
+      date: today,
+      totalLikes,
+      totalComments,
+      totalSaves,
+      totalShares,
+      totalReach,
+      totalViews,
+      postCount: posts.length,
+      engagementRate,
+    },
+  })
+}

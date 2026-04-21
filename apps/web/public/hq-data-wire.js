@@ -164,6 +164,9 @@
       wireChartTabs(ov)
     }
 
+    // ── ENGAGEMENT + RETENTION CARDS ──
+    populateEngRetCards(S)
+
     // ── POSTS TABLE ──
     if (ov && ov.topPost) {
       populatePostsTable(S)
@@ -372,6 +375,101 @@
           lis[i].innerHTML = '<span class="sw ' + cls + '"></span>' + pName + ' · ' + fmt(current) + ' · ' + dStr
         })
       }
+
+      // Engagement card doesn't scope yet — needs daily metric snapshots first
+    })
+  }
+
+  var engDataCache = { posts: [] }
+  function updateEngCardScope(days) {
+    var posts = engDataCache.posts
+    if (!posts.length) return
+
+    var now = Date.now()
+    var cutoff = now - days * 86400000
+    var prevCutoff = now - days * 2 * 86400000
+    var engCard = document.querySelector('#view-db-dashboard .two-up .mini-card:first-child')
+    if (!engCard) return
+    var lbl = engCard.querySelector('.lbl')
+    var v = engCard.querySelector('.v')
+    var d = engCard.querySelector('.d')
+    if (lbl) lbl.textContent = 'Engagement'
+
+    // Engagement = total interactions / total reach across all posts
+    // Scopes will differentiate once we have daily metric snapshots (PostMetricSnapshot)
+    // showing engagement GAINED per period. For now, show lifetime weighted rate.
+    var valid = posts.filter(function(p) { return p.engagementRate > 0 && p.engagementRate <= 1 })
+    if (valid.length === 0) {
+      if (v) v.innerHTML = '<em>—</em>'
+      if (d) d.innerHTML = 'No engagement data'
+      return
+    }
+
+    var totalEng = valid.reduce(function(s,p) {
+      return s + (p.likeCount || 0) + (p.commentCount || 0) + (p.saveCount || 0) + (p.shareCount || 0)
+    }, 0)
+    var totalReach = valid.reduce(function(s,p) { return s + (p.reachCount || p.viewCount || 0) }, 0)
+    var engPct = totalReach > 0 ? (totalEng / totalReach * 100) : 0
+
+    if (v) v.innerHTML = '<em>' + engPct.toFixed(1) + '</em>%'
+    if (d) d.innerHTML = fmt(totalEng) + ' interactions · ' + fmt(totalReach) + ' reach · ' + valid.length + ' posts'
+  }
+
+  function populateEngRetCards(S) {
+    get('/api/platform/timeseries').then(function (ts) {
+      if (!ts || !ts.posts) return
+      var posts = ts.posts
+      var snaps = ts.snapshots || []
+      engDataCache = { posts: posts }
+
+      // ── Engagement card (no scoping yet — shows all-time weighted rate) ──
+      updateEngCardScope(0)
+
+      // Update bars with per-snapshot engagement
+      var engCard = document.querySelector('#view-db-dashboard .two-up .mini-card:first-child')
+      if (engCard) {
+        var bars = engCard.querySelector('.bars')
+        if (bars && snaps.length > 0) {
+          var recent = snaps.filter(function(s) { return s.engagementRate > 0 }).slice(-12)
+          var maxEng = 0
+          recent.forEach(function(s) { var e = s.engagementRate > 1 ? s.engagementRate : s.engagementRate * 100; if (e > maxEng) maxEng = e })
+          bars.innerHTML = recent.map(function(s) {
+            var e = s.engagementRate > 1 ? s.engagementRate : s.engagementRate * 100
+            var h = maxEng > 0 ? Math.round(e / maxEng * 100) : 0
+            return '<div class="bar" style="height:' + h + '%"></div>'
+          }).join('')
+        }
+      }
+
+      // ── Retention card ──
+      var retCard = document.querySelector('#view-db-dashboard .two-up .mini-card:nth-child(2)')
+      if (retCard) {
+        var reels = posts.filter(function(p) { return p.avgWatchTimeMs > 0 })
+        var avgWatch = reels.length > 0 ? reels.reduce(function(s,p) { return s + p.avgWatchTimeMs }, 0) / reels.length / 1000 : 0
+
+        var lbl = retCard.querySelector('.lbl')
+        var v = retCard.querySelector('.v')
+        var d = retCard.querySelector('.d')
+        if (lbl) lbl.textContent = 'Avg. watch time · Reels'
+        if (v) v.innerHTML = '<em>' + avgWatch.toFixed(1) + '</em>s'
+        if (d) d.innerHTML = reels.length + ' Reels tracked'
+
+        // Update ring chart
+        var ring = retCard.querySelector('.ring svg')
+        if (ring) {
+          // Show as proportion of 15s (typical short Reel)
+          var pct = Math.min(100, Math.round(avgWatch / 15 * 100))
+          var circumference = 2 * Math.PI * 22 // r=22
+          var offset = circumference - (pct / 100 * circumference)
+          var accentCircle = ring.querySelectorAll('circle')[1]
+          if (accentCircle) {
+            accentCircle.setAttribute('stroke-dasharray', circumference.toFixed(1))
+            accentCircle.setAttribute('stroke-dashoffset', offset.toFixed(1))
+          }
+          var text = ring.querySelector('text')
+          if (text) text.textContent = avgWatch.toFixed(1) + 's'
+        }
+      }
     })
   }
 
@@ -527,7 +625,7 @@
       var caption = (p.caption || '').slice(0, 60) || '(no caption)'
       var views = p.viewCount || p.reachCount || p.impressionCount || 0
       var engRate = p.engagementRate || 0
-      if (engRate > 1) engRate = engRate / 100 // normalize if stored as percentage
+      if (engRate > 1) engRate = engRate / 100
       var eng = (engRate > 0 && engRate < 1) ? (engRate * 100).toFixed(1) + '%' : engRate >= 1 ? engRate.toFixed(1) + '%' : '—'
       var watchMs = p.avgWatchTimeMs || 0
       var ret = watchMs > 0 ? (watchMs / 1000).toFixed(1) + 's' : '—'
@@ -537,15 +635,6 @@
       var thumbHtml = thumb
         ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px;border:1px solid var(--b1)"></div>'
         : '<div class="thumb" style="background:var(--s2);color:var(--' + pf + ');font-size:16px;border:1px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center">' + typeIcon + '</div>'
-      var engDelta = avgEng > 0 ? ((engRate - avgEng) / avgEng * 100) : 0
-      var deltaCol = engDelta > 5 ? '<span style="color:var(--ok)">▲ ' + Math.round(engDelta) + '%</span>'
-        : engDelta < -5 ? '<span style="color:var(--down,#d68a8a)">▼ ' + Math.round(Math.abs(engDelta)) + '%</span>'
-        : '<span style="color:var(--t3)">—</span>'
-      var trendSvg = ''
-      if (engRate > 0) {
-        var barH = Math.min(20, Math.max(4, engRate * 100))
-        trendSvg = '<svg viewBox="0 0 52 22" preserveAspectRatio="none"><rect x="20" y="' + (22 - barH) + '" width="12" height="' + barH + '" rx="2" fill="' + (engDelta >= 0 ? 'var(--accent)' : 'var(--down,#d68a8a)') + '" opacity=".6"/></svg>'
-      }
       return '<tr>'
         + '<td><div class="cell-first">' + thumbHtml
         + '<div><div class="ttl">' + esc(caption) + '</div>'
@@ -554,11 +643,24 @@
         + '<td class="num">' + fmt(p.likeCount || 0) + '</td>'
         + '<td class="num">' + eng + '</td>'
         + '<td class="num">' + ret + '</td>'
-        + '<td class="delta">' + deltaCol + '</td>'
-        + '<td class="tl">' + trendSvg + '</td>'
         + '</tr>'
     }).join('')
     console.log('[hq-data] tbody.innerHTML set, children:', tbody.children.length)
+
+    // Hide AVG WATCH column when viewing TikTok (no watch time data available)
+    var hideWatch = filterKey === 'tiktok'
+    var table = tbody.closest('table')
+    if (table) {
+      var colIdx = 4 // AVG WATCH is the 5th column (0-indexed: POST, VIEWS, LIKES, ENG, AVG WATCH)
+      // Table now has 5 columns total: POST(0), VIEWS(1), LIKES(2), ENG(3), AVG WATCH(4)
+      var allTh = table.querySelectorAll('thead th')
+      if (allTh[colIdx]) allTh[colIdx].style.display = hideWatch ? 'none' : ''
+      var rows = table.querySelectorAll('tbody tr')
+      rows.forEach(function(row) {
+        var cells = row.querySelectorAll('td')
+        if (cells[colIdx]) cells[colIdx].style.display = hideWatch ? 'none' : ''
+      })
+    }
     } catch (err) {
       console.error('[hq-data] renderPostsTable CRASHED:', err.message, err.stack)
     }

@@ -132,7 +132,8 @@ model Company {
   memory           BrandMemory[]
   instagram        InstagramConnection?
   tiktok           TiktokConnection?
-  platformAccounts PlatformAccount[]
+  platformAccounts  PlatformAccount[]
+  dailyEngagements  DailyEngagement[]
 
   @@map("companies")
 }
@@ -419,6 +420,29 @@ model WeeklySummary {
   @@unique([accountId, weekStart])
   @@index([accountId, weekStart])
   @@map("weekly_summaries")
+}
+
+// Daily engagement snapshot — captures total interactions across all posts
+// for a given day. Delta between consecutive rows = engagement gained that day.
+// This powers the scoped engagement card (24H/7D/30D/90D).
+model DailyEngagement {
+  id             String   @id @default(uuid())
+  companyId      String   @map("company_id")
+  date           DateTime @map("date") // UTC day start (00:00)
+  totalLikes     Int      @default(0) @map("total_likes")
+  totalComments  Int      @default(0) @map("total_comments")
+  totalSaves     Int      @default(0) @map("total_saves")
+  totalShares    Int      @default(0) @map("total_shares")
+  totalReach     Int      @default(0) @map("total_reach")
+  totalViews     Int      @default(0) @map("total_views")
+  postCount      Int      @default(0) @map("post_count")
+  engagementRate Float    @default(0) @map("engagement_rate") // totalInteractions / totalReach
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, date])
+  @@index([companyId, date])
+  @@map("daily_engagements")
 }
 
 model PlatformAudience {
