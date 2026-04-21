@@ -957,12 +957,60 @@
     <!-- DASHBOARD HOME (HQ) -->
     <div class="view" id="view-db-dashboard">
 
-<!-- ══ MASTHEAD ════════════════ -->
-<section class="masthead">
-  <div>
-    <h1>&nbsp;</h1>
-    <p class="sub">&nbsp;</p>
+<!-- ══ DAILY & WEEKLY BRIEFS (HERO) ════ -->
+<section class="briefs-hero">
+  <div class="briefs-masthead">
+    <h2>🎯 Your Briefings</h2>
+    <p>Daily guidance informed by your data</p>
   </div>
+  <div id="briefs-container" class="briefs-container">
+    <div id="morning-brief-placeholder"></div>
+    <div id="midday-check-placeholder"></div>
+    <div id="evening-recap-placeholder"></div>
+    <div id="weekly-pulse-placeholder"></div>
+    <div id="weekly-plan-placeholder"></div>
+    <div id="weekly-hooks-placeholder"></div>
+    <div id="weekly-briefs-placeholder"></div>
+  </div>
+
+  <style>
+    .briefs-hero {
+      margin-bottom: 36px;
+    }
+
+    .briefs-masthead {
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .briefs-masthead h2 {
+      margin: 0 0 8px 0;
+      font-size: clamp(24px, 4vw, 32px);
+      font-weight: 600;
+      font-family: 'Syne', sans-serif;
+      color: #ffffff;
+    }
+
+    .briefs-masthead p {
+      margin: 0;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 400;
+    }
+
+    .briefs-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .briefs-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </section>
 
 <!-- ══ PIPELINE HERO ═══════════ -->
@@ -1005,17 +1053,6 @@
       <div class="node-eta"></div>
     </div>
   </div>
-</section>
-
-<!-- ══ DAILY & WEEKLY BRIEFS ════ -->
-<section class="briefs-section" id="briefs-container">
-  <div id="morning-brief-placeholder"></div>
-  <div id="midday-check-placeholder"></div>
-  <div id="evening-recap-placeholder"></div>
-  <div id="weekly-pulse-placeholder"></div>
-  <div id="weekly-plan-placeholder"></div>
-  <div id="weekly-hooks-placeholder"></div>
-  <div id="weekly-briefs-placeholder"></div>
 </section>
 
 <!-- ══ DASHBOARD GRID ══════════ -->
@@ -1085,40 +1122,6 @@
       <div class="li"><span class="sw tt"></span>TikTok · 211.2k · ▲ 5,104</div>
       <div class="li"><span class="sw ig"></span>Instagram · 84.3k · ▲ 2,806</div>
       <div class="li"><span class="sw yt"></span>YouTube · 18.2k · ▲ 502</div>
-    </div>
-  </div>
-
-  <!-- 3-up platform tiles -->
-  <div class="plat-row">
-    <div class="plat ig">
-      <span class="tag">IG</span>
-      <div class="h"><div class="g">IG</div><div class="nm">Instagram<span class="s">@jaytlin.moves</span></div></div>
-      <div class="big"><em>84.3</em>k</div>
-      <div class="sub">followers</div>
-      <div class="delta"><span>ENG <span style="color:var(--t1)">7.8%</span></span><span class="u">▲ 0.6</span></div>
-      <div class="spark">
-        <svg viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,22 L10,20 L20,21 L30,18 L40,16 L50,17 L60,12 L70,10 L80,8 L90,6 L100,4" fill="none" stroke="var(--ig)" stroke-width="1.3"/></svg>
-      </div>
-    </div>
-    <div class="plat tt">
-      <span class="tag">TT</span>
-      <div class="h"><div class="g">TT</div><div class="nm">TikTok<span class="s">@jaytlinmoves</span></div></div>
-      <div class="big"><em>211.2</em>k</div>
-      <div class="sub">followers</div>
-      <div class="delta"><span>ENG <span style="color:var(--t1)">12.1%</span></span><span class="u">▲ 1.4</span></div>
-      <div class="spark">
-        <svg viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,24 L10,22 L20,20 L30,18 L40,14 L50,16 L60,10 L70,7 L80,8 L90,4 L100,2" fill="none" stroke="var(--tt)" stroke-width="1.3"/></svg>
-      </div>
-    </div>
-    <div class="plat yt">
-      <span class="tag">YT</span>
-      <div class="h"><div class="g">YT</div><div class="nm">YouTube<span class="s">@jaytlin</span></div></div>
-      <div class="big"><em>18.2</em>k</div>
-      <div class="sub">subscribers</div>
-      <div class="delta"><span>ENG <span style="color:var(--t1)">3.4%</span></span><span>— flat</span></div>
-      <div class="spark">
-        <svg viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0,18 L10,18 L20,16 L30,17 L40,15 L50,16 L60,14 L70,15 L80,13 L90,14 L100,13" fill="none" stroke="var(--yt)" stroke-width="1.3"/></svg>
-      </div>
     </div>
   </div>
 
@@ -1195,45 +1198,8 @@
           <td class="delta u">▲ 4%</td>
           <td class="tl"><svg viewBox="0 0 52 22" preserveAspectRatio="none"><path d="M0,14 L8,16 L16,12 L24,13 L32,10 L40,9 L52,8" fill="none" stroke="var(--accent)" stroke-width="1.3"/></svg></td>
         </tr>
-        <tr>
-          <td><div class="cell-first"><div class="thumb">⬠</div>
-            <div><div class="ttl">Mobility series · <em>Ep. 04</em> — hips</div>
-              <div class="meta"><span class="pf yt"><span class="dot"></span>YOUTUBE · LONG</span><span>3d ago</span><span>by Riley</span></div></div></div></td>
-          <td class="num">22K</td><td class="num">4.1%</td><td class="num">38%</td>
-          <td class="delta d">▼ 9%</td>
-          <td class="tl"><svg viewBox="0 0 52 22" preserveAspectRatio="none"><path d="M0,8 L8,10 L16,9 L24,12 L32,13 L40,15 L52,17" fill="none" stroke="var(--down)" stroke-width="1.3"/></svg></td>
-        </tr>
-        <tr>
-          <td><div class="cell-first"><div class="thumb">✦</div>
-            <div><div class="ttl">Monday pulse — <em>retention wins</em></div>
-              <div class="meta"><span class="pf ig"><span class="dot"></span>INSTAGRAM · STORY</span><span>4d ago</span><span>by Alex</span></div></div></div></td>
-          <td class="num">11K</td><td class="num">6.2%</td><td class="num">—</td>
-          <td class="delta u">▲ 2%</td>
-          <td class="tl"><svg viewBox="0 0 52 22" preserveAspectRatio="none"><path d="M0,15 L8,14 L16,14 L24,13 L32,13 L40,12 L52,12" fill="none" stroke="var(--accent)" stroke-width="1.3"/></svg></td>
-        </tr>
       </tbody>
     </table>
-  </div>
-
-  <!-- Audience -->
-  <div class="aud-card">
-    <div class="hd"><h4><em>Audience</em> snapshot</h4><span class="m">aggregated · all platforms</span></div>
-    <div class="aud-grid">
-      <div class="bucket">
-        <div class="lbl">Age</div>
-        <div class="aud-row"><span>18–24</span><span class="tr"><span style="width:62%"></span></span><span class="pct">31%</span></div>
-        <div class="aud-row"><span>25–34</span><span class="tr"><span style="width:88%"></span></span><span class="pct">44%</span></div>
-        <div class="aud-row"><span>35–44</span><span class="tr"><span style="width:36%"></span></span><span class="pct">18%</span></div>
-        <div class="aud-row"><span>45+</span><span class="tr"><span style="width:14%"></span></span><span class="pct">7%</span></div>
-      </div>
-      <div class="bucket">
-        <div class="lbl">Top geos</div>
-        <div class="aud-row"><span>US</span><span class="tr"><span style="width:72%"></span></span><span class="pct">42%</span></div>
-        <div class="aud-row"><span>UK</span><span class="tr"><span style="width:28%"></span></span><span class="pct">14%</span></div>
-        <div class="aud-row"><span>CA</span><span class="tr"><span style="width:22%"></span></span><span class="pct">11%</span></div>
-        <div class="aud-row"><span>AU</span><span class="tr"><span style="width:18%"></span></span><span class="pct">9%</span></div>
-      </div>
-    </div>
   </div>
 
 </div>
@@ -1267,71 +1233,6 @@
       <div class="t">A week built around <em>form</em>.</div>
       <div class="p">Proposed retention goal 55% (up from 48%). Approve to lock.</div>
       <div class="acts"><button class="btn">Adjust</button><button class="btn primary">Lock goal</button></div>
-    </div>
-  </div>
-
-  <!-- Knowledge feed -->
-  <div class="mod">
-    <div class="mod-head"><h4>Knowledge · niche feed</h4><a>library →</a></div>
-    <div class="k-tabs" id="k-tabs">
-      <button class="on" data-k="all">All</button>
-      <button data-k="article">Articles</button>
-      <button data-k="video">Videos</button>
-      <button data-k="story">Stories</button>
-    </div>
-
-    <div class="k-item" data-kind="article">
-      <div class="k-thumb article"><div class="pf">ARTICLE</div></div>
-      <div class="k-body">
-        <div class="src">NYT Wellness · article</div>
-        <div class="t"><em>Strength training</em> for endurance athletes — new meta-analysis</div>
-        <div class="m"><span>7 min read</span><span>saved by Maya</span><span>2h ago</span></div>
-      </div>
-    </div>
-
-    <div class="k-item" data-kind="video">
-      <div class="k-thumb video"><div class="pf">VIDEO</div></div>
-      <div class="k-body">
-        <div class="src">YouTube · reference</div>
-        <div class="t">"Why your <em>warmup</em> matters more than your workout"</div>
-        <div class="m"><span>12:04</span><span>1.4M views</span><span>Alex studied hook</span></div>
-      </div>
-    </div>
-
-    <div class="k-item" data-kind="story">
-      <div class="k-thumb story"><div class="pf">STORY</div></div>
-      <div class="k-body">
-        <div class="src">Reddit r/fitness · breakout</div>
-        <div class="t">"I tried a <em>30-day reset</em> — here's what actually changed"</div>
-        <div class="m"><span>3.2k upvotes</span><span>rising 900%</span><span>Maya flagged</span></div>
-      </div>
-    </div>
-
-    <div class="k-item" data-kind="article">
-      <div class="k-thumb article"><div class="pf">ARTICLE</div></div>
-      <div class="k-body">
-        <div class="src">Google Trends · rising</div>
-        <div class="t"><em>"form check"</em> + mirror drill — breakout keyword</div>
-        <div class="m"><span>+340%</span><span>90d window</span><span>niche match 0.92</span></div>
-      </div>
-    </div>
-
-    <div class="k-item" data-kind="video">
-      <div class="k-thumb video"><div class="pf">VIDEO</div></div>
-      <div class="k-body">
-        <div class="src">TikTok · competitor</div>
-        <div class="t">@moves.with.mia — <em>morning routine</em> pulled 2.1M</div>
-        <div class="m"><span>0:34</span><span>2.1M views</span><span>Riley bookmarked</span></div>
-      </div>
-    </div>
-
-    <div class="k-item" data-kind="story">
-      <div class="k-thumb story"><div class="pf">STORY</div></div>
-      <div class="k-body">
-        <div class="src">IG · audience</div>
-        <div class="t">DMs asking for <em>beginner</em> modifications — 44 this week</div>
-        <div class="m"><span>44 msgs</span><span>pattern: modifications</span><span>Jordan weighing</span></div>
-      </div>
     </div>
   </div>
 
