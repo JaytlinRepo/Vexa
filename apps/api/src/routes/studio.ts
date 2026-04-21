@@ -14,16 +14,19 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { recordEditorialFeedback } from '../lib/brandMemory'
 import StudioVisualEditingService from '../lib/studioVisualEditing.service'
 import StudioCopywritingService from '../lib/studioCopywriting.service'
+import StudioPostingStrategyService from '../lib/studioPostingStrategy.service'
 
 const router = Router()
 let prisma: PrismaClient
 let visualEditingService: StudioVisualEditingService
 let copywritingService: StudioCopywritingService
+let postingStrategyService: StudioPostingStrategyService
 
 export function initStudioRoutes(_prisma: PrismaClient) {
   prisma = _prisma
   visualEditingService = new StudioVisualEditingService(prisma)
   copywritingService = new StudioCopywritingService(prisma)
+  postingStrategyService = new StudioPostingStrategyService(prisma)
 
   // ── Approve/Reject Visual Edit ──────────────────────────────────────────
 
@@ -351,6 +354,44 @@ export function initStudioRoutes(_prisma: PrismaClient) {
     } catch (err) {
       console.error('[studio] get pending failed:', err)
       res.status(500).json({ error: 'Failed to fetch pending approvals' })
+    }
+  })
+
+  // ── Get Posting Recommendations (Jordan) ────────────────────────────
+
+  const strategySchema = z.object({
+    companyId: z.string().uuid(),
+    contentType: z.enum(['video', 'image', 'carousel']),
+    contentDescription: z.string().optional(),
+  })
+
+  /**
+   * POST /api/studio/posting-strategy
+   * Jordan recommends when to post based on trends + audience behavior
+   */
+  router.post('/posting-strategy', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const data = strategySchema.parse(req.body)
+
+      const company = await prisma.company.findFirst({
+        where: { id: data.companyId, userId },
+      })
+
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
+
+      const strategy = await postingStrategyService.recommendPostingTimes({
+        companyId: company.id,
+        contentType: data.contentType,
+        contentDescription: data.contentDescription,
+      })
+
+      res.json(strategy)
+    } catch (err) {
+      console.error('[studio] posting-strategy failed:', err)
+      res.status(500).json({ error: 'Failed to generate posting strategy' })
     }
   })
 
