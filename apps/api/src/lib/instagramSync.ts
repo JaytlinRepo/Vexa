@@ -203,9 +203,17 @@ export async function syncInstagramAccount(
 
                   // Compute retention for Reels: avgWatchTime / videoDuration
                   const avgWatchMs = insights.avgWatchTimeMs || 0
-                  // Look up video duration from the media we already fetched
+                  let durationSec = 0
+                  // First try the media we already fetched, then query Meta directly
                   const mediaItem = media.find(m => m.id === post.platformPostId)
-                  const durationSec = mediaItem?.video_duration || 0
+                  if (mediaItem?.video_duration) {
+                    durationSec = mediaItem.video_duration
+                  } else if (avgWatchMs > 0 && (post.mediaType === 'VIDEO' || post.mediaType === 'REEL')) {
+                    try {
+                      const mediaData = await meta.graphGet<{ video_duration?: number }>('/' + post.platformPostId, token, { fields: 'video_duration' })
+                      durationSec = mediaData?.video_duration || 0
+                    } catch {}
+                  }
                   const retentionRate = (avgWatchMs > 0 && durationSec > 0)
                     ? Math.min(1, (avgWatchMs / 1000) / durationSec)
                     : 0

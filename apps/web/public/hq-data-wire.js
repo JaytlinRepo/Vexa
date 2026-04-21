@@ -488,7 +488,7 @@
         if (sortKey === 'views') { av = a.viewCount || a.reachCount || 0; bv = b.viewCount || b.reachCount || 0 }
         else if (sortKey === 'likes') { av = a.likeCount || 0; bv = b.likeCount || 0 }
         else if (sortKey === 'eng') { av = a.engagementRate || 0; bv = b.engagementRate || 0 }
-        else if (sortKey === 'ret') { av = a.retentionRate || 0; bv = b.retentionRate || 0 }
+        else if (sortKey === 'ret') { av = a.avgWatchTimeMs || 0; bv = b.avgWatchTimeMs || 0 }
         else { av = 0; bv = 0 }
         return (bv - av) * dir
       })
@@ -529,8 +529,8 @@
       var engRate = p.engagementRate || 0
       if (engRate > 1) engRate = engRate / 100 // normalize if stored as percentage
       var eng = (engRate > 0 && engRate < 1) ? (engRate * 100).toFixed(1) + '%' : engRate >= 1 ? engRate.toFixed(1) + '%' : '—'
-      var retRate = p.retentionRate || 0
-      var ret = retRate > 0 ? (retRate * 100).toFixed(0) + '%' : '—'
+      var watchMs = p.avgWatchTimeMs || 0
+      var ret = watchMs > 0 ? (watchMs / 1000).toFixed(1) + 's' : '—'
       var ago = timeAgo(p.publishedAt)
       var thumb = p.thumbnailUrl
       var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'

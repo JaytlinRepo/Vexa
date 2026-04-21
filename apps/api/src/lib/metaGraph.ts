@@ -19,7 +19,7 @@ export function hasMetaCreds(): boolean {
   return Boolean(appId() && appSecret())
 }
 
-async function graphGet<T = unknown>(path: string, token: string, params: Record<string, string> = {}): Promise<T> {
+export async function graphGet<T = unknown>(path: string, token: string, params: Record<string, string> = {}): Promise<T> {
   try {
     const res = await axios.get<T>(`${GRAPH_URL}${path}`, {
       params: { access_token: token, ...params },
@@ -171,31 +171,46 @@ export async function getMediaInsights(mediaId: string, mediaType: string, token
     // IMAGE/CAROUSEL: reach, impressions, saved
     // VIDEO/REEL: reach, saved, plays, shares, ig_reels_avg_watch_time, ig_reels_video_view_total_time
     const isReel = mediaType === 'VIDEO' || mediaType === 'REEL'
-    const metrics = isReel
-      ? 'reach,saved,plays,shares,ig_reels_avg_watch_time,ig_reels_video_view_total_time'
-      : 'reach,impressions,saved'
 
+    // Base metrics (works for all media types)
+    const baseMetrics = 'reach,saved'
     const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
       `/${mediaId}/insights`,
       token,
-      { metric: metrics },
+      { metric: baseMetrics },
     )
     const byName: Record<string, number> = {}
     for (const m of res.data || []) {
       byName[m.name] = m.values?.[0]?.value ?? 0
     }
+
+    // For Reels, fetch retention metrics separately (they fail on non-Reel VIDEO)
+    if (isReel) {
+      try {
+        const reelRes = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
+          `/${mediaId}/insights`,
+          token,
+          { metric: 'ig_reels_avg_watch_time,ig_reels_video_view_total_time,shares' },
+        )
+        for (const m of reelRes.data || []) {
+          byName[m.name] = m.values?.[0]?.value ?? 0
+        }
+      } catch {
+        // Reel metrics not available for this post — continue with base metrics
+      }
+    }
+
     const reach = byName.reach || 0
-    const impressions = byName.impressions || byName.plays || reach
     const shares = byName.shares || 0
     return {
-      impressions,
+      impressions: reach, // best proxy since impressions/plays deprecated
       reach,
       engagement: 0,
       saved: byName.saved || 0,
       shares,
       avgWatchTimeMs: byName.ig_reels_avg_watch_time || 0,
       totalWatchTimeMs: byName.ig_reels_video_view_total_time || 0,
-      plays: byName.plays || 0,
+      plays: 0,
     }
   } catch (err) {
     console.warn(`[meta] insights failed for ${mediaId}:`, (err as Error).message?.slice(0, 100))
