@@ -136,6 +136,21 @@ export async function getIGMedia(igId: string, token: string, limit = 30): Promi
   return res.data || []
 }
 
+// ── Carousel children (first image as thumbnail) ───────────────────
+
+export interface IGCarouselChild {
+  id: string
+  media_type: 'IMAGE' | 'VIDEO'
+  media_url: string | null
+}
+
+export async function getCarouselChildren(mediaId: string, token: string): Promise<IGCarouselChild[]> {
+  const res = await graphGet<{ data: IGCarouselChild[] }>(`/${mediaId}/children`, token, {
+    fields: 'id,media_type,media_url',
+  })
+  return res.data || []
+}
+
 // ── Per-post insights ───────────────────────────────────────────────
 
 export interface IGMediaInsight {
@@ -168,6 +183,140 @@ export async function getMediaInsights(mediaId: string, _mediaType: string, toke
   } catch (err) {
     console.warn(`[meta] insights failed for ${mediaId}:`, (err as Error).message?.slice(0, 100))
     return { impressions: 0, reach: 0, engagement: 0, saved: 0 }
+  }
+}
+
+// ── Account-level insights (profile visits, website clicks) ────────
+
+export interface IGAccountInsights {
+  profileViews: number       // total profile visits over period
+  websiteClicks: number      // bio link taps over period
+  /** Daily breakdown (most recent 28 days) */
+  dailyProfileViews: Array<{ date: string; value: number }>
+  dailyWebsiteClicks: Array<{ date: string; value: number }>
+}
+
+/**
+ * Fetch account-level insights: profile_views and website_clicks.
+ * These are only available for IG Business/Creator accounts with
+ * the instagram_manage_insights permission (which we already request).
+ * Returns last 28 days of daily data.
+ */
+export async function getIGAccountInsights(igId: string, token: string): Promise<IGAccountInsights | null> {
+  const result: IGAccountInsights = {
+    profileViews: 0,
+    websiteClicks: 0,
+    dailyProfileViews: [],
+    dailyWebsiteClicks: [],
+  }
+
+  // profile_views — period=day returns daily values
+  try {
+    const pvRes = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> }>(
+      `/${igId}/insights`,
+      token,
+      { metric: 'profile_views', period: 'day', since: daysAgoUnix(28), until: daysAgoUnix(0) },
+    )
+    const pvData = pvRes.data?.find(m => m.name === 'profile_views')
+    if (pvData?.values) {
+      for (const v of pvData.values) {
+        result.dailyProfileViews.push({ date: v.end_time.slice(0, 10), value: v.value })
+        result.profileViews += v.value
+      }
+    }
+  } catch (e) {
+    console.warn('[meta] profile_views insight failed:', (e as Error).message?.slice(0, 100))
+  }
+
+  // website_clicks — bio link taps
+  try {
+    const wcRes = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> }>(
+      `/${igId}/insights`,
+      token,
+      { metric: 'website_clicks', period: 'day', since: daysAgoUnix(28), until: daysAgoUnix(0) },
+    )
+    const wcData = wcRes.data?.find(m => m.name === 'website_clicks')
+    if (wcData?.values) {
+      for (const v of wcData.values) {
+        result.dailyWebsiteClicks.push({ date: v.end_time.slice(0, 10), value: v.value })
+        result.websiteClicks += v.value
+      }
+    }
+  } catch (e) {
+    console.warn('[meta] website_clicks insight failed:', (e as Error).message?.slice(0, 100))
+  }
+
+  if (result.profileViews === 0 && result.websiteClicks === 0 &&
+      result.dailyProfileViews.length === 0 && result.dailyWebsiteClicks.length === 0) {
+    return null
+  }
+  return result
+}
+
+function daysAgoUnix(days: number): string {
+  return String(Math.floor((Date.now() - days * 86400000) / 1000))
+}
+
+// ── Stories ─────────────────────────────────────────────────────────
+
+export interface IGStory {
+  id: string
+  media_type: 'IMAGE' | 'VIDEO'
+  media_url: string | null
+  timestamp: string
+  permalink?: string
+}
+
+export interface IGStoryInsight {
+  impressions: number
+  reach: number
+  replies: number
+  tapsForward: number
+  tapsBack: number
+  exits: number
+}
+
+/**
+ * Fetch currently live stories (ephemeral — only visible for 24h).
+ * Returns empty array if no stories are active.
+ */
+export async function getIGStories(igId: string, token: string): Promise<IGStory[]> {
+  try {
+    const res = await graphGet<{ data: IGStory[] }>(`/${igId}/stories`, token, {
+      fields: 'id,media_type,media_url,timestamp',
+    })
+    return res.data || []
+  } catch (e) {
+    console.warn('[meta] stories fetch failed:', (e as Error).message?.slice(0, 100))
+    return []
+  }
+}
+
+/**
+ * Fetch insights for a single story. Only works while the story is live.
+ */
+export async function getStoryInsights(storyId: string, token: string): Promise<IGStoryInsight> {
+  try {
+    const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
+      `/${storyId}/insights`,
+      token,
+      { metric: 'impressions,reach,replies,taps_forward,taps_back,exits' },
+    )
+    const byName: Record<string, number> = {}
+    for (const m of res.data || []) {
+      byName[m.name] = m.values?.[0]?.value ?? 0
+    }
+    return {
+      impressions: byName.impressions || 0,
+      reach: byName.reach || 0,
+      replies: byName.replies || 0,
+      tapsForward: byName.taps_forward || 0,
+      tapsBack: byName.taps_back || 0,
+      exits: byName.exits || 0,
+    }
+  } catch (e) {
+    console.warn(`[meta] story insights failed for ${storyId}:`, (e as Error).message?.slice(0, 100))
+    return { impressions: 0, reach: 0, replies: 0, tapsForward: 0, tapsBack: 0, exits: 0 }
   }
 }
 

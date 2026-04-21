@@ -526,11 +526,6 @@ function computeAvgDailyGrowth(snapshots: Array<{ followerCount: number; capture
 }
 
 export {
-  computeFormatPerformance,
-  computeHookPerformance,
-  computeCohortEngagement,
-  computeTimingPattern,
-  computeTrajectory,
   computeAvgDailyGrowth,
   safe,
   avg,

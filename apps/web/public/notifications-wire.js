@@ -164,6 +164,11 @@
             if (!evt.isRead) state.unread += 1
             refreshBadge()
             renderList()
+            // Trigger pipeline + briefs refresh on task-related notifications
+            try {
+              window.dispatchEvent(new CustomEvent('vx-task-changed'))
+              if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
+            } catch {}
           }
         } catch {}
       }

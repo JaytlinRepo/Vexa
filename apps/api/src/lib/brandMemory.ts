@@ -2,7 +2,7 @@ import { PrismaClient, MemoryType, Prisma } from '@prisma/client'
 
 export interface MemoryContent {
   summary: string
-  source?: 'task' | 'meeting' | 'manual' | 'instagram'
+  source?: 'task' | 'meeting' | 'manual' | 'instagram' | 'performance_tracking'
   sourceId?: string
   tags?: string[]
   details?: Record<string, unknown>

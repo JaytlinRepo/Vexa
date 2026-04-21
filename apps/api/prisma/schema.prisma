@@ -185,6 +185,10 @@ model Output {
   version    Int          @default(1)
   createdAt  DateTime     @default(now()) @map("created_at")
 
+  // Learning: link output to the post it became (set after publishing)
+  linkedPostId  String?  @map("linked_post_id")
+  performedWell Boolean? @map("performed_well") // set after 48h of post performance tracking
+
   task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id])
@@ -284,6 +288,23 @@ model PlatformSnapshot {
   avgImpressions Int      @default(0) @map("avg_impressions")
   engagementRate Float    @default(0) @map("engagement_rate")
 
+  // ── Derived time-series features (computed after each sync) ─────
+  followerDelta       Int   @default(0) @map("follower_delta")         // change since previous snapshot
+  followerGrowthPct   Float @default(0) @map("follower_growth_pct")    // % change since previous snapshot
+  growthRate7d        Float @default(0) @map("growth_rate_7d")         // avg daily follower change over 7d
+  growthRate28d       Float @default(0) @map("growth_rate_28d")        // avg daily follower change over 28d
+  growthAcceleration  Float @default(0) @map("growth_acceleration")    // change in 7d growth rate vs prior 7d (2nd derivative)
+  engagementRate7d    Float @default(0) @map("engagement_rate_7d")     // 7-day rolling avg engagement rate
+  engagementRate28d   Float @default(0) @map("engagement_rate_28d")    // 28-day rolling avg engagement rate
+  reach7d             Int   @default(0) @map("reach_7d")               // 7-day rolling avg reach
+  reach28d            Int   @default(0) @map("reach_28d")              // 28-day rolling avg reach
+  avgSaveRate         Float @default(0) @map("avg_save_rate")          // rolling avg save rate across recent posts
+  avgViralityScore    Float @default(0) @map("avg_virality_score")     // rolling avg share/reach
+  postingCadence7d    Float @default(0) @map("posting_cadence_7d")     // posts published in last 7 days
+  postingCadence28d   Float @default(0) @map("posting_cadence_28d")    // posts published in last 28 days
+  profileViews        Int   @default(0) @map("profile_views")          // IG account-level: profile visits (28d total)
+  websiteClicks       Int   @default(0) @map("website_clicks")         // IG account-level: bio link clicks (28d total)
+
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, capturedAt])
@@ -306,20 +327,19 @@ model PlatformPost {
   viewCount       Int       @default(0) @map("view_count")
   reachCount      Int       @default(0) @map("reach_count")
   impressionCount Int       @default(0) @map("impression_count")
-
-  // Derived metrics (computed per-post)
-  engagementRate  Float     @default(0) @map("engagement_rate")
-  saveRate        Float     @default(0) @map("save_rate")
-  viralityScore   Float     @default(0) @map("virality_score")
-  commentToLikeRatio    Float @default(0) @map("comment_to_like_ratio")
-  viewToFollowerRatio   Float @default(0) @map("view_to_follower_ratio")
-  captionLength   Int       @default(0) @map("caption_length")
-  publishHour     Int?      @map("publish_hour")
-  publishDayOfWeek Int?     @map("publish_day_of_week")
-  engagementVelocity Float  @default(0) @map("engagement_velocity")
-  decayRate       Float     @default(0) @map("decay_rate")
-
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
+
+  // ── Derived metrics (computed after each sync) ──────────────────
+  engagementRate       Float  @default(0) @map("engagement_rate")        // (likes+comments+saves+shares)/reach
+  saveRate             Float  @default(0) @map("save_rate")              // saves/reach — IG ranking signal
+  viralityScore        Float  @default(0) @map("virality_score")         // shares/reach — algorithmic boost
+  commentToLikeRatio   Float  @default(0) @map("comment_to_like_ratio")  // comments/likes — discussion signal
+  viewToFollowerRatio  Float  @default(0) @map("view_to_follower_ratio") // views/followerCount — breakout indicator
+  captionLength        Int    @default(0) @map("caption_length")         // word count
+  publishHour          Int?   @map("publish_hour")                       // 0-23 UTC hour for best-time analysis
+  publishDayOfWeek     Int?   @map("publish_day_of_week")                // 0=Sun..6=Sat
+  engagementVelocity   Float  @default(0) @map("engagement_velocity")    // engagement gained in first 48h (from snapshots)
+  decayRate            Float  @default(0) @map("decay_rate")             // how fast engagement growth slows (0=dies fast, 1=evergreen)
 
   account         PlatformAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   metricSnapshots PostMetricSnapshot[]
@@ -357,9 +377,10 @@ model WeeklySummary {
   weekEnd      DateTime @map("week_end")   // Sunday 23:59 UTC
 
   // Account-level deltas
-  followerStart  Int @default(0) @map("follower_start")
-  followerEnd    Int @default(0) @map("follower_end")
-  followerDelta  Int @default(0) @map("follower_delta")
+  followerStart     Int   @default(0) @map("follower_start")
+  followerEnd       Int   @default(0) @map("follower_end")
+  followerDelta     Int   @default(0) @map("follower_delta")
+  followerGrowthPct Float @default(0) @map("follower_growth_pct")  // % growth this week
 
   // Engagement
   avgEngagement  Float @default(0) @map("avg_engagement")
@@ -370,6 +391,8 @@ model WeeklySummary {
   totalViews     Int @default(0) @map("total_views")
   totalLikes     Int @default(0) @map("total_likes")
   totalComments  Int @default(0) @map("total_comments")
+  totalShares    Int @default(0) @map("total_shares")
+  totalSaves     Int @default(0) @map("total_saves")
 
   // Top post this week
   topPostId      String? @map("top_post_id")
@@ -378,19 +401,16 @@ model WeeklySummary {
 
   // Computed insights
   bestDay        String? @map("best_day")      // "Monday", "Tuesday", etc.
+  bestHour       Int?    @map("best_hour")      // 0-23 UTC — best hour by avg engagement
   bestFormat     String? @map("best_format")    // "REEL", "CAROUSEL", "IMAGE"
 
-  // Extended insights (derived metrics)
-  followerGrowthPct Float @default(0) @map("follower_growth_pct")
-  totalShares       Int   @default(0) @map("total_shares")
-  totalSaves        Int   @default(0) @map("total_saves")
-  avgSaveRate       Float @default(0) @map("avg_save_rate")
-  avgViralityScore  Float @default(0) @map("avg_virality_score")
-  avgCaptionLength  Float @default(0) @map("avg_caption_length")
-  bestHour          Int?  @map("best_hour")
-  consistencyScore  Float @default(0) @map("consistency_score")
-  engagementTrend   String? @map("engagement_trend")  // "up", "stable", "down"
-  formatMomentum    Json @default("[]") @map("format_momentum")  // [{format, avgEng, delta, trend}, ...]
+  // Derived weekly metrics
+  avgSaveRate         Float  @default(0) @map("avg_save_rate")           // avg saves/reach across posts this week
+  avgViralityScore    Float  @default(0) @map("avg_virality_score")      // avg shares/reach this week
+  avgCaptionLength    Float  @default(0) @map("avg_caption_length")      // avg word count
+  consistencyScore    Float  @default(0) @map("consistency_score")       // 0-1: posting regularity (1=perfectly even)
+  engagementTrend     String @default("stable") @map("engagement_trend") // 'improving' | 'declining' | 'stable'
+  formatMomentum      Json   @default("[]") @map("format_momentum")      // [{format, avgEng, delta, trend}]
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -431,8 +451,13 @@ model InstagramConnection {
   engagementRate  Float     @default(0) @map("engagement_rate")
   avgReach        Int       @default(0) @map("avg_reach")
   avgImpressions  Int       @default(0) @map("avg_impressions")
+  profileViews    Int       @default(0) @map("profile_views")
+  websiteClicks   Int       @default(0) @map("website_clicks")
+  dailyProfileViews  Json   @default("[]") @map("daily_profile_views")
+  dailyWebsiteClicks Json   @default("[]") @map("daily_website_clicks")
   topPosts        Json      @default("[]") @map("top_posts")
   recentMedia     Json      @default("[]") @map("recent_media")
+  stories         Json      @default("[]")
   followerSeries  Json      @default("[]") @map("follower_series")
   audienceAge     Json      @default("{}") @map("audience_age")
   audienceGender  Json      @default("{}") @map("audience_gender")

@@ -139,10 +139,7 @@ export async function getMidayCheckData(
       },
     },
     include: {
-      metricSnapshots: {
-        orderBy: { capturedAt: 'asc' },
-        take: 100,
-      },
+      account: { select: { platform: true } },
     },
   })
 
@@ -150,7 +147,7 @@ export async function getMidayCheckData(
     id: post.id,
     platform: post.account.platform,
     caption: post.caption || '',
-    publishedAt: post.publishedAt,
+    publishedAt: post.publishedAt!,
     metrics: {
       reach: post.reachCount,
       engagement: post.likeCount + post.commentCount + post.shareCount + post.saveCount,
@@ -196,13 +193,14 @@ export async function getEveningRecapData(
         lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
       },
     },
+    include: { account: { select: { platform: true } } },
   })
 
   const posts: PostPerformance[] = todaysPosts.map(post => ({
     id: post.id,
-    platform: 'unknown',
+    platform: post.account.platform,
     caption: post.caption || '',
-    publishedAt: post.publishedAt,
+    publishedAt: post.publishedAt!,
     metrics: {
       reach: post.reachCount,
       engagement: post.likeCount + post.commentCount + post.shareCount + post.saveCount,
@@ -257,9 +255,27 @@ export async function getEveningRecapData(
  * Get trending topics in creator's niche (from cache/API)
  */
 async function getTrendingTopics(companyId: string): Promise<TrendingTopic[]> {
-  // TODO: Call Google Trends API + NewsAPI + Redis cache
-  // For now, return empty — will be populated by trend service
-  return []
+  // Pull from the knowledge feed cache via the feed endpoint's internal cache
+  try {
+    const { getRelatedQueries } = await import('../services/integrations/google-trends.service')
+    const { effectiveNiche } = await import('./nicheDetection')
+    const prismaClient = (await import('./prisma')).default
+    const company = await prismaClient.company.findUnique({ where: { id: companyId } })
+    if (!company) return []
+    const niche = effectiveNiche(company)
+    const queries = await getRelatedQueries(niche)
+    const rising = (queries.rising || []).slice(0, 5)
+    return rising.map((q: string) => ({
+      topic: q,
+      category: niche,
+      growthPercent: 0,
+      timeframe: 'rising',
+      isNewlyTrending: true,
+      saturationLevel: 'low' as const,
+    }))
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -280,13 +296,14 @@ async function getYesterdayPerformance(
       account: { companyId },
       publishedAt: { gte: yesterday, lt: yesterdayEnd },
     },
+    include: { account: { select: { platform: true } } },
   })
 
   return posts.map(post => ({
     id: post.id,
-    platform: 'unknown',
+    platform: post.account.platform,
     caption: post.caption || '',
-    publishedAt: post.publishedAt,
+    publishedAt: post.publishedAt!,
     metrics: {
       reach: post.reachCount,
       engagement: post.likeCount + post.commentCount + post.shareCount + post.saveCount,
@@ -464,7 +481,7 @@ export async function getWeeklyData(
   // Format performance (Reel vs Carousel vs Image, etc.)
   const formatMap = new Map<string, FormatPerformance>()
   posts.forEach(post => {
-    const format = post.format || 'unknown'
+    const format = post.mediaType || 'unknown'
     const existing = formatMap.get(format) || {
       format,
       count: 0,
@@ -490,6 +507,7 @@ export async function getWeeklyData(
   // Timing patterns
   const timingMap = new Map<string, TimingPattern>()
   posts.forEach(post => {
+    if (!post.publishedAt) return
     const day = post.publishedAt.toLocaleDateString('en-US', { weekday: 'long' })
     const time = `${post.publishedAt.getUTCHours()}:00`
     const key = `${day}_${time}`

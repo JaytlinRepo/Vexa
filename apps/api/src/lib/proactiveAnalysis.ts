@@ -65,6 +65,79 @@ export async function triggerWeeklyPulse(
   })
 }
 
+async function triggerMayaTask(
+  prisma: PrismaClient,
+  companyId: string,
+  opts: { type: string; title: string; description: string; notifTitle: string; notifBody: string },
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  const since = new Date(Date.now() - DEDUP_WINDOW_MS)
+  const existing = await prisma.task.findFirst({
+    where: { companyId, type: opts.type, createdAt: { gte: since } },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (existing) {
+    return { triggered: false, reason: 'recent_analysis_exists' }
+  }
+
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    include: {
+      employees: { where: { role: 'analyst', isActive: true } },
+      user: { select: { plan: true } },
+    },
+  })
+  if (!company) return { triggered: false, reason: 'company_not_found' }
+
+  // Check plan allows this feature
+  const plan = PLAN_LIMITS[company.user.plan]
+  const isPerformanceReview = opts.type === 'performance_review'
+  const isPulse = opts.type === 'weekly_pulse'
+  if (isPerformanceReview && !plan.proactiveAnalysis) return { triggered: false, reason: 'plan_locked' }
+  if (isPulse && !plan.weeklyPulse) return { triggered: false, reason: 'plan_locked' }
+
+  const analyst = company.employees[0]
+  if (!analyst) return { triggered: false, reason: 'no_active_analyst' }
+
+  const task = await prisma.task.create({
+    data: {
+      companyId,
+      employeeId: analyst.id,
+      title: opts.title,
+      description: opts.description,
+      type: opts.type,
+      status: 'in_progress',
+    },
+  })
+
+  try {
+    await orchestrateTask(task.id)
+
+    try {
+      await createNotification({
+        userId: company.userId,
+        companyId,
+        type: 'team_update',
+        emoji: '📊',
+        title: opts.notifTitle,
+        body: opts.notifBody,
+        actionLabel: 'Review',
+        metadata: { taskId: task.id },
+      })
+    } catch (e) {
+      console.warn('[proactive] notification failed', e)
+    }
+
+    return { triggered: true, taskId: task.id }
+  } catch (err) {
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { status: 'pending' },
+    })
+    console.error(`[proactive] ${opts.type} failed, task reset to pending`, err)
+    return { triggered: false, reason: 'execution_failed', taskId: task.id }
+  }
+}
+
 /**
  * Weekly cron handler — fires a weekly_pulse for every company with
  * a connected TikTok. Processes sequentially to avoid Bedrock rate limits.
@@ -413,13 +486,13 @@ export async function triggerMorningBrief(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerMayaTask(prisma, companyId, {
+  return triggerDailyBriefTask(prisma, companyId, {
     type: 'morning_brief',
     title: 'Morning brief — trends + queue status',
-    description: 'What\'s trending overnight, how yesterday\'s posts performed, and what\'s queued for today.',
-    notifTitle: 'Maya\'s morning briefing is ready',
-    notifBody: 'See what\'s trending, yesterday\'s wins, and today\'s queue.',
-    dedupHours: 22, // Don't send twice in 22 hours
+    description: "What's trending overnight, how yesterday's posts performed, and what's queued for today.",
+    notifTitle: "Maya's morning briefing is ready",
+    notifBody: "See what's trending, yesterday's wins, and today's queue.",
+    dedupHours: 22,
   })
 }
 
@@ -430,10 +503,10 @@ export async function triggerMidayCheck(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerMayaTask(prisma, companyId, {
+  return triggerDailyBriefTask(prisma, companyId, {
     type: 'midday_check',
     title: 'Midday performance check',
-    description: 'How are today\'s posts tracking? Early performance signals and forecast.',
+    description: "How are today's posts tracking? Early performance signals and forecast.",
     notifTitle: 'How are your posts doing today?',
     notifBody: 'Quick midday performance snapshot and forecast.',
     dedupHours: 22,
@@ -447,21 +520,17 @@ export async function triggerEveningRecap(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerMayaTask(prisma, companyId, {
+  return triggerDailyBriefTask(prisma, companyId, {
     type: 'evening_recap',
     title: 'Evening recap — day summary + tomorrow forecast',
-    description: 'What worked today, key learnings, and what to expect from tomorrow\'s queue.',
-    notifTitle: 'Maya\'s evening recap is in',
-    notifBody: 'Today\'s summary, learnings, and tomorrow\'s forecast.',
+    description: "What worked today, key learnings, and what to expect from tomorrow's queue.",
+    notifTitle: "Maya's evening recap is in",
+    notifBody: "Today's summary, learnings, and tomorrow's forecast.",
     dedupHours: 22,
   })
 }
 
-/**
- * Internal: Trigger a Maya task with dedup logic
- * Updated to support hourly dedup for daily briefs
- */
-async function triggerMayaTask(
+async function triggerDailyBriefTask(
   prisma: PrismaClient,
   companyId: string,
   opts: {
@@ -470,20 +539,15 @@ async function triggerMayaTask(
     description: string
     notifTitle: string
     notifBody: string
-    dedupHours?: number
+    dedupHours: number
   },
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  const dedupMs = (opts.dedupHours || 24 * 6) * 60 * 60 * 1000
-  const since = new Date(Date.now() - dedupMs)
-
+  const since = new Date(Date.now() - opts.dedupHours * 60 * 60 * 1000)
   const existing = await prisma.task.findFirst({
     where: { companyId, type: opts.type, createdAt: { gte: since } },
     orderBy: { createdAt: 'desc' },
   })
-
-  if (existing) {
-    return { triggered: false, reason: 'recent_analysis_exists' }
-  }
+  if (existing) return { triggered: false, reason: 'recent_brief_exists' }
 
   return triggerAgentTask(prisma, companyId, 'analyst' as EmployeeRole, {
     type: opts.type,
@@ -491,167 +555,76 @@ async function triggerMayaTask(
     description: opts.description,
     notifTitle: opts.notifTitle,
     notifBody: opts.notifBody,
+    dedupDays: 0, // dedup already handled above
   })
 }
 
 // ─── WEEKLY ORCHESTRATION ─────────────────────────────────────────────────────
 
 /**
- * Sunday 6:00 PM UTC — Maya's weekly pulse
- * Reads: Aggregated weekly metrics
- * Outputs: "Here's what this week taught us"
+ * Sunday 6:00 PM UTC — Maya's weekly pulse (dedicated weekly trigger)
  */
 export async function triggerWeeklyMayaPulse(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerMayaTask(prisma, companyId, {
+  return triggerDailyBriefTask(prisma, companyId, {
     type: 'weekly_pulse',
     title: 'Weekly pulse — learnings + next week opportunity',
-    description: 'Maya analyzes this week\'s performance and identifies opportunities for next week.',
-    notifTitle: 'Maya\'s weekly pulse is ready',
+    description: "Maya analyzes this week's performance and identifies opportunities for next week.",
+    notifTitle: "Maya's weekly pulse is ready",
     notifBody: 'See what worked this week and what to focus on next.',
-    dedupHours: 168, // Don't send twice in 7 days (weekly)
+    dedupHours: 168, // 7 days
   })
 }
 
 /**
  * Sunday 6:30 PM UTC — Jordan's weekly plan
- * Reads: Maya's findings + audience cohort data
- * Outputs: "Next week's content strategy"
  */
 export async function triggerWeeklyJordanPlan(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  const jordanEmployee = await prisma.employee.findUnique({
-    where: { companyId_role: { companyId, role: 'strategist' } },
+  return triggerAgentTask(prisma, companyId, 'strategist' as EmployeeRole, {
+    type: 'content_plan',
+    title: 'Weekly content plan — next 7 days',
+    description: "Jordan plans next week's content informed by Maya's weekly pulse findings.",
+    notifTitle: "Jordan's weekly plan is ready",
+    notifBody: "Next week's strategy informed by this week's data.",
+    dedupDays: 6,
   })
-
-  if (!jordanEmployee) {
-    return { triggered: false, reason: 'no_strategist_employee' }
-  }
-
-  // Check dedup
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
-  const existing = await prisma.task.findFirst({
-    where: { companyId, type: 'content_plan', createdAt: { gte: since } },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  if (existing) {
-    return { triggered: false, reason: 'recent_plan_exists' }
-  }
-
-  const task = await prisma.task.create({
-    data: {
-      companyId,
-      employeeId: jordanEmployee.id,
-      title: 'Weekly content plan — next 7 days',
-      description: 'Jordan plans next week\'s content informed by Maya\'s weekly pulse findings.',
-      type: 'content_plan',
-      status: 'pending',
-    },
-  })
-
-  await createNotification(prisma, companyId, {
-    title: 'Jordan\'s weekly plan is ready',
-    body: 'Next week\'s strategy informed by this week\'s data.',
-  })
-
-  return { triggered: true, taskId: task.id }
 }
 
 /**
  * Sunday 7:00 PM UTC — Alex's weekly hooks
- * Reads: Jordan's plan + hook performance data
- * Outputs: "Hooks for each day, ranked by predicted performance"
  */
 export async function triggerWeeklyAlexHooks(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  const alexEmployee = await prisma.employee.findUnique({
-    where: { companyId_role: { companyId, role: 'copywriter' } },
+  return triggerAgentTask(prisma, companyId, 'copywriter' as EmployeeRole, {
+    type: 'hooks',
+    title: 'Weekly hooks — 3 per content piece',
+    description: "Alex generates hooks for this week's content, informed by hook performance data.",
+    notifTitle: "Alex's weekly hooks are ready",
+    notifBody: "Hooks for this week's content, ranked by predicted performance.",
+    dedupDays: 6,
   })
-
-  if (!alexEmployee) {
-    return { triggered: false, reason: 'no_copywriter_employee' }
-  }
-
-  // Check dedup
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const existing = await prisma.task.findFirst({
-    where: { companyId, type: 'hooks', createdAt: { gte: since } },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  if (existing) {
-    return { triggered: false, reason: 'recent_hooks_exist' }
-  }
-
-  const task = await prisma.task.create({
-    data: {
-      companyId,
-      employeeId: alexEmployee.id,
-      title: 'Weekly hooks — 3 per content piece',
-      description: 'Alex generates hooks for this week\'s content, informed by hook performance data.',
-      type: 'hooks',
-      status: 'pending',
-    },
-  })
-
-  await createNotification(prisma, companyId, {
-    title: 'Alex\'s weekly hooks are ready',
-    body: 'Hooks for this week\'s content, ranked by predicted performance.',
-  })
-
-  return { triggered: true, taskId: task.id }
 }
 
 /**
  * Sunday 7:30 PM UTC — Riley's weekly production briefs
- * Reads: Alex's copy + format/pacing data from this week
- * Outputs: "Production direction for each day's content"
  */
 export async function triggerWeeklyRileyBriefs(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  const rileyEmployee = await prisma.employee.findUnique({
-    where: { companyId_role: { companyId, role: 'creative_director' } },
+  return triggerAgentTask(prisma, companyId, 'creative_director' as EmployeeRole, {
+    type: 'shot_list',
+    title: 'Weekly production briefs — optimized direction',
+    description: "Riley creates production direction for this week's content, informed by format/pacing data.",
+    notifTitle: "Riley's weekly production briefs are ready",
+    notifBody: 'Production direction optimized for what worked this week.',
+    dedupDays: 6,
   })
-
-  if (!rileyEmployee) {
-    return { triggered: false, reason: 'no_creative_director_employee' }
-  }
-
-  // Check dedup
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const existing = await prisma.task.findFirst({
-    where: { companyId, type: 'shot_list', createdAt: { gte: since } },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  if (existing) {
-    return { triggered: false, reason: 'recent_briefs_exist' }
-  }
-
-  const task = await prisma.task.create({
-    data: {
-      companyId,
-      employeeId: rileyEmployee.id,
-      title: 'Weekly production briefs — optimized direction',
-      description: 'Riley creates production direction for this week\'s content, informed by format/pacing data.',
-      type: 'shot_list',
-      status: 'pending',
-    },
-  })
-
-  await createNotification(prisma, companyId, {
-    title: 'Riley\'s weekly production briefs are ready',
-    body: 'Production direction optimized for what worked this week.',
-  })
-
-  return { triggered: true, taskId: task.id }
 }

@@ -21,7 +21,6 @@ import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
-import phylloRouter from './routes/phyllo'
 import platformDataRouter from './routes/platformData'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
@@ -105,7 +104,6 @@ app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/memory', memoryRouter)
-app.use('/api/phyllo', phylloRouter)
 app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)
@@ -169,13 +167,11 @@ process.on('uncaughtException', (err) => {
 
 app.listen(PORT, () => {
   const mode = getMode()
-  const phylloHost = process.env.PHYLLO_API_BASE || '(unset)'
   const bedrockOn = !!(process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID)
   const stripeOn = !!process.env.STRIPE_SECRET_KEY
   console.log(`[api] listening on :${PORT}`)
   console.log(`[api] ╔════════════════════════════════════════════════════════════╗`)
   console.log(`[api] ║ MODE: ${String(mode).toUpperCase().padEnd(54)} ║`)
-  console.log(`[api] ║ Phyllo: ${phylloHost.padEnd(52)} ║`)
   console.log(`[api] ║ Bedrock: ${(bedrockOn ? 'enabled' : 'disabled (mocks only)').padEnd(51)} ║`)
   console.log(`[api] ║ Stripe:  ${(stripeOn ? 'enabled' : 'disabled').padEnd(51)} ║`)
   console.log(`[api] ╚════════════════════════════════════════════════════════════╝`)

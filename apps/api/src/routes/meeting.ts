@@ -24,7 +24,7 @@ function formatPlatformBlock(ig: {
   // No real account connected (or only the stub / demo data). Be explicit
   // about it so the agent refuses to invent numbers — a customer caught
   // Maya citing a fake "23% engagement drop" when no account was linked.
-  if (!ig || (ig.source !== 'phyllo' && ig.source !== 'meta')) {
+  if (!ig || ig.source === 'stub') {
     return `
 
 --- Account data ---
@@ -79,8 +79,8 @@ function buildFullPlatformBlock(
   const notConnected: string[] = []
   let block = '\n--- Connected platforms ---\n'
 
-  // Instagram (connected via Phyllo or Meta Graph API)
-  if (ig && (ig.source === 'phyllo' || ig.source === 'meta')) {
+  // Instagram (connected via Meta Graph API)
+  if (ig && ig.source !== 'stub') {
     connected.push('Instagram')
     const topPosts = Array.isArray(ig.topPosts) ? ig.topPosts : []
     const topLine = topPosts[0]
