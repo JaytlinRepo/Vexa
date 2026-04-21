@@ -718,8 +718,8 @@
           </div>
 
           <!-- Captions -->
-          <div>
-            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px">Alex's captions — choose one</div>
+          <div style="max-height:400px;overflow-y:auto">
+            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;position:sticky;top:0;background:var(--s1);padding:4px 0;z-index:1">Alex's captions — choose one</div>
             ${captions.length > 0 ? captions.map((cap, i) => `
               <div style="background:var(--bg);border:${i === 0 ? '2px solid var(--accent)' : '1px solid var(--b1)'};border-radius:8px;padding:12px;margin-bottom:10px">
                 <div style="font-size:13px;font-weight:500;line-height:1.5;color:var(--t1);margin-bottom:4px">"${(cap.text || '').replace(/"/g, '&quot;')}"</div>

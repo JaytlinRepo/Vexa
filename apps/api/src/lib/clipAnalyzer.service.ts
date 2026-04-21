@@ -258,15 +258,20 @@ export async function analyzeAndPickClip(
     editingRules = DEFAULT_EDITING_RULES
   }
 
-  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.5))
+  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.65))
+  const maxSegments = Math.max(3, Math.floor(targetLen / 3)) // roughly 3s per segment
 
   const systemPrompt = `You are Riley, a Creative Director who edits reels. You can SEE the actual video frames.
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
-Your job: build a CapCut-style reel — multiple jump cuts of the BEST visual moments. Cut everything boring.
+Your job: build a CapCut-style reel — multiple jump cuts of ONLY the best visual moments.
 
-TARGET: ~${targetLen}s from this ${videoDuration.toFixed(0)}s video.
+HARD CONSTRAINTS (DO NOT VIOLATE):
+- MAXIMUM OUTPUT: ${targetLen} seconds total. Add up all your segment durations — they MUST total ${targetLen}s or less
+- MAXIMUM SEGMENTS: ${maxSegments} segments
+- EACH SEGMENT: 2-4 seconds. No segment longer than 5 seconds
+- YOU MUST CUT CONTENT. Not everything makes the reel. Be ruthless — only the peak moments survive
 
 ${editingRules}
 

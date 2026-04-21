@@ -2496,16 +2496,11 @@
   </div>
 </section>
 
-<!-- UPLOAD — padded like pipe-wrap -->
-<section style="padding:28px 40px 0">
-  <div id="studio-upload-zone" onclick="document.getElementById('studio-file-input').click()" style="padding:36px;background:var(--s1);border:1px dashed var(--b2);border-radius:10px;text-align:center;cursor:pointer">
-    <div style="font-size:32px;margin-bottom:12px;opacity:.5">📹</div>
-    <div style="font-size:15px;font-weight:500;color:var(--t1);margin-bottom:4px">Drag video here or click to upload</div>
-    <div style="font-size:12px;color:var(--t3);margin-bottom:16px">MP4, MOV, WebM · Up to 2GB · Raw footage welcome</div>
-    <input type="file" id="studio-file-input" accept="video/*" style="display:none">
-    <button class="btn-fill" style="padding:10px 24px;font-size:11px">Choose video</button>
-  </div>
-</section>
+<!-- UPLOAD -->
+<div id="studio-upload-zone" style="padding:0 40px 0;display:inline-block">
+  <input type="file" id="studio-file-input" accept="video/*" style="display:none">
+  <button class="btn-fill" onclick="document.getElementById('studio-file-input').click()" style="padding:10px 20px;font-size:11px;letter-spacing:.04em">Upload video</button>
+</div>
 
 <!-- PROCESSING STATUS (hidden until active) -->
 <div id="studio-processing" style="display:none;padding:20px 40px 0">

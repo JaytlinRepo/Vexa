@@ -123,12 +123,17 @@ export class VideoProcessingService extends EventEmitter {
 
       console.log(`[video] Reel saved to S3: ${clipResult.s3Key} (${clipResult.segmentCount} cuts, ${clipResult.duration}s)`)
 
-      // ── 5. Alex writes captions from the real transcript ────────────
+      // ── 5. Alex writes captions using Riley's visual descriptions ──
+      const visualDescription = clipDecision.segments
+        .map(s => `[${s.energy}] ${s.label}`)
+        .join(' → ')
+      const fullDescription = `${clipDecision.hook}\n\nVisual sequence: ${visualDescription}\n\nRiley's rationale: ${clipDecision.rationale}`
+
       const copyResult = await this.stage('Write captions (Alex)', async () => {
         return this.copywriting.generateCopyOptions({
           companyId: company.id,
           contentType: 'video',
-          contentDescription: clipDecision.hook,
+          contentDescription: fullDescription,
           clipTranscript: clipDecision.transcript,
         })
       })
