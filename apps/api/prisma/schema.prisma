@@ -66,6 +66,9 @@ enum OutputType {
   trend_hooks
   plan_adjustment
   competitor_analysis
+  morning_brief
+  midday_check
+  evening_recap
 }
 
 enum OutputStatus {
