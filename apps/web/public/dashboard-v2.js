@@ -804,6 +804,36 @@
       + '</div>'
   }
 
+  function sectionPerformanceFeedback() {
+    // Show approved outputs that have been linked to posts with performance results
+    const approved = STATE.tasks.filter((t) => t.status === 'approved' && t.outputs && t.outputs[0])
+    const withPerf = approved.filter((t) => t.outputs[0].performedWell != null)
+    if (withPerf.length === 0) return ''
+
+    const items = withPerf.slice(0, 4).map((t) => {
+      const o = t.outputs[0]
+      const well = o.performedWell === true
+      const role = ROLE[t.employee?.role] || { name: 'Team', init: '?' }
+      const icon = well ? '<span style="color:var(--ok,#34d27a)">▲</span>' : '<span style="color:#c76a6a">▼</span>'
+      const label = well ? 'Above average' : 'Below average'
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--b1)">'
+        + '<div style="width:24px;height:24px;border-radius:6px;background:var(--s3);display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--t1);flex-shrink:0">' + role.init + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:11px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
+        + '<div style="font-size:10px;color:var(--t3)">' + icon + ' ' + label + ' · ' + esc(role.name) + '</div>'
+        + '</div></div>'
+    }).join('')
+
+    return `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">LEARNING · HOW YOUR APPROVALS PERFORMED</div>
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px">
+          ${items}
+        </div>
+      </div>
+    `
+  }
+
   function outputPreview(o) {
     if (!o) return ''
     const c = o.content || {}
@@ -1980,6 +2010,7 @@
           ${sectionOverview()}
           ${sectionTeamPulseBanner()}
           ${sectionReviewQueue()}
+          ${sectionPerformanceFeedback()}
           ${''}<!-- team accessible via side tabs -->
           ${sectionPerformance()}
           ${sectionTiktok()}
