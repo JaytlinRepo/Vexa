@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { syncAllConnectedAccounts } from './lib/phylloSync'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { syncInstagramAccount } from './lib/instagramSync'
-import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap } from './lib/proactiveAnalysis'
+import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap, triggerWeeklyMayaPulse, triggerWeeklyJordanPlan, triggerWeeklyAlexHooks, triggerWeeklyRileyBriefs } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 import { getScheduleForCompany, shouldRunNow } from './lib/schedulePrefs'
 
@@ -269,6 +269,88 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
   })
   console.log('[scheduler] registered evening recap at 20:00 UTC')
+
+  // ── Weekly Orchestration ───────────────────────────────────────────────────
+
+  // Sunday 6:00 PM UTC — Maya's weekly pulse
+  cron.schedule('0 18 * * 0', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let triggered = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerWeeklyMayaPulse(prisma, id)
+          if (result.triggered) triggered++
+        } catch (e) {
+          console.error(`[scheduler] weekly Maya pulse failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] weekly Maya pulses: ${triggered}/${companies.length} triggered`)
+    } catch (e) {
+      console.error('[scheduler] weekly Maya pulse batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered weekly Maya pulse at Sunday 18:00 UTC')
+
+  // Sunday 6:30 PM UTC — Jordan's weekly plan
+  cron.schedule('30 18 * * 0', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let triggered = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerWeeklyJordanPlan(prisma, id)
+          if (result.triggered) triggered++
+        } catch (e) {
+          console.error(`[scheduler] weekly Jordan plan failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] weekly Jordan plans: ${triggered}/${companies.length} triggered`)
+    } catch (e) {
+      console.error('[scheduler] weekly Jordan plan batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered weekly Jordan plan at Sunday 18:30 UTC')
+
+  // Sunday 7:00 PM UTC — Alex's weekly hooks
+  cron.schedule('0 19 * * 0', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let triggered = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerWeeklyAlexHooks(prisma, id)
+          if (result.triggered) triggered++
+        } catch (e) {
+          console.error(`[scheduler] weekly Alex hooks failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] weekly Alex hooks: ${triggered}/${companies.length} triggered`)
+    } catch (e) {
+      console.error('[scheduler] weekly Alex hooks batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered weekly Alex hooks at Sunday 19:00 UTC')
+
+  // Sunday 7:30 PM UTC — Riley's weekly production briefs
+  cron.schedule('30 19 * * 0', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let triggered = 0
+      for (const { id } of companies) {
+        try {
+          const result = await triggerWeeklyRileyBriefs(prisma, id)
+          if (result.triggered) triggered++
+        } catch (e) {
+          console.error(`[scheduler] weekly Riley briefs failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      console.log(`[scheduler] weekly Riley briefs: ${triggered}/${companies.length} triggered`)
+    } catch (e) {
+      console.error('[scheduler] weekly Riley briefs batch failed:', e)
+    }
+  })
+  console.log('[scheduler] registered weekly Riley briefs at Sunday 19:30 UTC')
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {
