@@ -363,3 +363,178 @@ export async function detectAnomalies(
   // Flag if post is 2x+ average engagement
   return []
 }
+
+// ─── WEEKLY DATA AGGREGATION ──────────────────────────────────────────────────
+
+export interface WeeklyMetrics {
+  weekStart: Date
+  weekEnd: Date
+  totalReach: number
+  totalEngagement: number
+  avgEngagementRate: number
+  totalPosts: number
+  followerDelta: number
+}
+
+export interface FormatPerformance {
+  format: string
+  count: number
+  avgEngagementRate: number
+  avgReach: number
+  totalEngagement: number
+}
+
+export interface HookPerformance {
+  hookType: string
+  count: number
+  avgEngagementRate: number
+  avgReach: number
+}
+
+export interface CohortPerformance {
+  cohort: string
+  engagementRate: number
+  engagementCount: number
+  percentage: number
+}
+
+export interface TimingPattern {
+  day: string
+  time: string
+  avgEngagementRate: number
+  postsCount: number
+}
+
+export interface WeeklyData {
+  metrics: WeeklyMetrics
+  formatPerformance: FormatPerformance[]
+  hookPerformance: HookPerformance[]
+  cohortPerformance: CohortPerformance[]
+  timingPatterns: TimingPattern[]
+  topPost: PostPerformance
+  worstPost?: PostPerformance
+  bestDay: string
+  bestTime: string
+  trajectory: 'accelerating' | 'stable' | 'declining'
+}
+
+/**
+ * Get weekly aggregated data (Sunday recap data)
+ * This is what Maya reads for her weekly pulse, informing all downstream agents
+ */
+export async function getWeeklyData(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<WeeklyData> {
+  // Calculate week boundaries (Sunday to Saturday)
+  const today = new Date()
+  const dayOfWeek = today.getUTCDay()
+  const weekStart = new Date(today)
+  weekStart.setUTCDate(weekStart.getUTCDate() - dayOfWeek)
+  weekStart.setUTCHours(0, 0, 0, 0)
+
+  const weekEnd = new Date(weekStart)
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6)
+  weekEnd.setUTCHours(23, 59, 59, 999)
+
+  // Fetch this week's posts
+  const posts = await prisma.platformPost.findMany({
+    where: {
+      account: { companyId },
+      publishedAt: { gte: weekStart, lte: weekEnd },
+    },
+  })
+
+  // Compute metrics
+  const metrics: WeeklyMetrics = {
+    weekStart,
+    weekEnd,
+    totalReach: posts.reduce((sum, p) => sum + p.reachCount, 0),
+    totalEngagement: posts.reduce(
+      (sum, p) => sum + p.likeCount + p.commentCount + p.shareCount + p.saveCount,
+      0,
+    ),
+    avgEngagementRate: posts.length > 0
+      ? posts.reduce((sum, p) => sum + (p.engagementRate || 0), 0) / posts.length
+      : 0,
+    totalPosts: posts.length,
+    followerDelta: 0, // TODO: Compare follower count start vs end of week
+  }
+
+  // Format performance (Reel vs Carousel vs Image, etc.)
+  const formatMap = new Map<string, FormatPerformance>()
+  posts.forEach(post => {
+    const format = post.format || 'unknown'
+    const existing = formatMap.get(format) || {
+      format,
+      count: 0,
+      avgEngagementRate: 0,
+      avgReach: 0,
+      totalEngagement: 0,
+    }
+    existing.count++
+    existing.totalEngagement += post.likeCount + post.commentCount + post.shareCount + post.saveCount
+    existing.avgReach = existing.totalEngagement / existing.count
+    formatMap.set(format, existing)
+  })
+  const formatPerformance = Array.from(formatMap.values())
+
+  // Hook performance (curiosity vs urgency vs relatability)
+  // TODO: Parse hooks from outputs and track performance
+  const hookPerformance: HookPerformance[] = []
+
+  // Cohort performance
+  // TODO: Aggregate from audience data
+  const cohortPerformance: CohortPerformance[] = []
+
+  // Timing patterns
+  const timingMap = new Map<string, TimingPattern>()
+  posts.forEach(post => {
+    const day = post.publishedAt.toLocaleDateString('en-US', { weekday: 'long' })
+    const time = `${post.publishedAt.getUTCHours()}:00`
+    const key = `${day}_${time}`
+    const existing = timingMap.get(key) || {
+      day,
+      time,
+      avgEngagementRate: 0,
+      postsCount: 0,
+    }
+    existing.postsCount++
+    timingMap.set(key, existing)
+  })
+  const timingPatterns = Array.from(timingMap.values())
+
+  // Top/worst posts
+  const topPost = posts.reduce((best, curr) =>
+    (curr.likeCount + curr.commentCount + curr.shareCount > best.likeCount + best.commentCount + best.shareCount)
+      ? curr
+      : best,
+  posts[0] || ({} as any))
+
+  return {
+    metrics,
+    formatPerformance,
+    hookPerformance,
+    cohortPerformance,
+    timingPatterns,
+    topPost: topPost ? {
+      id: topPost.id,
+      platform: 'unknown',
+      caption: topPost.caption || '',
+      publishedAt: topPost.publishedAt,
+      metrics: {
+        reach: topPost.reachCount,
+        engagement: topPost.likeCount + topPost.commentCount + topPost.shareCount + topPost.saveCount,
+        engagementRate: topPost.engagementRate || 0,
+        saves: topPost.saveCount,
+        comments: topPost.commentCount,
+        likes: topPost.likeCount,
+      },
+      vsAverage: '+0%',
+      topCohort: { name: 'Unknown', percentage: 0 },
+    } : undefined as any,
+    bestDay: timingPatterns[0]?.day || 'Unknown',
+    bestTime: timingPatterns[0]?.time || 'Unknown',
+    trajectory: 'stable',
+  }
+}
