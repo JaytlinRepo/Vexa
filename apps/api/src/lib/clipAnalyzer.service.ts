@@ -8,6 +8,7 @@
  * - Outputs a shot list of timestamps that FFmpeg stitches into a reel
  */
 
+import { PrismaClient } from '@prisma/client'
 import { invokeAgent, parseAgentOutput } from '../services/bedrock/bedrock.service'
 import { TranscriptionResult } from './transcribe.service'
 import { SceneAnalysis } from './sceneDetection.service'
@@ -32,6 +33,31 @@ export interface ClipDecision {
  * Riley analyzes the video using VISION (keyframes) + audio (transcript) + motion data.
  * This is the full-picture analysis — Riley can actually see what's happening.
  */
+/**
+ * Fetch past editorial feedback from brand memory so Riley learns user preferences.
+ */
+async function getUserEditingPreferences(prisma: PrismaClient, companyId: string): Promise<string> {
+  const memories = await prisma.brandMemory.findMany({
+    where: {
+      companyId,
+      content: { path: ['source'], equals: 'studio' },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 15,
+  })
+
+  if (memories.length === 0) return ''
+
+  const lines = memories.map(m => {
+    const c = m.content as any
+    return `- ${c.summary}`
+  })
+
+  return `\nUSER EDITING PREFERENCES (learned from past approvals/rejections):
+${lines.join('\n')}
+Use these to guide your editing decisions. If the user has rejected certain types of shots before, avoid them. If they've approved certain styles, lean into them.`
+}
+
 export async function analyzeAndPickClip(
   transcript: TranscriptionResult,
   videoDuration: number,
@@ -39,6 +65,7 @@ export async function analyzeAndPickClip(
   companyId: string | undefined,
   sceneData: SceneAnalysis | undefined,
   frames: ExtractedFrame[],
+  prisma?: PrismaClient,
 ): Promise<ClipDecision> {
   // Very short video — use the whole thing
   if (videoDuration <= 10) {
@@ -94,15 +121,22 @@ You're looking at ${frames.length} keyframes extracted from a ${videoDuration.to
 Your job: build a CapCut-style reel — multiple jump cuts of the BEST visual moments. Cut everything boring.
 
 CRITICAL RULES:
-1. LOOK AT THE FRAMES — they show you what's actually happening. A "silent" moment might be visually stunning
-2. HOOK FIRST — start with the most visually striking or emotionally compelling moment (NOT necessarily the beginning)
-3. CUT DEAD MOMENTS — if a frame shows nothing happening (idle, blank, setup), cut that time range
-4. KEEP VISUAL ACTION — movement, expressions, reveals, transformations, reactions — but only the PEAK 2-4 seconds of each
-5. EVERY SEGMENT MUST BE 2-5 SECONDS — this is a reel, not a long-form video. Think TikTok/IG Reels pacing. No segment longer than 5 seconds. Trim to the peak moment of each action
-6. TARGET ~${Math.min(targetDuration, Math.floor(videoDuration * 0.5))}s TOTAL — the output should be roughly HALF the input length or less. Aim for ${Math.min(targetDuration, Math.floor(videoDuration * 0.5))}s from this ${videoDuration.toFixed(0)}s video
-7. FAST CUTS — CapCut style. Each cut should show ONE action/moment then jump to the next. Don't linger
-8. If the entire video is action-packed, still trim each moment to its 2-3 second peak. An establishing shot needs 2 seconds, not 8. A reaction needs 1-2 seconds. Loading something needs 2-3 seconds
-9. REORDER FOR IMPACT — the chronological order is NOT sacred. Put the most visually striking moment first as the hook, then arrange for energy flow
+
+WHAT TO PRIORITIZE (in order):
+1. HUMAN ACTIONS — a person doing something is ALWAYS more interesting than scenery. Closing a door, picking something up, a gesture, a reaction, walking, reaching, handing something to someone. These are the moments that make reels feel alive. NEVER skip a human action
+2. INTERACTIONS — people with pets, people with other people, hands touching objects. Connection moments are gold
+3. REVEALS & TRANSITIONS — opening/closing things, entering/exiting frame, before/after moments
+4. EMOTIONAL BEATS — facial expressions, body language shifts, laughter, surprise
+5. ESTABLISHING CONTEXT — scenery, objects, locations. Important but only needs 1-2 seconds
+
+HOW TO EDIT:
+1. HOOK FIRST — start with the most visually striking HUMAN ACTION (not scenery, not an establishing shot)
+2. EVERY SEGMENT 2-5 SECONDS — this is a reel. One action per cut, then jump
+3. TARGET ~${Math.min(targetDuration, Math.floor(videoDuration * 0.5))}s TOTAL — roughly HALF the input or less
+4. SCAN EVERY FRAME — if you see a person doing ANY action between two frames (e.g. frame at 0:24 shows trunk open, frame at 0:26 shows trunk closed), that action happened between those timestamps. INCLUDE IT
+5. CUT DEAD MOMENTS — standing still, empty scenery, idle waiting. These get cut
+6. REORDER FOR IMPACT — chronological order is NOT sacred. Best moment first
+7. ESTABLISHING SHOTS = 1-2 SECONDS MAX — just enough context, then cut to action
 
 Respond in valid JSON only:
 {
@@ -112,6 +146,12 @@ Respond in valid JSON only:
   "hook": "string (describe the opening visual — what grabs attention first)",
   "rationale": "string (why you chose these cuts — reference what you SAW in the frames)"
 }`
+
+  // Fetch user's editing preferences from past approvals/rejections
+  let preferencesSection = ''
+  if (prisma && companyId) {
+    preferencesSection = await getUserEditingPreferences(prisma, companyId)
+  }
 
   // Build the message content with interleaved frames and text
   const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = []
@@ -123,6 +163,7 @@ Respond in valid JSON only:
 ${hasSpeech ? `Speech: ${transcript.words.length} words` : 'No meaningful speech — visual content only'}
 ${transcriptSection}
 ${sceneSection}
+${preferencesSection}
 
 Here are the keyframes from the video. Each frame is labeled with its timestamp. Look at what's happening visually to decide what to keep and cut:`
   })

@@ -104,6 +104,7 @@ export class VideoProcessingService extends EventEmitter {
           company.id,
           sceneData,
           frames,
+          this.prisma,
         )
         console.log(`[video] Riley picked ${decision.segments.length} segments, ${decision.totalDuration.toFixed(1)}s total — hook: "${decision.hook}"`)
         return decision
