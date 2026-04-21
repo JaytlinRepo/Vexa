@@ -257,4 +257,31 @@ router.get('/overview', requireAuth, async (req, res, next) => {
   }
 })
 
+/**
+ * GET /api/platform/forecast — latest Bedrock narrative forecast
+ */
+router.get('/forecast', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({ where: { userId } })
+    if (!company) { res.json({ forecast: null }); return }
+
+    // Find the latest forecast memory
+    const memory = await prisma.brandMemory.findFirst({
+      where: {
+        companyId: company.id,
+        content: { path: ['tags'], array_contains: 'forecast' },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    res.json({
+      forecast: memory ? (memory.content as { summary?: string }).summary || null : null,
+      generatedAt: memory?.createdAt || null,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router

@@ -313,3 +313,82 @@ export async function captureDailyEngagement(
     },
   })
 }
+
+/**
+ * Generate a Bedrock narrative forecast from the account's time series data.
+ * Stores the result in the company's brand memory so agents and the dashboard
+ * can reference it. Runs once per day after daily sync.
+ */
+export async function generateNarrativeForecast(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<string> {
+  // Gather data
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { platform: true, handle: true },
+  })
+  const snapshots = await prisma.platformSnapshot.findMany({
+    where: { account: { companyId } },
+    orderBy: { capturedAt: 'asc' },
+    take: 60,
+    select: { capturedAt: true, followerCount: true, engagementRate: true, avgReach: true },
+  })
+  const dailyEng = await prisma.dailyEngagement.findMany({
+    where: { companyId },
+    orderBy: { date: 'asc' },
+    take: 30,
+  })
+  const posts = await prisma.platformPost.findMany({
+    where: { account: { companyId } },
+    orderBy: { publishedAt: 'desc' },
+    take: 20,
+    select: { mediaType: true, likeCount: true, commentCount: true, saveCount: true, shareCount: true, reachCount: true, engagementRate: true, publishedAt: true, avgWatchTimeMs: true },
+  })
+
+  const platformList = accounts.map(a => `${a.platform} @${a.handle}`).join(', ')
+  const latestSnap = snapshots[snapshots.length - 1]
+  const earliestSnap = snapshots[0]
+  const followerGrowth = latestSnap && earliestSnap ? latestSnap.followerCount - earliestSnap.followerCount : 0
+  const daysCovered = snapshots.length
+
+  // Build prompt
+  const dataBlock = `
+Connected platforms: ${platformList}
+Follower snapshots (${daysCovered} days): ${earliestSnap?.followerCount?.toLocaleString() || '?'} → ${latestSnap?.followerCount?.toLocaleString() || '?'} (${followerGrowth >= 0 ? '+' : ''}${followerGrowth})
+Latest engagement rate: ${latestSnap?.engagementRate ? (latestSnap.engagementRate < 1 ? (latestSnap.engagementRate * 100).toFixed(1) : latestSnap.engagementRate.toFixed(1)) + '%' : 'unknown'}
+Latest avg reach: ${latestSnap?.avgReach?.toLocaleString() || 'unknown'}
+Daily engagement snapshots: ${dailyEng.length} days tracked
+Recent posts (${posts.length}):
+${posts.slice(0, 10).map(p => `  ${p.mediaType} — ${p.likeCount} likes, ${p.commentCount} comments, ${p.saveCount} saves, ${p.reachCount} reach, eng=${(p.engagementRate * 100).toFixed(1)}%${p.avgWatchTimeMs ? ', watch=' + (p.avgWatchTimeMs/1000).toFixed(1) + 's' : ''}`).join('\n')}
+`.trim()
+
+  const systemPrompt = `You are Maya, a data analyst for a social media creator. Analyze their account data and write a 2-3 sentence growth forecast. Be specific with numbers. Mention what's driving growth or holding it back. End with one actionable recommendation. No fluff, no generic advice — reference their actual data. Write in first person as Maya speaking to the CEO.`
+
+  try {
+    const { invokeAgent } = await import('../services/bedrock/bedrock.service')
+    const response = await invokeAgent({
+      systemPrompt,
+      messages: [{ role: 'user', content: dataBlock }],
+      maxTokens: 200,
+    })
+
+    // Store in brand memory
+    const { writeMemory } = await import('./brandMemory')
+    await writeMemory(prisma, {
+      companyId,
+      type: 'performance',
+      weight: 1.5,
+      content: {
+        source: 'performance_tracking',
+        summary: response.trim(),
+        tags: ['forecast', 'maya', 'daily'],
+      },
+    })
+
+    return response.trim()
+  } catch (err) {
+    console.warn('[forecast] Bedrock narrative failed:', (err as Error).message?.slice(0, 100))
+    return ''
+  }
+}

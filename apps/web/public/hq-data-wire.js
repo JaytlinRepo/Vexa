@@ -167,6 +167,9 @@
     // ── ENGAGEMENT + RETENTION CARDS ──
     populateEngRetCards(S)
 
+    // ── FORECAST CHARTS ──
+    populateForecastCharts(S)
+
     // ── POSTS TABLE ──
     if (ov && ov.topPost) {
       populatePostsTable(S)
@@ -454,12 +457,11 @@
         if (v) v.innerHTML = '<em>' + avgWatch.toFixed(1) + '</em>s'
         if (d) d.innerHTML = reels.length + ' Reels tracked'
 
-        // Update ring chart
+        // Update ring chart — show avg watch as proportion of 15s (typical Reel)
         var ring = retCard.querySelector('.ring svg')
         if (ring) {
-          // Show as proportion of 15s (typical short Reel)
           var pct = Math.min(100, Math.round(avgWatch / 15 * 100))
-          var circumference = 2 * Math.PI * 22 // r=22
+          var circumference = 2 * Math.PI * 22
           var offset = circumference - (pct / 100 * circumference)
           var accentCircle = ring.querySelectorAll('circle')[1]
           if (accentCircle) {
@@ -468,6 +470,261 @@
           }
           var text = ring.querySelector('text')
           if (text) text.textContent = avgWatch.toFixed(1) + 's'
+        }
+        // Ring label — show best and worst performing Reel
+        var ringLabel = document.getElementById('watch-ring-label')
+        if (ringLabel && reels.length > 0) {
+          var sorted = reels.slice().sort(function(a,b) { return b.avgWatchTimeMs - a.avgWatchTimeMs })
+          var best = sorted[0]
+          var worst = sorted[sorted.length - 1]
+          var bestTime = (best.avgWatchTimeMs / 1000).toFixed(1)
+          var worstTime = (worst.avgWatchTimeMs / 1000).toFixed(1)
+          ringLabel.innerHTML = 'Best: ' + bestTime + 's<br/>Lowest: ' + worstTime + 's'
+        }
+      }
+    })
+  }
+
+  function populateForecastCharts(S) {
+    get('/api/platform/timeseries').then(function (ts) {
+      if (!ts) return
+      var snaps = ts.snapshots || []
+      var posts = ts.posts || []
+
+      // ═══ 1. FOLLOWER GROWTH FORECAST (Exponential Smoothing) ═══
+      var forecastEl = document.getElementById('forecast-chart')
+      var milestonesEl = document.getElementById('forecast-milestones')
+      if (forecastEl && snaps.length >= 2) {
+        // Group snapshots by date → total followers
+        var byDate = {}
+        snaps.forEach(function(s) {
+          var d = s.capturedAt.slice(0, 10)
+          byDate[d] = (byDate[d] || 0) + s.followerCount
+        })
+        var dates = Object.keys(byDate).sort()
+        var values = dates.map(function(d) { return byDate[d] })
+
+        // Double exponential smoothing (Holt's method)
+        // Captures both level and trend, weights recent data more
+        var alpha = 0.3 // level smoothing (higher = more reactive to recent changes)
+        var beta = 0.2  // trend smoothing (higher = trend changes faster)
+        var level = values[0]
+        var trend = values.length > 1 ? (values[1] - values[0]) : 0
+        var smoothed = [level]
+        for (var si = 1; si < values.length; si++) {
+          var prevLevel = level
+          level = alpha * values[si] + (1 - alpha) * (prevLevel + trend)
+          trend = beta * (level - prevLevel) + (1 - beta) * trend
+          smoothed.push(level)
+        }
+
+        var first = values[0]
+        var last = values[values.length - 1]
+
+        // Project 30 days using the smoothed trend
+        var projected = []
+        for (var i = 1; i <= 30; i++) {
+          projected.push(Math.round(level + trend * i))
+        }
+        var rate = trend // daily rate from smoothed model
+
+        // Draw SVG
+        var allVals = values.concat(projected)
+        var minV = Math.min.apply(null, allVals) * 0.98
+        var maxV = Math.max.apply(null, allVals) * 1.02
+        var w = 500, h = 160, pad = 30
+        var totalPts = allVals.length
+        var xScale = function(i) { return pad + (i / (totalPts - 1)) * (w - pad * 2) }
+        var yScale = function(v) { return h - pad - ((v - minV) / (maxV - minV)) * (h - pad * 2) }
+
+        // Actual line
+        var actualPath = values.map(function(v, i) { return (i === 0 ? 'M' : 'L') + xScale(i).toFixed(1) + ',' + yScale(v).toFixed(1) }).join(' ')
+        // Projected line (dotted)
+        var projPath = 'M' + xScale(values.length - 1).toFixed(1) + ',' + yScale(last).toFixed(1)
+        projected.forEach(function(v, i) { projPath += ' L' + xScale(values.length + i).toFixed(1) + ',' + yScale(v).toFixed(1) })
+
+        // Grid lines
+        var gridLines = ''
+        for (var g = 0; g < 4; g++) {
+          var gy = pad + g * (h - pad * 2) / 3
+          var gv = maxV - g * (maxV - minV) / 3
+          gridLines += '<line x1="' + pad + '" y1="' + gy + '" x2="' + (w - pad) + '" y2="' + gy + '" stroke="var(--b1)" stroke-dasharray="2 3"/>'
+          gridLines += '<text x="' + (pad - 4) + '" y="' + (gy + 3) + '" text-anchor="end" fill="var(--t3)" font-family="JetBrains Mono" font-size="9">' + fmt(Math.round(gv)) + '</text>'
+        }
+
+        // Divider line between actual and projected
+        var divX = xScale(values.length - 1)
+
+        forecastEl.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%">' +
+          gridLines +
+          '<line x1="' + divX + '" y1="' + pad + '" x2="' + divX + '" y2="' + (h - pad) + '" stroke="var(--b2)" stroke-dasharray="4 4"/>' +
+          '<text x="' + (divX + 4) + '" y="' + (pad + 10) + '" fill="var(--t3)" font-family="Inter" font-size="9">FORECAST</text>' +
+          '<path d="' + actualPath + '" fill="none" stroke="var(--t1)" stroke-width="2"/>' +
+          '<path d="' + projPath + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/>' +
+          '<circle cx="' + xScale(0) + '" cy="' + yScale(first) + '" r="3" fill="var(--t1)"/>' +
+          '<circle cx="' + xScale(values.length - 1) + '" cy="' + yScale(last) + '" r="3" fill="var(--t1)"/>' +
+          '<circle cx="' + xScale(totalPts - 1) + '" cy="' + yScale(projected[projected.length - 1]) + '" r="3" fill="var(--accent)"/>' +
+        '</svg>'
+
+        // Milestones
+        if (milestonesEl) {
+          var p30 = Math.round(last + rate * 30)
+          var p60 = Math.round(last + rate * 60)
+          var p90 = Math.round(last + rate * 90)
+          var next1k = Math.ceil(last / 1000) * 1000
+          var daysTo1k = rate > 0 ? Math.ceil((next1k - last) / rate) : 0
+          milestonesEl.innerHTML = '<div style="display:flex;gap:16px;font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3)">' +
+            '<span>+30d: <span style="color:var(--t1)">' + fmt(p30) + '</span></span>' +
+            '<span>+60d: <span style="color:var(--t1)">' + fmt(p60) + '</span></span>' +
+            '<span>+90d: <span style="color:var(--t1)">' + fmt(p90) + '</span></span>' +
+            (daysTo1k > 0 && daysTo1k < 365 ? '<span>' + fmt(next1k) + ' in <span style="color:var(--accent)">' + daysTo1k + 'd</span></span>' : '') +
+          '</div>'
+
+          // Fetch Bedrock narrative forecast
+          get('/api/platform/forecast').then(function(f) {
+            if (f && f.forecast) {
+              milestonesEl.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--b1);font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5;font-style:italic">' + esc(f.forecast) + '</div>'
+            }
+          })
+        }
+      }
+
+      // ═══ 2. BEST TIME TO POST HEATMAP ═══
+      var heatmapEl = document.getElementById('heatmap-chart')
+      if (heatmapEl && posts.length > 0) {
+        var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        var hours = [6, 8, 10, 12, 14, 16, 18, 20, 22] // relevant posting hours
+        var grid = {} // 'dow-hour' → [engRates]
+        posts.forEach(function(p) {
+          if (!p.publishedAt || !p.engagementRate || p.engagementRate > 1) return
+          var dt = new Date(p.publishedAt)
+          var dow = dt.getUTCDay()
+          var hr = dt.getUTCHours()
+          // Bucket to nearest even hour
+          var bucket = hours.reduce(function(prev, curr) { return Math.abs(curr - hr) < Math.abs(prev - hr) ? curr : prev })
+          var key = dow + '-' + bucket
+          if (!grid[key]) grid[key] = []
+          grid[key].push(p.engagementRate)
+        })
+
+        // Find max for color scaling
+        var maxEng = 0
+        Object.values(grid).forEach(function(arr) {
+          var avg = arr.reduce(function(s,v){return s+v},0) / arr.length
+          if (avg > maxEng) maxEng = avg
+        })
+
+        var cellW = 36, cellH = 24, padL = 32, padT = 20
+        var svgW = padL + hours.length * cellW + 10
+        var svgH = padT + 7 * cellH + 10
+        var bestSlot = null, bestAvg = 0
+
+        var cells = ''
+        for (var dow = 0; dow < 7; dow++) {
+          // Day label
+          cells += '<text x="' + (padL - 4) + '" y="' + (padT + dow * cellH + cellH / 2 + 3) + '" text-anchor="end" fill="var(--t3)" font-family="JetBrains Mono" font-size="9">' + dayNames[dow] + '</text>'
+          for (var hi = 0; hi < hours.length; hi++) {
+            var key = dow + '-' + hours[hi]
+            var arr = grid[key] || []
+            var avg = arr.length > 0 ? arr.reduce(function(s,v){return s+v},0) / arr.length : 0
+            var opacity = maxEng > 0 ? Math.max(0.05, avg / maxEng) : 0.05
+            if (avg > bestAvg) { bestAvg = avg; bestSlot = dayNames[dow] + ' ' + hours[hi] + ':00' }
+            cells += '<rect x="' + (padL + hi * cellW) + '" y="' + (padT + dow * cellH) + '" width="' + (cellW - 2) + '" height="' + (cellH - 2) + '" rx="3" fill="var(--accent)" opacity="' + opacity.toFixed(2) + '"/>'
+            if (arr.length > 0) {
+              cells += '<text x="' + (padL + hi * cellW + cellW / 2 - 1) + '" y="' + (padT + dow * cellH + cellH / 2 + 3) + '" text-anchor="middle" fill="var(--t1)" font-family="JetBrains Mono" font-size="8" opacity="' + (opacity > 0.3 ? 1 : 0.5) + '">' + arr.length + '</text>'
+            }
+          }
+        }
+        // Hour labels
+        for (var hi = 0; hi < hours.length; hi++) {
+          var hr12 = hours[hi] > 12 ? (hours[hi] - 12) + 'p' : hours[hi] + 'a'
+          cells += '<text x="' + (padL + hi * cellW + cellW / 2 - 1) + '" y="' + (padT - 6) + '" text-anchor="middle" fill="var(--t3)" font-family="JetBrains Mono" font-size="8">' + hr12 + '</text>'
+        }
+
+        heatmapEl.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:100%">' + cells + '</svg>' +
+          (bestSlot ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3);margin-top:6px">Best slot: <span style="color:var(--accent)">' + bestSlot + '</span></div>' : '')
+      }
+
+      // ═══ 3. ENGAGEMENT DECAY CURVE ═══
+      var decayEl = document.getElementById('decay-chart')
+      var decayInsight = document.getElementById('decay-insight')
+      if (decayEl && posts.length > 0) {
+        // Group posts by age bucket and compute avg engagement per bucket
+        var now = Date.now()
+        var buckets = [
+          { label: '0-7d', min: 0, max: 7 },
+          { label: '1-2w', min: 7, max: 14 },
+          { label: '2-4w', min: 14, max: 30 },
+          { label: '1-2m', min: 30, max: 60 },
+          { label: '2-4m', min: 60, max: 120 },
+          { label: '4-6m', min: 120, max: 180 },
+          { label: '6-12m', min: 180, max: 365 },
+          { label: '1y+', min: 365, max: 9999 },
+        ]
+
+        var bucketData = buckets.map(function(b) {
+          var inBucket = posts.filter(function(p) {
+            if (!p.publishedAt || !p.engagementRate || p.engagementRate > 1) return false
+            var age = (now - new Date(p.publishedAt).getTime()) / 86400000
+            return age >= b.min && age < b.max
+          })
+          var avg = inBucket.length > 0 ? inBucket.reduce(function(s,p) { return s + p.engagementRate }, 0) / inBucket.length : 0
+          return { label: b.label, avg: avg, count: inBucket.length }
+        }).filter(function(b) { return b.count > 0 })
+
+        if (bucketData.length >= 2) {
+          var maxAvg = Math.max.apply(null, bucketData.map(function(b) { return b.avg }))
+          var w = 500, h = 140, pad = 40
+          var barW = Math.min(50, (w - pad * 2) / bucketData.length - 4)
+
+          var bars = bucketData.map(function(b, i) {
+            var x = pad + i * ((w - pad * 2) / bucketData.length) + ((w - pad * 2) / bucketData.length - barW) / 2
+            var barH = maxAvg > 0 ? (b.avg / maxAvg) * (h - pad * 2) : 0
+            var y = h - pad - barH
+            var opacity = 1 - (i / bucketData.length) * 0.5
+            return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="3" fill="var(--accent)" opacity="' + opacity.toFixed(2) + '"/>' +
+              '<text x="' + (x + barW / 2) + '" y="' + (h - pad + 14) + '" text-anchor="middle" fill="var(--t3)" font-family="JetBrains Mono" font-size="8">' + b.label + '</text>' +
+              '<text x="' + (x + barW / 2) + '" y="' + (y - 4) + '" text-anchor="middle" fill="var(--t2)" font-family="JetBrains Mono" font-size="9">' + (b.avg * 100).toFixed(0) + '%</text>'
+          }).join('')
+
+          // Trend line connecting bar tops
+          var trendPath = bucketData.map(function(b, i) {
+            var x = pad + i * ((w - pad * 2) / bucketData.length) + ((w - pad * 2) / bucketData.length) / 2
+            var barH = maxAvg > 0 ? (b.avg / maxAvg) * (h - pad * 2) : 0
+            var y = h - pad - barH
+            return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1)
+          }).join(' ')
+
+          decayEl.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">' +
+            '<path d="' + trendPath + '" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-dasharray="3 2"/>' +
+            bars +
+          '</svg>'
+
+          // Compute half-life: how many days until engagement drops to 50%
+          if (decayInsight && bucketData.length >= 2) {
+            var newest = bucketData[0]
+            var oldest = bucketData[bucketData.length - 1]
+            var dropPct = newest.avg > 0 ? Math.round((1 - oldest.avg / newest.avg) * 100) : 0
+
+            // Exponential decay fit: eng(t) = A * e^(-λt)
+            // Half-life = ln(2) / λ
+            var midBucket = bucketData[Math.floor(bucketData.length / 2)]
+            var t1 = 7 // approx days for first bucket midpoint
+            var t2 = 90 // approx days for mid bucket
+            var lambda = 0
+            if (newest.avg > 0 && midBucket.avg > 0 && midBucket.avg < newest.avg) {
+              lambda = Math.log(newest.avg / midBucket.avg) / (t2 - t1)
+            }
+            var halfLife = lambda > 0 ? Math.round(0.693 / lambda) : 0
+
+            var isEvergreen = dropPct < 40
+            var halfLifeNote = halfLife > 0 ? ' Half-life: ~' + halfLife + ' days.' : ''
+            decayInsight.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5">' +
+              (isEvergreen
+                ? 'Your content has a long tail — older posts still pull ' + (oldest.avg * 100).toFixed(0) + '% engagement. The algorithm keeps surfacing your work.' + halfLifeNote
+                : 'Engagement drops ' + dropPct + '% over time.' + halfLifeNote + ' Try posting save-worthy tips, series, or lists — they hold engagement longer.') +
+            '</div>'
+          }
         }
       }
     })

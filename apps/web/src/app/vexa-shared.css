@@ -1715,3 +1715,10 @@ body::before{
 .opportunity-section{background:transparent;border-left:2px solid var(--accent);padding:4px 0 4px 12px;border-radius:0}
 .learning-item,.recommendation-item{background:transparent;border:none;border-bottom:1px solid var(--b1);border-radius:0;padding:6px 0;margin-bottom:0;font-size:11px;color:var(--t2);line-height:1.45}
 .best-post-section .post-card{background:transparent;border:none;padding:0}
+
+/* ─── Info tooltips ─────────────────────────────── */
+[data-tip]{position:relative;cursor:help}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--t1);color:var(--bg);font-family:'Inter',sans-serif;font-size:11px;font-weight:400;line-height:1.45;letter-spacing:normal;text-transform:none;padding:10px 14px;border-radius:8px;width:max-content;max-width:260px;white-space:normal;opacity:0;pointer-events:none;transition:opacity .15s;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+[data-tip]:hover::after{opacity:1}
+[data-tip]::before{content:'';position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--t1);opacity:0;pointer-events:none;transition:opacity .15s;z-index:100}
+[data-tip]:hover::before{opacity:1}

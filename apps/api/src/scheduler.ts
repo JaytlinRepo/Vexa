@@ -80,6 +80,12 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
             const { captureDailyEngagement } = await import('./lib/metricTracking')
             await captureDailyEngagement(prisma, id)
           } catch {}
+          // Generate Bedrock narrative forecast (once per day)
+          try {
+            const { generateNarrativeForecast } = await import('./lib/metricTracking')
+            const forecast = await generateNarrativeForecast(prisma, id)
+            if (forecast) console.log(`[scheduler] forecast for ${id}: ${forecast.slice(0, 80)}...`)
+          } catch {}
         }
       } catch {}
     } catch (err) {
