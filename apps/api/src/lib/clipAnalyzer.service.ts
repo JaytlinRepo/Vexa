@@ -34,28 +34,85 @@ export interface ClipDecision {
  * This is the full-picture analysis — Riley can actually see what's happening.
  */
 /**
- * Fetch past editorial feedback from brand memory so Riley learns user preferences.
+ * Fetch past editorial feedback from brand memory, filtered by relevance to current video.
+ * Two queries: (1) feedback matching visual keywords in this video, (2) general editing preferences.
  */
-async function getUserEditingPreferences(prisma: PrismaClient, companyId: string): Promise<string> {
-  const memories = await prisma.brandMemory.findMany({
+async function getUserEditingPreferences(
+  prisma: PrismaClient,
+  companyId: string,
+  currentFrameDescriptions?: string[],
+): Promise<string> {
+  // Get ALL studio feedback for this company
+  const allFeedback = await prisma.brandMemory.findMany({
     where: {
       companyId,
       content: { path: ['source'], equals: 'studio' },
     },
-    orderBy: { createdAt: 'desc' },
-    take: 15,
+    orderBy: [{ weight: 'desc' }, { createdAt: 'desc' }],
+    take: 100, // Get a lot, then filter by relevance
   })
 
-  if (memories.length === 0) return ''
+  if (allFeedback.length === 0) return ''
 
-  const lines = memories.map(m => {
+  // Extract keywords from current video's frame context
+  const currentContext = (currentFrameDescriptions || []).join(' ').toLowerCase()
+
+  // Score each memory by relevance to current video
+  const scored = allFeedback.map(m => {
     const c = m.content as any
-    return `- ${c.summary}`
+    const tags: string[] = c.tags || []
+    const labels: string[] = c.segmentLabels || []
+    const allText = [...tags, ...labels, c.summary || ''].join(' ').toLowerCase()
+
+    let relevanceScore = 0
+
+    // Direct tag matches with current video context
+    for (const tag of tags) {
+      if (currentContext.includes(tag.toLowerCase())) relevanceScore += 3
+    }
+
+    // Label similarity
+    for (const label of labels) {
+      const words = label.toLowerCase().split(/\s+/)
+      for (const word of words) {
+        if (word.length > 3 && currentContext.includes(word)) relevanceScore += 1
+      }
+    }
+
+    // Rejections are more important to remember (don't repeat mistakes)
+    if (allText.includes('rejected')) relevanceScore += 2
+
+    // General editing preferences always relevant
+    if (allText.includes('pacing') || allText.includes('too long') || allText.includes('too short')) relevanceScore += 2
+    if (allText.includes('action') || allText.includes('human') || allText.includes('person')) relevanceScore += 1
+
+    // Recency bonus
+    const ageMs = Date.now() - new Date(m.createdAt).getTime()
+    const ageDays = ageMs / (1000 * 60 * 60 * 24)
+    if (ageDays < 7) relevanceScore += 1
+
+    return { memory: m, content: c, relevanceScore }
   })
 
-  return `\nUSER EDITING PREFERENCES (learned from past approvals/rejections):
+  // Sort by relevance and take the best
+  scored.sort((a, b) => b.relevanceScore - a.relevanceScore)
+  const relevant = scored.filter(s => s.relevanceScore > 0).slice(0, 20)
+  const general = scored.filter(s => s.relevanceScore === 0).slice(0, 5) // A few general ones too
+
+  const selected = [...relevant, ...general]
+  if (selected.length === 0) return ''
+
+  const lines = selected.map(s => {
+    const c = s.content
+    const labels = (c.segmentLabels || []).join(', ')
+    const labelStr = labels ? ` [clips: ${labels}]` : ''
+    return `- ${c.summary}${labelStr}`
+  })
+
+  return `\nUSER EDITING HISTORY (${allFeedback.length} total reviews, ${relevant.length} relevant to this video):
 ${lines.join('\n')}
-Use these to guide your editing decisions. If the user has rejected certain types of shots before, avoid them. If they've approved certain styles, lean into them.`
+
+Apply these preferences: repeat what was approved, avoid what was rejected. Pay attention to specific feedback about pacing, shot types, and content the user wants to see.`
 }
 
 export async function analyzeAndPickClip(
@@ -147,10 +204,17 @@ Respond in valid JSON only:
   "rationale": "string (why you chose these cuts — reference what you SAW in the frames)"
 }`
 
-  // Fetch user's editing preferences from past approvals/rejections
+  // Build a description of current video content for relevance matching
+  const currentVideoContext: string[] = []
+  if (transcript.fullText) currentVideoContext.push(transcript.fullText)
+  if (sceneData) {
+    sceneData.scenes.forEach(s => currentVideoContext.push(s.label))
+  }
+
+  // Fetch user's editing preferences, filtered by relevance to this video
   let preferencesSection = ''
   if (prisma && companyId) {
-    preferencesSection = await getUserEditingPreferences(prisma, companyId)
+    preferencesSection = await getUserEditingPreferences(prisma, companyId, currentVideoContext)
   }
 
   // Build the message content with interleaved frames and text

@@ -5,6 +5,7 @@ export interface MemoryContent {
   source?: 'task' | 'meeting' | 'manual' | 'instagram' | 'performance_tracking' | 'studio'
   sourceId?: string
   tags?: string[]
+  segmentLabels?: string[]
   details?: Record<string, unknown>
 }
 
@@ -145,11 +146,19 @@ export async function recordEditorialFeedback(
     feedback: string
     type: 'visual_approval' | 'visual_rejection' | 'copy_approval' | 'copy_rejection'
     context?: Record<string, unknown>
+    /** Visual keywords describing what was in the clip (e.g. "dog", "car", "cooking") */
+    visualKeywords?: string[]
+    /** Segment labels from Riley's analysis */
+    segmentLabels?: string[]
   },
 ): Promise<void> {
   const isRejection = params.type.includes('rejection')
   const isCopy = params.type.includes('copy')
   const dimension = isCopy ? 'caption' : 'visual'
+
+  // Build rich tags for retrieval — combine action type + visual context
+  const tags = [dimension, isRejection ? 'rejected' : 'approved', 'studio']
+  if (params.visualKeywords?.length) tags.push(...params.visualKeywords)
 
   await writeMemory(prisma, {
     companyId: params.companyId,
@@ -159,7 +168,8 @@ export async function recordEditorialFeedback(
       source: 'studio',
       sourceId: params.context?.clipId as string | undefined,
       summary: `${isRejection ? 'Rejected' : 'Approved'} ${dimension} edit${isRejection && params.feedback ? `: ${params.feedback}` : ''}`,
-      tags: [dimension, isRejection ? 'rejected' : 'approved', 'studio'],
+      tags,
+      segmentLabels: params.segmentLabels || [],
       details: params.context,
     },
   })

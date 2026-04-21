@@ -61,6 +61,11 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         return res.status(404).json({ error: 'clip_not_found' })
       }
 
+      // Extract segment labels and visual keywords from clip data for memory
+      const segments = (clip.adjustments as any)?.segments || []
+      const segmentLabels = segments.map((s: any) => s.label).filter(Boolean)
+      const visualKeywords = extractVisualKeywords(segmentLabels)
+
       if (data.action === 'approve') {
         // Approve visual
         await prisma.videoClip.update({
@@ -70,7 +75,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
         })
 
-        // Record approval in brand memory
+        // Record approval in brand memory with visual context
         await recordEditorialFeedback(prisma, {
           companyId: clip.companyId,
           feedback: 'Visual edit approved',
@@ -80,6 +85,8 @@ export function initStudioRoutes(_prisma: PrismaClient) {
             adjustments: clip.adjustments,
             styleMetrics: clip.styleMetrics,
           },
+          visualKeywords,
+          segmentLabels,
         })
 
         res.json({ clip: { id: clip.id, visualApprovalStatus: 'approved' } })
@@ -101,7 +108,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
         })
 
-        // Record rejection in brand memory
+        // Record rejection in brand memory with visual context
         await recordEditorialFeedback(prisma, {
           companyId: clip.companyId,
           feedback: data.feedback || 'Visual edit rejected',
@@ -110,6 +117,8 @@ export function initStudioRoutes(_prisma: PrismaClient) {
             clipId: clip.id,
             previousAdjustments: clip.adjustments,
           },
+          visualKeywords,
+          segmentLabels,
         })
 
         // Trigger re-edit if feedback provided
@@ -537,6 +546,34 @@ export function initStudioRoutes(_prisma: PrismaClient) {
   })
 
   return router
+}
+
+/**
+ * Extract visual keywords from Riley's segment labels.
+ * e.g. "Person interacting with dog near car" → ["person", "dog", "car", "interaction"]
+ */
+function extractVisualKeywords(labels: string[]): string[] {
+  const text = labels.join(' ').toLowerCase()
+  const keywords = new Set<string>()
+
+  // People & actions
+  if (text.includes('person') || text.includes('people') || text.includes('someone')) keywords.add('person')
+  if (text.includes('dog') || text.includes('pet') || text.includes('cat')) keywords.add('pet')
+  if (text.includes('car') || text.includes('vehicle') || text.includes('tesla') || text.includes('truck')) keywords.add('vehicle')
+  if (text.includes('food') || text.includes('cook') || text.includes('kitchen') || text.includes('eat')) keywords.add('food')
+  if (text.includes('gym') || text.includes('workout') || text.includes('exercise') || text.includes('fitness')) keywords.add('fitness')
+  if (text.includes('outdoor') || text.includes('nature') || text.includes('beach') || text.includes('mountain')) keywords.add('outdoor')
+  if (text.includes('talk') || text.includes('speak') || text.includes('conversation')) keywords.add('talking')
+
+  // Action types
+  if (text.includes('opening') || text.includes('closing') || text.includes('reveal')) keywords.add('reveal')
+  if (text.includes('interact') || text.includes('playing') || text.includes('touching')) keywords.add('interaction')
+  if (text.includes('loading') || text.includes('carrying') || text.includes('lifting') || text.includes('picking')) keywords.add('physical-action')
+  if (text.includes('walk') || text.includes('running') || text.includes('moving')) keywords.add('movement')
+  if (text.includes('closeup') || text.includes('close-up') || text.includes('detail')) keywords.add('closeup')
+  if (text.includes('establishing') || text.includes('wide') || text.includes('scenery')) keywords.add('establishing')
+
+  return [...keywords]
 }
 
 export default router
