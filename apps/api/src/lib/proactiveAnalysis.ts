@@ -476,3 +476,93 @@ export async function triggerKeepAlive(
 
   return { total: companies.length, triggered }
 }
+
+// ─── DAILY BRIEFS ─────────────────────────────────────────────────────────────
+
+/**
+ * 8:00 AM UTC — Morning brief (trends + yesterday + queue)
+ */
+export async function triggerMorningBrief(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerMayaTask(prisma, companyId, {
+    type: 'morning_brief',
+    title: 'Morning brief — trends + queue status',
+    description: 'What\'s trending overnight, how yesterday\'s posts performed, and what\'s queued for today.',
+    notifTitle: 'Maya\'s morning briefing is ready',
+    notifBody: 'See what\'s trending, yesterday\'s wins, and today\'s queue.',
+    dedupHours: 22, // Don't send twice in 22 hours
+  })
+}
+
+/**
+ * 1:00 PM UTC — Midday check (performance tracking)
+ */
+export async function triggerMidayCheck(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerMayaTask(prisma, companyId, {
+    type: 'midday_check',
+    title: 'Midday performance check',
+    description: 'How are today\'s posts tracking? Early performance signals and forecast.',
+    notifTitle: 'How are your posts doing today?',
+    notifBody: 'Quick midday performance snapshot and forecast.',
+    dedupHours: 22,
+  })
+}
+
+/**
+ * 8:00 PM UTC — Evening recap (full summary + tomorrow forecast)
+ */
+export async function triggerEveningRecap(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerMayaTask(prisma, companyId, {
+    type: 'evening_recap',
+    title: 'Evening recap — day summary + tomorrow forecast',
+    description: 'What worked today, key learnings, and what to expect from tomorrow\'s queue.',
+    notifTitle: 'Maya\'s evening recap is in',
+    notifBody: 'Today\'s summary, learnings, and tomorrow\'s forecast.',
+    dedupHours: 22,
+  })
+}
+
+/**
+ * Internal: Trigger a Maya task with dedup logic
+ * Updated to support hourly dedup for daily briefs
+ */
+async function triggerMayaTask(
+  prisma: PrismaClient,
+  companyId: string,
+  opts: {
+    type: string
+    title: string
+    description: string
+    notifTitle: string
+    notifBody: string
+    dedupHours?: number
+  },
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  const dedupMs = (opts.dedupHours || 24 * 6) * 60 * 60 * 1000
+  const since = new Date(Date.now() - dedupMs)
+
+  const existing = await prisma.task.findFirst({
+    where: { companyId, type: opts.type, createdAt: { gte: since } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (existing) {
+    return { triggered: false, reason: 'recent_analysis_exists' }
+  }
+
+  return triggerAgentTask(prisma, companyId, 'analyst' as EmployeeRole, {
+    type: opts.type,
+    title: opts.title,
+    description: opts.description,
+    notifTitle: opts.notifTitle,
+    notifBody: opts.notifBody,
+  })
+}
