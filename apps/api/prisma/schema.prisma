@@ -133,6 +133,9 @@ model Company {
   instagram        InstagramConnection?
   tiktok           TiktokConnection?
   platformAccounts PlatformAccount[]
+  videoUploads     VideoUpload[]
+  videoClips       VideoClip[]
+  metrics          ProcessingMetric[]
 
   @@map("companies")
 }
@@ -590,4 +593,67 @@ model WaitlistEntry {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("waitlist")
+}
+
+// ── VIDEO PROCESSING ──────────────────────────────────────────────────────────
+
+model VideoUpload {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  sourceVideoUrl   String   // Original uploaded video
+  fileName         String?
+  duration         Int?     // Seconds (extracted from video)
+
+  clips            VideoClip[]
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("video_uploads")
+}
+
+model VideoClip {
+  id               String   @id @default(cuid())
+  uploadId         String
+  upload           VideoUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  clippedUrl       String   // Final edited video URL
+  duration         Int      // Seconds
+  hook             String?  // Auto-generated or user-provided
+
+  status           String   @default("ready_to_post") // ready_to_post, posted, archived
+  processedWith    String   @default("descript_magic_shortform")
+  descriptVideoId  String?  // For re-processing if needed
+
+  adjustments      Json?    // {colorTemp: -10, saturation: +5}
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([uploadId])
+  @@index([status])
+  @@map("video_clips")
+}
+
+model ProcessingMetric {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  metricType       String   // "style_replication" | "clipping_quality" | "processing_time"
+  value            Float    // The numeric score/time in ms
+  details          Json     // Full measurement details
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([metricType])
+  @@index([createdAt])
+  @@map("processing_metrics")
 }
