@@ -2557,7 +2557,10 @@
 
   <!-- Pending Approvals (Batch Preview) -->
   <div style="margin-top:40px">
-    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:24px">Pending Approval · 2 items</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Pending Approval · 2 items</div>
+      <button class="btn" style="padding:8px 12px;font-size:11px;color:var(--t3)">⚙️ Batch actions</button>
+    </div>
 
     <!-- Batch Preview Card -->
     <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:0;overflow:hidden;margin-bottom:24px">
@@ -2589,8 +2592,12 @@
           </div>
           <!-- Rejection Feedback Form -->
           <div id="visual-feedback-1" style="display:none;margin-top:12px;padding:12px;background:rgba(255,0,0,0.05);border-radius:6px;border:1px solid rgba(255,0,0,0.2)">
-            <div style="font-size:11px;font-weight:500;margin-bottom:8px;color:var(--t3)">Why are you rejecting this edit?</div>
-            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" placeholder="Too warm, not enough contrast, etc." rows="2"></textarea>
+            <div style="font-size:11px;font-weight:500;margin-bottom:8px;color:var(--t3)">Why are you rejecting this edit? (be specific)</div>
+            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" id="visual-fb-1" placeholder="E.g. 'Too warm', 'Not enough contrast', 'Too much grain'" rows="2" onkeyup="document.getElementById('visual-fb-1-count').textContent = (this.value.length + '/500')"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10px;color:var(--t3)">
+              <span>Must be at least 5 characters to help Riley learn</span>
+              <span id="visual-fb-1-count">0/500</span>
+            </div>
             <div style="display:flex;gap:8px;margin-top:8px">
               <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer">Submit & regenerate</button>
               <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-1').style.display='none'">Cancel</button>
@@ -2647,6 +2654,11 @@
           <!-- Reject All Captions -->
           <button class="btn" style="width:100%;padding:10px;font-size:12px">Reject all — get new captions</button>
         </div>
+      </div>
+
+      <!-- Item Footer -->
+      <div style="padding:12px 24px;background:rgba(0,0,0,0.02);border-top:1px solid var(--b1);display:flex;justify-content:flex-end">
+        <button class="btn" style="padding:6px 12px;font-size:11px;color:var(--t3)">🗑️ Discard this clip</button>
       </div>
 
       <!-- Item 2 -->
@@ -2771,7 +2783,7 @@
         <span style="font-size:11px;background:rgba(255,193,7,0.1);color:var(--accent);padding:4px 8px;border-radius:4px">Format trending</span>
         <span style="font-size:11px;background:rgba(100,200,255,0.1);color:var(--t2);padding:4px 8px;border-radius:4px">High signal day</span>
       </div>
-      <button class="btn-fill" style="width:100%;padding:10px;font-size:12px">✓ Schedule for this time</button>
+      <button class="btn-fill" style="width:100%;padding:10px;font-size:12px" onclick="showScheduleConfirm('Tuesday, April 29 · 2:00 PM UTC')">✓ Schedule for this time</button>
     </div>
 
     <!-- Recommendation 2 (Secondary) -->
@@ -2808,12 +2820,55 @@
       <button class="btn" style="width:100%;padding:10px;font-size:12px">Schedule for this time</button>
     </div>
 
+    <!-- Custom Time Option -->
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--b1)">
+      <div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--t3)">Or pick a custom time</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Date</label>
+          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)" min="2026-04-22">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Time (UTC)</label>
+          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)">
+        </div>
+      </div>
+      <button class="btn" style="width:100%;padding:10px;font-size:12px">Schedule at custom time</button>
+    </div>
+
     <!-- Save as Draft Option -->
     <div style="margin-top:12px;padding:12px;background:rgba(200,200,200,0.05);border-radius:8px;text-align:center">
       <button class="btn" style="padding:8px 24px;font-size:12px">💾 Save as draft instead</button>
       <div style="font-size:11px;color:var(--t3);margin-top:8px">Keep this ready but don't schedule yet — decide later</div>
     </div>
   </div>
+
+  <!-- Scheduling Confirmation Modal -->
+  <div id="schedule-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000">
+    <div style="background:var(--s0);border:1px solid var(--b1);border-radius:12px;padding:24px;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px">Confirm Scheduling</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:20px;line-height:1.6">
+        This post will be scheduled to post to Instagram on <strong id="confirm-time">Tuesday, April 29 at 2:00 PM UTC</strong>.
+        <br><br>
+        You can reschedule or unpost anytime before it goes live. After posting, analytics will show how it performs.
+      </div>
+      <div style="display:flex;gap:12px">
+        <button class="btn-fill" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">
+          ✓ Yes, schedule it
+        </button>
+        <button class="btn" style="flex:1;padding:12px;font-size:12px" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showScheduleConfirm(timeStr) {
+      document.getElementById('confirm-time').textContent = timeStr;
+      document.getElementById('schedule-confirm-modal').style.display = 'flex';
+    }
+  </script>
 
   <!-- Clips Ready to Post -->
   <div style="margin-top:40px">

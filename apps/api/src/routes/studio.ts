@@ -34,7 +34,13 @@ export function initStudioRoutes(_prisma: PrismaClient) {
     clipId: z.string().cuid(),
     action: z.enum(['approve', 'reject']),
     feedback: z.string().max(500).optional(),
-  })
+  }).refine(
+    (data) => data.action === 'approve' || (data.feedback && data.feedback.trim().length > 5),
+    {
+      message: 'Please explain what you want changed (minimum 5 characters)',
+      path: ['feedback'],
+    }
+  )
 
   /**
    * POST /api/studio/approve-visual
@@ -119,8 +125,11 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         }
       }
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      }
       console.error('[studio] approve-visual failed:', err)
-      res.status(500).json({ error: 'Failed to process visual approval' })
+      res.status(500).json({ error: 'Failed to process visual approval', message: err instanceof Error ? err.message : 'Unknown error' })
     }
   })
 
@@ -131,7 +140,13 @@ export function initStudioRoutes(_prisma: PrismaClient) {
     action: z.enum(['approve', 'reject']),
     captionId: z.string().optional(), // Which caption option they chose
     feedback: z.string().max(500).optional(),
-  })
+  }).refine(
+    (data) => data.action === 'approve' || (data.feedback && data.feedback.trim().length > 5),
+    {
+      message: 'Please explain what you want changed (minimum 5 characters)',
+      path: ['feedback'],
+    }
+  )
 
   /**
    * POST /api/studio/approve-copy
@@ -215,8 +230,11 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         })
       }
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      }
       console.error('[studio] approve-copy failed:', err)
-      res.status(500).json({ error: 'Failed to process copy approval' })
+      res.status(500).json({ error: 'Failed to process copy approval', message: err instanceof Error ? err.message : 'Unknown error' })
     }
   })
 
@@ -308,8 +326,15 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         })
       }
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      }
       console.error('[studio] regenerate failed:', err)
-      res.status(500).json({ error: 'Failed to regenerate content' })
+      res.status(500).json({
+        error: 'Failed to regenerate content',
+        message: err instanceof Error ? err.message : 'Unknown error',
+        tip: 'If this continues, try saving as draft and editing manually'
+      })
     }
   })
 
@@ -354,6 +379,100 @@ export function initStudioRoutes(_prisma: PrismaClient) {
     } catch (err) {
       console.error('[studio] get pending failed:', err)
       res.status(500).json({ error: 'Failed to fetch pending approvals' })
+    }
+  })
+
+  // ── Discard Clip ────────────────────────────────────────────────────
+
+  /**
+   * POST /api/studio/discard
+   * User discards a clip during editing (can't proceed with approval)
+   */
+  router.post('/discard', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { clipId } = z.object({ clipId: z.string().cuid() }).parse(req.body)
+
+      const clip = await prisma.videoClip.findUnique({
+        where: { id: clipId },
+        include: { company: true },
+      })
+
+      if (!clip || clip.company.userId !== userId) {
+        return res.status(404).json({ error: 'clip_not_found' })
+      }
+
+      // Mark clip as archived (soft delete)
+      await prisma.videoClip.update({
+        where: { id: clipId },
+        data: { status: 'archived' },
+      })
+
+      res.json({ success: true, message: 'Clip discarded' })
+    } catch (err) {
+      console.error('[studio] discard failed:', err)
+      res.status(500).json({ error: 'Failed to discard clip' })
+    }
+  })
+
+  // ── Schedule Content ────────────────────────────────────────────────
+
+  const scheduleSchema = z.object({
+    clipId: z.string().cuid(),
+    scheduledTime: z.coerce.date().min(new Date(), 'Must be in the future'),
+    platform: z.enum(['instagram', 'tiktok']).default('instagram'),
+  })
+
+  /**
+   * POST /api/studio/schedule
+   * Schedule a clip for posting at a specific time
+   */
+  router.post('/schedule', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const data = scheduleSchema.parse(req.body)
+
+      const clip = await prisma.videoClip.findUnique({
+        where: { id: data.clipId },
+        include: { company: true },
+      })
+
+      if (!clip || clip.company.userId !== userId) {
+        return res.status(404).json({ error: 'clip_not_found' })
+      }
+
+      // Verify both visual and copy are approved
+      if (clip.visualApprovalStatus !== 'approved' || clip.copyApprovalStatus !== 'approved') {
+        return res.status(400).json({
+          error: 'not_ready',
+          message: 'Both visual and caption must be approved before scheduling',
+        })
+      }
+
+      // Store scheduled time and platform (actual posting happens via scheduler)
+      await prisma.videoClip.update({
+        where: { id: data.clipId },
+        data: {
+          status: 'scheduled',
+          adjustments: {
+            ...clip.adjustments,
+            scheduledTime: data.scheduledTime.toISOString(),
+            platform: data.platform,
+          } as any,
+        },
+      })
+
+      res.json({
+        success: true,
+        message: `Scheduled for ${data.scheduledTime.toLocaleString()} UTC`,
+        clipId: clip.id,
+      })
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      }
+      console.error('[studio] schedule failed:', err)
+      res.status(500).json({ error: 'Failed to schedule clip', message: err instanceof Error ? err.message : 'Unknown error' })
     }
   })
 
