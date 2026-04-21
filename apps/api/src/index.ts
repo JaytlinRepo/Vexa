@@ -30,6 +30,8 @@ import adminRouter from './routes/admin'
 import waitlistRouter from './routes/waitlist'
 import { initBriefRoutes } from './routes/briefs'
 import { initWeeklyRoutes } from './routes/weekly'
+import { initVideoRoutes } from './routes/video'
+import { initStudioRoutes } from './routes/studio'
 import { registerScheduledJobs } from './scheduler'
 import prisma from './lib/prisma'
 import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
@@ -113,6 +115,8 @@ app.use('/api/admin', adminRouter)
 app.use('/api/waitlist', waitlistRouter)
 app.use('/api/briefs', initBriefRoutes(prisma))
 app.use('/api/weekly', initWeeklyRoutes(prisma))
+app.use('/api/video', initVideoRoutes(prisma))
+app.use('/api/studio', initStudioRoutes(prisma))
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session

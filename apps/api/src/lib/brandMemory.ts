@@ -138,6 +138,33 @@ export async function recordTaskRejected(
   })
 }
 
+export async function recordEditorialFeedback(
+  prisma: PrismaClient,
+  params: {
+    companyId: string
+    feedback: string
+    type: 'visual_approval' | 'visual_rejection' | 'copy_approval' | 'copy_rejection'
+    context?: Record<string, unknown>
+  },
+): Promise<void> {
+  const isRejection = params.type.includes('rejection')
+  const isCopy = params.type.includes('copy')
+  const dimension = isCopy ? 'caption' : 'visual'
+
+  await writeMemory(prisma, {
+    companyId: params.companyId,
+    type: isRejection ? 'feedback' : 'preference',
+    weight: isRejection ? 1.5 : 1.0,
+    content: {
+      source: 'studio',
+      sourceId: params.context?.clipId as string | undefined,
+      summary: `${isRejection ? 'Rejected' : 'Approved'} ${dimension} edit${isRejection && params.feedback ? `: ${params.feedback}` : ''}`,
+      tags: [dimension, isRejection ? 'rejected' : 'approved', 'studio'],
+      details: params.context,
+    },
+  })
+}
+
 function formatType(t: string): string {
   return t.replace(/_/g, ' ')
 }
