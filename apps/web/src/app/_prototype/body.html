@@ -958,12 +958,12 @@
     <div class="view" id="view-db-dashboard">
 
 <!-- ══ DAILY & WEEKLY BRIEFS (HERO) ════ -->
-<section class="briefs-hero">
-  <div class="briefs-masthead">
-    <h2>🎯 Your Briefings</h2>
-    <p>Daily guidance informed by your data</p>
+<section class="briefs-wrap">
+  <div class="briefs-head">
+    <div class="briefs-title"><span class="n">§ 00</span><h2>Your <em>briefings</em>, daily.</h2></div>
+    <div class="briefs-meta"><span>DAILY · 8am, 1pm, 8pm UTC</span><span>WEEKLY · Sundays 6pm UTC</span></div>
   </div>
-  <div id="briefs-container" class="briefs-container">
+  <div class="briefs-grid" id="briefs-container">
     <div id="morning-brief-placeholder"></div>
     <div id="midday-check-placeholder"></div>
     <div id="evening-recap-placeholder"></div>
@@ -972,45 +972,6 @@
     <div id="weekly-hooks-placeholder"></div>
     <div id="weekly-briefs-placeholder"></div>
   </div>
-
-  <style>
-    .briefs-hero {
-      margin-bottom: 36px;
-    }
-
-    .briefs-masthead {
-      margin-bottom: 24px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .briefs-masthead h2 {
-      margin: 0 0 8px 0;
-      font-size: clamp(24px, 4vw, 32px);
-      font-weight: 600;
-      font-family: 'Syne', sans-serif;
-      color: #ffffff;
-    }
-
-    .briefs-masthead p {
-      margin: 0;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.6);
-      font-weight: 400;
-    }
-
-    .briefs-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 16px;
-    }
-
-    @media (max-width: 768px) {
-      .briefs-container {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </section>
 
 <!-- ══ PIPELINE HERO ═══════════ -->
