@@ -495,19 +495,37 @@
       var forecastEl = document.getElementById('forecast-chart')
       var milestonesEl = document.getElementById('forecast-milestones')
       if (forecastEl && snaps.length >= 2) {
-        // Group snapshots by date → total followers
-        var byDate = {}
+        // Group snapshots by date → total followers (sum all accounts per day)
+        // IMPORTANT: only use days where ALL accounts reported, to avoid
+        // mixing partial days (e.g. only TikTok at 819) with full days (7129)
+        var byDateAccounts = {}
         snaps.forEach(function(s) {
           var d = s.capturedAt.slice(0, 10)
-          byDate[d] = (byDate[d] || 0) + s.followerCount
+          if (!byDateAccounts[d]) byDateAccounts[d] = { total: 0, count: 0 }
+          byDateAccounts[d].total += s.followerCount
+          byDateAccounts[d].count++
+        })
+        // Find the most common account count per day (expected number of accounts)
+        var countFreq = {}
+        Object.values(byDateAccounts).forEach(function(v) { countFreq[v.count] = (countFreq[v.count] || 0) + 1 })
+        var expectedCount = Object.entries(countFreq).sort(function(a,b) { return b[1] - a[1] })[0]
+        expectedCount = expectedCount ? parseInt(expectedCount[0]) : 1
+
+        // Only use days with the expected number of accounts
+        var byDate = {}
+        Object.keys(byDateAccounts).forEach(function(d) {
+          if (byDateAccounts[d].count >= expectedCount) {
+            byDate[d] = byDateAccounts[d].total
+          }
         })
         var dates = Object.keys(byDate).sort()
         var values = dates.map(function(d) { return byDate[d] })
 
+        if (values.length < 2) return // not enough clean data
+
         // Double exponential smoothing (Holt's method)
-        // Captures both level and trend, weights recent data more
-        var alpha = 0.3 // level smoothing (higher = more reactive to recent changes)
-        var beta = 0.2  // trend smoothing (higher = trend changes faster)
+        var alpha = 0.3
+        var beta = 0.2
         var level = values[0]
         var trend = values.length > 1 ? (values[1] - values[0]) : 0
         var smoothed = [level]
@@ -562,28 +580,40 @@
           '<path d="' + actualPath + '" fill="none" stroke="var(--t1)" stroke-width="2"/>' +
           '<path d="' + projPath + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/>' +
           '<circle cx="' + xScale(0) + '" cy="' + yScale(first) + '" r="3" fill="var(--t1)"/>' +
-          '<circle cx="' + xScale(values.length - 1) + '" cy="' + yScale(last) + '" r="3" fill="var(--t1)"/>' +
-          '<circle cx="' + xScale(totalPts - 1) + '" cy="' + yScale(projected[projected.length - 1]) + '" r="3" fill="var(--accent)"/>' +
+          '<circle cx="' + xScale(values.length - 1) + '" cy="' + yScale(last) + '" r="4" fill="var(--t1)"/>' +
+          '<text x="' + xScale(values.length - 1) + '" y="' + (yScale(last) - 10) + '" text-anchor="middle" fill="var(--t1)" font-family="JetBrains Mono" font-size="10" font-weight="600">' + fmt(last) + ' now</text>' +
+          '<circle cx="' + xScale(totalPts - 1) + '" cy="' + yScale(projected[projected.length - 1]) + '" r="4" fill="var(--accent)"/>' +
+          '<text x="' + xScale(totalPts - 1) + '" y="' + (yScale(projected[projected.length - 1]) - 10) + '" text-anchor="middle" fill="var(--accent)" font-family="JetBrains Mono" font-size="10" font-weight="600">' + fmt(projected[projected.length - 1]) + '</text>' +
         '</svg>'
 
-        // Milestones
+        // Summary + milestones in plain language
         if (milestonesEl) {
           var p30 = Math.round(last + rate * 30)
           var p60 = Math.round(last + rate * 60)
           var p90 = Math.round(last + rate * 90)
           var next1k = Math.ceil(last / 1000) * 1000
           var daysTo1k = rate > 0 ? Math.ceil((next1k - last) / rate) : 0
-          milestonesEl.innerHTML = '<div style="display:flex;gap:16px;font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3)">' +
+          var dailyRate = rate > 0 ? '+' + rate.toFixed(1) : rate.toFixed(1)
+          var direction = rate > 1 ? 'growing steadily' : rate > 0 ? 'growing slowly' : rate === 0 ? 'flat' : 'declining'
+
+          var summaryHtml = '<div style="font-family:Inter,sans-serif;font-size:12px;color:var(--t1);line-height:1.55;margin-bottom:10px">' +
+            'You have <strong>' + fmt(last) + ' followers</strong> and you\'re ' + direction + ' at about <strong>' + dailyRate + ' per day</strong>. ' +
+            'At this pace, you\'ll reach <strong>' + fmt(p30) + '</strong> in 30 days and <strong>' + fmt(p90) + '</strong> in 90 days.' +
+            (daysTo1k > 0 && daysTo1k < 365 ? ' You\'ll hit <strong>' + fmt(next1k) + '</strong> in about <strong>' + daysTo1k + ' days</strong>.' : '') +
+          '</div>'
+
+          var milestonesHtml = '<div style="display:flex;gap:16px;font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3)">' +
             '<span>+30d: <span style="color:var(--t1)">' + fmt(p30) + '</span></span>' +
             '<span>+60d: <span style="color:var(--t1)">' + fmt(p60) + '</span></span>' +
             '<span>+90d: <span style="color:var(--t1)">' + fmt(p90) + '</span></span>' +
-            (daysTo1k > 0 && daysTo1k < 365 ? '<span>' + fmt(next1k) + ' in <span style="color:var(--accent)">' + daysTo1k + 'd</span></span>' : '') +
           '</div>'
+
+          milestonesEl.innerHTML = summaryHtml + milestonesHtml
 
           // Fetch Bedrock narrative forecast
           get('/api/platform/forecast').then(function(f) {
             if (f && f.forecast) {
-              milestonesEl.innerHTML += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--b1);font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5;font-style:italic">' + esc(f.forecast) + '</div>'
+              milestonesEl.innerHTML += '<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border-radius:8px;border-left:2px solid var(--accent);font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5"><span style="font-weight:600;color:var(--t1)">Maya\'s take:</span> ' + esc(f.forecast) + '</div>'
             }
           })
         }
@@ -596,7 +626,7 @@
         var hours = [6, 8, 10, 12, 14, 16, 18, 20, 22] // relevant posting hours
         var grid = {} // 'dow-hour' → [engRates]
         posts.forEach(function(p) {
-          if (!p.publishedAt || !p.engagementRate || p.engagementRate > 1) return
+          if (!p.publishedAt || !p.engagementRate || p.engagementRate >= 1) return // >= 1 filters out 100% bad data
           var dt = new Date(p.publishedAt)
           var dow = dt.getUTCDay()
           var hr = dt.getUTCHours()
@@ -641,90 +671,234 @@
           cells += '<text x="' + (padL + hi * cellW + cellW / 2 - 1) + '" y="' + (padT - 6) + '" text-anchor="middle" fill="var(--t3)" font-family="JetBrains Mono" font-size="8">' + hr12 + '</text>'
         }
 
-        heatmapEl.innerHTML = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:100%">' + cells + '</svg>' +
-          (bestSlot ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3);margin-top:6px">Best slot: <span style="color:var(--accent)">' + bestSlot + '</span></div>' : '')
+        // Count total posts tracked
+        var totalTracked = 0
+        Object.values(grid).forEach(function(arr) { totalTracked += arr.length })
+
+        heatmapEl.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:8px">' +
+          'Darker squares = higher engagement. Numbers show how many posts you\'ve published in that slot.' +
+          (bestSlot ? ' Your best performing slot is <strong style="color:var(--accent)">' + bestSlot + '</strong>.' : '') +
+        '</div>' +
+        '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:100%">' + cells + '</svg>'
       }
 
-      // ═══ 3. ENGAGEMENT DECAY CURVE ═══
-      var decayEl = document.getElementById('decay-chart')
-      var decayInsight = document.getElementById('decay-insight')
-      if (decayEl && posts.length > 0) {
-        // Group posts by age bucket and compute avg engagement per bucket
-        var now = Date.now()
-        var buckets = [
-          { label: '0-7d', min: 0, max: 7 },
-          { label: '1-2w', min: 7, max: 14 },
-          { label: '2-4w', min: 14, max: 30 },
-          { label: '1-2m', min: 30, max: 60 },
-          { label: '2-4m', min: 60, max: 120 },
-          { label: '4-6m', min: 120, max: 180 },
-          { label: '6-12m', min: 180, max: 365 },
-          { label: '1y+', min: 365, max: 9999 },
-        ]
+      // ═══ 3. CORRELATION ANALYSIS ═══
+      var corrEl = document.getElementById('correlation-chart')
+      var corrInsight = document.getElementById('correlation-insight')
+      if (corrEl && posts.length >= 5) {
+        // Pearson correlation helper
+        function pearson(x, y) {
+          var n = x.length
+          if (n < 3) return 0
+          var mx = x.reduce(function(s,v){return s+v},0) / n
+          var my = y.reduce(function(s,v){return s+v},0) / n
+          var sx = Math.sqrt(x.reduce(function(s,v){return s+(v-mx)*(v-mx)},0) / n)
+          var sy = Math.sqrt(y.reduce(function(s,v){return s+(v-my)*(v-my)},0) / n)
+          if (sx === 0 || sy === 0) return 0
+          return x.reduce(function(s,v,i){return s+(v-mx)*(y[i]-my)},0) / (n * sx * sy)
+        }
 
-        var bucketData = buckets.map(function(b) {
-          var inBucket = posts.filter(function(p) {
-            if (!p.publishedAt || !p.engagementRate || p.engagementRate > 1) return false
-            var age = (now - new Date(p.publishedAt).getTime()) / 86400000
-            return age >= b.min && age < b.max
-          })
-          var avg = inBucket.length > 0 ? inBucket.reduce(function(s,p) { return s + p.engagementRate }, 0) / inBucket.length : 0
-          return { label: b.label, avg: avg, count: inBucket.length }
-        }).filter(function(b) { return b.count > 0 })
+        var validPosts = posts.filter(function(p) { return p.publishedAt && p.likeCount > 0 })
+        var likes = validPosts.map(function(p) { return p.likeCount })
+        var views = validPosts.map(function(p) { return p.viewCount || p.reachCount || 0 })
 
-        if (bucketData.length >= 2) {
-          var maxAvg = Math.max.apply(null, bucketData.map(function(b) { return b.avg }))
-          var w = 500, h = 140, pad = 40
-          var barW = Math.min(50, (w - pad * 2) / bucketData.length - 4)
+        // Compute correlations
+        var factors = [
+          {
+            label: 'Views / Reach',
+            tip: 'More people seeing your post = more likes',
+            r: pearson(validPosts.map(function(p){return p.viewCount||p.reachCount||0}), likes)
+          },
+          {
+            label: 'Comments',
+            tip: 'Posts that spark conversation also get more likes',
+            r: pearson(validPosts.map(function(p){return p.commentCount||0}), likes)
+          },
+          {
+            label: 'Caption length',
+            tip: 'Longer captions with storytelling tend to drive more engagement',
+            r: pearson(validPosts.map(function(p){return (p.caption||'').length}), likes)
+          },
+          {
+            label: 'Shares',
+            tip: 'Content people share also gets liked more — shareability drives everything',
+            r: pearson(validPosts.map(function(p){return p.shareCount||0}), likes)
+          },
+          {
+            label: 'Saves',
+            tip: 'Save-worthy content (tips, lists) correlates with likes',
+            r: pearson(validPosts.map(function(p){return p.saveCount||0}), likes)
+          },
+          {
+            label: 'Watch time',
+            tip: 'How long people watch your Reels before scrolling',
+            r: pearson(validPosts.map(function(p){return p.avgWatchTimeMs||0}), likes)
+          },
+          {
+            label: 'Time of day',
+            tip: 'What hour you post — does timing matter for your audience?',
+            r: pearson(validPosts.map(function(p){return new Date(p.publishedAt).getUTCHours()}), likes)
+          },
+        ].sort(function(a,b) { return Math.abs(b.r) - Math.abs(a.r) })
 
-          var bars = bucketData.map(function(b, i) {
-            var x = pad + i * ((w - pad * 2) / bucketData.length) + ((w - pad * 2) / bucketData.length - barW) / 2
-            var barH = maxAvg > 0 ? (b.avg / maxAvg) * (h - pad * 2) : 0
-            var y = h - pad - barH
-            var opacity = 1 - (i / bucketData.length) * 0.5
-            return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="3" fill="var(--accent)" opacity="' + opacity.toFixed(2) + '"/>' +
-              '<text x="' + (x + barW / 2) + '" y="' + (h - pad + 14) + '" text-anchor="middle" fill="var(--t3)" font-family="JetBrains Mono" font-size="8">' + b.label + '</text>' +
-              '<text x="' + (x + barW / 2) + '" y="' + (y - 4) + '" text-anchor="middle" fill="var(--t2)" font-family="JetBrains Mono" font-size="9">' + (b.avg * 100).toFixed(0) + '%</text>'
-          }).join('')
+        // Format breakdown
+        var formatMap = {}
+        validPosts.forEach(function(p) {
+          var f = p.mediaType || '?'
+          if (!formatMap[f]) formatMap[f] = { total: 0, count: 0 }
+          formatMap[f].total += p.likeCount
+          formatMap[f].count++
+        })
+        var formatRanking = Object.keys(formatMap).map(function(f) {
+          return { format: f, avg: Math.round(formatMap[f].total / formatMap[f].count), count: formatMap[f].count }
+        }).sort(function(a,b) { return b.avg - a.avg })
 
-          // Trend line connecting bar tops
-          var trendPath = bucketData.map(function(b, i) {
-            var x = pad + i * ((w - pad * 2) / bucketData.length) + ((w - pad * 2) / bucketData.length) / 2
-            var barH = maxAvg > 0 ? (b.avg / maxAvg) * (h - pad * 2) : 0
-            var y = h - pad - barH
-            return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1)
-          }).join(' ')
+        // Draw horizontal bar chart
+        var maxR = Math.max.apply(null, factors.map(function(f) { return Math.abs(f.r) }))
+        var barH = 28, gap = 6, padL = 110, padR = 60
+        var w = 500, h = factors.length * (barH + gap) + 20
+        var bars = factors.map(function(f, i) {
+          var y = i * (barH + gap) + 10
+          var barW = maxR > 0 ? (Math.abs(f.r) / maxR) * (w - padL - padR) : 0
+          var isPositive = f.r >= 0
+          var color = isPositive ? 'var(--accent)' : 'var(--down, #c76a6a)'
+          var strength = Math.abs(f.r) > 0.5 ? 'Strong' : Math.abs(f.r) > 0.2 ? 'Moderate' : 'Weak'
+          var opacity = Math.max(0.3, Math.abs(f.r))
 
-          decayEl.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">' +
-            '<path d="' + trendPath + '" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-dasharray="3 2"/>' +
-            bars +
-          '</svg>'
+          return '<text x="' + (padL - 8) + '" y="' + (y + barH/2 + 4) + '" text-anchor="end" fill="var(--t1)" font-family="Inter" font-size="11">' + f.label + '</text>' +
+            '<rect x="' + padL + '" y="' + y + '" width="' + barW + '" height="' + barH + '" rx="4" fill="' + color + '" opacity="' + opacity.toFixed(2) + '"/>' +
+            '<text x="' + (padL + barW + 6) + '" y="' + (y + barH/2 + 4) + '" fill="var(--t3)" font-family="JetBrains Mono" font-size="9">' + strength + '</text>'
+        }).join('')
 
-          // Compute half-life: how many days until engagement drops to 50%
-          if (decayInsight && bucketData.length >= 2) {
-            var newest = bucketData[0]
-            var oldest = bucketData[bucketData.length - 1]
-            var dropPct = newest.avg > 0 ? Math.round((1 - oldest.avg / newest.avg) * 100) : 0
+        corrEl.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:100%">' + bars + '</svg>'
 
-            // Exponential decay fit: eng(t) = A * e^(-λt)
-            // Half-life = ln(2) / λ
-            var midBucket = bucketData[Math.floor(bucketData.length / 2)]
-            var t1 = 7 // approx days for first bucket midpoint
-            var t2 = 90 // approx days for mid bucket
-            var lambda = 0
-            if (newest.avg > 0 && midBucket.avg > 0 && midBucket.avg < newest.avg) {
-              lambda = Math.log(newest.avg / midBucket.avg) / (t2 - t1)
-            }
-            var halfLife = lambda > 0 ? Math.round(0.693 / lambda) : 0
+        // Insight
+        if (corrInsight) {
+          var top = factors[0]
+          var topFormat = formatRanking[0]
+          corrInsight.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:12px;color:var(--t1);line-height:1.55;margin-bottom:8px">' +
+            'Your biggest driver of likes is <strong>' + top.label.toLowerCase() + '</strong> — ' + top.tip.charAt(0).toLowerCase() + top.tip.slice(1) + ' ' +
+            (topFormat ? '<strong>' + topFormat.format + '</strong> posts perform best, averaging <strong>' + fmt(topFormat.avg) + ' likes</strong> per post.' : '') +
+          '</div>' +
+          '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+            formatRanking.map(function(f) {
+              return '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3);border:1px solid var(--b1);padding:4px 8px;border-radius:4px">' +
+                f.format + ' <span style="color:var(--t1)">' + fmt(f.avg) + '</span> avg · ' + f.count + ' posts</div>'
+            }).join('') +
+          '</div>'
+        }
+      }
 
-            var isEvergreen = dropPct < 40
-            var halfLifeNote = halfLife > 0 ? ' Half-life: ~' + halfLife + ' days.' : ''
-            decayInsight.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5">' +
-              (isEvergreen
-                ? 'Your content has a long tail — older posts still pull ' + (oldest.avg * 100).toFixed(0) + '% engagement. The algorithm keeps surfacing your work.' + halfLifeNote
-                : 'Engagement drops ' + dropPct + '% over time.' + halfLifeNote + ' Try posting save-worthy tips, series, or lists — they hold engagement longer.') +
-            '</div>'
+      // ═══ 4. LIKES FORECAST ═══
+      var likesEl = document.getElementById('likes-forecast-chart')
+      var likesInsight = document.getElementById('likes-forecast-insight')
+      if (likesEl && posts.length > 0) {
+        // Build cumulative likes timeline from posts sorted by publish date
+        var sorted = posts.filter(function(p) { return p.publishedAt && p.likeCount >= 0 })
+          .sort(function(a,b) { return new Date(a.publishedAt) - new Date(b.publishedAt) })
+        if (sorted.length < 2) return
+
+        // Group by month for a cleaner chart
+        var byMonth = {}
+        var runningTotal = 0
+        sorted.forEach(function(p) {
+          var month = p.publishedAt.slice(0, 7) // YYYY-MM
+          runningTotal += (p.likeCount || 0)
+          byMonth[month] = runningTotal
+        })
+        var months = Object.keys(byMonth).sort()
+        var cumValues = months.map(function(m) { return byMonth[m] })
+
+        // Also build per-post likes for rate calculation
+        var likesPerPost = sorted.map(function(p) { return p.likeCount || 0 })
+
+        // Holt's double exponential smoothing on cumulative likes
+        var alpha = 0.4, beta = 0.2
+        var level = cumValues[0]
+        var trend = cumValues.length > 1 ? (cumValues[1] - cumValues[0]) : 0
+        for (var si = 1; si < cumValues.length; si++) {
+          var prevLevel = level
+          level = alpha * cumValues[si] + (1 - alpha) * (prevLevel + trend)
+          trend = beta * (level - prevLevel) + (1 - beta) * trend
+        }
+
+        // Project 3 months forward
+        var projMonths = 3
+        var projected = []
+        for (var i = 1; i <= projMonths; i++) {
+          projected.push(Math.round(level + trend * i))
+        }
+
+        var totalLikes = cumValues[cumValues.length - 1]
+        var avgPerPost = Math.round(totalLikes / sorted.length)
+
+        // Draw SVG
+        var allVals = cumValues.concat(projected)
+        var minV = 0
+        var maxV = Math.max.apply(null, allVals) * 1.05
+        var w = 500, h = 200, pad = 40
+        var totalPts = allVals.length
+        var xScale = function(i) { return pad + (i / (totalPts - 1)) * (w - pad * 2) }
+        var yScale = function(v) { return h - pad - ((v - minV) / (maxV - minV)) * (h - pad * 2) }
+
+        // Grid lines
+        var gridLines = ''
+        for (var g = 0; g <= 4; g++) {
+          var gy = pad + g * (h - pad * 2) / 4
+          var gv = maxV - g * (maxV - minV) / 4
+          gridLines += '<line x1="' + pad + '" y1="' + gy + '" x2="' + (w - pad) + '" y2="' + gy + '" stroke="var(--b1)" stroke-dasharray="2 3"/>'
+          gridLines += '<text x="' + (pad - 4) + '" y="' + (gy + 3) + '" text-anchor="end" fill="var(--t3)" font-family="JetBrains Mono" font-size="9">' + fmt(Math.round(gv)) + '</text>'
+        }
+
+        // Actual line + fill
+        var actualPath = cumValues.map(function(v, i) { return (i === 0 ? 'M' : 'L') + xScale(i).toFixed(1) + ',' + yScale(v).toFixed(1) }).join(' ')
+        var fillPath = actualPath + ' L' + xScale(cumValues.length - 1).toFixed(1) + ',' + (h - pad) + ' L' + xScale(0).toFixed(1) + ',' + (h - pad) + ' Z'
+
+        // Projected line (dotted)
+        var projPath = 'M' + xScale(cumValues.length - 1).toFixed(1) + ',' + yScale(totalLikes).toFixed(1)
+        projected.forEach(function(v, i) { projPath += ' L' + xScale(cumValues.length + i).toFixed(1) + ',' + yScale(v).toFixed(1) })
+
+        // Divider
+        var divX = xScale(cumValues.length - 1)
+
+        // Month labels
+        var monthLabels = ''
+        months.forEach(function(m, i) {
+          var shortMonth = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m.slice(5)) - 1] || m.slice(5)
+          if (i % Math.max(1, Math.floor(months.length / 6)) === 0 || i === months.length - 1) {
+            monthLabels += '<text x="' + xScale(i) + '" y="' + (h - pad + 16) + '" text-anchor="middle" fill="var(--t3)" font-family="JetBrains Mono" font-size="8">' + shortMonth + '</text>'
           }
+        })
+
+        likesEl.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%">' +
+          gridLines + monthLabels +
+          '<path d="' + fillPath + '" fill="var(--accent)" opacity=".08"/>' +
+          '<line x1="' + divX + '" y1="' + pad + '" x2="' + divX + '" y2="' + (h - pad) + '" stroke="var(--b2)" stroke-dasharray="4 4"/>' +
+          '<text x="' + (divX + 4) + '" y="' + (pad + 10) + '" fill="var(--t3)" font-family="Inter" font-size="9">FORECAST</text>' +
+          '<path d="' + actualPath + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
+          '<path d="' + projPath + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3" opacity=".6"/>' +
+          '<circle cx="' + xScale(cumValues.length - 1) + '" cy="' + yScale(totalLikes) + '" r="4" fill="var(--accent)"/>' +
+          '<text x="' + xScale(cumValues.length - 1) + '" y="' + (yScale(totalLikes) - 10) + '" text-anchor="middle" fill="var(--t1)" font-family="JetBrains Mono" font-size="10" font-weight="600">' + fmt(totalLikes) + ' now</text>' +
+          '<circle cx="' + xScale(totalPts - 1) + '" cy="' + yScale(projected[projected.length - 1]) + '" r="4" fill="var(--accent)" opacity=".6"/>' +
+          '<text x="' + xScale(totalPts - 1) + '" y="' + (yScale(projected[projected.length - 1]) - 10) + '" text-anchor="middle" fill="var(--accent)" font-family="JetBrains Mono" font-size="10">' + fmt(projected[projected.length - 1]) + '</text>' +
+        '</svg>'
+
+        // Insight
+        if (likesInsight) {
+          var monthlyRate = trend > 0 ? Math.round(trend) : 0
+          var proj3m = projected[projected.length - 1]
+          var direction = trend > 50 ? 'accelerating' : trend > 0 ? 'growing steadily' : 'slowing down'
+
+          likesInsight.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:12px;color:var(--t1);line-height:1.55;margin-bottom:6px">' +
+            'You have <strong>' + fmt(totalLikes) + ' total likes</strong> across ' + sorted.length + ' posts, averaging <strong>' + fmt(avgPerPost) + ' likes per post</strong>. ' +
+            'Your likes are ' + direction + ' — at this pace you\'ll reach <strong>' + fmt(proj3m) + ' total likes</strong> in 3 months.' +
+          '</div>' +
+          '<div style="display:flex;gap:16px;font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3)">' +
+            '<span>Now: <span style="color:var(--t1)">' + fmt(totalLikes) + '</span></span>' +
+            '<span>+1m: <span style="color:var(--t1)">' + fmt(Math.round(level + trend)) + '</span></span>' +
+            '<span>+3m: <span style="color:var(--t1)">' + fmt(proj3m) + '</span></span>' +
+            '<span>Avg/post: <span style="color:var(--accent)">' + fmt(avgPerPost) + '</span></span>' +
+          '</div>'
         }
       }
     })
@@ -770,7 +944,7 @@
     console.log('[hq-data] populateSidebarPosts:', posts.length, 'posts')
     allPostsCache = posts
     acctMapCache = acctMap
-    var postsCard = document.querySelector('#view-db-dashboard .posts-card')
+    var postsCard = document.querySelector('#view-db-dashboard .dash-side .posts-card') || document.querySelector('#view-db-dashboard .posts-card')
     console.log('[hq-data] postsCard found:', !!postsCard)
     if (!postsCard) return
     var ph = postsCard.querySelector('.ph h4')
@@ -820,7 +994,7 @@
   function renderPostsTable(filter) {
     console.log('[hq-data] renderPostsTable START:', filter, 'cache:', allPostsCache?.length)
     if (!allPostsCache) { console.log('[hq-data] EXIT: no cache'); return }
-    var tbody = document.querySelector('.posts-tbl tbody')
+    var tbody = document.querySelector('.dash-side .posts-tbl tbody') || document.querySelector('.posts-tbl tbody')
     if (!tbody) { console.log('[hq-data] EXIT: no tbody'); return }
 
     try {

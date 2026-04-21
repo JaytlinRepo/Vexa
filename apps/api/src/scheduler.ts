@@ -86,6 +86,11 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
             const forecast = await generateNarrativeForecast(prisma, id)
             if (forecast) console.log(`[scheduler] forecast for ${id}: ${forecast.slice(0, 80)}...`)
           } catch {}
+          // Compute correlation analysis (what drives likes/views)
+          try {
+            const { computeCorrelationAnalysis } = await import('./lib/metricTracking')
+            await computeCorrelationAnalysis(prisma, id)
+          } catch {}
         }
       } catch {}
     } catch (err) {

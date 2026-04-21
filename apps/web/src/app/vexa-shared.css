@@ -162,14 +162,14 @@ body::before{
   border-bottom:1px solid var(--b1);
 }
 .dash-main{padding:32px 40px 48px;border-right:1px solid var(--b1)}
-.dash-side{padding:32px 36px 48px;background:var(--s1);}
+.dash-side{padding:24px 24px 48px;background:var(--bg);border-left:1px solid var(--b1)}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
 .section-head h3{font-family:'Inter',sans-serif;font-weight:300;font-size:22px}
 .section-head h3 em{font-style:italic;color:var(--accent)}
 .section-head .tabs{display:flex;gap:0;border:1px solid var(--b1);border-radius:999px;padding:3px;background:var(--s1)}
 .section-head .tabs button{font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;padding:6px 11px;background:transparent;border:0;color:var(--t3);border-radius:999px;cursor:pointer}
 .section-head .tabs button.on{background:var(--s2);color:var(--t1)}
-[data-theme="light"] .dash-side{background:var(--s1)}
+[data-theme="light"] .dash-side{background:var(--bg)}
 [data-theme="light"] .section-head .tabs{background:var(--bg)}
 
 /* ── Follower chart (main KPI) ── */
@@ -1722,3 +1722,8 @@ body::before{
 [data-tip]:hover::after{opacity:1}
 [data-tip]::before{content:'';position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--t1);opacity:0;pointer-events:none;transition:opacity .15s;z-index:100}
 [data-tip]:hover::before{opacity:1}
+
+/* Posts sidebar responsive */
+@media(max-width:900px){
+  .posts-card{max-height:none !important}
+}

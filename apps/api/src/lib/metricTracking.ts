@@ -392,3 +392,127 @@ ${posts.slice(0, 10).map(p => `  ${p.mediaType} — ${p.likeCount} likes, ${p.co
     return ''
   }
 }
+
+/**
+ * Compute multi-factor correlation analysis for a company's posts.
+ * Stores results in brand memory so agents (Maya, Jordan, Alex) can
+ * reference what drives likes/views when making content decisions.
+ * Runs daily after sync.
+ */
+export async function computeCorrelationAnalysis(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<void> {
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { id: true },
+  })
+  if (accounts.length === 0) return
+
+  const posts = await prisma.platformPost.findMany({
+    where: {
+      accountId: { in: accounts.map(a => a.id) },
+      likeCount: { gt: 0 },
+      engagementRate: { lt: 1 },
+    },
+    select: {
+      mediaType: true,
+      likeCount: true,
+      commentCount: true,
+      saveCount: true,
+      shareCount: true,
+      viewCount: true,
+      reachCount: true,
+      engagementRate: true,
+      captionLength: true,
+      publishHour: true,
+      publishDayOfWeek: true,
+      avgWatchTimeMs: true,
+      caption: true,
+    },
+  })
+
+  if (posts.length < 5) return
+
+  // Pearson correlation
+  function pearson(x: number[], y: number[]): number {
+    const n = x.length
+    if (n < 3) return 0
+    const mx = x.reduce((s, v) => s + v, 0) / n
+    const my = y.reduce((s, v) => s + v, 0) / n
+    const sx = Math.sqrt(x.reduce((s, v) => s + (v - mx) ** 2, 0) / n)
+    const sy = Math.sqrt(y.reduce((s, v) => s + (v - my) ** 2, 0) / n)
+    if (sx === 0 || sy === 0) return 0
+    return x.reduce((s, v, i) => s + (v - mx) * (y[i] - my), 0) / (n * sx * sy)
+  }
+
+  const likes = posts.map(p => p.likeCount)
+  const views = posts.map(p => p.viewCount || p.reachCount || 0)
+
+  const factors = [
+    { factor: 'views_reach', r: pearson(posts.map(p => p.viewCount || p.reachCount || 0), likes) },
+    { factor: 'comments', r: pearson(posts.map(p => p.commentCount), likes) },
+    { factor: 'caption_length', r: pearson(posts.map(p => p.captionLength || (p.caption || '').length), likes) },
+    { factor: 'shares', r: pearson(posts.map(p => p.shareCount), likes) },
+    { factor: 'saves', r: pearson(posts.map(p => p.saveCount), likes) },
+    { factor: 'watch_time', r: pearson(posts.map(p => p.avgWatchTimeMs || 0), likes) },
+    { factor: 'hour_of_day', r: pearson(posts.map(p => p.publishHour ?? new Date().getHours()), likes) },
+  ].sort((a, b) => Math.abs(b.r) - Math.abs(a.r))
+
+  // Format performance
+  const formatMap: Record<string, { total: number; count: number }> = {}
+  for (const p of posts) {
+    const f = p.mediaType || 'unknown'
+    if (!formatMap[f]) formatMap[f] = { total: 0, count: 0 }
+    formatMap[f].total += p.likeCount
+    formatMap[f].count++
+  }
+  const formats = Object.entries(formatMap)
+    .map(([format, { total, count }]) => ({ format, avgLikes: Math.round(total / count), count }))
+    .sort((a, b) => b.avgLikes - a.avgLikes)
+
+  // Views correlation
+  const viewFactors = [
+    { factor: 'likes', r: pearson(likes, views) },
+    { factor: 'comments', r: pearson(posts.map(p => p.commentCount), views) },
+    { factor: 'shares', r: pearson(posts.map(p => p.shareCount), views) },
+    { factor: 'saves', r: pearson(posts.map(p => p.saveCount), views) },
+    { factor: 'caption_length', r: pearson(posts.map(p => p.captionLength || (p.caption || '').length), views) },
+    { factor: 'watch_time', r: pearson(posts.map(p => p.avgWatchTimeMs || 0), views) },
+  ].sort((a, b) => Math.abs(b.r) - Math.abs(a.r))
+
+  const topLikeDriver = factors[0]
+  const topViewDriver = viewFactors[0]
+  const bestFormat = formats[0]
+
+  const strength = (r: number) => Math.abs(r) > 0.5 ? 'strong' : Math.abs(r) > 0.2 ? 'moderate' : 'weak'
+
+  // Build agent-readable summary
+  const summary = [
+    `Correlation analysis (${posts.length} posts):`,
+    `Biggest driver of LIKES: ${topLikeDriver.factor.replace(/_/g, ' ')} (${strength(topLikeDriver.r)} correlation, r=${topLikeDriver.r.toFixed(2)}).`,
+    `Biggest driver of VIEWS: ${topViewDriver.factor.replace(/_/g, ' ')} (${strength(topViewDriver.r)} correlation, r=${topViewDriver.r.toFixed(2)}).`,
+    `Best format: ${bestFormat.format} (${bestFormat.avgLikes} avg likes, ${bestFormat.count} posts).`,
+    `All factors ranked by like impact: ${factors.map(f => f.factor.replace(/_/g, ' ') + '=' + f.r.toFixed(2)).join(', ')}.`,
+  ].join(' ')
+
+  // Store in brand memory for agents
+  const { writeMemory } = await import('./brandMemory')
+  await writeMemory(prisma, {
+    companyId,
+    type: 'performance',
+    weight: 1.6,
+    content: {
+      source: 'performance_tracking',
+      summary,
+      tags: ['correlation', 'analysis', 'what_works'],
+      details: {
+        likeFactors: factors,
+        viewFactors,
+        formatPerformance: formats,
+        postCount: posts.length,
+        computedAt: new Date().toISOString(),
+      },
+    },
+  })
+}
