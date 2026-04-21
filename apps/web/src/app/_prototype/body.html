@@ -2529,36 +2529,41 @@
 </section>
 
 <section class="layout" style="max-width:1200px;margin:0 auto">
-  <!-- Upload Area -->
-  <div style="padding:40px;background:linear-gradient(135deg,var(--accent-soft) 0%,rgba(255,193,7,0.05) 100%);border:2px dashed var(--accent);border-radius:12px;text-align:center;cursor:pointer" id="studio-upload-zone" onclick="document.getElementById('studio-file-input').click()">
-    <div style="font-size:48px;margin-bottom:16px">📹</div>
-    <div style="font-size:18px;font-weight:500;margin-bottom:4px">Drag video here or click to upload</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:16px">MP4, MOV, WebM • Up to 2GB • Raw footage welcome</div>
-    <input type="file" id="studio-file-input" accept="video/*" style="display:none">
-    <button class="btn-fill" style="padding:12px 24px;font-size:12px">Choose video</button>
+
+  <!-- Upload Section -->
+  <div class="studio-section">
+    <div class="studio-upload" id="studio-upload-zone" onclick="document.getElementById('studio-file-input').click()">
+      <div style="font-size:48px;margin-bottom:16px">📹</div>
+      <div style="font-size:18px;font-weight:500;margin-bottom:4px">Drag video here or click to upload</div>
+      <div style="font-size:13px;color:var(--t3);margin-bottom:16px">MP4, MOV, WebM • Up to 2GB • Raw footage welcome</div>
+      <input type="file" id="studio-file-input" accept="video/*" style="display:none">
+      <button class="btn-fill" style="padding:12px 24px;font-size:12px">Choose video</button>
+    </div>
   </div>
 
   <!-- Processing Status -->
-  <div id="studio-processing" style="display:none;margin-top:40px;padding:24px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:4px" id="processing-status">Processing...</div>
-        <div style="font-size:12px;color:var(--t3)" id="processing-detail">Uploading to Descript...</div>
+  <div id="studio-processing" style="display:none" class="studio-section">
+    <div class="kpi-card">
+      <div class="kpi-head">
+        <div class="l">
+          <div class="lbl" id="processing-status">Processing...</div>
+          <div class="sub" id="processing-detail">Uploading to Descript...</div>
+        </div>
+        <div class="r">
+          <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
+          <div style="font-size:11px;color:var(--t3)">time remaining</div>
+        </div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
-        <div style="font-size:11px;color:var(--t3)">time remaining</div>
+      <div style="background:var(--b1);height:6px;border-radius:4px;overflow:hidden;margin-top:16px">
+        <div style="background:var(--accent);height:100%;width:0%;transition:width .3s ease" id="processing-bar"></div>
       </div>
-    </div>
-    <div style="background:var(--b1);height:6px;border-radius:4px;overflow:hidden">
-      <div style="background:var(--accent);height:100%;width:0%;transition:width .3s ease" id="processing-bar"></div>
     </div>
   </div>
 
   <!-- Pending Approvals (Batch Preview) -->
-  <div style="margin-top:40px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Pending Approval · <span data-studio-pending-count>2 items</span></div>
+  <div class="studio-section">
+    <div class="section-head">
+      <h3>Pending Approval · <span data-studio-pending-count>2 items</span></h3>
       <button class="btn" style="padding:8px 12px;font-size:11px;color:var(--t3)">⚙️ Batch actions</button>
     </div>
 
@@ -2761,11 +2766,11 @@
   </div>
 
   <!-- Posting Strategy (Jordan's Recommendations) -->
-  <div style="margin-top:40px;padding:24px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div class="studio-section">
+    <div class="section-head">
       <div>
-        <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:4px">When to Post · Jordan's Strategy</div>
-        <div style="font-size:12px;color:var(--t3)">Based on your audience peaks, trending topics, and format performance</div>
+        <h3>When to Post · Jordan's Strategy</h3>
+        <p class="sub">Based on your audience peaks, trending topics, and format performance</p>
       </div>
       <div style="text-align:right;font-size:12px">
         <div style="color:var(--t3);margin-bottom:4px">Audience peaks</div>
@@ -2880,8 +2885,8 @@
   </script>
 
   <!-- Clips Ready to Post -->
-  <div style="margin-top:40px">
-    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Ready to Post · 4 clips</div>
+  <div class="studio-section">
+    <h3 style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Ready to Post · 4 clips</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px" id="studio-clips">
       <!-- Clips will be injected here -->
       <div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:12px;text-align:center;color:var(--t3)">
@@ -2891,28 +2896,28 @@
   </div>
 
   <!-- Metrics Dashboard -->
-  <div style="margin-top:40px;padding:24px;background:var(--s1);border:1px solid var(--b1);border-radius:12px">
-    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Performance · This week</div>
+  <div class="studio-section">
+    <h3 style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Performance · This week</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-      <div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">STYLE MATCH</div>
-        <div style="font-size:28px;font-weight:600;color:var(--ok)">0.87</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">↑ Improving</div>
+      <div class="metric">
+        <div class="lbl">STYLE MATCH</div>
+        <div class="v" style="color:var(--ok)">0.87</div>
+        <div class="d">↑ Improving</div>
       </div>
-      <div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">CLIPPING QUALITY</div>
-        <div style="font-size:28px;font-weight:600;color:var(--ok)">0.84</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">→ Stable</div>
+      <div class="metric">
+        <div class="lbl">CLIPPING QUALITY</div>
+        <div class="v" style="color:var(--ok)">0.84</div>
+        <div class="d">→ Stable</div>
       </div>
-      <div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">AVG. PROCESSING</div>
-        <div style="font-size:28px;font-weight:600">4m 42s</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">↓ Faster</div>
+      <div class="metric">
+        <div class="lbl">AVG. PROCESSING</div>
+        <div class="v">4m 42s</div>
+        <div class="d">↓ Faster</div>
       </div>
-      <div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:4px">RECOMMENDATION</div>
-        <div style="font-size:14px;font-weight:600;color:var(--ok);margin-top:8px">✅ Ready to ship</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">10 samples</div>
+      <div class="metric">
+        <div class="lbl">RECOMMENDATION</div>
+        <div class="v" style="color:var(--ok);margin-top:8px">✅ Ready to ship</div>
+        <div class="d">10 samples</div>
       </div>
     </div>
   </div>

@@ -318,6 +318,14 @@ body::before{
 .foot-row{padding:20px 40px;display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.05em;color:var(--t3);border-top:1px solid var(--b1)}
 .foot-row .brand{font-family:'Inter',sans-serif;font-style:normal;font-size:13px;color:var(--t2);letter-spacing:0;text-transform:none}
 
+/* ══ STUDIO TAB ══════════════════ */
+.studio-section{margin-top:40px}
+.studio-upload{padding:40px;background:linear-gradient(135deg,var(--accent-soft) 0%,rgba(212,165,116,.05) 100%);border:2px dashed var(--accent);border-radius:12px;text-align:center;cursor:pointer}
+.metric{display:flex;flex-direction:column}
+.metric .lbl{font-size:12px;color:var(--t3);margin-bottom:4px;letter-spacing:.15em;text-transform:uppercase;font-weight:500}
+.metric .v{font-size:28px;font-weight:600;letter-spacing:-.03em;font-feature-settings:"tnum" 1,"ss01" 1}
+.metric .d{font-size:11px;color:var(--t3);margin-top:4px}
+
 /* ══ TWEAKS PANEL ══════════════════ */
 #tweaks{position:fixed;right:20px;bottom:20px;z-index:200;width:280px;background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:18px;box-shadow:0 20px 60px var(--sh);font-family:'Inter',sans-serif;font-size:12px;display:none}
 #tweaks.show{display:block}
