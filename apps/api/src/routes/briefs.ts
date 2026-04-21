@@ -11,7 +11,7 @@
 
 import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
-import { authMiddleware } from '../middleware/auth'
+import { requireAuth, AuthedRequest } from '../middleware/auth'
 import {
   getMorningBriefData,
   getMidayCheckData,
@@ -31,11 +31,17 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * GET /api/briefs/morning
    * Fetch morning brief data (trends + yesterday + queue)
    */
-  router.get('/morning', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/morning', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       const data = await getMorningBriefData(prisma, companyId)
@@ -52,11 +58,17 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * GET /api/briefs/midday
    * Fetch midday check data (how today's posts are tracking)
    */
-  router.get('/midday', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/midday', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       const data = await getMidayCheckData(prisma, companyId)
@@ -73,11 +85,17 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * GET /api/briefs/evening
    * Fetch evening recap data (day summary + tomorrow forecast)
    */
-  router.get('/evening', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/evening', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       const data = await getEveningRecapData(prisma, companyId)
@@ -94,11 +112,17 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * GET /api/briefs/queue
    * Get queue status (posts ready + in production)
    */
-  router.get('/queue', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/queue', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       const tasks = await prisma.task.findMany({
@@ -136,11 +160,17 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * GET /api/briefs/anomalies
    * Detect real-time anomalies (surges, underperformance)
    */
-  router.get('/anomalies', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/anomalies', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       const anomalies = await detectAnomalies(prisma, companyId)
@@ -157,13 +187,18 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * POST /api/briefs/queue/:taskId/post-now
    * Immediately post queued content to platform
    */
-  router.post('/queue/:taskId/post-now', authMiddleware, async (req: Request, res: Response) => {
+  router.post('/queue/:taskId/post-now', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
       const { taskId } = req.params
-
+      const companyId = req.query.companyId as string
       if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
+        return res.status(400).json({ error: 'companyId required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       // Fetch task
@@ -201,13 +236,19 @@ export function initBriefRoutes(_prisma: PrismaClient) {
    * User approves an emerging trend opportunity
    * Creates task for Jordan to brief Alex on new trend
    */
-  router.post('/approve-trend', authMiddleware, async (req: Request, res: Response) => {
+  router.post('/approve-trend', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
       const { trend, reason } = req.body
+      const companyId = req.query.companyId as string
 
       if (!companyId || !trend) {
-        return res.status(400).json({ error: 'Missing required fields' })
+        return res.status(400).json({ error: 'companyId and trend required' })
+      }
+
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
       }
 
       // Create a task for Jordan (strategist)

@@ -10,7 +10,7 @@
 
 import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
-import { authMiddleware } from '../middleware/auth'
+import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { getWeeklyData } from '../lib/dailyBrief.service'
 
 const router = Router()
@@ -26,9 +26,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * Get aggregated weekly metrics (formats, cohorts, timing, etc.)
    * This is what agents read to make decisions.
    */
-  router.get('/data', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/data', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -47,9 +55,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * GET /api/weekly/maya-pulse
    * Get Maya's weekly pulse task (learnings + recommendations)
    */
-  router.get('/maya-pulse', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/maya-pulse', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -89,9 +105,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * GET /api/weekly/jordan-plan
    * Get Jordan's weekly content plan
    */
-  router.get('/jordan-plan', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/jordan-plan', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -131,9 +155,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * GET /api/weekly/alex-hooks
    * Get Alex's weekly hooks (3 per day for the week)
    */
-  router.get('/alex-hooks', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/alex-hooks', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -173,9 +205,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * GET /api/weekly/riley-briefs
    * Get Riley's weekly production direction
    */
-  router.get('/riley-briefs', authMiddleware, async (req: Request, res: Response) => {
+  router.get('/riley-briefs', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -215,9 +255,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * POST /api/weekly/plan/approve
    * Approve the weekly plan (auto-trigger Alex/Riley tasks)
    */
-  router.post('/plan/approve', authMiddleware, async (req: Request, res: Response) => {
+  router.post('/plan/approve', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       if (!companyId) {
         return res.status(401).json({ error: 'Not authenticated' })
       }
@@ -254,9 +302,17 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
    * POST /api/weekly/plan/reject
    * Reject the weekly plan (Jordan generates new one)
    */
-  router.post('/plan/reject', authMiddleware, async (req: Request, res: Response) => {
+  router.post('/plan/reject', requireAuth, async (req: Request, res: Response) => {
     try {
-      const companyId = (req as any).companyId
+      const { userId } = (req as AuthedRequest).session
+      const companyId = req.query.companyId as string
+      if (!companyId) {
+        return res.status(400).json({ error: 'companyId required' })
+      }
+      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
+      if (!company) {
+        return res.status(403).json({ error: 'Company not found' })
+      }
       const { reason } = req.body
 
       if (!companyId) {
