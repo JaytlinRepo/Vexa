@@ -920,6 +920,7 @@
         })
         var months = Object.keys(byMonth).sort()
         var cumValues = months.map(function(m) { return byMonth[m] })
+        if (cumValues.length < 2) return // need at least 2 months for a chart
 
         // Also build per-post likes for rate calculation
         var likesPerPost = sorted.map(function(p) { return p.likeCount || 0 })
@@ -1170,8 +1171,6 @@
       var engRate = p.engagementRate || 0
       if (engRate > 1) engRate = engRate / 100
       var eng = (engRate > 0 && engRate < 1) ? (engRate * 100).toFixed(1) + '%' : engRate >= 1 ? engRate.toFixed(1) + '%' : '—'
-      var watchMs = p.avgWatchTimeMs || 0
-      var ret = watchMs > 0 ? (watchMs / 1000).toFixed(1) + 's' : '—'
       var ago = timeAgo(p.publishedAt)
       var thumb = p.thumbnailUrl
       var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'
@@ -1185,25 +1184,8 @@
         + '<td class="num"><em>' + (views > 0 ? fmt(views) : '—') + '</em></td>'
         + '<td class="num">' + fmt(p.likeCount || 0) + '</td>'
         + '<td class="num">' + eng + '</td>'
-        + '<td class="num">' + ret + '</td>'
         + '</tr>'
     }).join('')
-    console.log('[hq-data] tbody.innerHTML set, children:', tbody.children.length)
-
-    // Hide AVG WATCH column when viewing TikTok (no watch time data available)
-    var hideWatch = filterKey === 'tiktok'
-    var table = tbody.closest('table')
-    if (table) {
-      var colIdx = 4 // AVG WATCH is the 5th column (0-indexed: POST, VIEWS, LIKES, ENG, AVG WATCH)
-      // Table now has 5 columns total: POST(0), VIEWS(1), LIKES(2), ENG(3), AVG WATCH(4)
-      var allTh = table.querySelectorAll('thead th')
-      if (allTh[colIdx]) allTh[colIdx].style.display = hideWatch ? 'none' : ''
-      var rows = table.querySelectorAll('tbody tr')
-      rows.forEach(function(row) {
-        var cells = row.querySelectorAll('td')
-        if (cells[colIdx]) cells[colIdx].style.display = hideWatch ? 'none' : ''
-      })
-    }
     } catch (err) {
       console.error('[hq-data] renderPostsTable CRASHED:', err.message, err.stack)
     }

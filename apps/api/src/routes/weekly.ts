@@ -84,9 +84,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
       }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
 
       const weeklyData = await getWeeklyData(prisma, companyId)
       res.json(weeklyData)
@@ -112,9 +109,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
-      }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
       }
 
       const task = await prisma.task.findFirst({
@@ -165,9 +159,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
       }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
 
       const task = await prisma.task.findFirst({
         where: {
@@ -216,9 +207,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
-      }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
       }
 
       const task = await prisma.task.findFirst({
@@ -269,9 +257,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
       }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
 
       const task = await prisma.task.findFirst({
         where: {
@@ -321,9 +306,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
       }
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
 
       // Find the latest content_plan task
       const planTask = await prisma.task.findFirst({
@@ -370,9 +352,6 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       }
       const { reason } = req.body
 
-      if (!companyId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
 
       // Find latest plan
       const planTask = await prisma.task.findFirst({
