@@ -2555,6 +2555,190 @@
     </div>
   </div>
 
+  <!-- Pending Approvals (Batch Preview) -->
+  <div style="margin-top:40px">
+    <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:24px">Pending Approval · 2 items</div>
+
+    <!-- Batch Preview Card -->
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:0;overflow:hidden;margin-bottom:24px">
+      <!-- Item 1 -->
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;padding:24px;border-bottom:1px solid var(--b1)">
+        <!-- Visual Preview -->
+        <div>
+          <div style="background:#000;aspect-ratio:16/9;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;font-size:48px;color:var(--t3)">
+            🎬
+          </div>
+          <div style="font-size:12px;color:var(--t3);margin-bottom:12px">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <span style="font-weight:500">Riley's edit</span>
+              <span style="background:var(--ok);color:#000;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">v2</span>
+            </div>
+            <div style="font-size:11px;line-height:1.5">
+              Color temp: 3400K<br/>
+              Saturation: +5<br/>
+              Warmth: +8
+            </div>
+            <div style="margin-top:8px;padding:8px;background:rgba(0,200,100,0.1);border-radius:6px;font-size:11px">
+              <div style="color:var(--ok);font-weight:500">✓ Style match: 0.92</div>
+              <div style="color:var(--t3);margin-top:2px">Excellent color accuracy</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Approve</button>
+            <button class="btn" style="flex:1;padding:8px;font-size:12px" onclick="document.getElementById('visual-feedback-1').style.display='block'">✗ Reject</button>
+          </div>
+          <!-- Rejection Feedback Form -->
+          <div id="visual-feedback-1" style="display:none;margin-top:12px;padding:12px;background:rgba(255,0,0,0.05);border-radius:6px;border:1px solid rgba(255,0,0,0.2)">
+            <div style="font-size:11px;font-weight:500;margin-bottom:8px;color:var(--t3)">Why are you rejecting this edit?</div>
+            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" placeholder="Too warm, not enough contrast, etc." rows="2"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer">Submit & regenerate</button>
+              <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-1').style.display='none'">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Copy & Captions -->
+        <div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:12px;color:var(--t3)">Alex's captions (choose one)</div>
+
+          <!-- Caption Option 1 -->
+          <div style="background:var(--s0);border:2px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "Watch for the moment she says 'no' — that changes everything."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Hook style:</em> Curiosity-driven, uses surprise moment
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Caption Option 2 -->
+          <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "3 minutes that shift your perspective on boundaries."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Hook style:</em> Value-focused, promises transformation
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Caption Option 3 -->
+          <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "If you're feeling stuck in people-pleasing, this is for you."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Hook style:</em> Audience-targeted, speaks directly to pain point
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Reject All Captions -->
+          <button class="btn" style="width:100%;padding:10px;font-size:12px">Reject all — get new captions</button>
+        </div>
+      </div>
+
+      <!-- Item 2 -->
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;padding:24px">
+        <!-- Visual Preview -->
+        <div>
+          <div style="background:#000;aspect-ratio:16/9;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;font-size:48px;color:var(--t3)">
+            🖼️
+          </div>
+          <div style="font-size:12px;color:var(--t3);margin-bottom:12px">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <span style="font-weight:500">Riley's edit</span>
+              <span style="background:var(--accent);color:#000;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">v1</span>
+            </div>
+            <div style="font-size:11px;line-height:1.5">
+              Brightness: +12<br/>
+              Contrast: -5<br/>
+              Warmth: +4
+            </div>
+            <div style="margin-top:8px;padding:8px;background:rgba(255,150,0,0.1);border-radius:6px;font-size:11px">
+              <div style="color:var(--accent);font-weight:500">⚠ Style match: 0.78</div>
+              <div style="color:var(--t3);margin-top:2px">Slightly different lighting</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Approve</button>
+            <button class="btn" style="flex:1;padding:8px;font-size:12px" onclick="document.getElementById('visual-feedback-2').style.display='block'">✗ Reject</button>
+          </div>
+          <!-- Rejection Feedback Form -->
+          <div id="visual-feedback-2" style="display:none;margin-top:12px;padding:12px;background:rgba(255,0,0,0.05);border-radius:6px;border:1px solid rgba(255,0,0,0.2)">
+            <div style="font-size:11px;font-weight:500;margin-bottom:8px;color:var(--t3)">Why are you rejecting this edit?</div>
+            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" placeholder="Too warm, not enough contrast, etc." rows="2"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer">Submit & regenerate</button>
+              <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-2').style.display='none'">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Copy & Captions -->
+        <div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:12px;color:var(--t3)">Alex's captions (choose one)</div>
+
+          <!-- Caption Option 1 -->
+          <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "This is the real work of self-respect."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Caption style:</em> Aspirational, wisdom-focused
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Caption Option 2 -->
+          <div style="background:var(--s0);border:2px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "Your nervous system is smarter than your people-pleasing brain."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Caption style:</em> Conversational, empowering
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Caption Option 3 -->
+          <div style="background:var(--s0);border:1px solid var(--b1);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:500;margin-bottom:6px;line-height:1.5">
+              "No feels dangerous when you've always said yes."
+            </div>
+            <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+              <em>Caption style:</em> Relatable, validates struggle
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+            </div>
+          </div>
+
+          <!-- Reject All Captions -->
+          <button class="btn" style="width:100%;padding:10px;font-size:12px">Reject all — get new captions</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Clips Ready to Post -->
   <div style="margin-top:40px">
     <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:16px">Ready to Post · 4 clips</div>
