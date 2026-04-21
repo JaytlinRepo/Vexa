@@ -651,14 +651,14 @@
 
         var cells = ''
         for (var dow = 0; dow < 7; dow++) {
-          // Day label
           cells += '<text x="' + (padL - 4) + '" y="' + (padT + dow * cellH + cellH / 2 + 3) + '" text-anchor="end" fill="var(--t3)" font-family="JetBrains Mono" font-size="9">' + dayNames[dow] + '</text>'
           for (var hi = 0; hi < hours.length; hi++) {
             var key = dow + '-' + hours[hi]
             var arr = grid[key] || []
             var avg = arr.length > 0 ? arr.reduce(function(s,v){return s+v},0) / arr.length : 0
             var opacity = maxEng > 0 ? Math.max(0.05, avg / maxEng) : 0.05
-            if (avg > bestAvg) { bestAvg = avg; bestSlot = dayNames[dow] + ' ' + hours[hi] + ':00' }
+            // Only consider slots with 2+ posts as "best" to avoid flukes
+            if (avg > bestAvg && arr.length >= 2) { bestAvg = avg; bestSlot = dayNames[dow] + ' ' + hours[hi] + ':00' }
             cells += '<rect x="' + (padL + hi * cellW) + '" y="' + (padT + dow * cellH) + '" width="' + (cellW - 2) + '" height="' + (cellH - 2) + '" rx="3" fill="var(--accent)" opacity="' + opacity.toFixed(2) + '"/>'
             if (arr.length > 0) {
               cells += '<text x="' + (padL + hi * cellW + cellW / 2 - 1) + '" y="' + (padT + dow * cellH + cellH / 2 + 3) + '" text-anchor="middle" fill="var(--t1)" font-family="JetBrains Mono" font-size="8" opacity="' + (opacity > 0.3 ? 1 : 0.5) + '">' + arr.length + '</text>'
@@ -789,7 +789,119 @@
         }
       }
 
-      // ═══ 4. LIKES FORECAST ═══
+      // ═══ 4. MAYA'S PLAYBOOK ═══
+      var playbookEl = document.getElementById('maya-playbook')
+      if (playbookEl && posts.length >= 5) {
+        var validPB = posts.filter(function(p) { return p.publishedAt && p.engagementRate > 0 && p.engagementRate < 1 })
+
+        // Best format
+        var fmtMap = {}
+        validPB.forEach(function(p) {
+          var f = p.mediaType || '?'
+          if (!fmtMap[f]) fmtMap[f] = { total: 0, count: 0 }
+          fmtMap[f].total += p.likeCount || 0
+          fmtMap[f].count++
+        })
+        var bestFmt = Object.entries(fmtMap).sort(function(a,b) { return (b[1].total/b[1].count) - (a[1].total/a[1].count) })[0]
+        var bestFmtName = bestFmt ? bestFmt[0].replace('CAROUSEL_ALBUM','Carousels').replace('REEL','Reels').replace('VIDEO','Videos').replace('IMAGE','Photos') : 'content'
+        var bestFmtAvg = bestFmt ? Math.round(bestFmt[1].total / bestFmt[1].count) : 0
+
+        // Best time (2+ posts minimum)
+        var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+        var timeGrid = {}
+        validPB.forEach(function(p) {
+          var dt = new Date(p.publishedAt)
+          var dow = dt.getUTCDay()
+          var hr = dt.getUTCHours()
+          var bucket = [6,8,10,12,14,16,18,20,22].reduce(function(prev,curr) { return Math.abs(curr-hr) < Math.abs(prev-hr) ? curr : prev })
+          var key = dow + '-' + bucket
+          if (!timeGrid[key]) timeGrid[key] = { rates: [], dow: dow, hr: bucket }
+          timeGrid[key].rates.push(p.engagementRate)
+        })
+        var bestTime = null
+        var bestTimeAvg = 0
+        Object.values(timeGrid).forEach(function(slot) {
+          if (slot.rates.length < 2) return
+          var avg = slot.rates.reduce(function(s,v){return s+v},0) / slot.rates.length
+          if (avg > bestTimeAvg) { bestTimeAvg = avg; bestTime = slot }
+        })
+        var bestTimeStr = bestTime ? dayNames[bestTime.dow] + 's around ' + (bestTime.hr > 12 ? (bestTime.hr - 12) + 'pm' : bestTime.hr + 'am') : null
+
+        // Top driver (correlation)
+        function pbPearson(x, y) {
+          var n = x.length; if (n < 3) return 0
+          var mx = x.reduce(function(s,v){return s+v},0)/n, my = y.reduce(function(s,v){return s+v},0)/n
+          var sx = Math.sqrt(x.reduce(function(s,v){return s+(v-mx)*(v-mx)},0)/n)
+          var sy = Math.sqrt(y.reduce(function(s,v){return s+(v-my)*(v-my)},0)/n)
+          if (sx===0||sy===0) return 0
+          return x.reduce(function(s,v,i){return s+(v-mx)*(y[i]-my)},0)/(n*sx*sy)
+        }
+        var pbLikes = validPB.map(function(p){return p.likeCount})
+        var drivers = [
+          { name: 'views and reach', r: Math.abs(pbPearson(validPB.map(function(p){return p.viewCount||p.reachCount||0}), pbLikes)) },
+          { name: 'comments and conversation', r: Math.abs(pbPearson(validPB.map(function(p){return p.commentCount||0}), pbLikes)) },
+          { name: 'longer captions with storytelling', r: Math.abs(pbPearson(validPB.map(function(p){return (p.caption||'').length}), pbLikes)) },
+          { name: 'shares', r: Math.abs(pbPearson(validPB.map(function(p){return p.shareCount||0}), pbLikes)) },
+        ].sort(function(a,b){return b.r - a.r})
+        var topDriver = drivers[0]
+
+        // Follower growth rate
+        var growthRate = 0
+        if (snaps.length >= 2) {
+          var snapByDate = {}
+          snaps.forEach(function(s) {
+            var d = s.capturedAt.slice(0,10)
+            snapByDate[d] = (snapByDate[d]||0) + s.followerCount
+          })
+          var snapDates = Object.keys(snapByDate).sort()
+          var snapVals = snapDates.map(function(d){return snapByDate[d]})
+          // Only use complete days (all accounts)
+          var counts = {}
+          snaps.forEach(function(s) { var d = s.capturedAt.slice(0,10); counts[d] = (counts[d]||0)+1 })
+          var expectedN = Object.values(counts).sort(function(a,b){return b-a})[0] || 1
+          var cleanDates = snapDates.filter(function(d){return counts[d] >= expectedN})
+          if (cleanDates.length >= 2) {
+            var first = snapByDate[cleanDates[0]]
+            var last = snapByDate[cleanDates[cleanDates.length - 1]]
+            growthRate = (last - first) / (cleanDates.length - 1)
+          }
+        }
+
+        // Average caption length of top 5 posts
+        var topPosts = validPB.slice().sort(function(a,b){return (b.likeCount||0)-(a.likeCount||0)}).slice(0,5)
+        var avgTopCaption = Math.round(topPosts.reduce(function(s,p){return s+(p.caption||'').length},0) / topPosts.length)
+        var avgAllCaption = Math.round(validPB.reduce(function(s,p){return s+(p.caption||'').length},0) / validPB.length)
+        var captionTip = avgTopCaption > avgAllCaption * 1.3 ? 'Your best posts have longer captions — don\'t be afraid to tell a story.' : avgTopCaption < avgAllCaption * 0.7 ? 'Your best posts keep captions short and punchy.' : ''
+
+        // Build the message — Maya speaks as an employee, not a coach
+        var lines = []
+        lines.push('I\'ve been looking at your numbers. <strong>' + bestFmtName + '</strong>' + (bestTimeStr ? ' posted on <strong>' + bestTimeStr + '</strong>' : '') + ' are your strongest combo — averaging <strong>' + fmt(bestFmtAvg) + ' likes</strong> per post. I\'m telling Jordan to prioritize that format in your next content plan.')
+        if (topDriver) lines.push('The data shows <strong>' + topDriver.name + '</strong> is what drives your likes the most. I\'ve flagged this for Alex so the hooks and captions are optimized around it.')
+        if (captionTip) {
+          var ct = avgTopCaption > avgAllCaption * 1.3
+            ? 'Your top posts have longer captions. I\'ve noted this as a preference — Alex will write with more depth going forward.'
+            : 'Your best performers keep captions short. I\'ve let Alex know to keep copy tight and punchy.'
+          lines.push(ct)
+        }
+        if (growthRate > 0) lines.push('You\'re gaining about <strong>' + growthRate.toFixed(0) + ' followers per day</strong>. I\'m tracking this and will flag if the trend changes. Jordan is building the next plan around maintaining this momentum.')
+        else if (growthRate === 0) lines.push('Growth has been flat recently. I\'m looking into what changed and will brief Jordan on adjustments. We may need to increase posting frequency or test a new format.')
+
+        // Try Bedrock-generated playbook first, fall back to templated version
+        get('/api/platform/maya-playbook').then(function(pb) {
+          if (pb && pb.message) {
+            // Use the AI-generated message
+            playbookEl.innerHTML = '<p style="margin:0;padding-left:10px;border-left:2px solid var(--accent)">' + esc(pb.message) + '</p>' +
+              '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;color:var(--t3);margin-top:8px">Updated ' + (pb.generatedAt ? new Date(pb.generatedAt).toLocaleDateString() : 'today') + '</div>'
+          } else {
+            // Fall back to templated version
+            playbookEl.innerHTML = lines.map(function(l) {
+              return '<p style="margin:0 0 10px;padding-left:10px;border-left:2px solid var(--accent)">' + l + '</p>'
+            }).join('')
+          }
+        })
+      }
+
+      // ═══ 5. LIKES FORECAST ═══
       var likesEl = document.getElementById('likes-forecast-chart')
       var likesInsight = document.getElementById('likes-forecast-insight')
       if (likesEl && posts.length > 0) {

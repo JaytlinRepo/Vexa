@@ -91,6 +91,12 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
             const { computeCorrelationAnalysis } = await import('./lib/metricTracking')
             await computeCorrelationAnalysis(prisma, id)
           } catch {}
+          // Generate Maya's dynamic playbook message
+          try {
+            const { generateMayaPlaybook } = await import('./lib/metricTracking')
+            const msg = await generateMayaPlaybook(prisma, id)
+            if (msg) console.log(`[scheduler] maya playbook for ${id}: ${msg.slice(0, 60)}...`)
+          } catch {}
         }
       } catch {}
     } catch (err) {

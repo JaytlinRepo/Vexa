@@ -516,3 +516,145 @@ export async function computeCorrelationAnalysis(
     },
   })
 }
+
+/**
+ * Generate Maya's dynamic playbook message via Bedrock.
+ * Pulls correlation analysis, format performance, best posting time,
+ * growth rate, and recent post data — sends it all to Claude Haiku
+ * to write a personalized message as Maya speaking to the CEO.
+ * Stored in brand memory with tag 'maya_playbook'.
+ */
+export async function generateMayaPlaybook(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<string> {
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { platform: true, handle: true, id: true },
+  })
+  if (accounts.length === 0) return ''
+
+  const accountIds = accounts.map(a => a.id)
+
+  // Gather all the data Maya would reference
+  const posts = await prisma.platformPost.findMany({
+    where: { accountId: { in: accountIds }, likeCount: { gt: 0 }, engagementRate: { lt: 1 } },
+    orderBy: { publishedAt: 'desc' },
+    take: 50,
+    select: {
+      mediaType: true, likeCount: true, commentCount: true, saveCount: true,
+      shareCount: true, reachCount: true, viewCount: true, engagementRate: true,
+      publishedAt: true, avgWatchTimeMs: true, caption: true, captionLength: true,
+      publishHour: true,
+    },
+  })
+  if (posts.length < 5) return ''
+
+  const snapshots = await prisma.platformSnapshot.findMany({
+    where: { accountId: { in: accountIds } },
+    orderBy: { capturedAt: 'desc' },
+    take: 30,
+    select: { followerCount: true, capturedAt: true, engagementRate: true },
+  })
+
+  // Correlation analysis from brand memory
+  const corrMemory = await prisma.brandMemory.findFirst({
+    where: {
+      companyId,
+      content: { path: ['tags'], array_contains: 'correlation' },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  const corrSummary = corrMemory ? (corrMemory.content as { summary?: string }).summary || '' : ''
+
+  // Format performance
+  const formatMap: Record<string, { likes: number; count: number }> = {}
+  posts.forEach(p => {
+    const f = p.mediaType || 'unknown'
+    if (!formatMap[f]) formatMap[f] = { likes: 0, count: 0 }
+    formatMap[f].likes += p.likeCount
+    formatMap[f].count++
+  })
+  const formatLines = Object.entries(formatMap)
+    .map(([f, d]) => `${f}: ${Math.round(d.likes / d.count)} avg likes (${d.count} posts)`)
+    .join(', ')
+
+  // Growth rate
+  const first = snapshots[snapshots.length - 1]
+  const last = snapshots[0]
+  const growthDays = snapshots.length
+  const growthRate = first && last && growthDays > 1
+    ? ((last.followerCount - first.followerCount) / growthDays).toFixed(1)
+    : '0'
+
+  // Total followers
+  const totalFollowers = last?.followerCount || 0
+
+  // Best posting time (from publish hours)
+  const hourBuckets: Record<number, number[]> = {}
+  posts.forEach(p => {
+    if (p.publishHour == null) return
+    if (!hourBuckets[p.publishHour]) hourBuckets[p.publishHour] = []
+    hourBuckets[p.publishHour].push(p.engagementRate)
+  })
+  const bestHour = Object.entries(hourBuckets)
+    .filter(([, rates]) => rates.length >= 2)
+    .sort((a, b) => {
+      const avgA = a[1].reduce((s, v) => s + v, 0) / a[1].length
+      const avgB = b[1].reduce((s, v) => s + v, 0) / b[1].length
+      return avgB - avgA
+    })[0]
+  const bestHourStr = bestHour ? `${bestHour[0]}:00 UTC (${bestHour[1].length} posts, ${(bestHour[1].reduce((s, v) => s + v, 0) / bestHour[1].length * 100).toFixed(1)}% avg eng)` : 'not enough data'
+
+  const dataBlock = `
+Account: ${accounts.map(a => `${a.platform} @${a.handle}`).join(', ')}
+Total followers: ${totalFollowers.toLocaleString()}
+Growth rate: ${growthRate} followers/day over ${growthDays} days
+Format performance: ${formatLines}
+Best posting hour: ${bestHourStr}
+${corrSummary ? 'Correlation analysis: ' + corrSummary : ''}
+Total posts analyzed: ${posts.length}
+Total likes: ${posts.reduce((s, p) => s + p.likeCount, 0).toLocaleString()}
+Total reach: ${posts.reduce((s, p) => s + (p.reachCount || p.viewCount || 0), 0).toLocaleString()}
+`.trim()
+
+  const systemPrompt = `You are Maya, a data analyst who works for a social media creator. You report directly to the CEO (the creator). Write a 3-4 sentence message to the CEO summarizing what you've found in their data and what you and the team are going to do about it.
+
+Rules:
+- Speak as an employee reporting to your boss, not as a coach giving advice
+- Say what YOU and the team (Jordan the strategist, Alex the copywriter, Riley the creative director) are going to do with this information
+- Reference specific numbers from the data
+- Don't tell the CEO what to do — tell them what you're handling
+- Be confident and direct, not apologetic
+- No bullet points, just flowing sentences
+- Don't start with "Hi" or "Hey" — get straight to the point`
+
+  try {
+    const { invokeAgent } = await import('../services/bedrock/bedrock.service')
+    const response = await invokeAgent({
+      systemPrompt,
+      messages: [{ role: 'user', content: dataBlock }],
+      maxTokens: 250,
+    })
+
+    const message = response.trim()
+
+    // Store in brand memory
+    const { writeMemory } = await import('./brandMemory')
+    await writeMemory(prisma, {
+      companyId,
+      type: 'performance',
+      weight: 1.8,
+      content: {
+        source: 'performance_tracking',
+        summary: message,
+        tags: ['maya_playbook', 'daily'],
+      },
+    })
+
+    return message
+  } catch (err) {
+    console.warn('[maya-playbook] Bedrock failed:', (err as Error).message?.slice(0, 100))
+    return ''
+  }
+}

@@ -258,6 +258,32 @@ router.get('/overview', requireAuth, async (req, res, next) => {
 })
 
 /**
+ * GET /api/platform/maya-playbook — latest Maya playbook message
+ */
+router.get('/maya-playbook', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({ where: { userId } })
+    if (!company) { res.json({ message: null }); return }
+
+    const memory = await prisma.brandMemory.findFirst({
+      where: {
+        companyId: company.id,
+        content: { path: ['tags'], array_contains: 'maya_playbook' },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    res.json({
+      message: memory ? (memory.content as { summary?: string }).summary || null : null,
+      generatedAt: memory?.createdAt || null,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
  * GET /api/platform/forecast — latest Bedrock narrative forecast
  */
 router.get('/forecast', requireAuth, async (req, res, next) => {
