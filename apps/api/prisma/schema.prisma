@@ -330,6 +330,8 @@ model PlatformPost {
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
   // ── Derived metrics (computed after each sync) ──────────────────
+  avgWatchTimeMs       Int    @default(0) @map("avg_watch_time_ms")      // Reel avg watch time in ms (from Meta)
+  retentionRate        Float  @default(0) @map("retention_rate")         // avg watch time / video duration (0-1)
   engagementRate       Float  @default(0) @map("engagement_rate")        // (likes+comments+saves+shares)/reach
   saveRate             Float  @default(0) @map("save_rate")              // saves/reach — IG ranking signal
   viralityScore        Float  @default(0) @map("virality_score")         // shares/reach — algorithmic boost

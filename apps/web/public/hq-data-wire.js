@@ -174,8 +174,7 @@
       populateAudience(ov.audience)
     }
 
-    // ── APPROVALS SIDEBAR ──
-    populateApprovals(tasks)
+    // approvals sidebar removed — handled in pipeline + Work page
 
     // ── CHART LEGEND ──
     if (ov && ov.accounts && ov.sparkline && ov.sparkline.length > 0) {
@@ -378,10 +377,10 @@
 
   function populatePostsTable(S) {
     // Fetch timeseries for real post data
+    console.log('[hq-data] populatePostsTable called')
     get('/api/platform/timeseries').then(function (ts) {
+      console.log('[hq-data] timeseries response:', ts ? ts.posts?.length + ' posts' : 'null')
       if (!ts || !ts.posts || ts.posts.length === 0) return
-      var tbody = document.querySelector('#view-db-dashboard .posts-tbl tbody')
-      if (!tbody) return
 
       // Build accountId→platform map from timeseries account + overview
       var acctMap = {}
@@ -400,116 +399,124 @@
         })
       }
 
-      // Sort by views desc for best posts first
-      var sorted = ts.posts.slice().sort(function(a,b){ return (b.viewCount||b.reachCount||0) - (a.viewCount||a.reachCount||0) })
-      var posts = sorted.slice(0, 5)
+      // Sort by date for initial display, store for tab filtering
+      var sorted = ts.posts.slice().sort(function(a,b){ return new Date(b.publishedAt||0) - new Date(a.publishedAt||0) })
 
-      tbody.innerHTML = posts.map(function (p) {
-        var platform = acctMap[p.accountId] || 'instagram'
-        var pf = platform === 'tiktok' ? 'tt' : platform === 'youtube' ? 'yt' : 'ig'
-        var pfName = platform === 'tiktok' ? 'TIKTOK' : platform === 'youtube' ? 'YOUTUBE' : 'INSTAGRAM'
-        var rawType = (p.mediaType || 'POST').toUpperCase()
-        var mediaType = rawType === 'CAROUSEL_ALBUM' ? 'SLIDESHOW' : rawType
-        var caption = (p.caption || '').slice(0, 60) || '(no caption)'
-        var views = p.viewCount || p.reachCount || p.impressionCount || 0
-        var engRate = p.engagementRate || 0
-        var eng = engRate > 0 ? (engRate * 100).toFixed(1) + '%' : '—'
-        var saves = p.saveCount || 0
-        var ret = saves > 0 ? fmt(saves) : '—'
-        var ago = timeAgo(p.publishedAt)
-        var thumb = p.thumbnailUrl
-        var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'SLIDESHOW' ? '◉' : '✦'
-        var thumbHtml = thumb
-          ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover;border-radius:6px;border:1px solid var(--b1)"></div>'
-          : '<div class="thumb" style="background:var(--s2);color:var(--' + pf + ');font-size:16px;border:1px solid var(--b1);border-radius:6px;display:flex;align-items:center;justify-content:center">' + typeIcon + '</div>'
-
-        // Delta: compare engagement to average
-        var avgEng = sorted.reduce(function(s,x){ return s + (x.engagementRate||0) }, 0) / sorted.length
-        var engDelta = avgEng > 0 ? ((engRate - avgEng) / avgEng * 100) : 0
-        var deltaCol = engDelta > 5 ? '<span style="color:var(--ok)">▲ ' + Math.round(engDelta) + '%</span>'
-          : engDelta < -5 ? '<span style="color:var(--down,#d68a8a)">▼ ' + Math.round(Math.abs(engDelta)) + '%</span>'
-          : '<span style="color:var(--t3)">—</span>'
-
-        // Mini trend sparkline from engagement
-        var trendSvg = ''
-        if (engRate > 0) {
-          var barH = Math.min(20, Math.max(4, engRate * 100))
-          trendSvg = '<svg viewBox="0 0 52 22" preserveAspectRatio="none"><rect x="20" y="' + (22-barH) + '" width="12" height="' + barH + '" rx="2" fill="' + (engDelta >= 0 ? 'var(--accent)' : 'var(--down,#d68a8a)') + '" opacity=".6"/></svg>'
-        }
-
-        return '<tr>'
-          + '<td><div class="cell-first">' + thumbHtml
-          + '<div><div class="ttl">' + esc(caption) + '</div>'
-          + '<div class="meta"><span class="pf ' + pf + '"><span class="dot"></span>' + pfName + ' · ' + mediaType + '</span><span>' + ago + '</span></div></div></div></td>'
-          + '<td class="num"><em>' + fmt(views) + '</em></td>'
-          + '<td class="num">' + eng + '</td>'
-          + '<td class="num">' + ret + '</td>'
-          + '<td class="delta">' + deltaCol + '</td>'
-          + '<td class="tl">' + trendSvg + '</td>'
-          + '</tr>'
-      }).join('')
-
-      // Also populate the sidebar "Recent posts" section
+      // Populate the posts table via the tab-aware renderer
       populateSidebarPosts(sorted, acctMap)
     })
   }
 
   var allPostsCache = null
   var acctMapCache = null
+  var currentSort = null // { key: 'views'|'likes'|'eng'|'ret', asc: false }
 
   function populateSidebarPosts(posts, acctMap) {
+    console.log('[hq-data] populateSidebarPosts:', posts.length, 'posts')
     allPostsCache = posts
     acctMapCache = acctMap
     var postsCard = document.querySelector('#view-db-dashboard .posts-card')
+    console.log('[hq-data] postsCard found:', !!postsCard)
     if (!postsCard) return
     var ph = postsCard.querySelector('.ph h4')
-    if (ph) ph.innerHTML = 'Recent <em>posts</em> · ' + posts.length
+    if (ph) ph.innerHTML = 'Recent <em>posts</em>'
 
-    // Wire tab clicks
+    // Wire tab clicks — swap active tab label with header
     var tabs = postsCard.querySelectorAll('.ph .f span')
-    tabs.forEach(function(tab) {
+    var originalLabels = Array.from(tabs).map(function(t) { return t.textContent.trim() })
+    tabs.forEach(function(tab, idx) {
       tab.addEventListener('click', function() {
+        // Reset all labels to original
+        tabs.forEach(function(t, i) { t.textContent = originalLabels[i] })
+        // Swap: clicked tab becomes active, first tab becomes "Recent Posts" if not already
         tabs.forEach(function(t) { t.classList.remove('on') })
+        var clickedLabel = tab.textContent.trim()
         tab.classList.add('on')
-        renderPostsTable(tab.textContent.trim())
+        currentSort = null
+        var sortHeaders = postsCard.querySelectorAll('.posts-tbl th.sort')
+        sortHeaders.forEach(function(h) { h.classList.remove('active', 'asc') })
+        renderPostsTable(clickedLabel)
       })
     })
+
+    // Wire column sort clicks
+    var sortHeaders = postsCard.querySelectorAll('.posts-tbl th.sort')
+    sortHeaders.forEach(function(th) {
+      th.addEventListener('click', function() {
+        var key = th.dataset.sort
+        var wasActive = th.classList.contains('active')
+        var wasAsc = th.classList.contains('asc')
+        sortHeaders.forEach(function(h) { h.classList.remove('active', 'asc') })
+        th.classList.add('active')
+        // Toggle direction if clicking same column
+        var ascending = wasActive && !wasAsc
+        if (ascending) th.classList.add('asc')
+        currentSort = { key: key, asc: ascending }
+        // Re-render with current tab filter + new sort
+        var activeTab = postsCard.querySelector('.ph .f span.on')
+        renderPostsTable(activeTab ? activeTab.textContent.trim() : 'Recent Posts')
+      })
+    })
+
+    // Initial render
+    renderPostsTable('Recent Posts')
   }
 
   function renderPostsTable(filter) {
-    if (!allPostsCache) return
-    var tbody = document.querySelector('#view-db-dashboard .posts-tbl tbody')
-    if (!tbody) return
+    console.log('[hq-data] renderPostsTable START:', filter, 'cache:', allPostsCache?.length)
+    if (!allPostsCache) { console.log('[hq-data] EXIT: no cache'); return }
+    var tbody = document.querySelector('.posts-tbl tbody')
+    if (!tbody) { console.log('[hq-data] EXIT: no tbody'); return }
 
+    try {
     var posts = allPostsCache.slice()
     var acctMap = acctMapCache || {}
-
-    // Filter by platform
-    if (filter === 'IG') {
+    var filterKey = (filter || 'all posts').toLowerCase()
+    console.log('[hq-data] filterKey:', filterKey, 'posts before filter:', posts.length)
+    if (filterKey === 'instagram' || filterKey === 'ig') {
       posts = posts.filter(function(p) { return acctMap[p.accountId] === 'instagram' })
-    } else if (filter === 'TT') {
+    } else if (filterKey === 'tiktok' || filterKey === 'tt') {
       posts = posts.filter(function(p) { return acctMap[p.accountId] === 'tiktok' })
-    } else if (filter === 'YT') {
-      posts = posts.filter(function(p) { return acctMap[p.accountId] === 'youtube' })
     }
 
-    // Sort
-    if (filter === 'TOP ENG') {
+    // Sort — column header click overrides tab sort
+    if (currentSort) {
+      var sortKey = currentSort.key
+      var dir = currentSort.asc ? 1 : -1
+      posts.sort(function(a, b) {
+        var av, bv
+        if (sortKey === 'views') { av = a.viewCount || a.reachCount || 0; bv = b.viewCount || b.reachCount || 0 }
+        else if (sortKey === 'likes') { av = a.likeCount || 0; bv = b.likeCount || 0 }
+        else if (sortKey === 'eng') { av = a.engagementRate || 0; bv = b.engagementRate || 0 }
+        else if (sortKey === 'ret') { av = a.retentionRate || 0; bv = b.retentionRate || 0 }
+        else { av = 0; bv = 0 }
+        return (bv - av) * dir
+      })
+    } else if (filterKey === 'top engagement' || filterKey === 'top eng') {
       posts.sort(function(a, b) { return (b.engagementRate || 0) - (a.engagementRate || 0) })
-    } else if (filter === 'TOP VIEWS') {
+    } else if (filterKey === 'top views') {
       posts.sort(function(a, b) { return (b.viewCount || b.reachCount || 0) - (a.viewCount || a.reachCount || 0) })
     } else {
       posts.sort(function(a, b) { return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0) })
     }
 
-    var display = posts.slice(0, 5)
+    var display = posts.slice(0, 20)
     var avgEng = posts.length > 0 ? posts.reduce(function(s, x) { return s + (x.engagementRate || 0) }, 0) / posts.length : 0
+    console.log('[hq-data] rendering', display.length, 'rows into tbody')
 
     // Update header
     var ph = document.querySelector('#view-db-dashboard .posts-card .ph h4')
     if (ph) {
-      var label = filter === 'TOP VIEWS' ? 'Top by views' : filter === 'TOP ENG' ? 'Top by engagement' : 'Recent'
-      ph.innerHTML = label + ' <em>posts</em> · ' + posts.length
+      var labelMap = {
+        'recent posts': 'Recent',
+        'all posts': 'Recent',
+        'instagram': 'Instagram',
+        'tiktok': 'TikTok',
+        'top views': 'Top by views',
+        'top engagement': 'Top engagement',
+      }
+      var label = labelMap[filterKey] || 'Recent'
+      ph.innerHTML = label + ' <em>posts</em>'
     }
 
     tbody.innerHTML = display.map(function(p) {
@@ -519,10 +526,11 @@
       var mediaType = (p.mediaType || 'POST').toUpperCase()
       var caption = (p.caption || '').slice(0, 60) || '(no caption)'
       var views = p.viewCount || p.reachCount || p.impressionCount || 0
-      var engRate = Math.min(1, p.engagementRate || 0)
-      var eng = engRate > 0 ? (engRate * 100).toFixed(1) + '%' : '—'
-      var saves = p.saveCount || 0
-      var ret = saves > 0 ? fmt(saves) : '—'
+      var engRate = p.engagementRate || 0
+      if (engRate > 1) engRate = engRate / 100 // normalize if stored as percentage
+      var eng = (engRate > 0 && engRate < 1) ? (engRate * 100).toFixed(1) + '%' : engRate >= 1 ? engRate.toFixed(1) + '%' : '—'
+      var retRate = p.retentionRate || 0
+      var ret = retRate > 0 ? (retRate * 100).toFixed(0) + '%' : '—'
       var ago = timeAgo(p.publishedAt)
       var thumb = p.thumbnailUrl
       var typeIcon = mediaType === 'REEL' || mediaType === 'VIDEO' ? '▶' : mediaType === 'CAROUSEL_ALBUM' ? '◉' : '✦'
@@ -542,13 +550,18 @@
         + '<td><div class="cell-first">' + thumbHtml
         + '<div><div class="ttl">' + esc(caption) + '</div>'
         + '<div class="meta"><span class="pf ' + pf + '"><span class="dot"></span>' + pfName + ' · ' + mediaType + '</span><span>' + ago + '</span></div></div></div></td>'
-        + '<td class="num"><em>' + fmt(views) + '</em></td>'
+        + '<td class="num"><em>' + (views > 0 ? fmt(views) : '—') + '</em></td>'
+        + '<td class="num">' + fmt(p.likeCount || 0) + '</td>'
         + '<td class="num">' + eng + '</td>'
         + '<td class="num">' + ret + '</td>'
         + '<td class="delta">' + deltaCol + '</td>'
         + '<td class="tl">' + trendSvg + '</td>'
         + '</tr>'
     }).join('')
+    console.log('[hq-data] tbody.innerHTML set, children:', tbody.children.length)
+    } catch (err) {
+      console.error('[hq-data] renderPostsTable CRASHED:', err.message, err.stack)
+    }
   }
 
   function populateAudience(audience) {

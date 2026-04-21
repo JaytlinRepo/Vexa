@@ -126,11 +126,12 @@ export interface IGMedia {
   timestamp: string
   like_count: number
   comments_count: number
+  video_duration?: number // seconds, VIDEO/REEL only
 }
 
 export async function getIGMedia(igId: string, token: string, limit = 30): Promise<IGMedia[]> {
   const res = await graphGet<{ data: IGMedia[] }>(`/${igId}/media`, token, {
-    fields: 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count',
+    fields: 'id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count,video_duration',
     limit: String(limit),
   })
   return res.data || []
@@ -158,27 +159,43 @@ export interface IGMediaInsight {
   reach: number
   engagement: number
   saved: number
+  shares?: number
+  avgWatchTimeMs?: number  // Reel avg watch time in milliseconds
+  totalWatchTimeMs?: number // Reel total watch time in milliseconds
+  plays?: number           // Reel total plays (including replays)
 }
 
-export async function getMediaInsights(mediaId: string, _mediaType: string, token: string): Promise<IGMediaInsight> {
+export async function getMediaInsights(mediaId: string, mediaType: string, token: string): Promise<IGMediaInsight> {
   try {
-    // Only 'reach' and 'saved' are universally supported across all media
-    // types in Meta's current API. 'impressions' and 'plays' are deprecated.
-    // Likes + comments come from the media list endpoint, not insights.
+    // Different media types support different metrics:
+    // IMAGE/CAROUSEL: reach, impressions, saved
+    // VIDEO/REEL: reach, saved, plays, shares, ig_reels_avg_watch_time, ig_reels_video_view_total_time
+    const isReel = mediaType === 'VIDEO' || mediaType === 'REEL'
+    const metrics = isReel
+      ? 'reach,saved,plays,shares,ig_reels_avg_watch_time,ig_reels_video_view_total_time'
+      : 'reach,impressions,saved'
+
     const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
       `/${mediaId}/insights`,
       token,
-      { metric: 'reach,saved' },
+      { metric: metrics },
     )
     const byName: Record<string, number> = {}
     for (const m of res.data || []) {
       byName[m.name] = m.values?.[0]?.value ?? 0
     }
+    const reach = byName.reach || 0
+    const impressions = byName.impressions || byName.plays || reach
+    const shares = byName.shares || 0
     return {
-      impressions: byName.reach || 0, // reach is the best remaining proxy
-      reach: byName.reach || 0,
+      impressions,
+      reach,
       engagement: 0,
       saved: byName.saved || 0,
+      shares,
+      avgWatchTimeMs: byName.ig_reels_avg_watch_time || 0,
+      totalWatchTimeMs: byName.ig_reels_video_view_total_time || 0,
+      plays: byName.plays || 0,
     }
   } catch (err) {
     console.warn(`[meta] insights failed for ${mediaId}:`, (err as Error).message?.slice(0, 100))

@@ -298,6 +298,9 @@ export async function persistSnapshotAndPosts(
         viewCount: m.insights.impressions,
         reachCount: m.insights.reach,
         impressionCount: m.insights.impressions,
+        avgWatchTimeMs: m.insights.avgWatchTimeMs || 0,
+        retentionRate: (m.insights.avgWatchTimeMs && m.video_duration)
+          ? Math.min(1, (m.insights.avgWatchTimeMs / 1000) / m.video_duration) : 0,
         lastSyncedAt: new Date(),
       },
       create: {

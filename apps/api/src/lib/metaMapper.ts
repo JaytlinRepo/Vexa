@@ -33,12 +33,14 @@ export function mapMetaToStub(input: {
       timestamp: m.timestamp,
       like_count: m.like_count,
       comments_count: m.comments_count,
+      video_duration: m.video_duration,
       insights: {
         reach: insights.reach,
         impressions: insights.impressions,
         saved: insights.saved,
-        shares: 0, // Meta doesn't expose shares via this endpoint
+        shares: insights.shares || 0,
         engagement,
+        avgWatchTimeMs: insights.avgWatchTimeMs,
       },
     }
   })

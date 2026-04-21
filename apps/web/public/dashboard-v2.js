@@ -2009,7 +2009,6 @@
           ${sectionCeoNextAction()}
           ${sectionOverview()}
           ${sectionTeamPulseBanner()}
-          ${sectionReviewQueue()}
           ${sectionPerformanceFeedback()}
           ${''}<!-- team accessible via side tabs -->
           ${sectionPerformance()}

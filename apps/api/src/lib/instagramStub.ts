@@ -17,12 +17,14 @@ export interface IgMedia {
   timestamp: string
   like_count: number
   comments_count: number
+  video_duration?: number // seconds, VIDEO/REEL only
   insights: {
     reach: number
     impressions: number
     saved: number
     shares: number
     engagement: number
+    avgWatchTimeMs?: number
   }
 }
 

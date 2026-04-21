@@ -171,6 +171,71 @@ export async function syncInstagramAccount(
       console.warn('[ig-sync] platform-account write failed', e)
     }
 
+    // Refresh metrics for ALL known posts (not just the latest 30)
+    // Fetches fresh insights from Meta for each post in the DB
+    try {
+      const igAccount = await prisma.platformAccount.findFirst({
+        where: { companyId, platform: 'instagram' },
+      })
+      if (igAccount) {
+        const allPosts = await prisma.platformPost.findMany({
+          where: { accountId: igAccount.id },
+          select: { id: true, platformPostId: true, mediaType: true },
+          orderBy: { publishedAt: 'desc' },
+          take: 50, // cap to avoid API rate limits
+        })
+        if (allPosts.length > 0) {
+          console.log(`[ig-sync] refreshing insights for ${allPosts.length} posts`)
+          let updated = 0
+          await Promise.allSettled(
+            allPosts.map(async (post) => {
+              try {
+                const insights = await meta.getMediaInsights(post.platformPostId, post.mediaType as 'VIDEO' | 'IMAGE' | 'CAROUSEL_ALBUM', token)
+                if (insights.reach > 0 || insights.impressions > 0 || insights.saved > 0) {
+                  // Use the larger of reach/impressions, and floor at likeCount
+                  // (a post can't have fewer views than likes)
+                  const currentPost = await prisma.platformPost.findUnique({ where: { id: post.id }, select: { likeCount: true, commentCount: true, saveCount: true, shareCount: true } })
+                  const likes = currentPost?.likeCount || 0
+                  const reach = Math.max(insights.reach, insights.impressions, likes)
+                  const shares = insights.shares || currentPost?.shareCount || 0
+                  const totalEng = likes + (currentPost?.commentCount || 0) + (insights.saved || currentPost?.saveCount || 0) + shares
+                  const engRate = reach > 0 ? Math.min(1, totalEng / reach) : 0
+
+                  // Compute retention for Reels: avgWatchTime / videoDuration
+                  const avgWatchMs = insights.avgWatchTimeMs || 0
+                  // Look up video duration from the media we already fetched
+                  const mediaItem = media.find(m => m.id === post.platformPostId)
+                  const durationSec = mediaItem?.video_duration || 0
+                  const retentionRate = (avgWatchMs > 0 && durationSec > 0)
+                    ? Math.min(1, (avgWatchMs / 1000) / durationSec)
+                    : 0
+
+                  await prisma.platformPost.update({
+                    where: { id: post.id },
+                    data: {
+                      reachCount: reach,
+                      impressionCount: Math.max(insights.impressions, reach),
+                      viewCount: reach,
+                      saveCount: insights.saved || currentPost?.saveCount || 0,
+                      shareCount: shares,
+                      engagementRate: engRate,
+                      avgWatchTimeMs: avgWatchMs,
+                      retentionRate,
+                      lastSyncedAt: new Date(),
+                    },
+                  })
+                  updated++
+                }
+              } catch {}
+            }),
+          )
+          if (updated > 0) console.log(`[ig-sync] updated insights for ${updated}/${allPosts.length} posts`)
+        }
+      }
+    } catch (e) {
+      console.warn('[ig-sync] backfill failed', e)
+    }
+
     // Count new posts
     const updatedAccount = await prisma.platformAccount.findFirst({
       where: { companyId, platform: 'instagram' },
