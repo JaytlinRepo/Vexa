@@ -265,7 +265,7 @@
   if (obWrap) {
     const reveal = document.getElementById('ob-4')
 
-    // Inject Step 3 — Instagram connect (real OAuth via Phyllo Connect).
+    // Inject Step 3 — Instagram connect (direct Meta OAuth).
     // Required for now — no skip. Connection is what unlocks every
     // personalized agent reply, so we gate the reveal on it.
     const ig = document.createElement('div')
@@ -291,53 +291,17 @@
     `
     obWrap.insertBefore(ig, reveal)
 
-    const INSTAGRAM_WORK_PLATFORM_ID = '9bb8913b-ddd9-430b-a66a-d74d846e6c66'
-
-    document.getElementById('ob-ig-connect').addEventListener('click', async () => {
+    document.getElementById('ob-ig-connect').addEventListener('click', () => {
       const result = document.getElementById('ob-ig-result')
       const btn = document.getElementById('ob-ig-connect')
       if (!currentCompany?.id) {
         result.textContent = 'Company not ready yet — refresh and try again.'
         return
       }
-      // Pre-flight: hit the SDK-token endpoint directly so we can
-      // surface a server-side error (missing Phyllo creds, 5xx) BEFORE
-      // opening the modal. The modal swallows server errors silently.
-      result.textContent = 'Checking Instagram connection…'
       btn.disabled = true
-      try {
-        const r = await fetch(API + '/api/phyllo/sdk-token', { method: 'POST', credentials: 'include' })
-        if (!r.ok) {
-          const j = await r.json().catch(() => null)
-          const msg = (j && (j.error || j.message)) || ('HTTP ' + r.status)
-          result.innerHTML = `<div style="color:#ff6b6b">Server is not configured for Instagram yet — ${msg}.</div><div style="margin-top:6px;color:var(--t3);font-size:11px">Likely missing PHYLLO_CLIENT_ID / PHYLLO_CLIENT_SECRET on the API. Set them on Railway and retry.</div>`
-          btn.disabled = false
-          return
-        }
-      } catch (e) {
-        result.innerHTML = `<div style="color:#ff6b6b">Could not reach the API — ${e.message}.</div>`
-        btn.disabled = false
-        return
-      }
-      if (typeof window.vxPhylloConnect !== 'function') {
-        result.textContent = 'Connect SDK not loaded yet — wait a second and try again.'
-        btn.disabled = false
-        return
-      }
-      result.textContent = 'Opening Instagram authorization…'
-      window.vxPhylloConnect({
-        companyId: currentCompany.id,
-        workPlatformId: INSTAGRAM_WORK_PLATFORM_ID,
-        onConnected: async () => {
-          result.textContent = 'Connected. Spinning up your team…'
-          await finishToReveal()
-        },
-        onError: (msg) => {
-          result.innerHTML = `<div style="color:#ff6b6b">Could not connect — ${msg || 'try again'}.</div>`
-          btn.disabled = false
-        },
-        onClose: () => { btn.disabled = false },
-      })
+      result.textContent = 'Redirecting to Instagram…'
+      // Direct Meta OAuth — redirect to the API which sends user to Facebook login
+      window.location.href = API + '/api/instagram/auth/start?companyId=' + currentCompany.id
     })
     ig.querySelector('[data-back]').addEventListener('click', () => obPrevTo('ob-8'))
   }

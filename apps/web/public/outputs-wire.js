@@ -472,7 +472,7 @@
 
   // ── Audience deep dive ─────────────────────────────────────────
   function rAudienceDeepDive(c) {
-    return reportHeader(c.headline || 'Audience deep dive', c.dataSource ? `Data source: ${c.dataSource === 'phyllo' ? 'live Phyllo sync' : 'niche pattern (no live data yet)'}` : null) +
+    return reportHeader(c.headline || 'Audience deep dive', c.dataSource ? `Data source: ${c.dataSource === 'stub' ? 'niche pattern (no live data yet)' : 'live account data'}` : null) +
       (Array.isArray(c.demographics) && c.demographics.length ? `
         ${reportSectionLabel('Demographics')}
         ${c.demographics.map((d) => reportKVRow(d.label, d.value)).join('')}
@@ -500,7 +500,7 @@
   // ── Engagement diagnosis ───────────────────────────────────────
   function rEngagementDiagnosis(c) {
     const findings = Array.isArray(c.findings) ? c.findings : []
-    return reportHeader(c.headline || 'Engagement diagnosis', c.dataSource ? `Data source: ${c.dataSource === 'phyllo' ? 'live Phyllo sync' : 'niche pattern (no live data yet)'}` : null) +
+    return reportHeader(c.headline || 'Engagement diagnosis', c.dataSource ? `Data source: ${c.dataSource === 'stub' ? 'niche pattern (no live data yet)' : 'live account data'}` : null) +
       (c.summary ? `<div style="color:var(--t1);font-size:14px;line-height:1.55;margin-bottom:14px">${escapeHtml(c.summary)}</div>` : '') +
       findings.map((f) => `
         <div style="background:var(--s2);border-left:3px solid #e8a04b;border-top:1px solid var(--b1);border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);border-radius:6px;padding:14px 16px;margin-bottom:10px">
@@ -579,7 +579,7 @@
   // ── Slot audit ─────────────────────────────────────────────────
   function rSlotAudit(c) {
     const slots = Array.isArray(c.slots) ? c.slots : []
-    return reportHeader(c.headline || 'Slot audit', c.dataSource === 'phyllo' ? 'Data source: live Phyllo sync' : 'Data source: niche pattern') +
+    return reportHeader(c.headline || 'Slot audit', c.dataSource === 'stub' ? 'Data source: niche pattern' : 'Data source: live account data') +
       slots.map((s) => `
         <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px">
           <div style="font-family:'Syne',sans-serif;color:var(--t1);font-size:13px;font-weight:600;margin-bottom:8px">${escapeHtml(s.label)}</div>

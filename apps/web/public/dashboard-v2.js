@@ -35,7 +35,7 @@
     overview: null,        // combined platform overview (PlatformAccount + snapshots)
     feed: [],
     notifs: [],
-    phylloAccounts: [], // raw Phyllo account list (multi-platform)
+    platformAccounts: [], // connected platform accounts
   }
 
   // ─────────────── data ────────────────────────────────────────────
@@ -73,7 +73,7 @@
       STATE.overview = overview || null
       STATE.notifs = notifs?.items || []
 
-      // Supplementary: feed + phyllo are slow (RSS timeouts, Phyllo 429s).
+      // Supplementary: feed + platform accounts are fetched after render.
       // Fetch after render so they don't delay the dashboard.
       // Re-render when feed arrives so the sidebar appears.
       void Promise.all([
@@ -86,7 +86,7 @@
             STATE.feed = items
           }
         }),
-        get('/api/phyllo/accounts').then((p) => { STATE.phylloAccounts = p?.accounts || [] }),
+        get('/api/platform/accounts').then((p) => { STATE.platformAccounts = p?.accounts || [] }),
       ])
     }
   }
@@ -130,16 +130,14 @@
 
   // Returns the connection state the overview tiles should show for IG:
   //   'ready'      — real numbers in STATE.insights
-  //   'syncing'    — Phyllo says CONNECTED but InstagramConnection is empty/stub
+  //   'syncing'    — PlatformAccount exists but InstagramConnection has no data yet
   //                  (Meta 24-48h propagation is the usual cause)
   //   'none'       — no IG connection at all
   function instagramState() {
     const ig = STATE.insights
-    const phylloIg = STATE.phylloAccounts.find(
-      (a) => (a.work_platform?.name || '').toLowerCase() === 'instagram' && a.status === 'CONNECTED',
-    )
-    if (ig && ig.source === 'phyllo' && Number(ig.followerCount) > 0) return 'ready'
-    if (phylloIg) return 'syncing'
+    const hasIgAccount = STATE.platformAccounts.some((a) => a.platform === 'instagram')
+    if (ig && Number(ig.followerCount) > 0) return 'ready'
+    if (hasIgAccount || (ig && ig.source === 'meta')) return 'syncing'
     if (ig && ig.source === 'stub') return 'demo'
     return 'none'
   }

@@ -16,7 +16,15 @@
 
 import { PrismaClient, SocialPlatform } from '@prisma/client'
 import type { IgStub } from './instagramStub'
-import type { PhylloAccount } from './phyllo'
+/** @deprecated — only used by the legacy persistPhylloSync function */
+interface PhylloAccount {
+  id: string
+  user: { id: string }
+  work_platform?: { id: string; name: string }
+  platform_username?: string
+  profile_pic_url?: string
+  status: string
+}
 
 function mapPlatformName(name: string | undefined): SocialPlatform {
   const n = (name || '').toLowerCase()
@@ -195,5 +203,134 @@ export async function persistPhylloSync(
   const { computeWeeklySummary } = await import('./metricTracking')
   await computeWeeklySummary(prisma, platformAccount.id).catch((e) => console.warn('[platformSync] weekly summary failed:', e))
 
+  // Compute all derived metrics (post-level, snapshot rollups, weekly extensions)
+  const { computeAllDerivedMetrics } = await import('./derivedMetrics')
+  await computeAllDerivedMetrics(prisma, platformAccount.id, {
+    profileViews: stub.profileViews ?? 0,
+    websiteClicks: stub.websiteClicks ?? 0,
+  }).catch((e) => console.warn('[platformSync] derived metrics failed:', e))
+
   return { accountId: platformAccount.id }
+}
+
+/**
+ * Write snapshot, audience, posts, and derived metrics for an already-
+ * existing PlatformAccount row.  Extracted so callers that upsert the
+ * account themselves (e.g. direct Meta OAuth) can still run the full
+ * post-sync pipeline without going through persistPhylloSync.
+ */
+export async function persistSnapshotAndPosts(
+  prisma: PrismaClient,
+  accountId: string,
+  stub: IgStub,
+): Promise<void> {
+  // Snapshot (dedupe by UTC day)
+  const dayStart = new Date()
+  dayStart.setUTCHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1)
+
+  const existingToday = await prisma.platformSnapshot.findFirst({
+    where: { accountId, capturedAt: { gte: dayStart, lt: dayEnd } },
+    orderBy: { capturedAt: 'desc' },
+  })
+  if (existingToday) {
+    const newIsBetter = stub.followerCount > 0 || stub.avgReach > 0 || stub.engagementRate > 0
+    if (newIsBetter) {
+      await prisma.platformSnapshot.update({
+        where: { id: existingToday.id },
+        data: {
+          followerCount: stub.followerCount,
+          followingCount: stub.followingCount,
+          postCount: stub.postCount,
+          avgReach: stub.avgReach,
+          avgImpressions: stub.avgImpressions,
+          engagementRate: stub.engagementRate,
+          capturedAt: new Date(),
+        },
+      })
+    }
+  } else {
+    await prisma.platformSnapshot.create({
+      data: {
+        accountId,
+        followerCount: stub.followerCount,
+        followingCount: stub.followingCount,
+        postCount: stub.postCount,
+        avgReach: stub.avgReach,
+        avgImpressions: stub.avgImpressions,
+        engagementRate: stub.engagementRate,
+      },
+    })
+  }
+
+  // Audience
+  const hasAudience =
+    stub.audienceAge.length > 0 ||
+    stub.audienceGender.length > 0 ||
+    stub.audienceTopCountries.length > 0
+  if (hasAudience) {
+    await prisma.platformAudience.create({
+      data: {
+        accountId,
+        ageBreakdown: stub.audienceAge as never,
+        genderBreakdown: stub.audienceGender as never,
+        topCountries: stub.audienceTopCountries as never,
+        topCities: stub.audienceTopCities as never,
+      },
+    })
+  }
+
+  // Posts
+  for (const m of stub.recentMedia) {
+    await prisma.platformPost.upsert({
+      where: { accountId_platformPostId: { accountId, platformPostId: m.id } },
+      update: {
+        caption: m.caption,
+        mediaType: m.media_type,
+        url: m.permalink,
+        thumbnailUrl: m.thumbnail_url,
+        publishedAt: m.timestamp ? new Date(m.timestamp) : null,
+        likeCount: m.like_count,
+        commentCount: m.comments_count,
+        shareCount: m.insights.shares,
+        saveCount: m.insights.saved,
+        viewCount: m.insights.impressions,
+        reachCount: m.insights.reach,
+        impressionCount: m.insights.impressions,
+        lastSyncedAt: new Date(),
+      },
+      create: {
+        accountId,
+        platformPostId: m.id,
+        caption: m.caption,
+        mediaType: m.media_type,
+        url: m.permalink,
+        thumbnailUrl: m.thumbnail_url,
+        publishedAt: m.timestamp ? new Date(m.timestamp) : null,
+        likeCount: m.like_count,
+        commentCount: m.comments_count,
+        shareCount: m.insights.shares,
+        saveCount: m.insights.saved,
+        viewCount: m.insights.impressions,
+        reachCount: m.insights.reach,
+        impressionCount: m.insights.impressions,
+      },
+    })
+    const { capturePostMetrics } = await import('./metricTracking')
+    const upserted = await prisma.platformPost.findFirst({
+      where: { accountId, platformPostId: m.id },
+      select: { id: true },
+    })
+    if (upserted) await capturePostMetrics(prisma, upserted.id).catch(() => {})
+  }
+
+  // Weekly summary + derived metrics
+  const { computeWeeklySummary } = await import('./metricTracking')
+  await computeWeeklySummary(prisma, accountId).catch((e) => console.warn('[platformSync] weekly summary failed:', e))
+  const { computeAllDerivedMetrics } = await import('./derivedMetrics')
+  await computeAllDerivedMetrics(prisma, accountId, {
+    profileViews: stub.profileViews ?? 0,
+    websiteClicks: stub.websiteClicks ?? 0,
+  }).catch((e) => console.warn('[platformSync] derived metrics failed:', e))
 }

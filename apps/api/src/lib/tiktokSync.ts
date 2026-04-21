@@ -193,6 +193,10 @@ export async function persistTiktokSnapshot(
   const { computeWeeklySummary } = await import('./metricTracking')
   await computeWeeklySummary(prisma, account.id).catch((e) => console.warn('[tiktokSync] weekly summary failed:', e))
 
+  // Compute all derived metrics (post-level, snapshot rollups, weekly extensions)
+  const { computeAllDerivedMetrics } = await import('./derivedMetrics')
+  await computeAllDerivedMetrics(prisma, account.id).catch((e) => console.warn('[tiktokSync] derived metrics failed:', e))
+
   // 4. Maya's drop-detection. On the very first snapshot this no-ops
   //    (needs history to compute a delta), but wiring it here means the
   //    day scheduled sync lands for TikTok, alerts start flowing with

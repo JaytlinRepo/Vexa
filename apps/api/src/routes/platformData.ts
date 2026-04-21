@@ -91,10 +91,10 @@ router.get('/accounts', requireAuth, async (req, res, next) => {
       connectedAt: a.connectedAt,
     }))
 
-    // If the legacy IG row exists from a Phyllo sync and we don't already
-    // have a PlatformAccount for Instagram, surface it too.
+    // If the legacy IG row exists and we don't already have a
+    // PlatformAccount for Instagram, surface it too.
     const hasIgAccount = accounts.some((a) => a.platform === 'instagram')
-    if (!hasIgAccount && legacyIg && legacyIg.source === 'phyllo') {
+    if (!hasIgAccount && legacyIg) {
       accounts.push({
         platform: 'instagram',
         handle: legacyIg.handle,

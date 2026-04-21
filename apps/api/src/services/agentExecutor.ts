@@ -87,7 +87,7 @@ interface BriefReference {
  *  patterns. */
 function ownTopPostsAsReferences(ctx: PersonalContext | null, n = 2): BriefReference[] {
   const ig = ctx?.instagram
-  if (!ig || ig.source !== 'phyllo' || !ig.topPosts.length) return []
+  if (!ig || ig.source === 'stub' || !ig.topPosts.length) return []
   return ig.topPosts.slice(0, n).map((p, i) => ({
     label: i === 0 ? 'Your strongest recent post' : 'Another high-performer',
     source: 'creator_own' as const,
@@ -439,7 +439,7 @@ function maya_hashtagReport(t: NicheTokens, _ctx: PersonalContext | null) {
 }
 
 function maya_audienceDeepDive(t: NicheTokens, ctx: PersonalContext | null) {
-  // Pull the real audience demographics we already have from Phyllo/IG.
+  // Pull the real audience demographics from the connected IG account.
   // Fall back to niche-average claims when the creator hasn't connected
   // an account yet — and label them clearly as averages so the CEO knows.
   const ig = ctx?.instagram
@@ -451,7 +451,7 @@ function maya_audienceDeepDive(t: NicheTokens, ctx: PersonalContext | null) {
   const skew = femaleShare > maleShare + 0.1 ? 'female-heavy' : maleShare > femaleShare + 0.1 ? 'male-heavy' : 'roughly balanced'
   const topCountry = ig ? topShare(ig.audienceTopCountries) : null
   const topCity = ig ? topShare(ig.audienceTopCities) : null
-  const hasReal = !!ig && ig.source === 'phyllo' && (ig.audienceAge.length > 0 || ig.audienceTopCountries.length > 0)
+  const hasReal = !!ig && ig.source !== 'stub' && (ig.audienceAge.length > 0 || ig.audienceTopCountries.length > 0)
 
   const demographics: Array<{ label: string; value: string }> = []
   if (hasReal && handle) {
@@ -514,7 +514,7 @@ function maya_audienceDeepDive(t: NicheTokens, ctx: PersonalContext | null) {
 
 function maya_engagementDiagnosis(t: NicheTokens, ctx: PersonalContext | null) {
   const ig = ctx?.instagram
-  const hasReal = !!ig && ig.source === 'phyllo' && ig.engagementRate > 0
+  const hasReal = !!ig && ig.source !== 'stub' && ig.engagementRate > 0
   // Use the real top posts as specific examples — name one that worked,
   // one that didn't (lowest engagement of the tracked set).
   const posts = ig?.topPosts || []
@@ -1062,9 +1062,9 @@ const TYPE_FALLBACK: Record<OutputType, BriefGenerator> = {
   trend_hooks: () => ({ status: 'pending', note: 'Trend hooks always use Bedrock — no mock fallback.' }),
   plan_adjustment: () => ({ status: 'pending', note: 'Plan adjustments always use Bedrock — no mock fallback.' }),
   competitor_analysis: () => ({ status: 'pending', note: 'Competitor analyses always use Bedrock — no mock fallback.' }),
-  morning_brief: () => ({ status: 'pending', note: 'Morning briefs always use Bedrock — no mock fallback.' }),
-  midday_check: () => ({ status: 'pending', note: 'Midday checks always use Bedrock — no mock fallback.' }),
-  evening_recap: () => ({ status: 'pending', note: 'Evening recaps always use Bedrock — no mock fallback.' }),
+  morning_brief: () => ({ status: 'pending', note: 'Morning briefs always use Bedrock.' }),
+  midday_check: () => ({ status: 'pending', note: 'Midday checks always use Bedrock.' }),
+  evening_recap: () => ({ status: 'pending', note: 'Evening recaps always use Bedrock.' }),
 }
 
 // ─────────────────────────────────────────────────────────────────────

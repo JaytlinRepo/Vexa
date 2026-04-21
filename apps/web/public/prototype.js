@@ -759,52 +759,151 @@ window.briefState = {
 
 window.briefEvent = async function (action, context) {
   console.log(`[brief] ${action} on ${context}`)
+  var cid = window.__vxCompany?.id || ''
+  var q = cid ? '?companyId=' + encodeURIComponent(cid) : ''
   try {
     switch (action) {
       case 'approve-plan':
-        await fetch(`/api/weekly/plan/approve`, {
-          method: 'POST',
+        await fetch('/api/weekly/plan/approve' + q, {
+          method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
-        window.showNotification('✅ Plan approved', 'success')
-        window.navigateTo('weekly-hooks')
+        if (typeof window.showNotification === 'function') window.showNotification('Plan approved', 'success')
+        if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
         break
       case 'reject-plan':
-        await fetch(`/api/weekly/plan/reject`, {
-          method: 'POST',
+        await fetch('/api/weekly/plan/reject' + q, {
+          method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reason: 'User requested rethink' }),
         })
-        window.showNotification('Plan rejected', 'info')
-        window.navigateTo('weekly-pulse')
+        if (typeof window.showNotification === 'function') window.showNotification('Plan rejected — Jordan is rethinking', 'info')
+        if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
         break
       case 'approve-trend':
-        await fetch(`/api/briefs/approve-trend`, {
-          method: 'POST',
+        await fetch('/api/briefs/approve-trend' + q, {
+          method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ trend: context }),
         })
-        window.showNotification('📢 Jordan briefed', 'success')
+        if (typeof window.showNotification === 'function') window.showNotification('Jordan briefed on trend', 'success')
         break
       case 'dismiss':
         window.dismissBrief(context)
         break
     }
   } catch (err) {
-    console.error(`[brief] event error:`, err)
-    window.showNotification('Error', 'error')
+    console.error('[brief] event error:', err)
+    if (typeof window.showNotification === 'function') window.showNotification('Something went wrong', 'error')
   }
 }
 
 window.navigateTo = function (brief) {
-  const validBriefs = ['morning-briefs', 'midday-check', 'evening-recap', 'weekly-pulse', 'weekly-plan', 'weekly-hooks', 'weekly-briefs', 'analytics']
-  if (!validBriefs.includes(brief)) return
-  window.briefState.currentBrief = brief
-  document.querySelectorAll('[data-brief]').forEach(el => el.classList.remove('active'))
-  const briefCard = document.querySelector(`[data-brief="${brief}"]`)
-  if (briefCard) {
-    briefCard.classList.add('active')
-    briefCard.scrollIntoView({ behavior: 'smooth' })
+  var cid = window.__vxCompany?.id || ''
+  if (!cid) return
+
+  var endpointMap = {
+    'weekly-plan': '/api/weekly/jordan-plan',
+    'weekly-pulse': '/api/weekly/maya-pulse',
+    'weekly-hooks': '/api/weekly/alex-hooks',
+    'weekly-briefs': '/api/weekly/riley-briefs',
+    'trends': '/api/briefs/morning',
+    'evening-recap': '/api/briefs/evening',
+  }
+  var titleMap = {
+    'weekly-plan': "Jordan's Content Plan",
+    'weekly-pulse': "Maya's Weekly Pulse",
+    'weekly-hooks': "Alex's Hooks",
+    'weekly-briefs': "Riley's Production Briefs",
+    'trends': 'Morning Brief',
+    'evening-recap': 'Evening Recap',
+  }
+
+  var url = endpointMap[brief]
+  if (!url) return
+
+  // Show loading modal
+  var overlay = document.createElement('div')
+  overlay.id = 'vx-brief-modal'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)'
+  overlay.innerHTML = '<div style="width:100%;max-width:560px;max-height:80vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:28px 28px 22px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+      '<h2 style="font-family:Syne,sans-serif;font-size:18px;font-weight:600;color:var(--t1);margin:0">' + (titleMap[brief] || brief) + '</h2>' +
+      '<button id="vx-brief-close" style="background:transparent;border:1px solid var(--b2);color:var(--t2);width:28px;height:28px;border-radius:6px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>' +
+    '</div>' +
+    '<div id="vx-brief-body" style="color:var(--t2);font-size:13px;line-height:1.6">Loading...</div>' +
+  '</div>'
+  document.body.appendChild(overlay)
+
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove() })
+  document.getElementById('vx-brief-close').addEventListener('click', function () { overlay.remove() })
+  document.addEventListener('keydown', function onEsc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) } })
+
+  fetch(url + '?companyId=' + encodeURIComponent(cid), { credentials: 'include' })
+    .then(function (r) { return r.ok ? r.json() : null })
+    .then(function (data) {
+      var body = document.getElementById('vx-brief-body')
+      if (!body) return
+      if (!data) { body.textContent = 'No data available yet.'; return }
+
+      var o = data.output || data
+      var html = ''
+
+      // Format the output as readable content
+      if (typeof o === 'string') {
+        html = '<div style="white-space:pre-wrap">' + esc(o) + '</div>'
+      } else if (typeof o === 'object') {
+        html = formatBriefOutput(o, brief)
+      }
+
+      if (data.employee) {
+        html = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3);margin-bottom:12px">From ' + esc(data.employee) + ' &middot; ' + (data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '') + '</div>' + html
+      }
+
+      body.innerHTML = html
+    })
+    .catch(function () {
+      var body = document.getElementById('vx-brief-body')
+      if (body) body.textContent = 'Failed to load.'
+    })
+
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] }) }
+
+  function formatBriefOutput(o, type) {
+    var parts = []
+    // Iterate keys and render them as labeled sections
+    for (var key in o) {
+      if (!o.hasOwnProperty(key)) continue
+      var val = o[key]
+      if (val === null || val === undefined) continue
+
+      var label = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim().toUpperCase()
+
+      if (typeof val === 'string') {
+        parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">' + label + '</div><div style="color:var(--t1);font-size:13px;line-height:1.55">' + esc(val) + '</div></div>')
+      } else if (typeof val === 'number') {
+        parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">' + label + '</div><div style="font-family:\'JetBrains Mono\',monospace;font-size:16px;color:var(--t1)">' + val.toLocaleString() + '</div></div>')
+      } else if (Array.isArray(val) && val.length > 0) {
+        var items = val.map(function (item) {
+          if (typeof item === 'string') return '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--accent);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(item) + '</div>'
+          if (typeof item === 'object') {
+            var line = Object.values(item).filter(function (v) { return typeof v === 'string' || typeof v === 'number' }).map(function (v) { return esc(String(v)) }).join(' &middot; ')
+            return '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + line + '</div>'
+          }
+          return ''
+        }).join('')
+        parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">' + label + '</div>' + items + '</div>')
+      } else if (typeof val === 'object' && !Array.isArray(val)) {
+        var subParts = []
+        for (var sk in val) {
+          if (val[sk] === null || val[sk] === undefined) continue
+          var sv = typeof val[sk] === 'object' ? JSON.stringify(val[sk]) : String(val[sk])
+          subParts.push('<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--b1)"><span style="font-size:11px;color:var(--t3)">' + esc(sk.replace(/_/g, ' ')) + '</span><span style="font-size:11px;color:var(--t1)">' + esc(sv.slice(0, 100)) + '</span></div>')
+        }
+        if (subParts.length) parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">' + label + '</div>' + subParts.join('') + '</div>')
+      }
+    }
+    return parts.join('') || '<div style="color:var(--t3)">No details available</div>'
   }
 }
 

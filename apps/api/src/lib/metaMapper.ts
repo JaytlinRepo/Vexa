@@ -3,27 +3,33 @@
  * consumer (dashboard, agents, Platform* tables) works unchanged.
  */
 
-import type { IgStub, IgMedia, IgAudienceBucket } from './instagramStub'
-import type { IGProfile, IGMedia, IGMediaInsight, IGAudienceInsights } from './metaGraph'
+import type { IgStub, IgMedia, IgAudienceBucket, IgStoryItem } from './instagramStub'
+import type { IGProfile, IGMedia, IGMediaInsight, IGAudienceInsights, IGAccountInsights, IGStory, IGStoryInsight } from './metaGraph'
 
 export function mapMetaToStub(input: {
   profile: IGProfile
   media: IGMedia[]
   mediaInsights: Map<string, IGMediaInsight>
   audience: IGAudienceInsights | null
+  accountInsights?: IGAccountInsights | null
+  stories?: Array<{ story: IGStory; insights: IGStoryInsight }>
+  carouselThumbnails?: Map<string, string> // mediaId → first child media_url
 }): IgStub {
-  const { profile, media, mediaInsights, audience } = input
+  const { profile, media, mediaInsights, audience, accountInsights, stories, carouselThumbnails } = input
 
   const recentMedia: IgMedia[] = media.slice(0, 30).map((m) => {
     const insights = mediaInsights.get(m.id) || { impressions: 0, reach: 0, engagement: 0, saved: 0 }
     const engagement = m.like_count + m.comments_count + insights.saved
+    // For carousels: thumbnail_url and media_url are null on the parent.
+    // Use the first child's media_url (fetched separately) as the thumbnail.
+    const thumb = m.thumbnail_url || m.media_url || carouselThumbnails?.get(m.id) || null
     return {
       id: m.id,
       caption: m.caption || '',
       media_type: m.media_type === 'VIDEO' ? 'REEL' : m.media_type,
       media_url: m.media_url,
       permalink: m.permalink,
-      thumbnail_url: m.thumbnail_url,
+      thumbnail_url: thumb,
       timestamp: m.timestamp,
       like_count: m.like_count,
       comments_count: m.comments_count,
@@ -70,6 +76,28 @@ export function mapMetaToStub(input: {
   const audienceTopCountries = normalizeTopN(audience?.countries || [], 5)
   const audienceTopCities = normalizeTopN(audience?.cities?.map((c) => ({ code: c.name, value: c.value })) || [], 5)
 
+  // Account-level insights
+  const profileViews = accountInsights?.profileViews ?? 0
+  const websiteClicks = accountInsights?.websiteClicks ?? 0
+  const dailyProfileViews = accountInsights?.dailyProfileViews ?? []
+  const dailyWebsiteClicks = accountInsights?.dailyWebsiteClicks ?? []
+
+  // Stories
+  const mappedStories: IgStoryItem[] = (stories || []).map(({ story, insights }) => ({
+    id: story.id,
+    media_type: story.media_type,
+    media_url: story.media_url,
+    timestamp: story.timestamp,
+    insights: {
+      impressions: insights.impressions,
+      reach: insights.reach,
+      replies: insights.replies,
+      tapsForward: insights.tapsForward,
+      tapsBack: insights.tapsBack,
+      exits: insights.exits,
+    },
+  }))
+
   return {
     username: profile.username,
     igUserId: profile.id,
@@ -82,8 +110,13 @@ export function mapMetaToStub(input: {
     engagementRate,
     avgReach,
     avgImpressions,
+    profileViews,
+    websiteClicks,
+    dailyProfileViews,
+    dailyWebsiteClicks,
     topPosts,
     recentMedia,
+    stories: mappedStories,
     followerSeries,
     audienceAge,
     audienceGender,

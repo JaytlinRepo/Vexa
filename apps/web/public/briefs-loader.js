@@ -1,96 +1,154 @@
 /**
- * Briefs Loader
+ * Briefs Loader — injects brief content into pipeline nodes.
  *
- * Loads and renders brief cards into the dashboard
- * Handles fetching brief data and rendering appropriate wire components
+ * Maya gets: morning brief + weekly pulse
+ * Jordan gets: weekly plan
+ * Alex gets: weekly hooks
+ * Riley gets: weekly production briefs
+ *
+ * Each brief renders as a clickable summary below the node-task.
+ * Clicking opens the full brief in a modal (via window.navigateTo).
  */
+;(function () {
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] }) }
 
-async function loadBriefs() {
-  try {
-    // Dynamically import wire modules
-    const {
-      renderMorningBrief,
-    } = await import('./morning-brief-wire.js')
-    const { renderEveningRecap } = await import('./evening-recap-wire.js')
-    const { renderWeeklyPulse } = await import('./weekly-pulse-wire.js')
-    const { renderWeeklyPlan } = await import('./weekly-plan-wire.js')
-    const { renderWeeklyHooks } = await import('./weekly-hooks-wire.js')
-    const { renderWeeklyBriefs } = await import('./weekly-briefs-wire.js')
-    const { renderQueueStatus } = await import('./queue-status-wire.js')
-
-    // Fetch all brief tasks in parallel
-    const [morning, midday, evening, pulse, plan, hooks, briefs, queue] = await Promise.all([
-      fetch('/api/briefs/morning').then(r => r.json()).catch(() => null),
-      fetch('/api/briefs/midday').then(r => r.json()).catch(() => null),
-      fetch('/api/briefs/evening').then(r => r.json()).catch(() => null),
-      fetch('/api/weekly/maya-pulse').then(r => r.json()).catch(() => null),
-      fetch('/api/weekly/jordan-plan').then(r => r.json()).catch(() => null),
-      fetch('/api/weekly/alex-hooks').then(r => r.json()).catch(() => null),
-      fetch('/api/weekly/riley-briefs').then(r => r.json()).catch(() => null),
-      fetch('/api/briefs/queue').then(r => r.json()).catch(() => null),
-    ])
-
-    // Render to dashboard
-    if (morning) renderBrief('morning-brief', morning, renderMorningBrief)
-    if (midday) renderBrief('midday-check', midday, renderMorningBrief)
-    if (evening) renderBrief('evening-recap', evening, renderEveningRecap)
-    if (pulse) renderBrief('weekly-pulse', pulse, renderWeeklyPulse)
-    if (plan) renderBrief('weekly-plan', plan, renderWeeklyPlan)
-    if (hooks) renderBrief('weekly-hooks', hooks, renderWeeklyHooks)
-    if (briefs) renderBrief('weekly-briefs', briefs, renderWeeklyBriefs)
-    if (queue) renderQueueBrief(queue, renderQueueStatus)
-
-    console.log('[briefs-loader] briefs loaded and rendered')
-  } catch (err) {
-    console.error('[briefs-loader] load error:', err)
-  }
-}
-
-/**
- * Render a single brief to its placeholder
- */
-function renderBrief(briefType, taskData, renderFn) {
-  const placeholder = document.getElementById(`${briefType}-placeholder`)
-  if (!placeholder) {
-    console.warn(`[briefs-loader] placeholder not found for ${briefType}`)
-    return
+  async function waitForCompany() {
+    for (var i = 0; i < 20; i++) {
+      if (window.__vxCompany?.id) return window.__vxCompany.id
+      await new Promise(function (r) { setTimeout(r, 500) })
+    }
+    return null
   }
 
-  try {
-    const html = renderFn(taskData)
-    placeholder.innerHTML = html
-    console.log(`[briefs-loader] rendered ${briefType}`)
-  } catch (err) {
-    console.error(`[briefs-loader] render error for ${briefType}:`, err)
-    placeholder.innerHTML = `<div class="brief-card error">Failed to load ${briefType}</div>`
+  async function loadBriefs() {
+    try {
+      var companyId = await waitForCompany()
+      if (!companyId) return
+
+      var q = 'companyId=' + encodeURIComponent(companyId)
+      var get = function (url) { return fetch(url + '?' + q, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
+
+      var results = await Promise.all([
+        get('/api/briefs/morning'),
+        get('/api/briefs/evening'),
+        get('/api/weekly/maya-pulse'),
+        get('/api/weekly/jordan-plan'),
+        get('/api/weekly/alex-hooks'),
+        get('/api/weekly/riley-briefs'),
+      ])
+
+      var morning = results[0]
+      var evening = results[1]
+      var pulse   = results[2]
+      var plan    = results[3]
+      var hooks   = results[4]
+      var briefs  = results[5]
+
+      // Maya node — morning brief + pulse
+      var mayaNode = document.querySelector('[data-node="maya"]')
+      if (mayaNode) {
+        var mayaHtml = ''
+        if (pulse && pulse.output) {
+          var po = pulse.output
+          var summary = po.oneThingToDo || po.summary || po.trajectory?.summary || ''
+          mayaHtml += briefChip('weekly-pulse', 'WEEKLY PULSE', summary, null, [
+            btn('View', "window.navigateTo('weekly-pulse')"),
+          ])
+        }
+        var trends = morning?.trendingTopics || []
+        if (trends.length > 0) {
+          mayaHtml += briefChip('trends', 'TRENDS', trends.slice(0, 2).map(function (t) { return t.topic }).join(', '), null, [
+            btn('View', "window.navigateTo('trends')"),
+          ])
+        }
+        if (evening && evening.todaysPosts && evening.todaysPosts.length > 0) {
+          mayaHtml += briefChip('evening-recap', 'EVENING RECAP', evening.todaysPosts.length + ' posts tracked today', null, [
+            btn('View', "window.navigateTo('evening-recap')"),
+          ])
+        }
+        if (mayaHtml) injectBriefs(mayaNode, mayaHtml)
+      }
+
+      // Jordan node — weekly plan
+      var jordanNode = document.querySelector('[data-node="jordan"]')
+      if (jordanNode && plan && plan.output) {
+        var po = plan.output
+        var goal = po.weeklyGoal || po.weekly_goal || po.goal || ''
+        var planStatus = plan.status || ''
+        var label = planStatus === 'approved' ? 'PLAN APPROVED' : planStatus === 'rejected' ? 'PLAN REJECTED' : 'WEEKLY PLAN'
+        var tone = planStatus === 'rejected' ? 'warn' : planStatus === 'approved' ? 'ok' : 'hot'
+        var actions = [btn('View', "window.navigateTo('weekly-plan')")]
+        if (planStatus !== 'approved' && planStatus !== 'rejected') {
+          actions.push(btn('Approve', "window.briefEvent('approve-plan','weekly')", true))
+          actions.push(btn('Reject', "window.briefEvent('reject-plan','weekly')"))
+        }
+        injectBriefs(jordanNode, briefChip('weekly-plan', label, goal, tone, actions))
+      }
+
+      // Alex node — weekly hooks
+      var alexNode = document.querySelector('[data-node="alex"]')
+      if (alexNode && hooks && hooks.output) {
+        var ho = hooks.output
+        var hookList = ho.weeklyHooks || ho.weekly_hooks || ho.hooks || []
+        var count = Array.isArray(hookList) ? hookList.length : 0
+        injectBriefs(alexNode, briefChip('weekly-hooks', 'WEEKLY HOOKS', count + ' days of hooks ready', null, [
+          btn('View', "window.navigateTo('weekly-hooks')"),
+        ]))
+      }
+
+      // Riley node — production briefs
+      var rileyNode = document.querySelector('[data-node="riley"]')
+      if (rileyNode && briefs && briefs.output) {
+        injectBriefs(rileyNode, briefChip('weekly-briefs', 'PRODUCTION', 'Weekly direction ready', null, [
+          btn('View', "window.navigateTo('weekly-briefs')"),
+        ]))
+      }
+
+      console.log('[briefs-loader] briefs injected into pipeline')
+    } catch (err) {
+      console.error('[briefs-loader] load error:', err)
+    }
   }
-}
 
-/**
- * Render queue status
- */
-function renderQueueBrief(queueData, renderFn) {
-  const queueElements = document.querySelectorAll('[data-queue-status]')
-  if (queueElements.length > 0) {
-    const html = renderFn(queueData)
-    queueElements.forEach(el => {
-      el.innerHTML = html
-    })
+  function btn(text, onclick, primary) {
+    var base = 'padding:4px 10px;border-radius:5px;font-family:Inter,sans-serif;font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .15s;'
+    if (primary) {
+      return '<button style="' + base + 'background:var(--accent);color:var(--accent-text,#fff);border:1px solid var(--accent)" onclick="event.stopPropagation();' + onclick + '">' + text + '</button>'
+    }
+    return '<button style="' + base + 'background:transparent;color:var(--t2);border:1px solid var(--b2)" onclick="event.stopPropagation();' + onclick + '">' + text + '</button>'
   }
-}
 
-/**
- * Initialize briefs on page load
- */
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadBriefs)
-} else {
-  loadBriefs()
-}
+  function briefChip(type, label, detail, tone, actions) {
+    var dotColor = tone === 'warn' ? '#c76a6a' : tone === 'ok' ? 'var(--ok, #34d27a)' : 'var(--accent)'
+    var actionsHtml = actions && actions.length ? '<div style="display:flex;gap:5px;margin-top:6px">' + actions.join('') + '</div>' : ''
+    return '<div class="node-brief" data-brief-type="' + type + '" style="margin-top:8px;padding:8px 0;border-top:1px dashed var(--b1)">' +
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
+        '<span style="width:5px;height:5px;border-radius:50%;background:' + dotColor + ';flex-shrink:0"></span>' +
+        '<span style="font-family:Inter,sans-serif;font-weight:500;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)">' + esc(label) + '</span>' +
+      '</div>' +
+      (detail ? '<div style="font-size:11px;color:var(--t2);line-height:1.4">' + esc(String(detail).slice(0, 80)) + '</div>' : '') +
+      actionsHtml +
+    '</div>'
+  }
 
-/**
- * Expose refresh function
- */
-window.refreshBriefs = loadBriefs
+  function injectBriefs(node, html) {
+    // Remove any previous briefs
+    node.querySelectorAll('.node-brief').forEach(function (el) { el.remove() })
+    // Insert after node-task
+    var task = node.querySelector('.node-task')
+    if (task) {
+      task.insertAdjacentHTML('afterend', html)
+    } else {
+      node.insertAdjacentHTML('beforeend', html)
+    }
+  }
 
-console.log('[briefs-loader] initialized')
+  // Load after dashboard data is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(loadBriefs, 2500) })
+  } else {
+    setTimeout(loadBriefs, 2500)
+  }
+
+  window.refreshBriefs = loadBriefs
+})()

@@ -2,8 +2,8 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import * as meta from '../lib/metaGraph'
+import type { IGStory, IGStoryInsight } from '../lib/metaGraph'
 import { mapMetaToStub } from '../lib/metaMapper'
-import { persistPhylloSync } from '../lib/platformSync'
 import { writeMemory } from '../lib/brandMemory'
 import { createNotification } from '../services/notifications/notification.service'
 import { detectNicheFromContent } from '../lib/nicheDetection'
@@ -119,11 +119,18 @@ router.get('/auth/callback', async (req, res) => {
     const profile = await meta.getIGProfile(igBiz.igBusinessId, accessToken)
     console.log('[instagram] profile fetched:', profile.username, profile.followers_count, 'followers')
 
-    const media = await meta.getIGMedia(igBiz.igBusinessId, accessToken, 30).catch((err) => {
-      console.warn('[instagram] media fetch failed (continuing without posts):', err.message)
-      return [] as meta.IGMedia[]
-    })
+    // Fetch media + account insights + stories in parallel
+    const [media, accountInsights, liveStories] = await Promise.all([
+      meta.getIGMedia(igBiz.igBusinessId, accessToken, 30).catch((err) => {
+        console.warn('[instagram] media fetch failed (continuing without posts):', err.message)
+        return [] as meta.IGMedia[]
+      }),
+      meta.getIGAccountInsights(igBiz.igBusinessId, accessToken).catch(() => null),
+      meta.getIGStories(igBiz.igBusinessId, accessToken).catch(() => [] as meta.IGStory[]),
+    ])
     console.log('[instagram] media fetched:', media.length, 'posts')
+    if (accountInsights) console.log('[instagram] account insights:', accountInsights.profileViews, 'profile views,', accountInsights.websiteClicks, 'website clicks (28d)')
+    if (liveStories.length > 0) console.log('[instagram] live stories:', liveStories.length)
 
     // Fetch per-post insights (best-effort, parallel, cap at 20)
     const insightsMap = new Map<string, meta.IGMediaInsight>()
@@ -135,11 +142,35 @@ router.get('/auth/callback', async (req, res) => {
       )
     }
 
+    // Story insights (best-effort)
+    const storyData: Array<{ story: meta.IGStory; insights: meta.IGStoryInsight }> = []
+    if (liveStories.length > 0) {
+      await Promise.allSettled(
+        liveStories.map(async (s) => {
+          const insights = await meta.getStoryInsights(s.id, accessToken)
+          storyData.push({ story: s, insights })
+        }),
+      )
+    }
+
     // Audience (best-effort — requires 100+ followers)
     const audience = await meta.getIGAudienceInsights(igBiz.igBusinessId, accessToken).catch(() => null)
 
+    // Carousel thumbnails: fetch first child's media_url for slideshow posts
+    const carouselThumbnails = new Map<string, string>()
+    const carousels = media.filter((m) => m.media_type === 'CAROUSEL_ALBUM' && !m.thumbnail_url && !m.media_url)
+    if (carousels.length > 0) {
+      await Promise.allSettled(
+        carousels.map(async (m) => {
+          const children = await meta.getCarouselChildren(m.id, accessToken)
+          const firstImage = children.find((c) => c.media_url)
+          if (firstImage?.media_url) carouselThumbnails.set(m.id, firstImage.media_url)
+        }),
+      )
+    }
+
     // Map to IgStub
-    const stub = mapMetaToStub({ profile, media, mediaInsights: insightsMap, audience })
+    const stub = mapMetaToStub({ profile, media, mediaInsights: insightsMap, audience, accountInsights, stories: storyData, carouselThumbnails })
 
     // Persist to InstagramConnection
     const payload = {
@@ -153,8 +184,13 @@ router.get('/auth/callback', async (req, res) => {
       engagementRate: stub.engagementRate,
       avgReach: stub.avgReach,
       avgImpressions: stub.avgImpressions,
+      profileViews: stub.profileViews,
+      websiteClicks: stub.websiteClicks,
+      dailyProfileViews: stub.dailyProfileViews as unknown as object,
+      dailyWebsiteClicks: stub.dailyWebsiteClicks as unknown as object,
       topPosts: stub.topPosts as unknown as object,
       recentMedia: stub.recentMedia as unknown as object,
+      stories: stub.stories as unknown as object,
       followerSeries: stub.followerSeries as unknown as object,
       audienceAge: stub.audienceAge as unknown as object,
       audienceGender: stub.audienceGender as unknown as object,
@@ -176,22 +212,49 @@ router.get('/auth/callback', async (req, res) => {
       create: { companyId, ...payload },
     })
 
-    // Also write to Platform* tables
+    // Also write to Platform* tables (direct upsert by compound unique
+    // instead of persistPhylloSync, which keys on phylloAccountId and
+    // fails when an older row exists with a different ID).
     try {
-      const company = await prisma.company.findUnique({ where: { id: companyId }, select: { userId: true } })
-      if (company) {
-        // Build a fake PhylloAccount shape for persistPhylloSync
-        await persistPhylloSync(prisma, companyId, '', {
-          id: igBiz.igBusinessId,
-          user: { id: '' },
-          work_platform: { id: '', name: 'Instagram' },
-          platform_username: stub.username,
-          profile_pic_url: profile.profile_picture_url,
-          status: 'CONNECTED',
-        }, stub)
-      }
+      const acct = await prisma.platformAccount.upsert({
+        where: {
+          companyId_platform_handle: {
+            companyId,
+            platform: 'instagram',
+            handle: stub.username,
+          },
+        },
+        update: {
+          displayName: stub.username,
+          profileUrl: stub.profileUrl,
+          profileImageUrl: profile.profile_picture_url,
+          bio: stub.bio,
+          accountType: stub.accountType,
+          platformUserId: stub.igUserId || null,
+          status: 'connected',
+          lastSyncedAt: new Date(),
+        },
+        create: {
+          companyId,
+          platform: 'instagram',
+          platformUserId: stub.igUserId || null,
+          handle: stub.username,
+          displayName: stub.username,
+          profileUrl: stub.profileUrl,
+          profileImageUrl: profile.profile_picture_url,
+          bio: stub.bio,
+          accountType: stub.accountType,
+          status: 'connected',
+        },
+      })
+
+      // Write a snapshot + posts via persistPhylloSync's post-upsert logic
+      const { persistSnapshotAndPosts } = await import('../lib/platformSync')
+      await persistSnapshotAndPosts(prisma, acct.id, stub).catch((e: unknown) =>
+        console.warn('[instagram] snapshot/posts write failed', e),
+      )
     } catch (e) {
-      console.warn('[instagram] platform-snapshot write failed', e)
+      console.warn('[instagram] platform-account write failed', e)
     }
 
     // Brand memory + notification

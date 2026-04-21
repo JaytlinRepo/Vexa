@@ -2,6 +2,7 @@ import { Router } from 'express'
 import axios from 'axios'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { fetchNicheRSSFeeds, RSSItem } from '../services/integrations/rss.service'
+import { searchNicheArticles, NewsArticle } from '../services/integrations/newsapi.service'
 import { getRelatedQueries, getKeywordTrend } from '../services/integrations/google-trends.service'
 import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtube.service'
 import { effectiveNiche } from '../lib/nicheDetection'
@@ -124,7 +125,8 @@ function shortViews(n: number): string {
 function youtubeToFeedItem(v: YouTubeVideo, niche: string, subNiche: string | null): FeedItem {
   const views = v.viewCount ? shortViews(v.viewCount) + ' views' : ''
   const likes = v.likeCount ? shortViews(v.likeCount) + ' likes' : ''
-  const stats = [views, likes].filter(Boolean).join(' · ')
+  const subs = v.subscriberCount ? shortViews(v.subscriberCount) + ' subs' : ''
+  const stats = [views, likes, subs].filter(Boolean).join(' · ')
   const engRate = v.viewCount && v.likeCount ? (v.likeCount / v.viewCount * 100) : 0
   const score = Math.min(99, 65 + Math.floor(Math.log10(Math.max(10, v.viewCount || 10)) * 6))
 
@@ -215,6 +217,26 @@ function subNicheSubs(niche: string, subNiche: string | null | undefined): strin
     if (lower.includes(key) || key.includes(lower.split(' ')[0])) return subs
   }
   return []
+}
+
+function newsToFeedItem(a: NewsArticle, niche?: string, subNiche?: string | null): FeedItem {
+  const nicheLabel = subNiche ? `${subNiche}/${niche}` : (niche || 'your niche')
+  const isRecent = Date.now() - new Date(a.publishedAt).getTime() < 2 * 86400000
+  return {
+    id: `news_${Buffer.from(a.url).toString('base64').slice(0, 24)}`,
+    source: a.source,
+    title: a.title,
+    summary: a.description?.slice(0, 240) || `${a.source} · ${new Date(a.publishedAt).toLocaleDateString()}`,
+    author: a.author || undefined,
+    url: a.url,
+    imageUrl: null,
+    createdAt: a.publishedAt,
+    type: 'article',
+    score: isRecent ? 90 : 75,
+    mayaTake: isRecent
+      ? `Breaking from ${a.source} — directly relevant to ${nicheLabel}. Your audience will be talking about this.`
+      : `${a.source} covering ${nicheLabel} — useful for content angles.`,
+  }
 }
 
 function rssToFeedItem(r: RSSItem, niche?: string, subNiche?: string | null): FeedItem {
@@ -397,16 +419,18 @@ router.get('/', requireAuth, async (req, res, next) => {
     }
 
     // ── Fetch all sources in parallel ────────────────────────────
-    const [redditResults, rssItems, trendSignals, ytVideos] = await Promise.all([
+    const [redditResults, rssItems, newsItems, trendSignals, ytVideos] = await Promise.all([
       Promise.all(subs.slice(0, 1).map((s) => fetchRedditTop(s, 2, niche, detectedSub))),
       fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
+      searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
       searchNicheVideos(niche, detectedSub || undefined, 5, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
     ])
 
     let items: FeedItem[] = [
-      // Articles and news — the core of the feed
+      // Articles and news — the core of the feed (RSS + NewsAPI combined)
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
+      ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // Real niche videos — study what's working
       ...ytVideos.slice(0, 5).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
       // One Reddit post for community signal

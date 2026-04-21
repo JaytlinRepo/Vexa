@@ -5,7 +5,7 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260420-96'
+const VERSION = '20260421-04'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
@@ -51,7 +51,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/insights-wire.js')} strategy="afterInteractive" />
       <Script src={v('/agent-drawer.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-v2.js')} strategy="afterInteractive" />
-      <Script src={v('/phyllo-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/integrations-wire.js')} strategy="afterInteractive" />
       <Script src={v('/trajectory-wire.js')} strategy="afterInteractive" />
       <Script src={v('/goal-wire.js')} strategy="afterInteractive" />
       <Script src={v('/scorecard-wire.js')} strategy="afterInteractive" />
@@ -75,6 +75,14 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/vexa-shell.js')} strategy="afterInteractive" />
       <Script src={v('/tour/tour-steps.js')} strategy="afterInteractive" />
       <Script src={v('/tour/tour-engine.js')} strategy="afterInteractive" />
+      <Script src={v('/briefs-loader.js')} strategy="afterInteractive" />
+      <Script src={v('/morning-brief-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/evening-recap-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/queue-status-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/weekly-pulse-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/weekly-plan-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/weekly-hooks-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/weekly-briefs-wire.js')} strategy="afterInteractive" />
     </>
   )
 }

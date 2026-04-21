@@ -20,6 +20,8 @@ export interface YouTubeVideo {
   title: string
   description: string
   channelTitle: string
+  channelId?: string
+  subscriberCount?: number
   publishedAt: string
   viewCount?: number
   likeCount?: number
@@ -121,12 +123,37 @@ export async function searchNicheVideos(
 
     const statsItems = statsResponse.data?.items || []
 
+    // Extract unique channel IDs to batch-fetch subscriber counts
+    const channelIds = [...new Set(
+      statsItems.map((i: { snippet?: { channelId?: string } }) => i.snippet?.channelId).filter(Boolean)
+    )] as string[]
+
+    const subscriberMap = new Map<string, number>()
+    if (channelIds.length > 0) {
+      try {
+        const channelRes = await axios.get(`${BASE_URL}/channels`, {
+          params: {
+            key: YOUTUBE_API_KEY,
+            part: 'statistics',
+            id: channelIds.join(','),
+          },
+          timeout: 8000,
+        })
+        for (const ch of channelRes.data?.items || []) {
+          subscriberMap.set(ch.id, parseInt(ch.statistics?.subscriberCount || '0'))
+        }
+      } catch {
+        // Non-critical — continue without subscriber counts
+      }
+    }
+
     return statsItems.map((item: {
       id: string
       snippet: {
         title: string
         description?: string
         channelTitle?: string
+        channelId?: string
         publishedAt?: string
         thumbnails?: { high?: { url?: string }; default?: { url?: string } }
         tags?: string[]
@@ -142,6 +169,8 @@ export async function searchNicheVideos(
       title: item.snippet.title,
       description: (item.snippet.description || '').slice(0, 300),
       channelTitle: item.snippet.channelTitle || '',
+      channelId: item.snippet.channelId || undefined,
+      subscriberCount: subscriberMap.get(item.snippet.channelId || '') || undefined,
       publishedAt: item.snippet.publishedAt || '',
       viewCount: parseInt(item.statistics?.viewCount || '0'),
       likeCount: parseInt(item.statistics?.likeCount || '0'),

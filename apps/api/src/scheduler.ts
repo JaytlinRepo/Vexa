@@ -1,6 +1,5 @@
 import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
-import { syncAllConnectedAccounts } from './lib/phylloSync'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { syncInstagramAccount } from './lib/instagramSync'
 import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap, triggerWeeklyMayaPulse, triggerWeeklyJordanPlan, triggerWeeklyAlexHooks, triggerWeeklyRileyBriefs } from './lib/proactiveAnalysis'
@@ -17,41 +16,47 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     return
   }
 
-  // ── Daily 09:00 UTC — Platform data sync (Phyllo, TikTok, Instagram) ──
+  // ── Daily 09:00 UTC — Platform data sync (Instagram + TikTok) ──
   const syncExpr = process.env.VEXA_SYNC_CRON || '0 9 * * *'
   cron.schedule(cron.validate(syncExpr) ? syncExpr : '0 9 * * *', async () => {
     if (running) return
     running = true
     console.log('[scheduler] platform sync starting')
+    let synced = 0
     try {
-      const results = await syncAllConnectedAccounts(prisma)
-      lastResultCount = results.length
-      lastRunAt = new Date()
-      const ok = results.filter((r) => !r.error).length
-      console.log(`[scheduler] phyllo sync: ${ok}/${results.length} ok`)
-
-      // TikTok
-      try {
-        const ttCompanies = await prisma.tiktokConnection.findMany({ select: { companyId: true } })
-        for (const { companyId } of ttCompanies) {
-          try { await syncTiktokAccount(prisma, companyId) } catch {}
-        }
-      } catch {}
-
-      // Instagram
+      // Instagram (direct Meta Graph API)
       try {
         const igCompanies = await prisma.instagramConnection.findMany({
-          where: { source: 'meta' },
           select: { companyId: true },
         })
         for (const { companyId } of igCompanies) {
-          try { await syncInstagramAccount(prisma, companyId) } catch {}
+          try {
+            await syncInstagramAccount(prisma, companyId)
+            synced++
+          } catch (e) {
+            console.warn(`[scheduler] IG sync failed for ${companyId}:`, (e as Error).message)
+          }
         }
       } catch {}
 
+      // TikTok (direct Login Kit)
+      try {
+        const ttCompanies = await prisma.tiktokConnection.findMany({ select: { companyId: true } })
+        for (const { companyId } of ttCompanies) {
+          try {
+            await syncTiktokAccount(prisma, companyId)
+            synced++
+          } catch (e) {
+            console.warn(`[scheduler] TT sync failed for ${companyId}:`, (e as Error).message)
+          }
+        }
+      } catch {}
+
+      lastResultCount = synced
+      lastRunAt = new Date()
+      console.log(`[scheduler] platform sync done: ${synced} accounts synced`)
+
       // ── Post-sync trigger: Maya analyzes what changed ──
-      // After all platforms sync, trigger Maya's performance analysis
-      // for each company so the pipeline always has fresh activity.
       try {
         const companies = await prisma.company.findMany({
           where: { OR: [{ tiktok: { isNot: null } }, { instagram: { isNot: null } }] },
