@@ -134,6 +134,9 @@ model Company {
   tiktok           TiktokConnection?
   platformAccounts  PlatformAccount[]
   dailyEngagements  DailyEngagement[]
+  videoUploads     VideoUpload[]
+  videoClips       VideoClip[]
+  metrics          ProcessingMetric[]
 
   @@map("companies")
 }
@@ -616,4 +619,78 @@ model WaitlistEntry {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("waitlist")
+}
+
+// ── VIDEO PROCESSING ──────────────────────────────────────────────────────────
+
+model VideoUpload {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  sourceVideoUrl   String   // Original uploaded video
+  fileName         String?
+  duration         Int?     // Seconds (extracted from video)
+
+  clips            VideoClip[]
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("video_uploads")
+}
+
+model VideoClip {
+  id               String   @id @default(cuid())
+  uploadId         String
+  upload           VideoUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  clippedUrl       String   // Final edited video URL
+  duration         Int      // Seconds
+  hook             String?  // Auto-generated or user-provided
+  caption          String?  // User-approved caption
+  captionOptions   Json?    // [{id, text, type, rationale}] — Alex's suggestions
+  selectedCaptionId String?  // Which caption was approved
+
+  status           String   @default("ready_to_post") // ready_to_post, posted, archived, draft
+  visualApprovalStatus String @default("pending") @map("visual_approval_status") // pending, approved, rejected
+  copyApprovalStatus String @default("pending") @map("copy_approval_status") // pending, approved, rejected
+
+  processedWith    String   @default("descript_magic_shortform")
+  descriptVideoId  String?  // For re-processing if needed
+
+  adjustments      Json?    // {colorTemp: -10, saturation: +5, version: 1}
+  styleMetrics     Json?    // {styleReplication: 0.87, colorAccuracy: 0.92, ...}
+  editorialFeedback Json?   // [{type: 'visual'|'copy', reason, timestamp, version}]
+
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([uploadId])
+  @@index([status])
+  @@index([visualApprovalStatus])
+  @@index([copyApprovalStatus])
+  @@map("video_clips")
+}
+
+model ProcessingMetric {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  metricType       String   // "style_replication" | "clipping_quality" | "processing_time"
+  value            Float    // The numeric score/time in ms
+  details          Json     // Full measurement details
+
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@index([metricType])
+  @@index([createdAt])
+  @@map("processing_metrics")
 }

@@ -16,12 +16,15 @@
     "db:studio": "cd apps/api && npx prisma studio"
   },
   "devDependencies": {
-    "turbo": "^1.13.0",
-    "typescript": "^5.3.0",
     "@types/node": "^20.0.0",
-    "prettier": "^3.2.0"
+    "prettier": "^3.2.0",
+    "turbo": "^1.13.0",
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-transcribe": "^3.1033.0"
   }
 }

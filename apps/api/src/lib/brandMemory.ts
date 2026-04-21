@@ -2,7 +2,7 @@ import { PrismaClient, MemoryType, Prisma } from '@prisma/client'
 
 export interface MemoryContent {
   summary: string
-  source?: 'task' | 'meeting' | 'manual' | 'instagram' | 'performance_tracking'
+  source?: 'task' | 'meeting' | 'manual' | 'instagram' | 'performance_tracking' | 'studio'
   sourceId?: string
   tags?: string[]
   details?: Record<string, unknown>
@@ -134,6 +134,33 @@ export async function recordTaskRejected(
       sourceId: params.taskId,
       summary: `Rejected ${params.employeeName}'s ${formatType(params.taskType)}: "${params.taskTitle}"${feedbackClause}`,
       tags: [params.taskType, 'rejected'],
+    },
+  })
+}
+
+export async function recordEditorialFeedback(
+  prisma: PrismaClient,
+  params: {
+    companyId: string
+    feedback: string
+    type: 'visual_approval' | 'visual_rejection' | 'copy_approval' | 'copy_rejection'
+    context?: Record<string, unknown>
+  },
+): Promise<void> {
+  const isRejection = params.type.includes('rejection')
+  const isCopy = params.type.includes('copy')
+  const dimension = isCopy ? 'caption' : 'visual'
+
+  await writeMemory(prisma, {
+    companyId: params.companyId,
+    type: isRejection ? 'feedback' : 'preference',
+    weight: isRejection ? 1.5 : 1.0,
+    content: {
+      source: 'studio',
+      sourceId: params.context?.clipId as string | undefined,
+      summary: `${isRejection ? 'Rejected' : 'Approved'} ${dimension} edit${isRejection && params.feedback ? `: ${params.feedback}` : ''}`,
+      tags: [dimension, isRejection ? 'rejected' : 'approved', 'studio'],
+      details: params.context,
     },
   })
 }

@@ -179,6 +179,8 @@
 
           <a class="topnav-link" id="nav-db-posts" onclick="navigate('db-posts')">Posts</a>
 
+          <a class="topnav-link" id="nav-db-studio" onclick="navigate('db-studio')">Studio</a>
+
           <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')">Knowledge</a>
           <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')">Team</a>
         </div>
@@ -2475,6 +2477,190 @@
           <div class="output-item"><div class="output-item-top"><span class="output-item-type">Video</span><span class="output-item-badge">Approved</span></div><div class="output-item-title">Rendered Reel — 5 Gym Mistakes</div><div class="output-item-meta">Riley &middot; Jan 8, 2025</div><div class="output-item-actions"><button class="ab recon" style="font-size:10px;padding:6px 12px">Preview</button><button class="ab approve" style="font-size:10px;padding:6px 12px">Download</button></div></div>
         </div>
       </div>
+    </div>
+
+    <!-- STUDIO -->
+    <div class="view" id="view-db-studio">
+
+<!-- MASTHEAD — matches .masthead pattern from Posts/Audience/Knowledge -->
+<section class="masthead">
+  <div>
+    <div class="kicker"><span class="rule"></span><span class="eyebrow">§ Production</span></div>
+    <h1>Clip, edit, and <em>ship</em>.</h1>
+    <p class="sub">Upload raw footage. Riley auto-clips and applies your aesthetic. Then post directly to any platform.</p>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="lbl">Clips this week</div><div class="v"><em>12</em></div><div class="d">8 posted · 4 ready</div></div>
+    <div class="stat"><div class="lbl">Avg. processing</div><div class="v">4m 42s</div><div class="d">Descript → Runway</div></div>
+    <div class="stat"><div class="lbl">Quality score</div><div class="v"><em>0.87</em></div><div class="d"><span class="u">style match</span></div></div>
+  </div>
+</section>
+
+<!-- UPLOAD — padded like pipe-wrap -->
+<section style="padding:28px 40px 0">
+  <div id="studio-upload-zone" onclick="document.getElementById('studio-file-input').click()" style="padding:36px;background:var(--s1);border:1px dashed var(--b2);border-radius:10px;text-align:center;cursor:pointer">
+    <div style="font-size:32px;margin-bottom:12px;opacity:.5">📹</div>
+    <div style="font-size:15px;font-weight:500;color:var(--t1);margin-bottom:4px">Drag video here or click to upload</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:16px">MP4, MOV, WebM · Up to 2GB · Raw footage welcome</div>
+    <input type="file" id="studio-file-input" accept="video/*" style="display:none">
+    <button class="btn-fill" style="padding:10px 24px;font-size:11px">Choose video</button>
+  </div>
+</section>
+
+<!-- PROCESSING STATUS (hidden until active) -->
+<div id="studio-processing" style="display:none;padding:20px 40px 0">
+  <div class="kpi-card">
+    <div class="kpi-head">
+      <div class="l">
+        <div class="lbl" id="processing-status">Processing...</div>
+        <div class="sub" id="processing-detail">Uploading to Descript...</div>
+      </div>
+      <div class="r">
+        <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
+        <div style="font-size:11px;color:var(--t3)">time remaining</div>
+      </div>
+    </div>
+    <div style="background:var(--b1);height:4px;border-radius:2px;overflow:hidden;margin-top:16px">
+      <div style="background:var(--accent);height:100%;width:0%;transition:width .3s ease" id="processing-bar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT — two-column like .dash (clips left, scheduling right) -->
+<div class="dash" style="border-bottom:none">
+
+  <!-- LEFT: Pending Clips -->
+  <div class="dash-main">
+    <div class="section-head">
+      <h3>Pending Approval · <em><span data-studio-pending-count>2 items</span></em></h3>
+    </div>
+
+    <!-- Dynamic clip cards rendered by studio-wire.js -->
+    <div id="studio-pending-container">
+      <!-- Clips rendered dynamically by studio-wire.js -->
+    </div><!-- /studio-pending-container -->
+  </div>
+
+  <!-- RIGHT: Posting Strategy (sidebar like dash-side) -->
+  <div class="dash-side">
+    <div class="section-head">
+      <h3>When to <em>Post</em></h3>
+    </div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:16px">Jordan's strategy based on your audience peaks, trending topics, and format performance</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);margin-bottom:16px">
+      <span style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)">Audience peaks</span>
+      <span style="font-size:16px;font-weight:600;color:var(--t1);letter-spacing:-.01em">Tue 2 PM UTC</span>
+    </div>
+
+    <!-- Primary -->
+    <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:4px">Primary</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Tuesday, April 29 · 2:00 PM</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--ok);padding:4px 8px;background:rgba(159,179,138,.15);border-radius:4px">92%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Your audience is most active then. Reels get 23% more views at this time.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(159,179,138,.15);color:var(--ok)">Audience peak</span>
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)">Format trending</span>
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:var(--b1);color:var(--t2)">High signal day</span>
+      </div>
+      <button class="btn-fill" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T14:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Secondary -->
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Alternative</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Monday, April 28 · 2:00 PM</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--accent);padding:4px 8px;background:var(--accent-soft);border-radius:4px">84%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Second-best posting day, same peak hour. Good backup if Tuesday feels crowded.</div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-28T14:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Tertiary -->
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:14px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Testing window</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Tuesday, April 29 · 8:00 AM</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--down);padding:4px 8px;background:rgba(196,138,138,.15);border-radius:4px">71%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Early morning — lower competition. Good for testing novel angles.</div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T08:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Custom time -->
+    <div style="border-top:1px solid var(--b1);padding-top:14px">
+      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Custom time</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Date</label>
+          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" min="2026-04-22" data-studio-input="date">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Time (UTC)</label>
+          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" data-studio-input="time">
+        </div>
+      </div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule-custom" data-clip-id="clip-1">Schedule at custom time</button>
+    </div>
+
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn" style="padding:7px 20px;font-size:11px;color:var(--t3)" data-studio-action="save-draft" data-clip-id="clip-1">Save as draft instead</button>
+    </div>
+  </div>
+</div>
+
+<!-- READY CLIPS — padded section -->
+<section style="padding:28px 40px">
+  <div class="section-head">
+    <h3>Ready to <em>Post</em> · 4 clips</h3>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px" id="studio-clips">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:24px;text-align:center;color:var(--t3);font-size:12px">Clips will appear here once processed</div>
+  </div>
+</section>
+
+<!-- PERFORMANCE METRICS — stat-grid style -->
+<section style="padding:0 40px 40px">
+  <div class="section-head">
+    <h3>Performance · <em>This week</em></h3>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:28px;padding:14px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1)">
+    <div class="stat"><div class="lbl">Style match</div><div class="v" style="color:var(--ok)"><em>0.87</em></div><div class="d">Improving</div></div>
+    <div class="stat"><div class="lbl">Clipping quality</div><div class="v" style="color:var(--ok)"><em>0.84</em></div><div class="d">Stable</div></div>
+    <div class="stat"><div class="lbl">Avg. processing</div><div class="v">4m 42s</div><div class="d">Faster</div></div>
+    <div class="stat"><div class="lbl">Overall</div><div class="v" style="color:var(--ok)"><em>Ready</em></div><div class="d">10 samples</div></div>
+  </div>
+</section>
+
+<!-- SCHEDULE CONFIRM MODAL -->
+<div id="schedule-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:1000">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:28px;max-width:380px;width:90%;box-shadow:0 20px 60px var(--sh)">
+    <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:10px">Confirm Scheduling</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:20px">
+      This post will be scheduled to Instagram on <strong id="confirm-time">Tuesday, April 29 at 2:00 PM UTC</strong>. You can reschedule anytime before it goes live.
+    </div>
+    <div style="display:flex;gap:12px">
+      <button class="btn-fill" id="schedule-confirm-btn" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600">Yes, schedule it</button>
+      <button class="btn" style="flex:1;padding:12px;font-size:12px" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="foot-row">
+  <span>SOVEXA · STUDIO · BUILD 087 · PRO</span>
+  <span class="brand">Your content. Run by a team.</span>
+  <span>API 200 · RUNWAY OK · DESCRIPT OK</span>
+</div>
+
     </div>
 
     <!-- KNOWLEDGE -->
