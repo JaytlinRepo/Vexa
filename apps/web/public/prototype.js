@@ -768,7 +768,7 @@ window.briefEvent = async function (action, context) {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
         })
-        if (typeof window.showNotification === 'function') window.showNotification('Plan approved', 'success')
+        if (typeof window.showNotification === 'function') window.showNotification('Plan approved — preference saved', 'success')
         if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
         break
       case 'reject-plan':
@@ -777,7 +777,7 @@ window.briefEvent = async function (action, context) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reason: 'User requested rethink' }),
         })
-        if (typeof window.showNotification === 'function') window.showNotification('Plan rejected — Jordan is rethinking', 'info')
+        if (typeof window.showNotification === 'function') window.showNotification('Rejected — feedback saved, Jordan is rethinking', 'info')
         if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
         break
       case 'approve-trend':

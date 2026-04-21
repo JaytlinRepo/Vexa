@@ -69,6 +69,12 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
           } catch (e) {
             console.warn(`[scheduler] post-sync Maya pulse failed for ${id}:`, (e as Error).message)
           }
+          // Evaluate output→post performance (learning loop)
+          try {
+            const { evaluateOutputPerformance } = await import('./lib/metricTracking')
+            const result = await evaluateOutputPerformance(prisma, id)
+            if (result.evaluated > 0) console.log(`[scheduler] learning: ${result.wellPerformed}/${result.evaluated} outputs performed well for ${id}`)
+          } catch {}
         }
       } catch {}
     } catch (err) {

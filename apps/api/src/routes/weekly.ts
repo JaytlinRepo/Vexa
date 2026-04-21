@@ -16,6 +16,53 @@ import { getWeeklyData } from '../lib/dailyBrief.service'
 const router = Router()
 let prisma: PrismaClient
 
+/** Build informedBy metadata showing what data/agent informed this output */
+async function buildInformedBy(companyId: string, agentRole: string): Promise<{ sources: string[]; metrics: Record<string, string>; previousAgent?: string }> {
+  const sources: string[] = []
+  const metrics: Record<string, string> = {}
+
+  // What platforms are connected?
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId, status: 'connected' },
+    select: { platform: true, handle: true },
+  })
+  if (accounts.length) sources.push(...accounts.map(a => `${a.platform} @${a.handle}`))
+
+  // Latest snapshot metrics
+  const snapshot = await prisma.platformSnapshot.findFirst({
+    where: { account: { companyId } },
+    orderBy: { capturedAt: 'desc' },
+  })
+  if (snapshot) {
+    metrics['followers'] = snapshot.followerCount.toLocaleString()
+    if (snapshot.engagementRate > 0) metrics['engagement'] = snapshot.engagementRate.toFixed(2) + '%'
+    if (snapshot.avgReach > 0) metrics['avg reach'] = snapshot.avgReach.toLocaleString()
+  }
+
+  // Post count this week
+  const weekStart = new Date()
+  weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay())
+  weekStart.setUTCHours(0, 0, 0, 0)
+  const postCount = await prisma.platformPost.count({
+    where: { account: { companyId }, publishedAt: { gte: weekStart } },
+  })
+  if (postCount > 0) metrics['posts this week'] = String(postCount)
+
+  // Brand memory count
+  const memCount = await prisma.brandMemory.count({ where: { companyId } })
+  if (memCount > 0) metrics['preferences learned'] = String(memCount)
+
+  // Which agent's output fed into this one?
+  const chain: Record<string, string> = {
+    strategist: 'Maya\'s weekly pulse',
+    copywriter: 'Jordan\'s content plan',
+    creative_director: 'Alex\'s hooks',
+  }
+  const previousAgent = chain[agentRole] || undefined
+
+  return { sources, metrics, previousAgent }
+}
+
 export function initWeeklyRoutes(_prisma: PrismaClient) {
   prisma = _prisma
 
@@ -86,12 +133,14 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         return res.status(404).json({ error: 'No weekly pulse yet' })
       }
 
+      const informedBy = await buildInformedBy(companyId, 'analyst').catch(() => null)
       res.json({
         taskId: task.id,
         status: task.status,
         createdAt: task.createdAt,
         employee: task.employee.name,
         output: task.outputs[0]?.content || null,
+        informedBy,
       })
     } catch (err) {
       console.error('[weekly] maya-pulse error:', err)
@@ -136,12 +185,14 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         return res.status(404).json({ error: 'No weekly plan yet' })
       }
 
+      const informedBy = await buildInformedBy(companyId, 'strategist').catch(() => null)
       res.json({
         taskId: task.id,
         status: task.status,
         createdAt: task.createdAt,
         employee: task.employee.name,
         output: task.outputs[0]?.content || null,
+        informedBy,
       })
     } catch (err) {
       console.error('[weekly] jordan-plan error:', err)
@@ -186,12 +237,14 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         return res.status(404).json({ error: 'No weekly hooks yet' })
       }
 
+      const informedBy = await buildInformedBy(companyId, 'copywriter').catch(() => null)
       res.json({
         taskId: task.id,
         status: task.status,
         createdAt: task.createdAt,
         employee: task.employee.name,
         output: task.outputs[0]?.content || null,
+        informedBy,
       })
     } catch (err) {
       console.error('[weekly] alex-hooks error:', err)
@@ -236,12 +289,14 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         return res.status(404).json({ error: 'No weekly briefs yet' })
       }
 
+      const informedBy = await buildInformedBy(companyId, 'creative_director').catch(() => null)
       res.json({
         taskId: task.id,
         status: task.status,
         createdAt: task.createdAt,
         employee: task.employee.name,
         output: task.outputs[0]?.content || null,
+        informedBy,
       })
     } catch (err) {
       console.error('[weekly] riley-briefs error:', err)

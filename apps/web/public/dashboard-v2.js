@@ -1823,8 +1823,8 @@
               chain?.reason === 'quota_exceeded'
                 ? 'Plan task limit reached — the next role did not auto-start. Check usage in Settings or wait for your monthly reset.'
                 : chain?.reason === 'end_of_pipeline'
-                  ? 'That was the last step in this pipeline. Nothing else auto-chained.'
-                  : 'Your approval is saved. Refresh the queue when you are ready for the next move.',
+                  ? 'That was the last step in this pipeline. Your preference has been noted for future outputs.'
+                  : 'Your approval is saved and your preference has been noted. Future outputs will reflect your taste.',
             primaryLabel: 'Open queue',
             onPrimary: () => {
               if (typeof window.navigate === 'function') window.navigate('db-tasks')
@@ -1834,8 +1834,8 @@
           showOutcomeModal({
             title: 'Revision requested',
             body: feedback
-              ? 'Your note was sent with the rejection so the teammate can rework with context.'
-              : 'Rejection recorded — they will rework from your last review.',
+              ? 'Your note was sent with the rejection and saved as feedback. Future outputs will avoid this pattern.'
+              : 'Rejection recorded and saved as feedback — they will rework and learn from this.',
             primaryLabel: 'Open queue',
             onPrimary: () => {
               if (typeof window.navigate === 'function') window.navigate('db-tasks')

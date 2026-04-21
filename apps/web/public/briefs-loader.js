@@ -48,12 +48,13 @@
       var mayaNode = document.querySelector('[data-node="maya"]')
       if (mayaNode) {
         var mayaHtml = ''
+        var mayaCtx = pulse?.informedBy
         if (pulse && pulse.output) {
           var po = pulse.output
           var summary = po.oneThingToDo || po.summary || po.trajectory?.summary || ''
           mayaHtml += briefChip('weekly-pulse', 'WEEKLY PULSE', summary, null, [
             btn('View', "window.navigateTo('weekly-pulse')"),
-          ])
+          ], mayaCtx)
         }
         var trends = morning?.trendingTopics || []
         if (trends.length > 0) {
@@ -82,7 +83,7 @@
           actions.push(btn('Approve', "window.briefEvent('approve-plan','weekly')", true))
           actions.push(btn('Reject', "window.briefEvent('reject-plan','weekly')"))
         }
-        injectBriefs(jordanNode, briefChip('weekly-plan', label, goal, tone, actions))
+        injectBriefs(jordanNode, briefChip('weekly-plan', label, goal, tone, actions, plan.informedBy))
       }
 
       // Alex node — weekly hooks
@@ -93,7 +94,7 @@
         var count = Array.isArray(hookList) ? hookList.length : 0
         injectBriefs(alexNode, briefChip('weekly-hooks', 'WEEKLY HOOKS', count + ' days of hooks ready', null, [
           btn('View', "window.navigateTo('weekly-hooks')"),
-        ]))
+        ], hooks.informedBy))
       }
 
       // Riley node — production briefs
@@ -101,7 +102,7 @@
       if (rileyNode && briefs && briefs.output) {
         injectBriefs(rileyNode, briefChip('weekly-briefs', 'PRODUCTION', 'Weekly direction ready', null, [
           btn('View', "window.navigateTo('weekly-briefs')"),
-        ]))
+        ], briefs.informedBy))
       }
 
       console.log('[briefs-loader] briefs injected into pipeline')
@@ -118,15 +119,32 @@
     return '<button style="' + base + 'background:transparent;color:var(--t2);border:1px solid var(--b2)" onclick="event.stopPropagation();' + onclick + '">' + text + '</button>'
   }
 
-  function briefChip(type, label, detail, tone, actions) {
+  function briefChip(type, label, detail, tone, actions, informedBy) {
     var dotColor = tone === 'warn' ? '#c76a6a' : tone === 'ok' ? 'var(--ok, #34d27a)' : 'var(--accent)'
     var actionsHtml = actions && actions.length ? '<div style="display:flex;gap:5px;margin-top:6px">' + actions.join('') + '</div>' : ''
+
+    // Build "informed by" line
+    var ctxHtml = ''
+    if (informedBy) {
+      var parts = []
+      if (informedBy.previousAgent) parts.push(informedBy.previousAgent)
+      var m = informedBy.metrics || {}
+      if (m.followers) parts.push(m.followers + ' followers')
+      if (m.engagement) parts.push(m.engagement + ' eng')
+      if (m['posts this week']) parts.push(m['posts this week'] + ' posts/wk')
+      if (m['preferences learned']) parts.push(m['preferences learned'] + ' preferences')
+      if (parts.length) {
+        ctxHtml = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;color:var(--t3);margin-top:4px;letter-spacing:.02em">Informed by: ' + esc(parts.join(' · ')) + '</div>'
+      }
+    }
+
     return '<div class="node-brief" data-brief-type="' + type + '" style="margin-top:8px;padding:8px 0;border-top:1px dashed var(--b1)">' +
       '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
         '<span style="width:5px;height:5px;border-radius:50%;background:' + dotColor + ';flex-shrink:0"></span>' +
         '<span style="font-family:Inter,sans-serif;font-weight:500;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)">' + esc(label) + '</span>' +
       '</div>' +
       (detail ? '<div style="font-size:11px;color:var(--t2);line-height:1.4">' + esc(String(detail).slice(0, 80)) + '</div>' : '') +
+      ctxHtml +
       actionsHtml +
     '</div>'
   }

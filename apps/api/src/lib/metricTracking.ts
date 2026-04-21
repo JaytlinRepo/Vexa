@@ -167,3 +167,81 @@ export async function computeWeeklySummary(
     },
   })
 }
+
+/**
+ * Evaluate whether outputs linked to posts performed well.
+ * Runs during daily sync. Checks outputs with linkedPostId where
+ * performedWell is still null and the post is 48+ hours old.
+ *
+ * "Performed well" = engagement rate above the account's average.
+ * This feeds back into brand memory so agents learn what works.
+ */
+export async function evaluateOutputPerformance(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ evaluated: number; wellPerformed: number }> {
+  const threshold = new Date(Date.now() - 48 * 60 * 60 * 1000) // 48h ago
+
+  // Find outputs with linked posts that haven't been evaluated yet
+  const outputs = await prisma.output.findMany({
+    where: {
+      companyId,
+      linkedPostId: { not: null },
+      performedWell: null,
+    },
+  })
+
+  if (outputs.length === 0) return { evaluated: 0, wellPerformed: 0 }
+
+  // Get account-level avg engagement rate
+  const snapshot = await prisma.platformSnapshot.findFirst({
+    where: { account: { companyId } },
+    orderBy: { capturedAt: 'desc' },
+  })
+  const avgEng = snapshot?.engagementRate || 0
+
+  let evaluated = 0
+  let wellPerformed = 0
+
+  for (const output of outputs) {
+    const post = await prisma.platformPost.findFirst({
+      where: { id: output.linkedPostId! },
+    })
+    if (!post || !post.publishedAt || post.publishedAt > threshold) continue
+
+    const didWell = post.engagementRate > avgEng
+    await prisma.output.update({
+      where: { id: output.id },
+      data: { performedWell: didWell },
+    })
+
+    // Write brand memory about what worked/didn't
+    const { writeMemory } = await import('./brandMemory')
+    const employee = await prisma.employee.findUnique({ where: { id: output.employeeId } })
+    await writeMemory(prisma, {
+      companyId,
+      type: didWell ? 'performance' : 'feedback',
+      weight: didWell ? 1.2 : 1.4,
+      content: {
+        source: 'performance_tracking',
+        summary: didWell
+          ? `${employee?.name}'s ${output.type} led to a post with ${post.engagementRate.toFixed(1)}% engagement (above ${avgEng.toFixed(1)}% avg). This style works.`
+          : `${employee?.name}'s ${output.type} led to a post with ${post.engagementRate.toFixed(1)}% engagement (below ${avgEng.toFixed(1)}% avg). Consider adjusting.`,
+        tags: ['learning', output.type, didWell ? 'success' : 'underperform'],
+        details: {
+          outputId: output.id,
+          outputType: output.type,
+          employeeName: employee?.name || 'Unknown',
+          postEngagement: post.engagementRate,
+          accountAvg: avgEng,
+          verdict: didWell ? 'above_average' : 'below_average',
+        },
+      },
+    }).catch(() => {})
+
+    evaluated++
+    if (didWell) wellPerformed++
+  }
+
+  return { evaluated, wellPerformed }
+}

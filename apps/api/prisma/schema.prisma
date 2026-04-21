@@ -185,6 +185,10 @@ model Output {
   version    Int          @default(1)
   createdAt  DateTime     @default(now()) @map("created_at")
 
+  // Learning: link output to the post it became (set after publishing)
+  linkedPostId  String?  @map("linked_post_id")
+  performedWell Boolean? @map("performed_well") // set after 48h of post performance tracking
+
   task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id])
