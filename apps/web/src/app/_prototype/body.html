@@ -1007,6 +1007,17 @@
   </div>
 </section>
 
+<!-- ══ DAILY & WEEKLY BRIEFS ════ -->
+<section class="briefs-section" id="briefs-container">
+  <div id="morning-brief-placeholder"></div>
+  <div id="midday-check-placeholder"></div>
+  <div id="evening-recap-placeholder"></div>
+  <div id="weekly-pulse-placeholder"></div>
+  <div id="weekly-plan-placeholder"></div>
+  <div id="weekly-hooks-placeholder"></div>
+  <div id="weekly-briefs-placeholder"></div>
+</section>
+
 <!-- ══ DASHBOARD GRID ══════════ -->
 <section class="dash">
 
@@ -2989,3 +3000,7 @@
 
   </div><!-- /main -->
 </div><!-- /app -->
+
+<script type="module">
+  import('./../../public/briefs-loader.js').catch(err => console.error('Failed to load briefs:', err))
+</script>
