@@ -500,6 +500,7 @@ async function recordPostMetricSnapshots(
       },
     })
   }
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -522,4 +523,15 @@ function computeAvgDailyGrowth(snapshots: Array<{ followerCount: number; capture
   const oldest = snapshots[snapshots.length - 1]
   const days = Math.max(1, (new Date(newest.capturedAt).getTime() - new Date(oldest.capturedAt).getTime()) / 86400000)
   return safe((newest.followerCount - oldest.followerCount) / days)
+}
+
+export {
+  computeFormatPerformance,
+  computeHookPerformance,
+  computeCohortEngagement,
+  computeTimingPattern,
+  computeTrajectory,
+  computeAvgDailyGrowth,
+  safe,
+  avg,
 }
