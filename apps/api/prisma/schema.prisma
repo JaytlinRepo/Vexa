@@ -306,6 +306,19 @@ model PlatformPost {
   viewCount       Int       @default(0) @map("view_count")
   reachCount      Int       @default(0) @map("reach_count")
   impressionCount Int       @default(0) @map("impression_count")
+
+  // Derived metrics (computed per-post)
+  engagementRate  Float     @default(0) @map("engagement_rate")
+  saveRate        Float     @default(0) @map("save_rate")
+  viralityScore   Float     @default(0) @map("virality_score")
+  commentToLikeRatio    Float @default(0) @map("comment_to_like_ratio")
+  viewToFollowerRatio   Float @default(0) @map("view_to_follower_ratio")
+  captionLength   Int       @default(0) @map("caption_length")
+  publishHour     Int?      @map("publish_hour")
+  publishDayOfWeek Int?     @map("publish_day_of_week")
+  engagementVelocity Float  @default(0) @map("engagement_velocity")
+  decayRate       Float     @default(0) @map("decay_rate")
+
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
   account         PlatformAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -366,6 +379,18 @@ model WeeklySummary {
   // Computed insights
   bestDay        String? @map("best_day")      // "Monday", "Tuesday", etc.
   bestFormat     String? @map("best_format")    // "REEL", "CAROUSEL", "IMAGE"
+
+  // Extended insights (derived metrics)
+  followerGrowthPct Float @default(0) @map("follower_growth_pct")
+  totalShares       Int   @default(0) @map("total_shares")
+  totalSaves        Int   @default(0) @map("total_saves")
+  avgSaveRate       Float @default(0) @map("avg_save_rate")
+  avgViralityScore  Float @default(0) @map("avg_virality_score")
+  avgCaptionLength  Float @default(0) @map("avg_caption_length")
+  bestHour          Int?  @map("best_hour")
+  consistencyScore  Float @default(0) @map("consistency_score")
+  engagementTrend   String? @map("engagement_trend")  // "up", "stable", "down"
+  formatMomentum    Json @default("[]") @map("format_momentum")  // [{format, avgEng, delta, trend}, ...]
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
