@@ -35,6 +35,18 @@
 
   // ── API Calls ────────────────────────────────────────────────────
 
+  async function fetchUserCompany() {
+    try {
+      const res = await fetch(`${API}/api/auth/me`, { credentials: 'include' })
+      if (!res.ok) return null
+      const json = await res.json()
+      return json.companies?.[0]
+    } catch (err) {
+      console.error('[studio] failed to fetch user:', err)
+      return null
+    }
+  }
+
   async function fetchPendingClips() {
     if (!currentCompanyId) return []
     try {
@@ -481,15 +493,17 @@
 
   // ── Init ─────────────────────────────────────────────────────────
 
-  function initStudioTab() {
-    // Get current company from session or nav
-    const companyEl = document.querySelector('[data-company-id]')
-    if (companyEl) {
-      currentCompanyId = companyEl.dataset.companyId
+  async function initStudioTab() {
+    // Get current company from session
+    if (!currentCompanyId) {
+      const company = await fetchUserCompany()
+      if (company) {
+        currentCompanyId = company.id
+      }
     }
 
     wireStudioTab()
-    refreshClips()
+    await refreshClips()
 
     // Refresh clips when navigating to Studio tab
     const studioNav = document.getElementById('nav-db-studio')
