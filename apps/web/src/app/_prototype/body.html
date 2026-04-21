@@ -2558,7 +2558,7 @@
   <!-- Pending Approvals (Batch Preview) -->
   <div style="margin-top:40px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Pending Approval · 2 items</div>
+      <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)">Pending Approval · <span data-studio-pending-count>2 items</span></div>
       <button class="btn" style="padding:8px 12px;font-size:11px;color:var(--t3)">⚙️ Batch actions</button>
     </div>
 
@@ -2587,7 +2587,7 @@
             </div>
           </div>
           <div style="display:flex;gap:8px">
-            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Approve</button>
+            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-visual" data-clip-id="clip-1">✓ Approve</button>
             <button class="btn" style="flex:1;padding:8px;font-size:12px" onclick="document.getElementById('visual-feedback-1').style.display='block'">✗ Reject</button>
           </div>
           <!-- Rejection Feedback Form -->
@@ -2599,7 +2599,7 @@
               <span id="visual-fb-1-count">0/500</span>
             </div>
             <div style="display:flex;gap:8px;margin-top:8px">
-              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer">Submit & regenerate</button>
+              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer" data-studio-action="reject-visual-submit" data-clip-id="clip-1">Submit & regenerate</button>
               <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-1').style.display='none'">Cancel</button>
             </div>
           </div>
@@ -2618,8 +2618,8 @@
               <em>Hook style:</em> Curiosity-driven, uses surprise moment
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-1" data-caption-id="caption-1">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-1">✗ Not this one</button>
             </div>
           </div>
 
@@ -2632,8 +2632,8 @@
               <em>Hook style:</em> Value-focused, promises transformation
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-1" data-caption-id="caption-2">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-1">✗ Not this one</button>
             </div>
           </div>
 
@@ -2646,19 +2646,19 @@
               <em>Hook style:</em> Audience-targeted, speaks directly to pain point
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-1" data-caption-id="caption-3">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-1">✗ Not this one</button>
             </div>
           </div>
 
           <!-- Reject All Captions -->
-          <button class="btn" style="width:100%;padding:10px;font-size:12px">Reject all — get new captions</button>
+          <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="reject-all-copy" data-clip-id="clip-1">Reject all — get new captions</button>
         </div>
       </div>
 
-      <!-- Item Footer -->
+      <!-- Item 1 Footer -->
       <div style="padding:12px 24px;background:rgba(0,0,0,0.02);border-top:1px solid var(--b1);display:flex;justify-content:flex-end">
-        <button class="btn" style="padding:6px 12px;font-size:11px;color:var(--t3)">🗑️ Discard this clip</button>
+        <button class="btn" style="padding:6px 12px;font-size:11px;color:var(--t3)" data-studio-action="discard" data-clip-id="clip-1">🗑️ Discard this clip</button>
       </div>
 
       <!-- Item 2 -->
@@ -2684,15 +2684,19 @@
             </div>
           </div>
           <div style="display:flex;gap:8px">
-            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Approve</button>
+            <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-visual" data-clip-id="clip-2">✓ Approve</button>
             <button class="btn" style="flex:1;padding:8px;font-size:12px" onclick="document.getElementById('visual-feedback-2').style.display='block'">✗ Reject</button>
           </div>
           <!-- Rejection Feedback Form -->
           <div id="visual-feedback-2" style="display:none;margin-top:12px;padding:12px;background:rgba(255,0,0,0.05);border-radius:6px;border:1px solid rgba(255,0,0,0.2)">
             <div style="font-size:11px;font-weight:500;margin-bottom:8px;color:var(--t3)">Why are you rejecting this edit?</div>
-            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" placeholder="Too warm, not enough contrast, etc." rows="2"></textarea>
+            <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--s1);color:var(--t2)" id="visual-fb-2" placeholder="Too warm, not enough contrast, etc." rows="2" onkeyup="document.getElementById('visual-fb-2-count').textContent = (this.value.length + '/500')"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10px;color:var(--t3)">
+              <span>Must be at least 5 characters to help Riley learn</span>
+              <span id="visual-fb-2-count">0/500</span>
+            </div>
             <div style="display:flex;gap:8px;margin-top:8px">
-              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer">Submit & regenerate</button>
+              <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(255,100,100,0.7);border:none;cursor:pointer" data-studio-action="reject-visual-submit" data-clip-id="clip-2">Submit & regenerate</button>
               <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-2').style.display='none'">Cancel</button>
             </div>
           </div>
@@ -2711,8 +2715,8 @@
               <em>Caption style:</em> Aspirational, wisdom-focused
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-2" data-caption-id="caption-4">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-2">✗ Not this one</button>
             </div>
           </div>
 
@@ -2725,8 +2729,8 @@
               <em>Caption style:</em> Conversational, empowering
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-2" data-caption-id="caption-5">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-2">✗ Not this one</button>
             </div>
           </div>
 
@@ -2739,14 +2743,19 @@
               <em>Caption style:</em> Relatable, validates struggle
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px">✓ Use this</button>
-              <button class="btn" style="flex:1;padding:8px;font-size:12px">✗ Not this one</button>
+              <button class="btn-fill" style="flex:1;padding:8px;font-size:12px" data-studio-action="approve-copy" data-clip-id="clip-2" data-caption-id="caption-6">✓ Use this</button>
+              <button class="btn" style="flex:1;padding:8px;font-size:12px" data-studio-action="reject-copy" data-clip-id="clip-2">✗ Not this one</button>
             </div>
           </div>
 
           <!-- Reject All Captions -->
-          <button class="btn" style="width:100%;padding:10px;font-size:12px">Reject all — get new captions</button>
+          <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="reject-all-copy" data-clip-id="clip-2">Reject all — get new captions</button>
         </div>
+      </div>
+
+      <!-- Item 2 Footer -->
+      <div style="padding:12px 24px;background:rgba(0,0,0,0.02);border-top:1px solid var(--b1);display:flex;justify-content:flex-end">
+        <button class="btn" style="padding:6px 12px;font-size:11px;color:var(--t3)" data-studio-action="discard" data-clip-id="clip-2">🗑️ Discard this clip</button>
       </div>
     </div>
   </div>
@@ -2783,7 +2792,7 @@
         <span style="font-size:11px;background:rgba(255,193,7,0.1);color:var(--accent);padding:4px 8px;border-radius:4px">Format trending</span>
         <span style="font-size:11px;background:rgba(100,200,255,0.1);color:var(--t2);padding:4px 8px;border-radius:4px">High signal day</span>
       </div>
-      <button class="btn-fill" style="width:100%;padding:10px;font-size:12px" onclick="showScheduleConfirm('Tuesday, April 29 · 2:00 PM UTC')">✓ Schedule for this time</button>
+      <button class="btn-fill" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T14:00:00Z">✓ Schedule for this time</button>
     </div>
 
     <!-- Recommendation 2 (Secondary) -->
@@ -2800,7 +2809,7 @@
       <div style="font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px">
         Monday is your second-best posting day, same peak hour. Good backup if Tuesday feels crowded or if you want to extend your posting window across the week.
       </div>
-      <button class="btn" style="width:100%;padding:10px;font-size:12px">Schedule for this time</button>
+      <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-28T14:00:00Z">Schedule for this time</button>
     </div>
 
     <!-- Recommendation 3 (Tertiary) -->
@@ -2817,7 +2826,7 @@
       <div style="font-size:13px;line-height:1.6;color:var(--t2);margin-bottom:12px">
         Early morning post (8 AM UTC) — lower competition. Good for testing novel angles or exploring different copy styles before posting at peak time.
       </div>
-      <button class="btn" style="width:100%;padding:10px;font-size:12px">Schedule for this time</button>
+      <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T08:00:00Z">Schedule for this time</button>
     </div>
 
     <!-- Custom Time Option -->
@@ -2826,19 +2835,19 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
           <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Date</label>
-          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)" min="2026-04-22">
+          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)" min="2026-04-22" data-studio-input="date">
         </div>
         <div>
           <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Time (UTC)</label>
-          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)">
+          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:12px;background:var(--s1);color:var(--t2)" data-studio-input="time">
         </div>
       </div>
-      <button class="btn" style="width:100%;padding:10px;font-size:12px">Schedule at custom time</button>
+      <button class="btn" style="width:100%;padding:10px;font-size:12px" data-studio-action="schedule-custom" data-clip-id="clip-1">Schedule at custom time</button>
     </div>
 
     <!-- Save as Draft Option -->
     <div style="margin-top:12px;padding:12px;background:rgba(200,200,200,0.05);border-radius:8px;text-align:center">
-      <button class="btn" style="padding:8px 24px;font-size:12px">💾 Save as draft instead</button>
+      <button class="btn" style="padding:8px 24px;font-size:12px" data-studio-action="save-draft" data-clip-id="clip-1">💾 Save as draft instead</button>
       <div style="font-size:11px;color:var(--t3);margin-top:8px">Keep this ready but don't schedule yet — decide later</div>
     </div>
   </div>
@@ -2853,7 +2862,7 @@
         You can reschedule or unpost anytime before it goes live. After posting, analytics will show how it performs.
       </div>
       <div style="display:flex;gap:12px">
-        <button class="btn-fill" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">
+        <button class="btn-fill" id="schedule-confirm-btn" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600">
           ✓ Yes, schedule it
         </button>
         <button class="btn" style="flex:1;padding:12px;font-size:12px" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">
