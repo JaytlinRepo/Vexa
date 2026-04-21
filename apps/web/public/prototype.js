@@ -748,3 +748,155 @@ window.navigateSovexaLogo = function () {
 // so no defineProperty needed. The earlier getter approach tripped the
 // "Cannot redefine property" error on HMR re-eval because `var` pins the
 // property as non-configurable.
+
+/* ── BRIEF SYSTEM EVENT HANDLERS ────────────────────── */
+
+window.briefState = {
+  currentBrief: 'morning-briefs',
+  tasks: {},
+  loading: false,
+}
+
+window.briefEvent = async function (action, context) {
+  console.log(`[brief] ${action} on ${context}`)
+  try {
+    switch (action) {
+      case 'approve-plan':
+        await fetch(`/api/weekly/plan/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        window.showNotification('✅ Plan approved', 'success')
+        window.navigateTo('weekly-hooks')
+        break
+      case 'reject-plan':
+        await fetch(`/api/weekly/plan/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'User requested rethink' }),
+        })
+        window.showNotification('Plan rejected', 'info')
+        window.navigateTo('weekly-pulse')
+        break
+      case 'approve-trend':
+        await fetch(`/api/briefs/approve-trend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trend: context }),
+        })
+        window.showNotification('📢 Jordan briefed', 'success')
+        break
+      case 'dismiss':
+        window.dismissBrief(context)
+        break
+    }
+  } catch (err) {
+    console.error(`[brief] event error:`, err)
+    window.showNotification('Error', 'error')
+  }
+}
+
+window.navigateTo = function (brief) {
+  const validBriefs = ['morning-briefs', 'midday-check', 'evening-recap', 'weekly-pulse', 'weekly-plan', 'weekly-hooks', 'weekly-briefs', 'analytics']
+  if (!validBriefs.includes(brief)) return
+  window.briefState.currentBrief = brief
+  document.querySelectorAll('[data-brief]').forEach(el => el.classList.remove('active'))
+  const briefCard = document.querySelector(`[data-brief="${brief}"]`)
+  if (briefCard) {
+    briefCard.classList.add('active')
+    briefCard.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+window.copyToClipboard = function (text) {
+  navigator.clipboard.writeText(text).then(() => {
+    window.showNotification('✓ Copied', 'success')
+  }).catch(err => {
+    console.error('[brief] copy failed:', err)
+  })
+}
+
+window.useHook = function (day, rank) {
+  window.showNotification(`✓ Hook #${rank} selected`, 'success')
+}
+
+window.postNow = async function (postId) {
+  const confirmed = confirm('Post now?')
+  if (!confirmed) return
+  try {
+    window.briefState.loading = true
+    const response = await fetch(`/api/briefs/queue/${postId}/post-now`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!response.ok) throw new Error('Failed')
+    window.showNotification('🚀 Posted!', 'success')
+    await window.refreshQueue()
+  } catch (err) {
+    window.showNotification('Failed', 'error')
+  } finally {
+    window.briefState.loading = false
+  }
+}
+
+window.previewPost = function (postId) {
+  window.showNotification('Preview coming soon', 'info')
+}
+
+window.editPost = function (postId) {
+  window.showNotification('Edit coming soon', 'info')
+}
+
+window.reschedulePost = function (postId) {
+  window.showNotification('Reschedule coming soon', 'info')
+}
+
+window.viewProductionBrief = function (postId) {
+  window.navigateTo('weekly-briefs')
+}
+
+window.downloadWeeklyBriefs = function () {
+  window.showNotification('Download coming soon', 'info')
+}
+
+window.dismissBrief = function (briefType) {
+  const briefCard = document.querySelector(`[data-brief="${briefType}"]`)
+  if (briefCard) {
+    briefCard.style.opacity = '0.5'
+    briefCard.style.pointerEvents = 'none'
+  }
+}
+
+window.refreshQueue = async function () {
+  try {
+    const response = await fetch(`/api/briefs/queue`)
+    const data = await response.json()
+    console.log('[brief] queue refreshed:', data)
+  } catch (err) {
+    console.error('[brief] queue refresh error:', err)
+  }
+}
+
+window.showNotification = function (message, type = 'info') {
+  const toast = document.createElement('div')
+  toast.className = `toast toast-${type}`
+  toast.textContent = message
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: ${type === 'success' ? 'rgba(76,175,80,0.9)' : type === 'error' ? 'rgba(255,107,107,0.9)' : 'rgba(100,200,255,0.9)'};
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+  `
+  document.body.appendChild(toast)
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-out'
+    setTimeout(() => toast.remove(), 300)
+  }, 3000)
+}
