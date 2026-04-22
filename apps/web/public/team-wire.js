@@ -1,6 +1,8 @@
 /* Sovexa — team page: render real per-employee status into #view-db-team.
  * Each of the four employee cards shows the most recent task's title +
  * a status pill derived from that task's state.
+ *
+ * Integrates with /api/employees for detailed employee metrics and history.
  */
 ;(function () {
   const EMPLOYEES = [
@@ -9,6 +11,9 @@
     { role: 'copywriter',        name: 'Alex',   title: 'Copywriter & Script Writer', init: 'A', short: 'Copywriter' },
     { role: 'creative_director', name: 'Riley',  title: 'Creative Director',        init: 'R', short: 'Creative Director' },
   ]
+
+  // Cache employee details
+  let employeeDetailsCache = {}
 
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -58,6 +63,20 @@
     }
   }
 
+  async function fetchEmployeeDetails(companyId) {
+    try {
+      const cacheKey = companyId
+      if (employeeDetailsCache[cacheKey]) return employeeDetailsCache[cacheKey]
+      const res = await fetch(`/api/employees?companyId=${companyId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      const json = await res.json()
+      employeeDetailsCache[cacheKey] = json.employees || []
+      return employeeDetailsCache[cacheKey]
+    } catch {
+      return null
+    }
+  }
+
   function statusFor(tasks) {
     if (tasks.length === 0) return { pill: 'Warming up', line: 'No deliveries yet — first output coming soon.' }
     const delivered = tasks.filter((t) => t.status === 'delivered')
@@ -72,8 +91,10 @@
     return { pill: 'Done', line: `Last: ${latest.title} (${latest.status}).` }
   }
 
-  function cardHTML(emp, tasks) {
+  function cardHTML(emp, tasks, details) {
     const status = statusFor(tasks)
+    const metrics = details?.metrics || {}
+
     return `
       <div class="emp-card">
         <div class="emp-card-top">
@@ -87,6 +108,18 @@
           <span class="emp-card-status-tag">${escapeHtml(status.pill)}</span>
         </div>
         <div class="emp-card-status">Status: <strong>${escapeHtml(status.line)}</strong></div>
+        ${metrics.completionRate !== undefined ? `
+          <div class="emp-card-metrics">
+            <div class="metric">
+              <span class="label">Completion rate</span>
+              <span class="value">${metrics.completionRate}%</span>
+            </div>
+            <div class="metric">
+              <span class="label">Tasks completed</span>
+              <span class="value">${metrics.completed}/${metrics.totalTasks}</span>
+            </div>
+          </div>
+        ` : ''}
         <div class="emp-card-actions">
           <button class="emp-card-btn view" onclick="navigate('db-tasks')">View work</button>
           <button class="emp-card-btn view" data-assign-role="${emp.role}" data-assign-name="${emp.name}">Assign task</button>
@@ -277,12 +310,25 @@
     const hosts = document.querySelectorAll('.emp-cards')
     if (hosts.length === 0) return
     const tasks = await fetchTasks()
+    const me = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const companyId = me?.companies?.[0]?.id
+
+    let employeeDetails = {}
+    if (companyId) {
+      const details = await fetchEmployeeDetails(companyId)
+      if (details) {
+        details.forEach((e) => {
+          employeeDetails[e.role] = e
+        })
+      }
+    }
+
     const byRole = { analyst: [], strategist: [], copywriter: [], creative_director: [] }
     for (const t of tasks) {
       const role = t.employee?.role
       if (role && byRole[role]) byRole[role].push(t)
     }
-    const html = EMPLOYEES.map((e) => cardHTML(e, byRole[e.role] || [])).join('')
+    const html = EMPLOYEES.map((e) => cardHTML(e, byRole[e.role] || [], employeeDetails[e.role])).join('')
     hosts.forEach((host) => { host.innerHTML = html })
     wireAssignButtons()
     wireMeetingButtons()
