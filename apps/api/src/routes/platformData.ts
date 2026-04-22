@@ -40,7 +40,7 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       }),
     ])
 
-    res.json({ account: accounts[0], snapshots, posts, audiences })
+    res.json({ account: accounts[0], accounts, snapshots, posts, audiences })
   } catch (err) {
     next(err)
   }

@@ -91,8 +91,8 @@ export class VideoProcessingService extends EventEmitter {
       const frames = await this.stage('Extract keyframes', async () => {
         const freshUrl = await getPresignedUrl(s3Key, 3600)
         // Shorter videos get tighter frame intervals so Riley doesn't miss actions
-        const interval = videoDuration <= 30 ? 1 : videoDuration <= 120 ? 2 : 3
-        const maxFrames = videoDuration <= 30 ? 25 : 20
+        const interval = videoDuration <= 60 ? 2 : 3
+        const maxFrames = 15
         const extracted = await extractKeyframes(freshUrl, videoDuration, interval, maxFrames)
         console.log(`[video] Keyframes: ${extracted.length} frames extracted`)
         return extracted
