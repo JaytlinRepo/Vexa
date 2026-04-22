@@ -493,18 +493,22 @@ function extractThumb(item: Record<string, unknown>): string | undefined {
   const media = item['media:content'] || item['media:thumbnail']
   if (media) {
     const url = typeof media === 'object' ? (media as any)?.$?.url || (media as any)?.url : null
-    if (url && String(url).startsWith('http')) return String(url)
+    if (url && String(url).startsWith('http')) return decodeEntities(String(url))
   }
   const enclosure = item.enclosure as any
   if (enclosure) {
     const url = enclosure?.$?.url || enclosure?.url
-    if (url && String(url).startsWith('http') && String(enclosure?.$?.type || enclosure?.type || '').startsWith('image')) return String(url)
+    if (url && String(url).startsWith('http') && String(enclosure?.$?.type || enclosure?.type || '').startsWith('image')) return decodeEntities(String(url))
   }
   // Try to extract image from description HTML
   const desc = String(item.description || item['content:encoded'] || '')
   const imgMatch = desc.match(/<img[^>]+src=["']([^"']+)["']/)
-  if (imgMatch && imgMatch[1].startsWith('http')) return imgMatch[1]
+  if (imgMatch && imgMatch[1].startsWith('http')) return decodeEntities(imgMatch[1])
   return undefined
+}
+
+function decodeEntities(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
 }
 
 function stripHtml(html: string): string {
