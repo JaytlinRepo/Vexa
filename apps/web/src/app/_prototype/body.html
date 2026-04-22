@@ -1265,7 +1265,7 @@
   <div>
     <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ The library</span></div>
     <h1>Every post, <em>sorted</em> and honest.</h1>
-    <p class="sub">317 posts across three platforms. What worked, what didn't, and what Alex is learning each time. Filter by pillar, platform, or what the algorithm actually liked.</p>
+    <p class="sub">What worked, what didn't, and what the algorithm actually liked. Filter by platform, format, or sort by what matters.</p>
   </div>
   <div class="mini-stats">
     <div class="stat"><div class="lbl">Posts · lifetime</div><div class="v">317</div><div class="d"><span style="color:var(--ok)">▲ 21</span> this wk</div></div>
@@ -1569,51 +1569,16 @@
 
   <!-- RAIL -->
   <aside class="rail">
-    <h3>What Alex is <em>noticing</em></h3>
-    <span class="sub">AUTO-INSIGHTS · updated 09:12 · 4 new</span>
-
-    <div class="insight">
-      <div class="ih"><span class="glyph">↑</span><span class="cat">Format momentum</span></div>
-      <div class="t">POV-mirror Reels are <em>outperforming</em> medians by 42% over 14 days.</div>
-      <div class="p">Five of the last ten Reels used a first-person opener. Recommend 2× over next week.</div>
-      <div class="who">Maya · 09:12 · 3 sources</div>
-    </div>
-
-    <div class="insight">
-      <div class="ih"><span class="glyph">⌘</span><span class="cat">Caption pattern</span></div>
-      <div class="t">Captions under <em>48 words</em> are saving 34% more than long-form.</div>
-      <div class="p">Short captions with a single question at the end outperform essay captions across the "rest + reframe" pillar.</div>
-      <div class="who">Maya · 08:45</div>
-    </div>
-
-    <div class="insight">
-      <div class="ih"><span class="glyph">!</span><span class="cat">Fatigue signal</span></div>
-      <div class="t">"Boundary" appeared in 6 of 12 posts — <em>recommend pause</em>.</div>
-      <div class="p">Saves on boundary-themed posts are down 18% WoW. Rotate to "rest + reframe" for two slots.</div>
-      <div class="who">Jordan · 07:22</div>
-    </div>
-
     <div class="mini-rail">
       <div class="lanes-head" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline">
-        <h3 style="margin:0">Top <em>5</em> · 30d</h3>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em">by reach</span>
+        <h3 style="margin:0">Top <em>5</em></h3>
+        <select class="top5-sort" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;border:1px solid var(--b1);border-radius:4px;background:var(--bg);padding:3px 6px;cursor:pointer">
+          <option value="reach">by reach</option>
+          <option value="likes">by likes</option>
+          <option value="views">by views</option>
+        </select>
       </div>
-
-      <div class="top-row"><span class="rk">01</span><div class="tth h1"></div>
-        <div class="meta"><div class="t">POV: you quit the <em>morning routine theater</em></div><div class="d">TT · Apr 19 · Reel</div></div>
-        <div class="n"><em>187</em>K</div></div>
-      <div class="top-row"><span class="rk">02</span><div class="tth h2"></div>
-        <div class="meta"><div class="t">"Monday starts <em>Sunday evening</em>"</div><div class="d">IG · Apr 20 · Reel</div></div>
-        <div class="n">89K</div></div>
-      <div class="top-row"><span class="rk">03</span><div class="tth h5"></div>
-        <div class="meta"><div class="t">Quiet <em>ambition</em> — the case</div><div class="d">YT · Apr 17 · Short</div></div>
-        <div class="n">61K</div></div>
-      <div class="top-row"><span class="rk">04</span><div class="tth h3"></div>
-        <div class="meta"><div class="t">What a <em>small week</em> looks like</div><div class="d">TT · Apr 14</div></div>
-        <div class="n">52K</div></div>
-      <div class="top-row"><span class="rk">05</span><div class="tth h4"></div>
-        <div class="meta"><div class="t">"Unproductive" is <em>not a flaw</em></div><div class="d">IG · Apr 12 · Reel</div></div>
-        <div class="n">45K</div></div>
+      <!-- Populated dynamically by posts-data-wire.js -->
     </div>
   </aside>
 </section>
