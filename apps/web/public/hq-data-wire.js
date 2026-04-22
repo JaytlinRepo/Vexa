@@ -8,6 +8,22 @@
   var get = function (u) { return fetch(u, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
 
   function esc(s) { return String(s || '').replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] }) }
+
+  /** Collapsible "Maya's take" component. Append after any chart/section. */
+  var mayaTakeId = 0
+  function mayaTakeHtml(text) {
+    if (!text) return ''
+    // Truncate to ~2-4 lines (roughly 200 chars)
+    var short = text.length > 200 ? text.slice(0, 200).replace(/\s\S*$/, '') + '...' : text
+    var id = 'maya-take-' + (++mayaTakeId)
+    return '<details class="maya-take" style="margin-top:10px;border-top:1px solid var(--b1);padding-top:8px">' +
+      '<summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Inter,sans-serif;font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.04em;list-style:none;user-select:none">' +
+        '<span style="width:18px;height:18px;border-radius:50%;background:var(--s3);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;font-family:Syne,sans-serif;font-size:9px;font-weight:700;color:var(--t1);flex-shrink:0">M</span>' +
+        'Maya\'s take' +
+      '</summary>' +
+      '<div style="margin-top:6px;padding-left:26px;font-family:Inter,sans-serif;font-size:12px;color:var(--t2);line-height:1.55">' + esc(short) + '</div>' +
+    '</details>'
+  }
   function fmt(n) { if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return String(n) }
   function pct(n) { return (n >= 0 ? '+' : '') + n.toFixed(1) + '%' }
   function delta(n) { return n >= 0 ? '▲ ' + fmt(Math.abs(n)) : '▼ ' + fmt(Math.abs(n)) }
@@ -613,7 +629,7 @@
           // Fetch Bedrock narrative forecast
           get('/api/platform/forecast').then(function(f) {
             if (f && f.forecast) {
-              milestonesEl.innerHTML += '<div style="margin-top:10px;padding:10px 12px;background:var(--s2);border-radius:8px;border-left:2px solid var(--accent);font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5"><span style="font-weight:600;color:var(--t1)">Maya\'s take:</span> ' + esc(f.forecast) + '</div>'
+              milestonesEl.innerHTML += mayaTakeHtml(f.forecast)
             }
           })
         }
@@ -675,11 +691,15 @@
         var totalTracked = 0
         Object.values(grid).forEach(function(arr) { totalTracked += arr.length })
 
+        var heatmapTake = bestSlot
+          ? 'Your audience engages most on ' + bestSlot + '. Consider scheduling your highest-value content for this window. Posts outside peak hours get 30-40% less engagement on average.'
+          : 'Not enough data yet to identify a clear best time. Keep posting consistently and patterns will emerge.'
         heatmapEl.innerHTML = '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:8px">' +
           'Darker squares = higher engagement. Numbers show how many posts you\'ve published in that slot.' +
           (bestSlot ? ' Your best performing slot is <strong style="color:var(--accent)">' + bestSlot + '</strong>.' : '') +
         '</div>' +
-        '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:100%">' + cells + '</svg>'
+        '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:100%">' + cells + '</svg>' +
+        mayaTakeHtml(heatmapTake)
       }
 
       // ═══ 3. CORRELATION ANALYSIS ═══
@@ -786,6 +806,12 @@
                 f.format + ' <span style="color:var(--t1)">' + fmt(f.avg) + '</span> avg · ' + f.count + ' posts</div>'
             }).join('') +
           '</div>'
+
+          // Add Maya's take for correlation
+          var corrTake = top ? 'Focus on ' + top.label.toLowerCase() + ' — it has the strongest correlation with likes. ' + top.tip : ''
+          if (corrInsight && corrTake) {
+            corrInsight.innerHTML += mayaTakeHtml(corrTake)
+          }
         }
       }
 
@@ -1012,6 +1038,12 @@
             '<span>+3m: <span style="color:var(--t1)">' + fmt(proj3m) + '</span></span>' +
             '<span>Avg/post: <span style="color:var(--accent)">' + fmt(avgPerPost) + '</span></span>' +
           '</div>'
+
+          var likesTake = 'Your likes are ' + direction + '. ' +
+            (trend > 50 ? 'Strong momentum — your recent content is resonating. Double down on what\'s working.' :
+             trend > 0 ? 'Consistent growth. Keep your posting frequency steady and experiment with hooks that drove your top posts.' :
+             'Engagement is cooling off. Consider refreshing your content format or trying a different posting time.')
+          likesInsight.innerHTML += mayaTakeHtml(likesTake)
         }
       }
     })

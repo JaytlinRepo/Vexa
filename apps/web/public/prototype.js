@@ -63,8 +63,8 @@ function navigate(id){
     currentView='db-dashboard'
     // Update nav highlight
     document.querySelectorAll('.nav-item,.topnav-link').forEach(function(el){el.classList.remove('active')})
-    var navEl=document.getElementById('nav-db-dashboard')
-    if(navEl)navEl.classList.add('active')
+    var gateNav=document.getElementById('nav-db-dashboard')
+    if(gateNav)gateNav.classList.add('active')
     return
   }
 
