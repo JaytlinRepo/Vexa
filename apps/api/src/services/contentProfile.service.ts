@@ -1,13 +1,16 @@
 import { PrismaClient } from '@prisma/client'
+import { Anthropic } from '@anthropic-ai/sdk'
 
 /**
  * Content Profile Service
- * Analyzes user's uploaded videos to extract:
- * - Visual style (colors, shot types, pacing, transitions)
- * - Copy style (hooks, tone, CTAs)
+ * Uses Claude Vision to analyze user's uploaded videos and extract:
+ * - Visual style (colors, shot types, pacing, transitions) — from keyframes
+ * - Copy style (hooks, tone, CTAs) — from captions
  * - Performance patterns (what their audience engages with)
  * - Audience segment characteristics
  */
+
+const anthropic = new Anthropic()
 
 export interface ContentProfile {
   visualStyle: {
@@ -59,11 +62,17 @@ export async function createContentProfile(prisma: PrismaClient) {
         return getDefaultProfile()
       }
 
-      // Extract patterns from videos
+      // Extract patterns from videos (Visual uses Claude Vision)
+      const [visualStyle, copyStyle, performancePattern] = await Promise.all([
+        extractVisualPatterns(uploads),
+        extractCopyPatterns(uploads),
+        extractPerformancePattern(uploads),
+      ])
+
       const profile: ContentProfile = {
-        visualStyle: extractVisualPatterns(uploads),
-        copyStyle: extractCopyPatterns(uploads),
-        performancePattern: extractPerformancePattern(uploads),
+        visualStyle,
+        copyStyle,
+        performancePattern,
       }
 
       return profile
@@ -127,15 +136,18 @@ export async function createContentProfile(prisma: PrismaClient) {
 
 // ─── PROFILE EXTRACTION HELPERS ───────────────────────────────────────────
 
-function extractVisualPatterns(uploads: any[]) {
-  // TODO: Integrate Claude Vision to analyze keyframes
-  // For now, return heuristic-based patterns
+async function extractVisualPatterns(uploads: any[]) {
+  // Use Claude Vision to analyze actual video keyframes
+  const [colorPalette, shotTypes] = await Promise.all([
+    detectColorPalette(uploads),
+    detectShotTypes(uploads),
+  ])
 
   return {
-    colorPalette: detectColorPalette(uploads),
-    shotTypes: detectShotTypes(uploads),
+    colorPalette,
+    shotTypes,
     pacing: detectPacing(uploads),
-    filters: detectFilters(uploads),
+    filters: await detectFilters(uploads),
     transitions: ['cuts', 'fades'], // detected from video analysis
   }
 }
@@ -174,16 +186,94 @@ function extractPerformancePattern(uploads: any[]) {
 
 // ─── DETECTION HELPERS ────────────────────────────────────────────────────
 
-function detectColorPalette(uploads: any[]): string[] {
-  // TODO: Extract colors from video keyframes using Claude Vision
-  // Placeholder: return common warm/cool tones
-  return ['warm', 'muted', 'natural', 'earth-tones']
+async function detectColorPalette(uploads: any[]): Promise<string[]> {
+  // Use Claude Vision to analyze actual video thumbnails for color palette
+  if (uploads.length === 0) return ['warm', 'natural']
+
+  try {
+    // Get a few clip thumbnails to analyze
+    const clipUrls = uploads
+      .flatMap((u) => u.clips)
+      .slice(0, 3)
+      .map((c) => c.clippedUrl)
+      .filter(Boolean)
+
+    if (clipUrls.length === 0) return ['warm', 'natural']
+
+    // Use Claude Vision to analyze colors
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 200,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'url',
+                url: clipUrls[0], // Analyze first clip
+              },
+            },
+            {
+              type: 'text',
+              text: 'Analyze the color palette of this video frame. List 3-4 dominant color characteristics or tones (e.g., "warm tones", "muted greens", "golden hour", "cool blues", "high contrast"). Be specific and concise.',
+            },
+          ],
+        },
+      ],
+    })
+
+    const colors = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['warm', 'natural']
+    return colors.map((c) => c.trim().toLowerCase())
+  } catch (err) {
+    console.warn('[contentProfile] color detection failed:', err)
+    return ['warm', 'natural']
+  }
 }
 
-function detectShotTypes(uploads: any[]): string[] {
-  // TODO: Analyze keyframes for shot composition
-  // Placeholder: common lifestyle shot types
-  return ['wide', 'close-up', 'detail', 'movement']
+async function detectShotTypes(uploads: any[]): Promise<string[]> {
+  // Use Claude Vision to analyze shot composition
+  if (uploads.length === 0) return ['wide', 'close-up']
+
+  try {
+    const clipUrls = uploads
+      .flatMap((u) => u.clips)
+      .slice(0, 2)
+      .map((c) => c.clippedUrl)
+      .filter(Boolean)
+
+    if (clipUrls.length === 0) return ['wide', 'close-up']
+
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 200,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'url',
+                url: clipUrls[0],
+              },
+            },
+            {
+              type: 'text',
+              text: 'Describe the shot type and composition in this video frame. Categorize as: close-up, medium, wide, overhead, POV, or detail shot. List 2-3 shot types visible.',
+            },
+          ],
+        },
+      ],
+    })
+
+    const shots = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['wide', 'close-up']
+    return shots.map((s) => s.trim().toLowerCase())
+  } catch (err) {
+    console.warn('[contentProfile] shot detection failed:', err)
+    return ['wide', 'close-up', 'detail']
+  }
 }
 
 function detectPacing(uploads: any[]): 'slow' | 'moderate' | 'fast' | 'mixed' {
@@ -197,9 +287,48 @@ function detectPacing(uploads: any[]): 'slow' | 'moderate' | 'fast' | 'mixed' {
   return 'mixed'
 }
 
-function detectFilters(uploads: any[]): string[] {
-  // TODO: Detect filter application from video analysis
-  return ['warm', 'film', 'matte']
+async function detectFilters(uploads: any[]): Promise<string[]> {
+  // Use Claude Vision to detect if filters are applied
+  if (uploads.length === 0) return ['warm']
+
+  try {
+    const clipUrls = uploads
+      .flatMap((u) => u.clips)
+      .slice(0, 1)
+      .map((c) => c.clippedUrl)
+      .filter(Boolean)
+
+    if (clipUrls.length === 0) return ['warm']
+
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 150,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'url',
+                url: clipUrls[0],
+              },
+            },
+            {
+              type: 'text',
+              text: 'Describe any filters or color grading applied to this video frame. Is it: warm, cool, muted, saturated, high contrast, low contrast, vintage, cinematic, bright, dark? List 2-3 characteristics.',
+            },
+          ],
+        },
+      ],
+    })
+
+    const filters = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['warm']
+    return filters.map((f) => f.trim().toLowerCase())
+  } catch (err) {
+    console.warn('[contentProfile] filter detection failed:', err)
+    return ['warm']
+  }
 }
 
 function detectHookType(hooks: string[]): string {
