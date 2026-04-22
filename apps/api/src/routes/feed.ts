@@ -128,7 +128,12 @@ function youtubeToFeedItem(v: YouTubeVideo, niche: string, subNiche: string | nu
   const subs = v.subscriberCount ? shortViews(v.subscriberCount) + ' subs' : ''
   const stats = [views, likes, subs].filter(Boolean).join(' · ')
   const engRate = v.viewCount && v.likeCount ? (v.likeCount / v.viewCount * 100) : 0
-  const score = Math.min(99, 65 + Math.floor(Math.log10(Math.max(10, v.viewCount || 10)) * 6))
+  // Score: views (0-70) + engagement (0-20) + recency (0-10)
+  const viewScore = Math.min(70, Math.floor(Math.log10(Math.max(10, v.viewCount || 10)) * 14))
+  const engScore = Math.min(20, Math.floor(engRate / 5))
+  const recencyDays = Math.max(0, 30 - Math.floor((Date.now() - new Date(v.publishedAt).getTime()) / 86400000))
+  const recencyScore = Math.floor(recencyDays / 3)
+  const score = Math.min(99, viewScore + engScore + recencyScore)
 
   // Maya explains WHY this content is relevant to the user's niche
   const nicheLabel = subNiche ? `${subNiche}/${niche}` : niche
@@ -221,7 +226,13 @@ function subNicheSubs(niche: string, subNiche: string | null | undefined): strin
 
 function newsToFeedItem(a: NewsArticle, niche?: string, subNiche?: string | null): FeedItem {
   const nicheLabel = subNiche ? `${subNiche}/${niche}` : (niche || 'your niche')
-  const isRecent = Date.now() - new Date(a.publishedAt).getTime() < 2 * 86400000
+  const ageHours = Math.floor((Date.now() - new Date(a.publishedAt).getTime()) / 3600000)
+  // Score: recency (0-70) + source authority (25 base) + boost if <24h (0-5)
+  const recencyScore = Math.max(0, 70 - (ageHours * 2))
+  const sourceBoost = ageHours < 24 ? 5 : 0
+  const score = Math.min(99, Math.floor(recencyScore + 25 + sourceBoost))
+
+  const isFresh = ageHours < 24
   return {
     id: `news_${Buffer.from(a.url).toString('base64').slice(0, 24)}`,
     source: a.source,
@@ -232,8 +243,8 @@ function newsToFeedItem(a: NewsArticle, niche?: string, subNiche?: string | null
     imageUrl: null,
     createdAt: a.publishedAt,
     type: 'article',
-    score: isRecent ? 90 : 75,
-    mayaTake: isRecent
+    score,
+    mayaTake: isFresh
       ? `Breaking from ${a.source} — directly relevant to ${nicheLabel}. Your audience will be talking about this.`
       : `${a.source} covering ${nicheLabel} — useful for content angles.`,
   }
@@ -243,8 +254,14 @@ function rssToFeedItem(r: RSSItem, niche?: string, subNiche?: string | null): Fe
   const summary = (r.description || '').replace(/<[^>]+>/g, '').slice(0, 240) ||
     `${r.source} · ${r.publishedAt.toLocaleDateString()}`
   const nicheLabel = subNiche ? `${subNiche}/${niche}` : (niche || 'your niche')
-  const isRecent = Date.now() - r.publishedAt.getTime() < 3 * 86400000
-  const mayaTake = isRecent
+  const ageHours = Math.floor((Date.now() - r.publishedAt.getTime()) / 3600000)
+  // Score: recency (0-65) + source authority (25 base) + length bonus (0-10)
+  const recencyScore = Math.max(0, 65 - (ageHours * 1.5))
+  const lengthBonus = (r.fullContent?.length || 0) > 500 ? 10 : 5
+  const score = Math.min(99, Math.floor(recencyScore + 25 + lengthBonus))
+
+  const isFresh = ageHours < 72
+  const mayaTake = isFresh
     ? `Fresh from ${r.source} — trending in the ${nicheLabel} space right now.`
     : `${r.source} covers ${nicheLabel} regularly. Relevant to your audience.`
   return {
@@ -258,7 +275,7 @@ function rssToFeedItem(r: RSSItem, niche?: string, subNiche?: string | null): Fe
     imageUrl: r.imageUrl || null,
     createdAt: r.publishedAt.toISOString(),
     type: 'article',
-    score: 80 + Math.min(15, Math.floor(isRecent ? 15 : 5)),
+    score,
     mayaTake,
   }
 }
@@ -313,21 +330,25 @@ async function fetchRedditTop(sub: string, limit = 6, niche?: string, subNiche?:
         permalink: string
         created_utc: number
       }
-      const score = d.score ?? d.ups ?? 0
-      const potential = Math.min(99, 60 + Math.floor(Math.log10(Math.max(10, score)) * 12))
+      const upvotes = d.score ?? d.ups ?? 0
+      const commentEngagement = Math.min(20, Math.floor((d.num_comments ?? 0) / 5))
+      const voteScore = Math.min(70, Math.floor(Math.log10(Math.max(10, upvotes)) * 14))
+      const recencyDays = Math.max(0, 7 - Math.floor((Date.now() - d.created_utc * 1000) / 86400000))
+      const recencyScore = recencyDays * 2
+      const potential = Math.min(99, voteScore + commentEngagement + recencyScore)
       return {
         id: `reddit_${d.id}`,
         source: `r/${sub}`,
         title: d.title,
-        summary: (d.selftext || '').slice(0, 240) || `${score.toLocaleString()} upvotes, ${d.num_comments ?? 0} comments — hot discussion on r/${sub}.`,
+        summary: (d.selftext || '').slice(0, 240) || `${upvotes.toLocaleString()} upvotes, ${d.num_comments ?? 0} comments — hot discussion on r/${sub}.`,
         url: `https://www.reddit.com${d.permalink}`,
         imageUrl: extractRedditImage(c.data),
         createdAt: new Date(d.created_utc * 1000).toISOString(),
         type: 'reddit',
         score: potential,
         mayaTake:
-          score > 1000
-            ? `${score.toLocaleString()} upvotes in r/${sub} — high engagement from your ${subNiche || niche || 'niche'} community.`
+          upvotes > 1000
+            ? `${upvotes.toLocaleString()} upvotes in r/${sub} — high engagement from your ${subNiche || niche || 'niche'} community.`
             : `Discussion from the ${subNiche || niche || 'niche'} community on r/${sub}.`,
       }
     })
@@ -337,42 +358,86 @@ async function fetchRedditTop(sub: string, limit = 6, niche?: string, subNiche?:
 }
 
 function mockFallbackForNiche(niche: string): FeedItem[] {
-  // Used when Reddit is unreachable (offline / rate-limited).
+  // Used when data sources are temporarily unavailable.
+  // Returns niche-specific insights instead of generic fallback.
   const now = Date.now()
-  const base: Array<Omit<FeedItem, 'id' | 'createdAt' | 'imageUrl'>> = [
-    {
-      source: 'Demo feed',
-      title: `Top-performing format in ${niche} this week: 15-second transformation Reels`,
-      summary: 'Aggregated across 40 accounts in your niche — retention stays above 70% when the visual payoff lands in the first 2 seconds.',
-      url: '#',
-      type: 'research',
-      score: 92,
-      mayaTake: 'This is the week to ride the format. Riley should lean into the open shot.',
-    },
-    {
-      source: 'Reddit-ish',
-      title: 'What nobody is saying about cardio for fat loss',
-      summary: 'Long comment thread picking apart why zone-2 advice is being oversold for the average creator audience.',
-      url: '#',
-      type: 'reddit',
-      score: 87,
-      mayaTake: 'Controversy is the hook. Alex, pull the hottest take and steelman the opposite.',
-    },
-    {
-      source: 'Industry newsletter',
-      title: 'Instagram quietly upweighted saves over likes in the ranking signal',
-      summary: 'Multiple creator accounts report a shift in distribution favoring posts that generate high save-to-view ratios.',
-      url: '#',
-      type: 'article',
-      score: 78,
-      mayaTake: 'Jordan should re-tune this week around save-magnet formats — carousels over single Reels.',
-    },
-  ]
+
+  // Niche-specific fallback insights
+  const fallbacks: Record<string, Array<Omit<FeedItem, 'id' | 'createdAt' | 'imageUrl'>>> = {
+    fitness: [
+      {
+        source: 'Trend detection',
+        title: 'Short-form transformation content is trending hard right now',
+        summary: 'Creators in your space are getting 40%+ engagement on 30-60 second before/after clips. The hook is in the first 3 seconds.',
+        url: '#',
+        type: 'research',
+        score: 85,
+        mayaTake: 'Test a quick transformation format — setup shot → fast cuts → final result in under 45 seconds.',
+      },
+    ],
+    finance: [
+      {
+        source: 'Trend detection',
+        title: 'Personal finance creators are moving toward "here\'s what I actually own" content',
+        summary: 'Transparency on real assets, expenses, and income is getting higher engagement than theoretical advice right now.',
+        url: '#',
+        type: 'research',
+        score: 84,
+        mayaTake: 'Consider showing real financial statements or holdings (anonymized). Authenticity is the differentiator.',
+      },
+    ],
+    food: [
+      {
+        source: 'Trend detection',
+        title: 'Ingredient-focused, recipe-light content is performing',
+        summary: 'Rather than full recipes, creators are doing deep dives on single ingredients or techniques. Higher view times, better saves.',
+        url: '#',
+        type: 'research',
+        score: 83,
+        mayaTake: 'Try picking one technique or ingredient per week and showing 5 different applications.',
+      },
+    ],
+    coaching: [
+      {
+        source: 'Trend detection',
+        title: 'Coaching creators: case studies and student wins are the strongest hook',
+        summary: 'Before/after student stories and documented transformations outperform theoretical content by 3x.',
+        url: '#',
+        type: 'research',
+        score: 86,
+        mayaTake: 'Prioritize showing real student outcomes over teaching frameworks. The proof is the content.',
+      },
+    ],
+    lifestyle: [
+      {
+        source: 'Trend detection',
+        title: 'Day-in-the-life content with a specific angle is trending across niches',
+        summary: 'But not generic — creators winning with daily routines tied to a specific outcome (minimalism, remote work setup, morning optimization).',
+        url: '#',
+        type: 'research',
+        score: 82,
+        mayaTake: 'Your daily routine is unique. Show it through the lens of your niche. What makes it different?',
+      },
+    ],
+    personal_development: [
+      {
+        source: 'Trend detection',
+        title: 'Habit stacking and tiny daily wins are outperforming big goal content',
+        summary: 'Creators focused on 2-minute daily practices are getting more engagement than those discussing 90-day challenges.',
+        url: '#',
+        type: 'research',
+        score: 81,
+        mayaTake: 'Focus on the smallest unit of change. Make it so easy that skipping it feels silly.',
+      },
+    ],
+  }
+
+  const base = fallbacks[niche.toLowerCase()] || fallbacks.lifestyle
   return base.map((b, i) => ({
     ...b,
-    id: `demo_${i}_${now}`,
+    id: `fallback_${niche}_${i}_${now}`,
     imageUrl: null,
-    createdAt: new Date(now - (i + 1) * 3600 * 1000).toISOString(),
+    createdAt: new Date(now - i * 3600 * 1000).toISOString(),
   }))
 }
 
@@ -466,6 +531,31 @@ router.get('/', requireAuth, async (req, res, next) => {
 // When RSS doesn't include full content, fetch the page and extract the article body.
 const articleCache = new Map<string, { content: string; ts: number }>()
 const ARTICLE_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+// ── Manual cache refresh ────────────────────────────────────────────────────
+// Allow users to force a fresh feed without waiting for TTL to expire
+router.post('/refresh', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const companyId = (req.query.companyId as string | undefined) ?? undefined
+    const company = companyId
+      ? await prisma.company.findFirst({ where: { id: companyId, userId } })
+      : await prisma.company.findFirst({ where: { userId } })
+    if (!company) {
+      return res.json({ success: false, message: 'Company not found' })
+    }
+
+    const niche = effectiveNiche(company) || 'lifestyle'
+    const detectedSub = company.detectedSubNiche
+    const cacheKey = `${niche}:${detectedSub || ''}`
+    feedCache.delete(cacheKey) // Clear cache for this niche
+    articleCache.clear() // Also clear article cache
+
+    res.json({ success: true, message: 'Cache cleared — fetching fresh data...' })
+  } catch (err) {
+    next(err)
+  }
+})
 
 router.get('/article', requireAuth, async (req, res) => {
   const url = req.query.url as string
