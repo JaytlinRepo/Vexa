@@ -1261,43 +1261,25 @@
     <!-- POSTS -->
     <div class="view" id="view-db-posts">
 
-<section class="posts-mast">
+<section class="posts-mast" style="padding:18px 40px 14px">
   <div>
-    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ The library</span></div>
     <h1>Every post, <em>sorted</em> and honest.</h1>
-    <p class="sub">What worked, what didn't, and what the algorithm actually liked. Filter by platform, format, or sort by what matters.</p>
-  </div>
-  <div class="mini-stats">
-    <div class="stat"><div class="lbl">Posts · lifetime</div><div class="v">317</div><div class="d"><span style="color:var(--ok)">▲ 21</span> this wk</div></div>
-    <div class="stat"><div class="lbl">Avg reach</div><div class="v"><em>24.1</em>K</div><div class="d"><span style="color:var(--ok)">▲ 18%</span> vs prev 30d</div></div>
-    <div class="stat"><div class="lbl">Avg engagement</div><div class="v">4.2%</div><div class="d"><span style="color:var(--ok)">▲ 0.6</span> pts</div></div>
-    <div class="stat"><div class="lbl">Top format</div><div class="v" style="font-size:20px;font-style:italic">POV Reel</div><div class="d">7 of top 10</div></div>
   </div>
 </section>
 
 <!-- FILTERS -->
 <section class="filters">
-  <div class="fgroup">
+  <div class="fgroup" id="platform-filters">
     <span class="lab">Platform</span>
     <button class="fchip on">All</button>
-    <button class="fchip"><span class="dot ig"></span>IG</button>
-    <button class="fchip"><span class="dot tt"></span>TikTok</button>
-    <button class="fchip"><span class="dot yt"></span>YT</button>
+    <!-- Populated dynamically based on user's connected platforms -->
   </div>
   <div class="fgroup">
     <span class="lab">Format</span>
     <button class="fchip on">All</button>
     <button class="fchip">Reel</button>
     <button class="fchip">Carousel</button>
-    <button class="fchip">Short</button>
-    <button class="fchip">Static</button>
-  </div>
-  <div class="fgroup">
-    <span class="lab">Pillar</span>
-    <button class="fchip on">All</button>
-    <button class="fchip">Rest + reframe</button>
-    <button class="fchip">Career</button>
-    <button class="fchip">Boundaries</button>
+    <button class="fchip">Picture</button>
   </div>
   <div class="fgroup">
     <span class="lab">Sort</span>
@@ -1560,10 +1542,8 @@
 
     </div>
 
-    <div style="margin-top:28px;display:flex;justify-content:center;align-items:center;gap:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);letter-spacing:.05em">
-      <span>1 — 12 of 317</span>
-      <span style="width:24px;height:1px;background:var(--b1)"></span>
-      <button class="fchip">Load 12 more</button>
+    <div class="pagination" style="margin-top:28px;display:flex;justify-content:center;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);letter-spacing:.05em">
+      <!-- Populated dynamically by posts-data-wire.js -->
     </div>
   </div>
 
