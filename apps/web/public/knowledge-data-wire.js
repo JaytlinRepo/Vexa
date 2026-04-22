@@ -10,26 +10,38 @@
   function esc(s) { return String(s || '').replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] }) }
 
   var populated = false
+  var refreshTimer = null
 
-  function populate() {
+  function populate(force) {
     var view = document.getElementById('view-db-knowledge')
     if (!view) return
-    if (populated) return
+    if (populated && !force) return
 
     var items = (window.__vxDashState && window.__vxDashState.feed) || []
     if (items.length > 0) {
-      render(view, items)
+      render(view, items, false)
+      scheduleRefresh()
       return
     }
 
     // Fetch directly
     get('/api/feed').then(function (data) {
       if (!data || !data.items || data.items.length === 0) return
-      render(view, data.items)
+      var isCached = data.source === 'cached'
+      render(view, data.items, isCached)
+      scheduleRefresh()
     })
   }
 
-  function render(view, items) {
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer)
+    // Auto-refresh every 5 minutes
+    refreshTimer = setTimeout(function () {
+      populate(true)
+    }, 5 * 60 * 1000)
+  }
+
+  function render(view, items, isCached) {
     populated = true
 
     // Update masthead stats
@@ -42,6 +54,22 @@
       items.forEach(function (it) { sources[it.source || 'unknown'] = true })
       var s1v = stats[1].querySelector('.v')
       if (s1v) s1v.textContent = Object.keys(sources).length
+    }
+
+    // Show cache indicator if needed
+    var feedHead = view.querySelector('.feed-head')
+    if (feedHead && isCached) {
+      var cacheNote = feedHead.querySelector('.cache-note')
+      if (!cacheNote) {
+        cacheNote = document.createElement('div')
+        cacheNote.className = 'cache-note'
+        cacheNote.style.cssText = 'font-size:12px; color:var(--t3); margin-top:8px'
+        cacheNote.textContent = '(showing cached data — refreshing...)'
+        feedHead.appendChild(cacheNote)
+      }
+    } else if (feedHead) {
+      var note = feedHead.querySelector('.cache-note')
+      if (note) note.remove()
     }
 
     // Populate feed items
@@ -66,13 +94,13 @@
         lastDate = date
       }
 
-      var sourceType = (item.source || '').toLowerCase()
+      // Use item.type for reliable source classification
       var thClass = 'art'
       var thLabel = (item.type || 'article').toUpperCase()
-      if (sourceType.indexOf('reddit') >= 0) { thClass = 'tt1'; thLabel = 'REDDIT' }
-      else if (sourceType.indexOf('youtube') >= 0) { thClass = 'yt1'; thLabel = 'YOUTUBE' }
-      else if (sourceType.indexOf('trend') >= 0) { thClass = 'ig1'; thLabel = 'TREND' }
-      else if (sourceType.indexOf('rss') >= 0) { thClass = 'sub'; thLabel = 'RSS' }
+      if (item.type === 'reddit') { thClass = 'tt1'; thLabel = 'REDDIT' }
+      else if (item.type === 'video') { thClass = 'yt1'; thLabel = 'YOUTUBE' }
+      else if (item.type === 'trend') { thClass = 'ig1'; thLabel = 'TREND' }
+      else if (item.type === 'research') { thClass = 'sub'; thLabel = 'RESEARCH' }
 
       var score = item.score || Math.round(50 + Math.random() * 40)
 

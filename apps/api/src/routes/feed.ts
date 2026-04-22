@@ -414,7 +414,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const cached = feedCache.get(cacheKey)
     if (cached && Date.now() - cached.ts < FEED_CACHE_TTL) {
       const items = interleaveByType(cached.items).slice(0, requestedLimit)
-      res.json({ items, trends: cached.trends, videos: cached.videos, niche, source: 'cached' })
+      res.json({ items, trends: cached.trends, videos: cached.videos, niche, source: 'cached', cacheAge: Math.round((Date.now() - cached.ts) / 1000) })
       return
     }
 
@@ -436,7 +436,11 @@ router.get('/', requireAuth, async (req, res, next) => {
       // One Reddit post for community signal
       ...redditResults.flat().slice(0, maxRedditShare),
     ]
-    if (items.length === 0) items = mockFallbackForNiche(niche)
+    let feedSource = 'live'
+    if (items.length === 0) {
+      items = mockFallbackForNiche(niche)
+      feedSource = 'fallback'
+    }
 
     // Deduplicate by title similarity (rough — lowercase, strip punctuation)
     const seen = new Set<string>()
@@ -452,7 +456,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 
     // Mix by type so no single source dominates
     items = interleaveByType(items)
-    res.json({ items: items.slice(0, requestedLimit), trends: trendSignals, niche, source: 'mixed' })
+    res.json({ items: items.slice(0, requestedLimit), trends: trendSignals, niche, source: feedSource })
   } catch (err) {
     next(err)
   }
