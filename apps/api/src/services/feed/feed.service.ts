@@ -338,15 +338,15 @@ async function fetchRedditPosts(
 async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedItem[]> {
   const sub = subreddit.replace('r/', '')
   const response = await axios.get(`https://www.reddit.com/r/${sub}/hot.json?limit=5`, {
-    timeout: 6000,
-    headers: { 'User-Agent': 'Sovexa/1.0' },
+    timeout: 8000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Sovexa/1.0; +https://sovexa.ai)' },
   })
 
   const posts = response.data?.data?.children || []
 
   return posts
     .filter((p: { data: { is_self: boolean; score: number; stickied: boolean } }) =>
-      p.data.score > 100 && !p.data.stickied
+      p.data.score > 5 && !p.data.stickied
     )
     .slice(0, 4)
     .map((post: { data: Record<string, unknown> }) => {
@@ -377,34 +377,72 @@ async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise
   if (!YOUTUBE_API_KEY) return []
 
   try {
-    // Search for trending videos in the niche
-    const query = encodeURIComponent(niche + ' tips')
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=date&maxResults=6&publishedAfter=${new Date(Date.now() - 7 * 86400000).toISOString()}&key=${YOUTUBE_API_KEY}`
+    const allItems: FeedItem[] = []
 
-    const response = await axios.get(url, { timeout: 8000 })
+    // Search 1: Regular videos in the niche (recent, relevant)
+    const query = encodeURIComponent(niche + ' content creator')
+    const since = new Date(Date.now() - 7 * 86400000).toISOString()
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=relevance&maxResults=5&publishedAfter=${since}&key=${YOUTUBE_API_KEY}`
+
+    const response = await axios.get(url, { timeout: 10000 })
     const items = response.data?.items || []
 
-    return items.map((item: any) => {
-      var snippet = item.snippet || {}
-      var videoId = item.id?.videoId || ''
-      var thumbs = snippet.thumbnails || {}
-      var thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
+    for (const item of items) {
+      const snippet = item.snippet || {}
+      const videoId = item.id?.videoId || ''
+      const thumbs = snippet.thumbnails || {}
+      const thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
 
-      return {
+      allItems.push({
         id: 'yt-' + videoId,
         type: 'youtube' as FeedItemType,
-        title: String(snippet.title || '').slice(0, 120),
+        title: String(snippet.title || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').slice(0, 120),
         summary: String(snippet.description || '').slice(0, 280),
         url: 'https://www.youtube.com/watch?v=' + videoId,
         source: String(snippet.channelTitle || 'YouTube'),
         author: String(snippet.channelTitle || ''),
         publishedAt: snippet.publishedAt || new Date().toISOString(),
-        niche: niche,
+        niche,
         tags: [niche, 'youtube', 'video'],
         thumbnail: thumb || undefined,
-        contentScore: 70,
+        contentScore: 75,
+      })
+    }
+
+    // Search 2: Shorts (#shorts in query)
+    try {
+      const shortsQuery = encodeURIComponent(niche + ' #shorts')
+      const shortsUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${shortsQuery}&type=video&order=viewCount&maxResults=5&publishedAfter=${since}&videoDuration=short&key=${YOUTUBE_API_KEY}`
+
+      const shortsRes = await axios.get(shortsUrl, { timeout: 10000 })
+      const shortsItems = shortsRes.data?.items || []
+
+      for (const item of shortsItems) {
+        const snippet = item.snippet || {}
+        const videoId = item.id?.videoId || ''
+        const thumbs = snippet.thumbnails || {}
+        const thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
+
+        allItems.push({
+          id: 'yt-short-' + videoId,
+          type: 'youtube' as FeedItemType,
+          title: String(snippet.title || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').slice(0, 120),
+          summary: String(snippet.description || '').slice(0, 280),
+          url: 'https://www.youtube.com/shorts/' + videoId,
+          source: String(snippet.channelTitle || 'YouTube') + ' · Short',
+          author: String(snippet.channelTitle || ''),
+          publishedAt: snippet.publishedAt || new Date().toISOString(),
+          niche,
+          tags: [niche, 'youtube', 'shorts', 'video'],
+          thumbnail: thumb || undefined,
+          contentScore: 80,
+        })
       }
-    })
+    } catch {
+      // Shorts search failed — that's fine, we still have regular videos
+    }
+
+    return allItems
   } catch (err) {
     console.error('[feed] YouTube fetch failed:', err)
     return []
