@@ -6,9 +6,11 @@ import { searchNicheArticles, NewsArticle } from '../services/integrations/newsa
 import { getRelatedQueries, getKeywordTrend } from '../services/integrations/google-trends.service'
 import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtube.service'
 import { effectiveNiche } from '../lib/nicheDetection'
+import { createContentProfile } from '../services/contentProfile.service'
 
 import prisma from '../lib/prisma'
 const router = Router()
+const contentProfile = createContentProfile(prisma)
 
 // ─── Feed cache: avoid re-fetching Reddit + RSS + Trends on every request ────
 const feedCache = new Map<string, { items: FeedItem[]; trends: TrendItem[]; videos: YouTubeVideo[]; ts: number }>()
@@ -300,6 +302,50 @@ function interleaveByType(items: FeedItem[]): FeedItem[] {
   return out
 }
 
+function boostProfileMatchedReels(items: FeedItem[], userProfile: any): FeedItem[] {
+  // Boost Reels (videos) that match user's content profile
+  // Videos matching their aesthetic get higher scores
+  if (!userProfile) return items
+
+  return items.map((item) => {
+    if (item.type !== 'video') return item
+
+    let boost = 0
+
+    // If title/description contains their content themes
+    if (userProfile.performancePattern?.contentThemes) {
+      for (const theme of userProfile.performancePattern.contentThemes) {
+        if (
+          item.title.toLowerCase().includes(theme.toLowerCase()) ||
+          item.summary.toLowerCase().includes(theme.toLowerCase())
+        ) {
+          boost += 5
+        }
+      }
+    }
+
+    // If it's their best performing format
+    if (userProfile.performancePattern?.bestPerformingFormat) {
+      if (item.summary.toLowerCase().includes(userProfile.performancePattern.bestPerformingFormat)) {
+        boost += 8
+      }
+    }
+
+    // If the creator's tone matches theirs
+    if (userProfile.copyStyle?.tone) {
+      // Heuristic: energetic tone creators often have high engagement
+      if (item.mayaTake.includes('engagement')) {
+        boost += 3
+      }
+    }
+
+    return {
+      ...item,
+      score: Math.min(99, item.score + boost),
+    }
+  })
+}
+
 function extractRedditImage(d: Record<string, unknown>): string | null {
   const thumb = d.thumbnail as string | undefined
   if (thumb && /^https?:\/\//.test(thumb)) return thumb
@@ -453,6 +499,23 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
+    // Check if user has uploaded content
+    const hasUserContent = await contentProfile.hasContent(company.id)
+    if (!hasUserContent) {
+      // Return message prompting upload instead of empty feed
+      res.json({
+        items: [],
+        trends: [],
+        niche: null,
+        message: 'Upload your first video to unlock personalized content inspiration. The Knowledge Feed will show Reels and articles matched to your style.',
+        requiresContent: true,
+      })
+      return
+    }
+
+    // Build user's content profile for filtering
+    const userProfile = await contentProfile.getProfile(company.id)
+
     const niche = effectiveNiche(company) || 'lifestyle'
     const detectedSub = company.detectedSubNiche
     const extraSubs = subNicheSubs(niche, detectedSub)
@@ -506,6 +569,9 @@ router.get('/', requireAuth, async (req, res, next) => {
       items = mockFallbackForNiche(niche)
       feedSource = 'fallback'
     }
+
+    // Boost Reels that match user's content profile
+    items = boostProfileMatchedReels(items, userProfile)
 
     // Deduplicate by title similarity (rough — lowercase, strip punctuation)
     const seen = new Set<string>()

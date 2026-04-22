@@ -26,11 +26,35 @@
 
     // Fetch directly
     get('/api/feed').then(function (data) {
-      if (!data || !data.items || data.items.length === 0) return
+      if (!data) return
+
+      // Check if user needs to upload content first
+      if (data.requiresContent) {
+        showContentUploadPrompt(view, data.message)
+        return
+      }
+
+      if (!data.items || data.items.length === 0) return
       var isCached = data.source === 'cached'
       render(view, data.items, isCached)
       scheduleRefresh()
     })
+  }
+
+  function showContentUploadPrompt(view, message) {
+    var feed = view.querySelector('.feed')
+    if (!feed) return
+
+    populated = true
+    feed.innerHTML = '<div style="padding:60px 40px;text-align:center;color:var(--t2)">'
+      + '<div style="font-size:18px;margin-bottom:20px;color:var(--t1)">Knowledge Feed</div>'
+      + '<div style="font-size:14px;line-height:1.6;max-width:400px;margin:0 auto">'
+      + (message || 'Upload your first video to unlock personalized content inspiration.')
+      + '</div>'
+      + '<button onclick="navigate(\'studio\')" style="margin-top:24px;padding:10px 20px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:500;cursor:pointer">'
+      + 'Upload Content'
+      + '</button>'
+      + '</div>'
   }
 
   function scheduleRefresh() {
