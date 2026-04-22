@@ -1,6 +1,5 @@
-/* Knowledge page — wire real /api/feed data into the static layout.
- * Reads from window.__vxDashState.feed (populated by dashboard-v2.js)
- * or fetches directly if not available.
+/* Knowledge page — wire real /api/knowledge data into the static layout.
+ * Fetches knowledge items from the backend and renders them.
  */
 ;(function () {
   'use strict'
@@ -16,20 +15,22 @@
     if (!view) return
     if (populated) return
 
-    var items = (window.__vxDashState && window.__vxDashState.feed) || []
-    if (items.length > 0) {
-      render(view, items)
-      return
-    }
-
-    // Fetch directly
-    get('/api/feed').then(function (data) {
-      if (!data || !data.items || data.items.length === 0) return
-      render(view, data.items)
+    // Fetch knowledge items from API
+    get('/api/knowledge?limit=100').then(function (data) {
+      if (!data || !data.items || data.items.length === 0) {
+        // Fallback: try to get feed data if knowledge is empty
+        get('/api/feed').then(function (feedData) {
+          if (feedData && feedData.items && feedData.items.length > 0) {
+            render(view, feedData.items, true)
+          }
+        })
+        return
+      }
+      render(view, data.items, false)
     })
   }
 
-  function render(view, items) {
+  function render(view, items, isFeedData) {
     populated = true
 
     // Update masthead stats
@@ -39,7 +40,11 @@
       if (s0v) s0v.innerHTML = '<em>' + items.length + '</em>'
 
       var sources = {}
-      items.forEach(function (it) { sources[it.source || 'unknown'] = true })
+      var sourceField = isFeedData ? 'source' : 'source'
+      items.forEach(function (it) {
+        var src = isFeedData ? (it.source || 'unknown') : (it.source || 'unknown')
+        sources[src] = true
+      })
       var s1v = stats[1].querySelector('.v')
       if (s1v) s1v.textContent = Object.keys(sources).length
     }
@@ -66,24 +71,39 @@
         lastDate = date
       }
 
+      // Determine source icon class
       var sourceType = (item.source || '').toLowerCase()
       var thClass = 'art'
-      var thLabel = (item.type || 'article').toUpperCase()
-      if (sourceType.indexOf('reddit') >= 0) { thClass = 'tt1'; thLabel = 'REDDIT' }
-      else if (sourceType.indexOf('youtube') >= 0) { thClass = 'yt1'; thLabel = 'YOUTUBE' }
-      else if (sourceType.indexOf('trend') >= 0) { thClass = 'ig1'; thLabel = 'TREND' }
-      else if (sourceType.indexOf('rss') >= 0) { thClass = 'sub'; thLabel = 'RSS' }
+      var thLabel = ''
 
-      var score = item.score || Math.round(50 + Math.random() * 40)
+      if (isFeedData) {
+        // Feed item rendering
+        thLabel = (item.type || 'article').toUpperCase()
+        if (sourceType.indexOf('reddit') >= 0) { thClass = 'tt1'; thLabel = 'REDDIT' }
+        else if (sourceType.indexOf('youtube') >= 0) { thClass = 'yt1'; thLabel = 'YOUTUBE' }
+        else if (sourceType.indexOf('trend') >= 0) { thClass = 'ig1'; thLabel = 'TREND' }
+        else if (sourceType.indexOf('rss') >= 0) { thClass = 'sub'; thLabel = 'RSS' }
+      } else {
+        // Knowledge item rendering - map KnowledgeType to icon class
+        var kType = (item.type || 'insight').toLowerCase()
+        thLabel = kType.toUpperCase().substring(0, 3)
+        if (kType.indexOf('trend') >= 0) { thClass = 'ig1'; thLabel = 'TREND' }
+        else if (kType.indexOf('pattern') >= 0) { thClass = 'sub'; thLabel = 'PATTERN' }
+        else if (kType.indexOf('learning') >= 0) { thClass = 'tt1'; thLabel = 'LEARN' }
+        else if (kType.indexOf('angle') >= 0) { thClass = 'art'; thLabel = 'ANGLE' }
+        else { thClass = 'art'; thLabel = 'INSIGHT' }
+      }
+
+      var score = item.relevanceScore ? Math.round(item.relevanceScore * 100) : (item.score || Math.round(50 + Math.random() * 40))
 
       feedHtml += '<div class="k">'
         + '<div class="th ' + thClass + '"><span class="lbl">' + esc(thLabel) + '</span></div>'
         + '<div class="b">'
         + '<div class="src"><span class="plat ' + thClass + '">' + esc(item.source || 'Source') + '</span><span class="name">' + esc(item.author || '') + '</span></div>'
         + '<div class="t">' + esc(item.title || '') + '</div>'
-        + (item.mayaTake ? '<div class="why"><span class="mk">Maya:</span> ' + esc(item.mayaTake) + '</div>' : '')
+        + (item.summary ? '<div class="why">' + esc(item.summary.substring(0, 150)) + '</div>' : '')
         + '<div class="meta">'
-        + (item.score ? '<span class="tag hot">Score · ' + item.score + '</span>' : '')
+        + (item.tags && item.tags.length > 0 ? '<span class="tag hot">' + esc(item.tags.slice(0, 2).join(' · ')) + '</span>' : '')
         + '<span>' + timeAgo(item.createdAt) + '</span>'
         + '</div>'
         + '</div>'
