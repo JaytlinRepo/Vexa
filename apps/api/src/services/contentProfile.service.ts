@@ -1,16 +1,16 @@
 import { PrismaClient } from '@prisma/client'
-import { Anthropic } from '@anthropic-ai/sdk'
+import { invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
+import { getPresignedUrl } from './storage/s3.service'
+import { extractKeyframes } from '../lib/keyframeExtractor.service'
 
 /**
  * Content Profile Service
- * Uses Claude Vision to analyze user's uploaded videos and extract:
+ * Uses Bedrock Vision (via keyframes) to analyze user's uploaded videos and extract:
  * - Visual style (colors, shot types, pacing, transitions) — from keyframes
  * - Copy style (hooks, tone, CTAs) — from captions
  * - Performance patterns (what their audience engages with)
  * - Audience segment characteristics
  */
-
-const anthropic = new Anthropic()
 
 export interface ContentProfile {
   visualStyle: {
@@ -35,7 +35,7 @@ export interface ContentProfile {
   }
 }
 
-export async function createContentProfile(prisma: PrismaClient) {
+export function createContentProfile(prisma: PrismaClient) {
   return {
     /**
      * Build profile from user's video uploads
@@ -82,20 +82,20 @@ export async function createContentProfile(prisma: PrismaClient) {
      * Store profile in brand memory for persistence
      */
     async saveProfileToMemory(companyId: string, profile: ContentProfile): Promise<void> {
-      await prisma.brandMemory.upsert({
+      // Delete existing profile if any
+      await prisma.brandMemory.deleteMany({
         where: {
-          companyId_memoryType: {
-            companyId,
-            memoryType: 'content_profile',
-          },
-        },
-        update: {
-          content: profile,
-        },
-        create: {
           companyId,
-          memoryType: 'content_profile' as any,
-          content: profile,
+          memoryType: 'voice',
+          content: { path: ['source'], equals: 'content_profile' },
+        },
+      })
+      // Create new
+      await prisma.brandMemory.create({
+        data: {
+          companyId,
+          memoryType: 'voice',
+          content: { source: 'content_profile', ...profile } as any,
           weight: 1.0,
         },
       })
@@ -108,12 +108,13 @@ export async function createContentProfile(prisma: PrismaClient) {
       const memory = await prisma.brandMemory.findFirst({
         where: {
           companyId,
-          memoryType: 'content_profile',
+          memoryType: 'voice',
+          content: { path: ['source'], equals: 'content_profile' },
         },
       })
 
       if (memory) {
-        return memory.content as ContentProfile
+        return memory.content as unknown as ContentProfile
       }
 
       // Rebuild if not in memory
@@ -200,31 +201,24 @@ async function detectColorPalette(uploads: any[]): Promise<string[]> {
 
     if (clipUrls.length === 0) return ['warm', 'natural']
 
-    // Use Claude Vision to analyze colors
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 200,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: clipUrls[0], // Analyze first clip
-              },
-            },
-            {
-              type: 'text',
-              text: 'Analyze the color palette of this video frame. List 3-4 dominant color characteristics or tones (e.g., "warm tones", "muted greens", "golden hour", "cool blues", "high contrast"). Be specific and concise.',
-            },
-          ],
-        },
-      ],
+    // Get a keyframe from the first clip for vision analysis
+    const frame = await getFirstFrame(clipUrls[0])
+    if (!frame) return ['warm', 'natural']
+
+    const raw = await invokeAgent({
+      systemPrompt: 'You analyze video frames. Respond with ONLY a comma-separated list, no other text.',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } },
+          { type: 'text', text: 'List 3-4 dominant color characteristics or tones in this frame (e.g. warm tones, muted greens, golden hour, cool blues, high contrast). Comma-separated only.' },
+        ],
+      }],
+      maxTokens: 100,
+      temperature: 0.3,
     })
 
-    const colors = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['warm', 'natural']
+    const colors = raw.split(',').slice(0, 4)
     return colors.map((c) => c.trim().toLowerCase())
   } catch (err) {
     console.warn('[contentProfile] color detection failed:', err)
@@ -245,30 +239,23 @@ async function detectShotTypes(uploads: any[]): Promise<string[]> {
 
     if (clipUrls.length === 0) return ['wide', 'close-up']
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 200,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: clipUrls[0],
-              },
-            },
-            {
-              type: 'text',
-              text: 'Describe the shot type and composition in this video frame. Categorize as: close-up, medium, wide, overhead, POV, or detail shot. List 2-3 shot types visible.',
-            },
-          ],
-        },
-      ],
+    const frame = await getFirstFrame(clipUrls[0])
+    if (!frame) return ['wide', 'close-up']
+
+    const raw = await invokeAgent({
+      systemPrompt: 'You analyze video frames. Respond with ONLY a comma-separated list, no other text.',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } },
+          { type: 'text', text: 'Categorize the shot type and composition: close-up, medium, wide, overhead, POV, or detail shot. List 2-3 types, comma-separated only.' },
+        ],
+      }],
+      maxTokens: 100,
+      temperature: 0.3,
     })
 
-    const shots = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['wide', 'close-up']
+    const shots = raw.split(',').slice(0, 4)
     return shots.map((s) => s.trim().toLowerCase())
   } catch (err) {
     console.warn('[contentProfile] shot detection failed:', err)
@@ -300,30 +287,23 @@ async function detectFilters(uploads: any[]): Promise<string[]> {
 
     if (clipUrls.length === 0) return ['warm']
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 150,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'url',
-                url: clipUrls[0],
-              },
-            },
-            {
-              type: 'text',
-              text: 'Describe any filters or color grading applied to this video frame. Is it: warm, cool, muted, saturated, high contrast, low contrast, vintage, cinematic, bright, dark? List 2-3 characteristics.',
-            },
-          ],
-        },
-      ],
+    const frame = await getFirstFrame(clipUrls[0])
+    if (!frame) return ['warm']
+
+    const raw = await invokeAgent({
+      systemPrompt: 'You analyze video frames. Respond with ONLY a comma-separated list, no other text.',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } },
+          { type: 'text', text: 'Describe the color grading/filters: warm, cool, muted, saturated, high contrast, low contrast, vintage, cinematic, bright, dark? List 2-3 characteristics, comma-separated only.' },
+        ],
+      }],
+      maxTokens: 100,
+      temperature: 0.3,
     })
 
-    const filters = response.content[0]?.type === 'text' ? response.content[0].text.split(',').slice(0, 4) : ['warm']
+    const filters = raw.split(',').slice(0, 4)
     return filters.map((f) => f.trim().toLowerCase())
   } catch (err) {
     console.warn('[contentProfile] filter detection failed:', err)
@@ -404,5 +384,23 @@ function getDefaultProfile(): ContentProfile {
       audienceSegment: 'general',
       contentThemes: ['lifestyle'],
     },
+  }
+}
+
+// ─── HELPER: Extract a single keyframe from a clip URL ──────────────────
+
+async function getFirstFrame(clipUrl: string): Promise<string | null> {
+  try {
+    // Resolve s3:// URLs to presigned URLs
+    let url = clipUrl
+    if (url.startsWith('s3://')) {
+      url = await getPresignedUrl(url.replace('s3://', ''), 3600)
+    }
+
+    const frames = await extractKeyframes(url, 10, 5, 1) // 1 frame at 5s mark
+    return frames.length > 0 ? frames[0].base64 : null
+  } catch (err) {
+    console.warn('[contentProfile] frame extraction failed:', err)
+    return null
   }
 }
