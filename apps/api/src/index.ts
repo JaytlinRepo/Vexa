@@ -15,12 +15,14 @@ import onboardingRouter from './routes/onboarding'
 import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
 import tasksRouter from './routes/tasks'
+import employeesRouter from './routes/employees'
 import { getMode } from './lib/mode'
 import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
+import knowledgeRouter from './routes/knowledge'
 import platformDataRouter from './routes/platformData'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
@@ -101,11 +103,13 @@ app.use('/api/onboarding', onboardingRouter)
 app.use('/api/instagram', instagramRouter)
 app.use('/api/meeting', meetingRouter)
 app.use('/api/tasks', tasksRouter)
+app.use('/api/employees', employeesRouter)
 app.use('/api/feed', feedRouter)
 app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/memory', memoryRouter)
+app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)

@@ -84,6 +84,25 @@ enum MemoryType {
   voice
 }
 
+enum KnowledgeType {
+  insight
+  pattern
+  learning
+  trend_summary
+  content_angle
+  audience_signal
+  competitive_advantage
+}
+
+enum KnowledgeSource {
+  feed_item
+  brand_memory
+  trend_report
+  user_feedback
+  performance_metric
+  ai_analysis
+}
+
 // ─── MODELS ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -130,6 +149,7 @@ model Company {
   outputs          Output[]
   meetings         Meeting[]
   memory           BrandMemory[]
+  knowledge        Knowledge[]
   instagram        InstagramConnection?
   tiktok           TiktokConnection?
   platformAccounts  PlatformAccount[]
@@ -228,6 +248,32 @@ model BrandMemory {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@map("brand_memory")
+}
+
+model Knowledge {
+  id             String           @id @default(uuid())
+  companyId      String           @map("company_id")
+  type           KnowledgeType
+  source         KnowledgeSource
+  title          String
+  summary        String
+  details        Json? // rich content, recommendations, analysis
+  tags           String[]         @default([]) // searchable tags
+  sourceUrl      String? // link to original source
+  relatedItemIds String[]         @default([]) // IDs of related Knowledge items
+  relevanceScore Float            @default(0.5) // 0-1, how relevant to this company
+  isArchived     Boolean          @default(false) @map("is_archived")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([type])
+  @@index([source])
+  @@index([createdAt])
+  @@index([isArchived])
+  @@map("knowledge")
 }
 
 // ─── PLATFORM DATA MODEL (multi-platform, time-series) ──────────────────────
