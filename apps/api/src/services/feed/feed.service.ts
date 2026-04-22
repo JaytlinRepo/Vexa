@@ -87,12 +87,14 @@ const NICHE_SOURCES: Record<string, NicheSourceConfig> = {
   },
   lifestyle: {
     rssFeeds: [
-      { url: 'https://www.wellandgood.com/feed/', sourceName: 'Well+Good' },
+      { url: 'https://www.becomingminimalist.com/feed/', sourceName: 'Becoming Minimalist' },
+      { url: 'https://tinybuddha.com/feed/', sourceName: 'Tiny Buddha' },
+      { url: 'https://www.theminimalists.com/feed/', sourceName: 'The Minimalists' },
+      { url: 'https://markmanson.net/feed', sourceName: 'Mark Manson' },
+      { url: 'https://cupofjo.com/feed/', sourceName: 'Cup of Jo' },
       { url: 'https://www.mindbodygreen.com/rss.xml', sourceName: 'mindbodygreen' },
-      { url: 'https://www.refinery29.com/rss.xml', sourceName: 'Refinery29' },
-      { url: 'https://goop.com/feed/', sourceName: 'goop' },
     ],
-    redditSubs: ['r/lifestyle', 'r/wellness', 'r/minimalism', 'r/zerowaste'],
+    redditSubs: ['r/minimalism', 'r/simpleliving', 'r/selfimprovement', 'r/DecidingToBeBetter'],
   },
   personal_development: {
     rssFeeds: [
@@ -380,7 +382,15 @@ async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise
     const allItems: FeedItem[] = []
 
     // Search 1: Regular videos in the niche (recent, relevant)
-    const query = encodeURIComponent(niche + ' content creator')
+    const nicheQueries: Record<string, string> = {
+      lifestyle: 'day in my life vlog',
+      fitness: 'workout routine fitness',
+      food: 'what I eat in a day cooking',
+      coaching: 'personal development motivation',
+      finance: 'money tips personal finance',
+      personal_development: 'self improvement habits',
+    }
+    const query = encodeURIComponent(nicheQueries[niche] || niche + ' content creator')
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=relevance&maxResults=5&publishedAfter=${since}&key=${YOUTUBE_API_KEY}`
 
@@ -411,7 +421,15 @@ async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise
 
     // Search 2: Shorts (#shorts in query)
     try {
-      const shortsQuery = encodeURIComponent(niche + ' #shorts')
+      const shortsQueries: Record<string, string> = {
+        lifestyle: 'aesthetic day in my life #shorts',
+        fitness: 'workout tips #shorts',
+        food: 'easy recipe #shorts',
+        coaching: 'life advice #shorts',
+        finance: 'money hack #shorts',
+        personal_development: 'productivity tips #shorts',
+      }
+      const shortsQuery = encodeURIComponent(shortsQueries[niche] || niche + ' #shorts')
       const shortsUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${shortsQuery}&type=video&order=viewCount&maxResults=5&publishedAfter=${since}&videoDuration=short&key=${YOUTUBE_API_KEY}`
 
       const shortsRes = await axios.get(shortsUrl, { timeout: 10000 })
