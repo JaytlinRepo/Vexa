@@ -489,15 +489,15 @@ router.get('/', requireAuth, async (req, res, next) => {
       fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
       searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
-      searchNicheVideos(niche, detectedSub || undefined, 5, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
+      searchNicheVideos(niche, detectedSub || undefined, 8, ytQuery || undefined).catch(() => [] as YouTubeVideo[]), // Increased for mixed Reel/article feed
     ])
 
     let items: FeedItem[] = [
       // Articles and news — the core of the feed (RSS + NewsAPI combined)
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
-      // Real niche videos — study what's working
-      ...ytVideos.slice(0, 5).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // Real niche videos/Reels — mixed with articles for inspiration
+      ...ytVideos.slice(0, 8).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
       // One Reddit post for community signal
       ...redditResults.flat().slice(0, maxRedditShare),
     ]

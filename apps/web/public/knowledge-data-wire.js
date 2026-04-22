@@ -56,6 +56,13 @@
       if (s1v) s1v.textContent = Object.keys(sources).length
     }
 
+    // Count videos (Reels) vs articles
+    var videoCount = items.filter(function (it) { return it.type === 'video' }).length
+    if (stats.length >= 3) {
+      var s2v = stats[2].querySelector('.v')
+      if (s2v) s2v.textContent = videoCount + ' Reels'
+    }
+
     // Show cache indicator if needed
     var feedHead = view.querySelector('.feed-head')
     if (feedHead && isCached) {
@@ -83,7 +90,7 @@
     var existingItems = feed.querySelectorAll('.k')
     var dayDivs = feed.querySelectorAll('.day-div')
 
-    // Build new feed items from real data
+    // Build new feed items from real data - mix articles and reels
     var feedHtml = ''
     var lastDate = ''
 
@@ -104,22 +111,43 @@
 
       var score = item.score || Math.round(50 + Math.random() * 40)
 
-      feedHtml += '<div class="k">'
-        + '<div class="th ' + thClass + '"><span class="lbl">' + esc(thLabel) + '</span></div>'
-        + '<div class="b">'
-        + '<div class="src"><span class="plat ' + thClass + '">' + esc(item.source || 'Source') + '</span><span class="name">' + esc(item.author || '') + '</span></div>'
-        + '<div class="t">' + esc(item.title || '') + '</div>'
-        + (item.mayaTake ? '<div class="why"><span class="mk">Maya:</span> ' + esc(item.mayaTake) + '</div>' : '')
-        + '<div class="meta">'
-        + (item.score ? '<span class="tag hot">Score · ' + item.score + '</span>' : '')
-        + '<span>' + timeAgo(item.createdAt) + '</span>'
-        + '</div>'
-        + '</div>'
-        + '<div class="r">'
-        + '<div class="score"><em>' + score + '</em><span style="color:var(--t3);font-size:14px">/100</span></div>'
-        + '<div class="score-l">Signal</div>'
-        + '</div>'
-        + '</div>'
+      // Render as Reel card if video type
+      if (item.type === 'video') {
+        feedHtml += '<div class="k k-video">'
+          + '<div class="k-video-thumb">'
+          + (item.imageUrl ? '<img src="' + esc(item.imageUrl) + '" alt="' + esc(item.title) + '" />' : '<div class="k-video-placeholder"></div>')
+          + '<div class="k-video-overlay">'
+          + '<div class="k-video-play">▶</div>'
+          + '</div>'
+          + '</div>'
+          + '<div class="k-video-meta">'
+          + '<div class="k-video-creator">' + esc(item.source || 'Creator') + '</div>'
+          + '<div class="k-video-title">' + esc(item.title || '') + '</div>'
+          + '<div class="k-video-stats">'
+          + (item.summary ? '<span>' + esc(item.summary.split(' · ')[0] || '') + '</span>' : '')
+          + '<span>' + timeAgo(item.createdAt) + '</span>'
+          + '</div>'
+          + '</div>'
+          + '</div>'
+      } else {
+        // Render as article card (original format)
+        feedHtml += '<div class="k">'
+          + '<div class="th ' + thClass + '"><span class="lbl">' + esc(thLabel) + '</span></div>'
+          + '<div class="b">'
+          + '<div class="src"><span class="plat ' + thClass + '">' + esc(item.source || 'Source') + '</span><span class="name">' + esc(item.author || '') + '</span></div>'
+          + '<div class="t">' + esc(item.title || '') + '</div>'
+          + (item.mayaTake ? '<div class="why"><span class="mk">Maya:</span> ' + esc(item.mayaTake) + '</div>' : '')
+          + '<div class="meta">'
+          + (item.score ? '<span class="tag hot">Score · ' + item.score + '</span>' : '')
+          + '<span>' + timeAgo(item.createdAt) + '</span>'
+          + '</div>'
+          + '</div>'
+          + '<div class="r">'
+          + '<div class="score"><em>' + score + '</em><span style="color:var(--t3);font-size:14px">/100</span></div>'
+          + '<div class="score-l">Signal</div>'
+          + '</div>'
+          + '</div>'
+      }
     })
 
     // Remove existing mock items and insert real ones
