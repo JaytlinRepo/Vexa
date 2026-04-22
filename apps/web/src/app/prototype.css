@@ -804,7 +804,8 @@ input,textarea{cursor:text}
 .brief-actions{display:flex;gap:7px}
 
 /* Team cards */
-.emp-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.sec-employees{padding:32px 0;border-bottom:1px solid var(--b1)}
+.emp-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:100%}
 .emp-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;transition:all .25s;position:relative;overflow:hidden}
 .emp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--t2);transform:scaleX(0);transition:transform .3s;transform-origin:left}
 .emp-card:hover::before{transform:scaleX(1)}
@@ -817,6 +818,10 @@ input,textarea{cursor:text}
 .emp-card-status-tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);background:var(--s2);border:1px solid var(--b1);padding:4px 10px;border-radius:8px}
 .emp-card-status{font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.6}
 .emp-card-status strong{color:var(--t1);font-weight:500}
+.emp-card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);margin-bottom:14px}
+.metric{display:flex;flex-direction:column;gap:4px}
+.metric .label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.metric .value{font-size:16px;color:var(--t1);font-weight:500}
 .emp-card-actions{display:flex;gap:7px}
 .emp-card-btn{padding:8px 14px;border-radius:8px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;transition:all .2s}
 .emp-card-btn.view{border:1px solid var(--b2);background:transparent;color:var(--t2)}
