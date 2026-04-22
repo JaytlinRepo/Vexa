@@ -8,20 +8,20 @@ export interface CreateKnowledgeInput {
   summary: string
   details?: Record<string, unknown>
   tags?: string[]
-  sourceUrl?: string
+  sourceUrl?: string | null
   relevanceScore?: number
 }
 
-export interface KnowledgeItem {
+export type KnowledgeItem = {
   id: string
   companyId: string
   type: KnowledgeType
   source: KnowledgeSource
   title: string
   summary: string
-  details?: Record<string, unknown>
+  details: any
   tags: string[]
-  sourceUrl?: string | null
+  sourceUrl: string | null
   relatedItemIds: string[]
   relevanceScore: number
   isArchived: boolean
@@ -52,13 +52,13 @@ export class KnowledgeService {
         source: input.source,
         title: input.title,
         summary: input.summary,
-        details: input.details || {},
+        details: (input.details || {}) as any,
         tags: input.tags || [],
-        sourceUrl: input.sourceUrl,
+        sourceUrl: input.sourceUrl || null,
         relevanceScore: input.relevanceScore ?? 0.5,
       },
     })
-    return knowledge
+    return knowledge as KnowledgeItem
   }
 
   /**
@@ -83,10 +83,10 @@ export class KnowledgeService {
     if (filters?.tags && filters.tags.length > 0) {
       return items.filter((item) =>
         filters.tags!.some((tag) => item.tags.includes(tag))
-      )
+      ) as KnowledgeItem[]
     }
 
-    return items
+    return items as KnowledgeItem[]
   }
 
   /**
@@ -96,7 +96,7 @@ export class KnowledgeService {
     const knowledge = await this.prisma.knowledge.findFirst({
       where: { id, companyId },
     })
-    return knowledge
+    return knowledge as KnowledgeItem | null
   }
 
   /**
@@ -107,19 +107,21 @@ export class KnowledgeService {
     companyId: string,
     updates: Partial<CreateKnowledgeInput> & { isArchived?: boolean }
   ): Promise<KnowledgeItem> {
+    const data: any = {
+      ...(updates.title && { title: updates.title }),
+      ...(updates.summary && { summary: updates.summary }),
+      ...(updates.details !== undefined && { details: updates.details }),
+      ...(updates.tags && { tags: updates.tags }),
+      ...(updates.sourceUrl !== undefined && { sourceUrl: updates.sourceUrl || null }),
+      ...(updates.relevanceScore !== undefined && { relevanceScore: updates.relevanceScore }),
+      ...(updates.isArchived !== undefined && { isArchived: updates.isArchived }),
+    }
+
     const knowledge = await this.prisma.knowledge.update({
       where: { id },
-      data: {
-        ...(updates.title && { title: updates.title }),
-        ...(updates.summary && { summary: updates.summary }),
-        ...(updates.details !== undefined && { details: updates.details }),
-        ...(updates.tags && { tags: updates.tags }),
-        ...(updates.sourceUrl !== undefined && { sourceUrl: updates.sourceUrl }),
-        ...(updates.relevanceScore !== undefined && { relevanceScore: updates.relevanceScore }),
-        ...(updates.isArchived !== undefined && { isArchived: updates.isArchived }),
-      },
+      data,
     })
-    return knowledge
+    return knowledge as KnowledgeItem
   }
 
   /**
@@ -227,7 +229,7 @@ export class KnowledgeService {
 
     for (const memory of memories) {
       const content = memory.content as Record<string, unknown>
-      const summary = content.summary || String(content)
+      const summaryText = String(content.summary || content || '')
 
       // Only create knowledge from feedback and performance memories
       if (!['feedback', 'performance'].includes(memory.memoryType)) continue
@@ -235,7 +237,7 @@ export class KnowledgeService {
       const existing = await this.prisma.knowledge.findFirst({
         where: {
           companyId,
-          title: { contains: summary.substring(0, 30), mode: 'insensitive' },
+          title: { contains: summaryText.substring(0, 30), mode: 'insensitive' },
         },
       })
 
@@ -244,8 +246,8 @@ export class KnowledgeService {
       const knowledge = await this.createKnowledge(companyId, {
         type: memory.memoryType === 'feedback' ? 'learning' : 'pattern',
         source: 'brand_memory',
-        title: `Learned: ${summary.substring(0, 60)}`,
-        summary: summary as string,
+        title: `Learned: ${summaryText.substring(0, 60)}`,
+        summary: summaryText,
         details: { ...content, memoryWeight: memory.weight },
         tags: [memory.memoryType],
         relevanceScore: Math.min(1, memory.weight),
@@ -300,7 +302,7 @@ export class KnowledgeService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
-    return items
+    return items as KnowledgeItem[]
   }
 }
 

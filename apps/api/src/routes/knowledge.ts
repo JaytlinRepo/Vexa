@@ -16,7 +16,7 @@ const createKnowledgeSchema = z.object({
   summary: z.string().min(10).max(1000),
   details: z.record(z.unknown()).optional(),
   tags: z.array(z.string()).max(10).optional(),
-  sourceUrl: z.string().url().optional().nullable(),
+  sourceUrl: z.string().url().optional().nullish(),
   relevanceScore: z.number().min(0).max(1).optional(),
 })
 
@@ -25,7 +25,7 @@ const updateKnowledgeSchema = z.object({
   summary: z.string().min(10).max(1000).optional(),
   details: z.record(z.unknown()).optional(),
   tags: z.array(z.string()).max(10).optional(),
-  sourceUrl: z.string().url().optional().nullable(),
+  sourceUrl: z.string().url().optional().nullish(),
   relevanceScore: z.number().min(0).max(1).optional(),
   isArchived: z.boolean().optional(),
 })

@@ -20,6 +20,7 @@
     "dev:test": "VEXA_MODE=test tsx watch src/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.600.0",
     "@aws-sdk/client-bedrock-runtime": "^3.600.0",
     "@aws-sdk/client-s3": "^3.1031.0",
