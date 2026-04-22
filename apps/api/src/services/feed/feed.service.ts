@@ -382,15 +382,17 @@ async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise
     const allItems: FeedItem[] = []
 
     // Search 1: Regular videos in the niche (recent, relevant)
-    const nicheQueries: Record<string, string> = {
-      lifestyle: 'day in my life vlog',
-      fitness: 'workout routine fitness',
-      food: 'what I eat in a day cooking',
-      coaching: 'personal development motivation',
-      finance: 'money tips personal finance',
-      personal_development: 'self improvement habits',
+    const nicheQueries: Record<string, string[]> = {
+      lifestyle: ['aesthetic lifestyle vlog 2026', 'minimalist living routine', 'slow living aesthetic'],
+      fitness: ['workout routine gym', 'fitness motivation training', 'home workout routine'],
+      food: ['what I eat in a day healthy', 'easy meal prep recipe', 'cooking aesthetic kitchen'],
+      coaching: ['personal growth mindset', 'life coaching motivation', 'self development tips'],
+      finance: ['money saving tips budget', 'personal finance investing', 'financial freedom tips'],
+      personal_development: ['morning routine productive', 'self improvement habits', 'productivity tips daily'],
     }
-    const query = encodeURIComponent(nicheQueries[niche] || niche + ' content creator')
+    const queries = nicheQueries[niche] || [niche + ' content creator']
+    // Pick a random query for variety on each fetch
+    const query = encodeURIComponent(queries[Math.floor(Math.random() * queries.length)])
     const since = new Date(Date.now() - 7 * 86400000).toISOString()
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=relevance&maxResults=5&publishedAfter=${since}&key=${YOUTUBE_API_KEY}`
 
@@ -421,15 +423,16 @@ async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise
 
     // Search 2: Shorts (#shorts in query)
     try {
-      const shortsQueries: Record<string, string> = {
-        lifestyle: 'aesthetic day in my life #shorts',
-        fitness: 'workout tips #shorts',
-        food: 'easy recipe #shorts',
-        coaching: 'life advice #shorts',
-        finance: 'money hack #shorts',
-        personal_development: 'productivity tips #shorts',
+      const shortsQueries: Record<string, string[]> = {
+        lifestyle: ['aesthetic routine #shorts', 'minimalist lifestyle #shorts', 'that girl aesthetic #shorts'],
+        fitness: ['gym motivation #shorts', 'workout hack #shorts'],
+        food: ['easy recipe #shorts', '5 minute meal #shorts'],
+        coaching: ['mindset shift #shorts', 'life hack #shorts'],
+        finance: ['money tip #shorts', 'save money #shorts'],
+        personal_development: ['morning routine #shorts', 'productivity hack #shorts'],
       }
-      const shortsQuery = encodeURIComponent(shortsQueries[niche] || niche + ' #shorts')
+      const sQueries = shortsQueries[niche] || [niche + ' #shorts']
+      const shortsQuery = encodeURIComponent(sQueries[Math.floor(Math.random() * sQueries.length)])
       const shortsUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${shortsQuery}&type=video&order=viewCount&maxResults=5&publishedAfter=${since}&videoDuration=short&key=${YOUTUBE_API_KEY}`
 
       const shortsRes = await axios.get(shortsUrl, { timeout: 10000 })
