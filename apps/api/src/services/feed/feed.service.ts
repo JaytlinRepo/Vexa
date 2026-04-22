@@ -23,6 +23,7 @@ export interface FeedItem {
   publishedAt: string
   niche: string
   tags: string[]
+  thumbnail?: string         // Image URL for visual display
   mayaInsight?: string       // Added by Maya after AI analysis
   contentScore?: number      // 0-100, how useful for content creation
 }
@@ -232,6 +233,7 @@ export async function aggregateNicheFeed(
     fetchRSSFeeds(config.rssFeeds, niche),
     fetchRedditPosts(config.redditSubs, niche, subNiche),
     config.pubmedKeywords ? fetchPubMedArticles(config.pubmedKeywords, niche) : Promise.resolve([]),
+    fetchYouTubeVideos(niche, config.youtubeChannelIds),
   ])
 
   for (const result of results) {
@@ -312,6 +314,7 @@ async function fetchSingleRSS(
       publishedAt: new Date(pubDate).toISOString(),
       niche,
       tags: [niche, 'article'],
+      thumbnail: extractThumb(item),
     }
   })
 }
@@ -348,6 +351,7 @@ async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedIte
     .slice(0, 4)
     .map((post: { data: Record<string, unknown> }) => {
       const d = post.data
+      const thumb = String(d.thumbnail || '')
       return {
         id: `reddit-${d.id}`,
         type: 'reddit' as FeedItemType,
@@ -359,9 +363,52 @@ async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedIte
         publishedAt: new Date(Number(d.created_utc) * 1000).toISOString(),
         niche,
         tags: [niche, 'community', 'reddit'],
+        thumbnail: thumb.startsWith('http') ? thumb : undefined,
         contentScore: Math.min(100, Math.floor(Number(d.score) / 100)),
       }
     })
+}
+
+// ─── YOUTUBE FETCHER ────────────────────────────────────────────────────────
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || ''
+
+async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise<FeedItem[]> {
+  if (!YOUTUBE_API_KEY) return []
+
+  try {
+    // Search for trending videos in the niche
+    const query = encodeURIComponent(niche + ' tips')
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=date&maxResults=6&publishedAfter=${new Date(Date.now() - 7 * 86400000).toISOString()}&key=${YOUTUBE_API_KEY}`
+
+    const response = await axios.get(url, { timeout: 8000 })
+    const items = response.data?.items || []
+
+    return items.map((item: any) => {
+      var snippet = item.snippet || {}
+      var videoId = item.id?.videoId || ''
+      var thumbs = snippet.thumbnails || {}
+      var thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
+
+      return {
+        id: 'yt-' + videoId,
+        type: 'youtube' as FeedItemType,
+        title: String(snippet.title || '').slice(0, 120),
+        summary: String(snippet.description || '').slice(0, 280),
+        url: 'https://www.youtube.com/watch?v=' + videoId,
+        source: String(snippet.channelTitle || 'YouTube'),
+        author: String(snippet.channelTitle || ''),
+        publishedAt: snippet.publishedAt || new Date().toISOString(),
+        niche: niche,
+        tags: [niche, 'youtube', 'video'],
+        thumbnail: thumb || undefined,
+        contentScore: 70,
+      }
+    })
+  } catch (err) {
+    console.error('[feed] YouTube fetch failed:', err)
+    return []
+  }
 }
 
 // ─── PUBMED FETCHER (free, no key needed) ────────────────────────────────────
@@ -439,6 +486,25 @@ function extractText(val: unknown): string {
     return String(obj._ || obj.$t || obj['#text'] || Object.values(obj)[0] || '')
   }
   return String(val)
+}
+
+function extractThumb(item: Record<string, unknown>): string | undefined {
+  // Try media:content, enclosure, media:thumbnail, or og:image from description
+  const media = item['media:content'] || item['media:thumbnail']
+  if (media) {
+    const url = typeof media === 'object' ? (media as any)?.$?.url || (media as any)?.url : null
+    if (url && String(url).startsWith('http')) return String(url)
+  }
+  const enclosure = item.enclosure as any
+  if (enclosure) {
+    const url = enclosure?.$?.url || enclosure?.url
+    if (url && String(url).startsWith('http') && String(enclosure?.$?.type || enclosure?.type || '').startsWith('image')) return String(url)
+  }
+  // Try to extract image from description HTML
+  const desc = String(item.description || item['content:encoded'] || '')
+  const imgMatch = desc.match(/<img[^>]+src=["']([^"']+)["']/)
+  if (imgMatch && imgMatch[1].startsWith('http')) return imgMatch[1]
+  return undefined
 }
 
 function stripHtml(html: string): string {
