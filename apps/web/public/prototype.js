@@ -31,7 +31,9 @@ if(__vxPrototypeBoot){
 }
 
 /* ── STATE ──────────────────────────────────────────── */
+// If the auth gate is active, the dashboard is already visible — sync currentView
 var currentView='home'
+try{if(localStorage.getItem('vx-authed')==='1')currentView='db-dashboard'}catch(e){}
 var isLoggedIn=false
 var selectedNiche=''
 var companyName=''
@@ -41,7 +43,7 @@ var sectionNames={
   home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',contact:'Contact',
   knowledge:'Knowledge Feed',pricing:'Pricing',faq:'FAQ',
   'db-dashboard':'HQ','db-pipeline':'Pipeline','db-posts':'Posts',
-  'db-audience':'Audience','db-team':'Team','db-tasks':'Work',
+  'db-studio':'Studio','db-audience':'Audience','db-team':'Team','db-tasks':'Work',
   'db-outputs':'Outputs','db-knowledge':'Knowledge','db-settings':'Settings'
 }
 
@@ -49,7 +51,22 @@ function navigate(id){
   // Remove the auth-gate style that uses !important to hide views —
   // once navigate() runs, the .active class handles visibility.
   var gate=document.getElementById('vx-auth-gate')
+  var gateWasActive=!!gate
   if(gate)gate.remove()
+
+  // If gate was active and we're navigating to dashboard, just set .active
+  // without animation — the dashboard is already visible from the gate.
+  if(gateWasActive&&id==='db-dashboard'){
+    document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active')})
+    var d=document.getElementById('view-db-dashboard')
+    if(d)d.classList.add('active')
+    currentView='db-dashboard'
+    // Update nav highlight
+    document.querySelectorAll('.nav-item,.topnav-link').forEach(function(el){el.classList.remove('active')})
+    var navEl=document.getElementById('nav-db-dashboard')
+    if(navEl)navEl.classList.add('active')
+    return
+  }
 
   if(currentView===id)return
   const prev=document.getElementById('view-'+currentView)

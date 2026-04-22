@@ -5,25 +5,14 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260422-03'
+const VERSION = '20260422-05'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
-  // If the user has a session, strip .active from the home view so it
-  // doesn't flash before dashboard-v2 takes over. The dashboard view
-  // gets .active instead — blank until v2 renders content into it.
-  let processed = html
-  if (typeof window !== 'undefined') {
-    try {
-      if (localStorage.getItem('vx-authed') === '1') {
-        processed = processed
-          .replace(/id="view-home"([^>]*?)class="([^"]*)\bactive\b([^"]*)"/,
-            'id="view-home"$1class="$2$3"')
-          .replace(/id="view-db-dashboard"([^>]*?)class="([^"]*)"/,
-            'id="view-db-dashboard"$1class="$2 active"')
-      }
-    } catch {}
-  }
+  // View visibility is handled by the #vx-auth-gate style in layout.tsx
+  // (runs before any JS) and prototype.js navigate(). No HTML string
+  // manipulation needed here — it caused hydration race conditions.
+  const processed = html
 
   return (
     <>

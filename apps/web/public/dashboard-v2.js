@@ -13,15 +13,9 @@
  *   5. Performance + outcomes-style activity
  */
 ;(function () {
-  // If the user has an active session, immediately flip to the dashboard
-  // view so the home/marketing page never flashes on refresh.
+  // View visibility on auth is handled by the #vx-auth-gate style in layout.tsx
+  // (runs before any JS loads). No DOM manipulation needed here.
   try {
-    if (localStorage.getItem('vx-authed') === '1') {
-      document.querySelectorAll('.view').forEach((v) => {
-        if (v.id === 'view-db-dashboard') v.classList.add('active')
-        else v.classList.remove('active')
-      })
-    }
     const oldLayout = document.querySelector('#view-db-dashboard .db-layout')
     if (oldLayout) oldLayout.style.opacity = '0'
   } catch {}

@@ -1287,7 +1287,7 @@
     <button class="fchip">Reach</button>
     <button class="fchip">Saves</button>
   </div>
-  <div class="search">
+  <div class="search" style="margin-left:auto">
     <span style="color:var(--t3)">⌕</span>
     <input placeholder="Search posts, hooks, captions…"/>
     <span class="kbd">⌘K</span>
@@ -1551,12 +1551,17 @@
   <aside class="rail">
     <div class="mini-rail">
       <div class="lanes-head" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline">
-        <h3 style="margin:0">Top <em>5</em></h3>
-        <select class="top5-sort" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;border:1px solid var(--b1);border-radius:4px;background:var(--bg);padding:3px 6px;cursor:pointer">
-          <option value="reach">by reach</option>
-          <option value="likes">by likes</option>
-          <option value="views">by views</option>
-        </select>
+        <h3 style="margin:0">Top <em>10</em></h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select class="top5-plat" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;border:1px solid var(--b1);border-radius:4px;background:var(--bg);padding:3px 6px;cursor:pointer">
+            <option value="all">All</option>
+          </select>
+          <select class="top5-sort" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;border:1px solid var(--b1);border-radius:4px;background:var(--bg);padding:3px 6px;cursor:pointer">
+            <option value="reach">by reach</option>
+            <option value="likes">by likes</option>
+            <option value="views">by views</option>
+          </select>
+        </div>
       </div>
       <!-- Populated dynamically by posts-data-wire.js -->
     </div>

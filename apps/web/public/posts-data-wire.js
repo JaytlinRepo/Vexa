@@ -273,7 +273,7 @@
       : state.top5Sort === 'views' ? function (a, b) { return (b.viewCount || 0) - (a.viewCount || 0) }
       : function (a, b) { return reach(b) - reach(a) }
     var sorted = pool.slice().sort(sortFn)
-    var top5 = sorted.slice(0, 5)
+    var top5 = sorted.slice(0, 10)
     var colors = ['h1','h2','h3','h4','h5']
 
     var rowsEl = miniRail.querySelectorAll('.top-row')
@@ -300,7 +300,7 @@
 
     // Update header
     var h = miniRail.querySelector('h3')
-    if (h) h.innerHTML = 'Top <em>5</em> \u00b7 all time'
+    if (h) h.innerHTML = 'Top <em>10</em>'
     var sub = miniRail.querySelector('.lanes-head span')
     if (sub) sub.textContent = 'by reach'
   }
@@ -467,11 +467,11 @@
       })
     })
 
-    // Top 5 platform dropdown
-    var top5Select = view.querySelector('.top5-select')
-    if (top5Select) {
-      top5Select.addEventListener('change', function () {
-        state.top5 = top5Select.value
+    // Top 10 platform dropdown
+    var top5Plat = view.querySelector('.top5-plat')
+    if (top5Plat) {
+      top5Plat.addEventListener('change', function () {
+        state.top5 = top5Plat.value
         updateTop5(view, allPosts)
       })
     }
@@ -518,6 +518,17 @@
           html += '<button class="fchip"><span class="dot ' + (platDots[plat] || '') + '"></span>' + (platLabels[plat] || plat) + '</button>'
         })
         platGroup.innerHTML = html
+      }
+
+      // Populate Top 10 platform dropdown
+      var top5Plat = document.querySelector('.top5-plat')
+      if (top5Plat) {
+        var platHtml = '<option value="all">All</option>'
+        Object.keys(connected).forEach(function (plat) {
+          var label = plat === 'instagram' ? 'IG' : plat === 'tiktok' ? 'TikTok' : plat === 'youtube' ? 'YT' : plat
+          platHtml += '<option value="' + plat + '">' + label + '</option>'
+        })
+        top5Plat.innerHTML = platHtml
       }
 
       allPosts = ts.posts
