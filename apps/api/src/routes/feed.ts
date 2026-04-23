@@ -21,6 +21,13 @@ const FEED_CACHE_TTL = 60 * 60 * 1000 // 1 hour
 const trendCache = new Map<string, { data: TrendItem[]; ts: number }>()
 const TREND_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
+// ─── YouTube cache: by niche+query to avoid redundant searches ────────────────
+const youtubeCache = new Map<string, { videos: YouTubeVideo[]; ts: number }>()
+const YOUTUBE_CACHE_TTL = 30 * 60 * 1000 // 30 minutes
+
+// ─── In-flight request tracking: prevent thundering herd ──────────────────────
+const feedRequests = new Map<string, Promise<{ items: FeedItem[]; trends: TrendItem[] }>>()
+
 interface FeedItem {
   id: string
   source: string
@@ -503,6 +510,23 @@ async function fetchRedditTop(sub: string, limit = 6, niche?: string, subNiche?:
   }
 }
 
+async function searchYoutubeWithCache(
+  niche: string,
+  subNiche: string | undefined,
+  limit: number,
+  query: string | undefined
+): Promise<YouTubeVideo[]> {
+  const cacheKey = `${niche}:${subNiche || ''}:${query || 'default'}`
+  const cached = youtubeCache.get(cacheKey)
+  if (cached && Date.now() - cached.ts < YOUTUBE_CACHE_TTL) {
+    return cached.videos
+  }
+
+  const videos = await searchNicheVideos(niche, subNiche, limit, query).catch(() => [] as YouTubeVideo[])
+  youtubeCache.set(cacheKey, { videos, ts: Date.now() })
+  return videos
+}
+
 function mockFallbackForNiche(niche: string): FeedItem[] {
   // Used when data sources are temporarily unavailable.
   // Returns niche-specific insights instead of generic fallback.
@@ -692,60 +716,81 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    // ── Fetch all sources in parallel ────────────────────────────
-    // Get Instagram hashtags for niche
-    const igHashtags = getHashtagsForNiche(niche, detectedSub)
-
-    const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igPosts] = await Promise.all([
-      Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
-      fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
-      searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
-      fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
-      searchNicheVideos(niche, detectedSub || undefined, 10, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
-      (async () => {
-        // Get Instagram token from user's connected account
-        const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
-        if (!igConn?.accessToken || !igConn?.igBusinessId) return []
-        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
-      })().catch(() => []),
-    ])
-
-    let items: FeedItem[] = [
-      // Articles and news
-      ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
-      ...newsItems.slice(0, 5).map((a) => newsToFeedItem(a, niche, detectedSub)),
-      // YouTube videos/Reels
-      // YouTube reels/videos
-      ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
-      // Instagram trending (primary — 8 max)
-      ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
-      // Reddit community discussions
-      ...redditResults.flat().slice(0, maxRedditShare),
-    ]
-    let feedSource = 'live'
-    if (items.length === 0) {
-      items = mockFallbackForNiche(niche)
-      feedSource = 'fallback'
+    // ── Request deduplication: if same niche is being fetched, wait instead of duplicate ──
+    const inFlightRequest = feedRequests.get(cacheKey)
+    if (inFlightRequest) {
+      const { items: allItems, trends } = await inFlightRequest
+      const items = interleaveByType(allItems).slice(0, requestedLimit)
+      res.json({ items, trends, niche, source: 'deduplicated' })
+      return
     }
 
-    // Boost Reels that match user's content profile
-    items = boostProfileMatchedReels(items, userProfile)
+    // ── Track in-flight request to prevent duplicate fetches ──
+    const fetchPromise = (async () => {
+      // Get Instagram hashtags for niche
+      const igHashtags = getHashtagsForNiche(niche, detectedSub)
 
-    // Deduplicate by title similarity (rough — lowercase, strip punctuation)
-    const seen = new Set<string>()
-    items = items.filter((item) => {
-      const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+      const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igPosts] = await Promise.all([
+        Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
+        fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
+        searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
+        fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
+        searchYoutubeWithCache(niche, detectedSub || undefined, 10, ytQuery || undefined),
+        (async () => {
+          // Get Instagram token from user's connected account
+          const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
+          if (!igConn?.accessToken || !igConn?.igBusinessId) return []
+          return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
+        })().catch(() => []),
+      ])
 
-    // Cache the results
-    feedCache.set(cacheKey, { items, trends: trendSignals, videos: ytVideos, ts: Date.now() })
+      let items: FeedItem[] = [
+        // Articles and news
+        ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
+        ...newsItems.slice(0, 5).map((a) => newsToFeedItem(a, niche, detectedSub)),
+        // YouTube videos/Reels
+        // YouTube reels/videos
+        ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+        // Instagram trending (primary — 8 max)
+        ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
+        // Reddit community discussions
+        ...redditResults.flat().slice(0, maxRedditShare),
+      ]
+      let feedSource = 'live'
+      if (items.length === 0) {
+        items = mockFallbackForNiche(niche)
+        feedSource = 'fallback'
+      }
 
-    // Mix by type so no single source dominates
-    items = interleaveByType(items)
-    res.json({ items: items.slice(0, requestedLimit), trends: trendSignals, niche, source: feedSource })
+      // Boost Reels that match user's content profile
+      items = boostProfileMatchedReels(items, userProfile)
+
+      // Deduplicate by title similarity (rough — lowercase, strip punctuation)
+      const seen = new Set<string>()
+      items = items.filter((item) => {
+        const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+
+      // Cache the results
+      feedCache.set(cacheKey, { items, trends: trendSignals, videos: ytVideos, ts: Date.now() })
+
+      // Mix by type so no single source dominates
+      items = interleaveByType(items)
+
+      return { items: items.slice(0, requestedLimit), trends: trendSignals, feedSource }
+    })()
+
+    feedRequests.set(cacheKey, fetchPromise as unknown as Promise<{ items: FeedItem[]; trends: TrendItem[] }>)
+
+    try {
+      const { items, trends, feedSource } = await fetchPromise
+      res.json({ items, trends, niche, source: feedSource })
+    } finally {
+      feedRequests.delete(cacheKey)
+    }
   } catch (err) {
     next(err)
   }
@@ -774,6 +819,7 @@ router.post('/refresh', requireAuth, async (req, res, next) => {
     const cacheKey = `${niche}:${detectedSub || ''}`
     feedCache.delete(cacheKey) // Clear cache for this niche
     trendCache.delete(niche) // Clear trend cache
+    youtubeCache.clear() // Clear YouTube cache (could be stale)
     articleCache.clear() // Also clear article cache
 
     res.json({ success: true, message: 'Cache cleared — fetching fresh data...' })
