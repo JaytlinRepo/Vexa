@@ -149,7 +149,7 @@ async function executeAgentTask(task: {
       if (task.type === 'plan_adjustment') {
         return executeJordanPlanAdjustment({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
       }
-      return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description })
+      return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description, companyId: task.companyId })
 
     case 'copywriter':
       if (task.type === 'trend_hooks') {
@@ -349,12 +349,27 @@ async function executeJordanTask(ctx: {
   brandMemory: string
   platformData?: string
   description: string | null
+  companyId?: string
 }): Promise<ContentPlan> {
+  // Fetch performance insights from recent content for Jordan to learn from
+  let recentPerformance: string | undefined
+  if (ctx.companyId) {
+    const { createPerformanceMemory } = await import('../services/jordan/performanceMemory.service')
+    const performanceMemory = createPerformanceMemory(prisma)
+
+    // Analyze and store performance data
+    await performanceMemory.updateJordanMemory(ctx.companyId)
+
+    // Get insights to pass to Jordan
+    recentPerformance = (await performanceMemory.getJordanInsights(ctx.companyId)) || undefined
+  }
+
   const basePrompt = buildJordanSystemPrompt({
     niche: ctx.niche,
     brandVoice: ctx.brandVoice,
     audience: ctx.audience,
     goals: ctx.goals,
+    recentPerformance,
   })
 
   const systemPrompt = buildLayeredPrompt({

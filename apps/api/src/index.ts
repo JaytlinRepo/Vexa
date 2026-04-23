@@ -31,6 +31,7 @@ import uploadsRouter from './routes/uploads'
 import stripeRouter from './routes/stripe'
 import adminRouter from './routes/admin'
 import waitlistRouter from './routes/waitlist'
+import jordanPerformanceRouter from './routes/jordan-performance'
 import { initBriefRoutes } from './routes/briefs'
 import { initWeeklyRoutes } from './routes/weekly'
 import { initVideoRoutes } from './routes/video'
@@ -123,6 +124,7 @@ app.use('/api/briefs', initBriefRoutes(prisma))
 app.use('/api/weekly', initWeeklyRoutes(prisma))
 app.use('/api/video', initVideoRoutes(prisma))
 app.use('/api/studio', initStudioRoutes(prisma))
+app.use('/api/jordan/performance', jordanPerformanceRouter)
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
