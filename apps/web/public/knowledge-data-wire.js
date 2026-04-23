@@ -84,7 +84,9 @@
     // Update feed header
     var feedSub = view.querySelector('.feed-head .sub')
     if (feedSub) {
-      feedSub.textContent = items.length + ' items · ' + (isCached ? 'cached' : 'live') + ' · auto-refresh 5m'
+      var communityCount = items.filter(function (i) { return i.creator }).length
+      var sourceLabel = communityCount > 0 ? communityCount + ' community · ' + (items.length - communityCount) + ' external' : (isCached ? 'cached' : 'live')
+      feedSub.textContent = items.length + ' items · ' + sourceLabel
     }
 
     // Render reels grid
@@ -129,7 +131,9 @@
             + '</div>'
             + '<div class="body" style="padding:10px 12px">'
             + '<div style="font-size:12px;font-weight:500;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.title || '') + '</div>'
-            + '<div style="font-size:10px;color:var(--t3);margin-top:4px">' + esc(item.source || item.author || '') + '</div>'
+            + (item.creator
+              ? '<div style="font-size:10px;color:var(--accent);margin-top:4px;font-weight:500">' + esc(item.source || '') + '</div>'
+              : '<div style="font-size:10px;color:var(--t3);margin-top:4px">' + esc(item.source || item.author || '') + '</div>')
             + '</div>'
             + '</div>'
         }).join('')
@@ -223,11 +227,38 @@
     return days + 'd ago'
   }
 
+  // ── Community opt-in toggle ──
+  function wireOptIn() {
+    var cb = document.getElementById('community-opt-in')
+    if (!cb || cb.dataset.wired) return
+    cb.dataset.wired = '1'
+
+    // Load current state
+    get('/api/company/me').then(function (data) {
+      if (data && data.company) {
+        cb.checked = !!data.company.communityOptIn
+      }
+    })
+
+    cb.addEventListener('change', function () {
+      var val = cb.checked
+      fetch('/api/company/me/community-opt-in', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optIn: val }),
+      }).catch(function () { cb.checked = !val })
+    })
+  }
+
   // Hook into navigation — force refresh on re-visit so content stays fresh
   var origNav = window.navigate
   window.navigate = function (id) {
     var r = typeof origNav === 'function' ? origNav(id) : undefined
-    if (id === 'db-knowledge') setTimeout(function () { populate(true) }, 150)
+    if (id === 'db-knowledge') {
+      setTimeout(function () { populate(true) }, 150)
+      setTimeout(wireOptIn, 300)
+    }
     return r
   }
 })()

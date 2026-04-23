@@ -580,4 +580,27 @@ router.delete('/schedules/:key', requireAuth, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// ── Community feed opt-in ────────────────────────────────────────────────────
+router.patch('/me/community-opt-in', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const { optIn } = req.body as { optIn: boolean }
+
+    const company = await prisma.company.findFirst({ where: { userId } })
+    if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
+
+    await prisma.company.update({
+      where: { id: company.id },
+      data: {
+        communityOptIn: !!optIn,
+        communityOptInAt: optIn ? new Date() : null,
+      },
+    })
+
+    res.json({ ok: true, communityOptIn: !!optIn })
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router

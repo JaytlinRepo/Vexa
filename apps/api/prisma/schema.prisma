@@ -141,6 +141,8 @@ model Company {
   audience      Json     @default("{}")
   goals         Json     @default("{}")
   agentTools    Json     @default("{}") @map("agent_tools")
+  communityOptIn   Boolean  @default(false) @map("community_opt_in")
+  communityOptInAt DateTime? @map("community_opt_in_at")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -430,11 +432,16 @@ model PlatformPost {
   engagementVelocity   Float  @default(0) @map("engagement_velocity")    // engagement gained in first 48h (from snapshots)
   decayRate            Float  @default(0) @map("decay_rate")             // how fast engagement growth slows (0=dies fast, 1=evergreen)
 
+  // ── Community feed tags (AI-generated) ─────────────────────────
+  communityTags      Json?      @map("community_tags")       // structured CommunityTags object
+  communityTaggedAt  DateTime?  @map("community_tagged_at")  // null = not yet tagged
+
   account         PlatformAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   metricSnapshots PostMetricSnapshot[]
 
   @@unique([accountId, platformPostId])
   @@index([accountId, publishedAt])
+  @@index([communityTaggedAt])
   @@map("platform_posts")
 }
 

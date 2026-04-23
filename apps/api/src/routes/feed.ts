@@ -8,6 +8,7 @@ import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtub
 import { effectiveNiche } from '../lib/nicheDetection'
 import { createContentProfile } from '../services/contentProfile.service'
 import { fetchInstagramTrendingByHashtag, getHashtagsForNiche, instagramPostToFeedItem } from '../services/integrations/instagram-trending.service'
+import { queryCommunityFeed, communityPostToFeedItem } from '../services/communityFeed.service'
 
 import prisma from '../lib/prisma'
 const router = Router()
@@ -716,7 +717,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    // ── Request deduplication: if same niche is being fetched, wait instead of duplicate ──
+    // ── Request deduplication ──
     const inFlightRequest = feedRequests.get(cacheKey)
     if (inFlightRequest) {
       const { items: allItems, trends } = await inFlightRequest
@@ -725,47 +726,95 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    // ── Track in-flight request to prevent duplicate fetches ──
+    // ── Build feed: articles always external, visual content from community first ──
+    const COMMUNITY_VIDEO_MIN = 8
+
     const fetchPromise = (async () => {
-      // Get Instagram hashtags for niche
+      // Articles/discussions ALWAYS come from external APIs (users don't post articles)
+      // Visual content (reels/videos/images) comes from community first, external as fallback
+      // Both run in parallel for speed
+
       const igHashtags = getHashtagsForNiche(niche, detectedSub)
 
-      const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igPosts] = await Promise.all([
-        Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
-        fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
-        searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
+      const [communityResult, articleResults, trendSignals] = await Promise.all([
+        // Community visual content
+        queryCommunityFeed(prisma, company.id, {
+          limit: requestedLimit,
+          niche,
+          subNiche: detectedSub,
+          viewerProfile: userProfile,
+        }).catch(() => ({ posts: [], totalAvailable: 0 })),
+
+        // Articles + discussions (always external)
+        Promise.all([
+          Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
+          fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
+          searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
+        ]),
+
+        // Trends (always external)
         fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
-        searchYoutubeWithCache(niche, detectedSub || undefined, 10, ytQuery || undefined),
-        (async () => {
-          // Get Instagram token from user's connected account
-          const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
-          if (!igConn?.accessToken || !igConn?.igBusinessId) return []
-          return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
-        })().catch(() => []),
       ])
 
-      let items: FeedItem[] = [
-        // Articles and news
+      const [redditResults, rssItems, newsItems] = articleResults
+
+      // Articles from external sources
+      const articleItems: FeedItem[] = [
         ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
         ...newsItems.slice(0, 5).map((a) => newsToFeedItem(a, niche, detectedSub)),
-        // YouTube videos/Reels
-        // YouTube reels/videos
-        ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
-        // Instagram trending (primary — 8 max)
-        ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
-        // Reddit community discussions
         ...redditResults.flat().slice(0, maxRedditShare),
       ]
-      let feedSource = 'live'
+
+      // Visual content: community first
+      let videoItems: FeedItem[] = communityResult.posts.map(communityPostToFeedItem)
+      let feedSource = videoItems.length > 0 ? 'community' : 'external'
+
+      // If not enough community visual content, supplement with external video APIs
+      if (videoItems.length < COMMUNITY_VIDEO_MIN) {
+        try {
+          // Cross-niche community first
+          if (videoItems.length < COMMUNITY_VIDEO_MIN) {
+            const crossNiche = await queryCommunityFeed(prisma, company.id, {
+              limit: COMMUNITY_VIDEO_MIN - videoItems.length,
+              viewerProfile: userProfile,
+            }).catch(() => ({ posts: [], totalAvailable: 0 }))
+            const existingIds = new Set(videoItems.map((i) => i.id))
+            const crossItems = crossNiche.posts
+              .filter((p) => !existingIds.has(`community_${p.id}`))
+              .map(communityPostToFeedItem)
+            videoItems = [...videoItems, ...crossItems]
+            if (crossItems.length > 0 && feedSource === 'community') feedSource = 'community+cross'
+          }
+
+          // Still not enough? Add external video sources
+          if (videoItems.length < COMMUNITY_VIDEO_MIN) {
+            const [ytVideos, igPosts] = await Promise.all([
+              searchYoutubeWithCache(niche, detectedSub || undefined, 10, ytQuery || undefined),
+              (async () => {
+                const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
+                if (!igConn?.accessToken || !igConn?.igBusinessId) return []
+                return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
+              })().catch(() => []),
+            ])
+            const externalVideo: FeedItem[] = [
+              ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+              ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
+            ]
+            videoItems = [...videoItems, ...boostProfileMatchedReels(externalVideo, userProfile)]
+            feedSource = videoItems.length > 0 ? (feedSource.includes('community') ? feedSource + '+external' : 'external') : 'external'
+          }
+        } catch {}
+      }
+
+      // Combine articles + visual content
+      let items: FeedItem[] = [...videoItems, ...articleItems]
+
       if (items.length === 0) {
         items = mockFallbackForNiche(niche)
         feedSource = 'fallback'
       }
 
-      // Boost Reels that match user's content profile
-      items = boostProfileMatchedReels(items, userProfile)
-
-      // Deduplicate by title similarity (rough — lowercase, strip punctuation)
+      // Deduplicate by title
       const seen = new Set<string>()
       items = items.filter((item) => {
         const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)
@@ -774,10 +823,8 @@ router.get('/', requireAuth, async (req, res, next) => {
         return true
       })
 
-      // Cache the results
-      feedCache.set(cacheKey, { items, trends: trendSignals, videos: ytVideos, ts: Date.now() })
-
-      // Mix by type so no single source dominates
+      // Cache + interleave
+      feedCache.set(cacheKey, { items, trends: trendSignals, videos: [], ts: Date.now() })
       items = interleaveByType(items)
 
       return { items: items.slice(0, requestedLimit), trends: trendSignals, feedSource }

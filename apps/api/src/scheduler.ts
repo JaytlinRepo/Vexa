@@ -99,6 +99,12 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
             const msg = await generateMayaPlaybook(prisma, id)
             if (msg) console.log(`[scheduler] maya playbook for ${id}: ${msg.slice(0, 60)}...`)
           } catch {}
+          // Tag untagged posts for community feed
+          try {
+            const { tagUntaggedPostsForCompany } = await import('./services/communityTagging.service')
+            const tagResult = await tagUntaggedPostsForCompany(prisma, id)
+            if (tagResult.tagged > 0) console.log(`[scheduler] tagged ${tagResult.tagged} posts for community feed (${id})`)
+          } catch {}
         }
       } catch {}
     } catch (err) {
