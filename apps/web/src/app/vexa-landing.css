@@ -259,7 +259,7 @@ nav.top .cta .start:hover{background:var(--accent-hov);box-shadow:0 8px 24px var
 .agent{
   display:grid;grid-template-columns:44px 1fr auto;gap:14px;align-items:center;
   padding:14px 16px;border:1px solid var(--b1);border-radius:10px;
-  background:var(--s2);position:relative;
+  background:var(--s2);position:relative;overflow:hidden;
   transition:border-color .4s;
 }
 .agent.active{border-color:var(--accent)}
@@ -278,8 +278,9 @@ nav.top .cta .start:hover{background:var(--accent-hov);box-shadow:0 8px 24px var
 .agent.active .rt{color:var(--accent)}
 .agent.active .rt .sdot{background:var(--accent);box-shadow:0 0 8px var(--accent-glow);animation:pulse 1.6s ease-in-out infinite}
 .agent .bar{
-  position:absolute;bottom:0;left:16px;right:16px;height:2px;background:var(--accent);
+  position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);
   transform-origin:left;transform:scaleX(0);opacity:.6;
+  border-radius:0 0 10px 10px;
 }
 .agent.active .bar{animation:bar-fill 4s ease-out infinite}
 .agent[data-k="maya"].active .bar{animation-delay:0s}
