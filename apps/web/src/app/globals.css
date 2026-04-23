@@ -158,14 +158,40 @@
   display: flex;
   gap: 3px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
 }
 
-.work-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
+.work-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 1px;
+  border-radius: 4px;
+  border: 1px solid;
+  background: var(--bg);
+  line-height: 1;
+}
+
+.work-chip-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--bg);
   flex-shrink: 0;
+}
+
+.work-chip-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  letter-spacing: .03em;
+  color: var(--t2);
+  white-space: nowrap;
 }
 
 .work-overflow {

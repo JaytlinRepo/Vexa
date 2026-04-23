@@ -132,13 +132,17 @@
 
       if (dayTasks.length > 0) {
         html += '<div class="day-work">'
-        var shown = dayTasks.slice(0, 4)
+        var shown = dayTasks.slice(0, 3)
         for (var ti = 0; ti < shown.length; ti++) {
           var roleKey = shown[ti].employee ? shown[ti].employee.role : 'strategist'
-          var color = AGENTS[roleKey] || AGENTS.strategist
-          html += '<div class="work-dot" style="background:' + color.css + '" title="' + (TYPE_LABEL[shown[ti].type] || shown[ti].type) + '"></div>'
+          var ag = AGENTS[roleKey] || AGENTS.strategist
+          var tLabel = TYPE_LABEL[shown[ti].type] || ''
+          html += '<div class="work-chip" style="border-color:' + ag.css + '">'
+            + '<span class="work-chip-dot" style="background:' + ag.css + '">' + ag.initial + '</span>'
+            + (tLabel ? '<span class="work-chip-lbl">' + tLabel + '</span>' : '')
+            + '</div>'
         }
-        if (dayTasks.length > 4) html += '<span class="work-overflow">+' + (dayTasks.length - 4) + '</span>'
+        if (dayTasks.length > 3) html += '<span class="work-overflow">+' + (dayTasks.length - 3) + '</span>'
         html += '</div>'
       }
 
