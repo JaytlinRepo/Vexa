@@ -91,63 +91,64 @@
     }
     var thoughtsByDate = groupByDate(allThoughts, 'createdAt')
 
-    // Header: prev/month/next + agent filters
-    var html = '<div class="calendar-header">'
-      + '<div style="display:flex;align-items:center;gap:12px">'
-      + '<button class="cal-nav" data-dir="-1" style="cursor:pointer;background:none;border:1px solid var(--b1);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:14px">&larr;</button>'
-      + '<h2>' + monthLabel + '</h2>'
-      + '<button class="cal-nav" data-dir="1" style="cursor:pointer;background:none;border:1px solid var(--b1);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:14px">&rarr;</button>'
+    // ── Header: month nav + filters ──
+    var html = '<div class="cal-head">'
+      + '<div class="cal-head-left">'
+      + '<button class="cal-nav" data-dir="-1">&larr;</button>'
+      + '<h2 class="cal-month">' + monthLabel + '</h2>'
+      + '<button class="cal-nav" data-dir="1">&rarr;</button>'
+      + '<button class="cal-nav cal-today" data-dir="0">Today</button>'
       + '</div>'
-      + '<div class="calendar-legend">'
+      + '<div class="cal-filters">'
       + '<button class="cal-filter' + (activeFilter === 'all' ? ' on' : '') + '" data-role="all">All</button>'
 
     for (var ri = 0; ri < ROLE_LIST.length; ri++) {
       var role = ROLE_LIST[ri]
       var ag = AGENTS[role]
       html += '<button class="cal-filter' + (activeFilter === role ? ' on' : '') + '" data-role="' + role + '">'
-        + '<span class="dot" style="background:' + ag.css + '"></span>' + ag.label
+        + '<span class="cal-dot" style="background:' + ag.css + '"></span>' + ag.label
         + '</button>'
     }
     html += '</div></div>'
 
-    // Grid
-    html += '<div class="calendar-grid"><div class="calendar-weekdays">'
+    // ── Grid ──
+    html += '<div class="cal-grid"><div class="cal-weekdays">'
     var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    for (var di = 0; di < 7; di++) html += '<div class="weekday">' + dayNames[di] + '</div>'
-    html += '</div><div class="calendar-days">'
+    for (var di = 0; di < 7; di++) html += '<div class="cal-wd">' + dayNames[di] + '</div>'
+    html += '</div><div class="cal-days">'
 
     for (var ci = 0; ci < days.length; ci++) {
       var day = days[ci]
-      if (!day) { html += '<div class="day empty"></div>'; continue }
+      if (!day) { html += '<div class="cal-day empty"></div>'; continue }
 
       var dateStr = fmtDate(day)
       var dayTasks = tasksByDate[dateStr] || []
       var dayThoughts = thoughtsByDate[dateStr] || []
       var isToday = dateStr === todayStr
       var isSel = dateStr === selectedDate
-      var cls = 'day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '')
+      var hasWork = dayTasks.length > 0 || dayThoughts.length > 0
+      var cls = 'cal-day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '') + (hasWork ? ' has-work' : '')
 
       html += '<div class="' + cls + '" data-date="' + dateStr + '">'
-        + '<div class="day-num">' + day.getDate() + '</div>'
+        + '<div class="cal-day-top">'
+        + '<span class="cal-day-num">' + day.getDate() + '</span>'
+        + (dayThoughts.length > 0 ? '<span class="cal-day-thoughts">' + dayThoughts.length + '</span>' : '')
+        + '</div>'
 
       if (dayTasks.length > 0) {
-        html += '<div class="day-work">'
+        html += '<div class="cal-day-items">'
         var shown = dayTasks.slice(0, 3)
         for (var ti = 0; ti < shown.length; ti++) {
           var roleKey = shown[ti].employee ? shown[ti].employee.role : 'strategist'
-          var ag = AGENTS[roleKey] || AGENTS.strategist
+          var agc = AGENTS[roleKey] || AGENTS.strategist
           var tLabel = TYPE_LABEL[shown[ti].type] || ''
-          html += '<div class="work-chip" style="border-color:' + ag.css + '">'
-            + '<span class="work-chip-dot" style="background:' + ag.css + '">' + ag.initial + '</span>'
-            + (tLabel ? '<span class="work-chip-lbl">' + tLabel + '</span>' : '')
+          html += '<div class="cal-chip" style="--chip-c:' + agc.css + '">'
+            + '<span class="cal-chip-i">' + agc.initial + '</span>'
+            + (tLabel ? '<span class="cal-chip-l">' + tLabel + '</span>' : '')
             + '</div>'
         }
-        if (dayTasks.length > 3) html += '<span class="work-overflow">+' + (dayTasks.length - 3) + '</span>'
+        if (dayTasks.length > 3) html += '<span class="cal-chip-more">+' + (dayTasks.length - 3) + '</span>'
         html += '</div>'
-      }
-
-      if (dayThoughts.length > 0) {
-        html += '<div class="thought-indicator">' + dayThoughts.length + '</div>'
       }
 
       html += '</div>'
@@ -165,10 +166,18 @@
     var nav = e.target.closest('.cal-nav')
     if (nav) {
       var dir = parseInt(nav.dataset.dir, 10)
-      viewMonth += dir
-      if (viewMonth < 0) { viewMonth = 11; viewYear-- }
-      if (viewMonth > 11) { viewMonth = 0; viewYear++ }
+      if (dir === 0) {
+        var now = today()
+        viewYear = now.getFullYear()
+        viewMonth = now.getMonth()
+        selectedDate = fmtDate(now)
+      } else {
+        viewMonth += dir
+        if (viewMonth < 0) { viewMonth = 11; viewYear-- }
+        if (viewMonth > 11) { viewMonth = 0; viewYear++ }
+      }
       render()
+      if (dir === 0) selectDay(selectedDate)
       return
     }
 
@@ -183,7 +192,7 @@
     }
 
     // Day click
-    var dayEl = e.target.closest('.day[data-date]')
+    var dayEl = e.target.closest('.cal-day[data-date]')
     if (dayEl && !dayEl.classList.contains('empty')) {
       selectDay(dayEl.dataset.date)
     }
@@ -194,8 +203,8 @@
     selectedDate = dateStr
 
     // Highlight
-    document.querySelectorAll('.calendar-days .day').forEach(function (d) { d.classList.remove('selected') })
-    var sel = document.querySelector('.day[data-date="' + dateStr + '"]')
+    document.querySelectorAll('.cal-days .cal-day').forEach(function (d) { d.classList.remove('selected') })
+    var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]')
     if (sel) sel.classList.add('selected')
 
     var sidebar = document.getElementById('team-calendar-sidebar')
@@ -245,11 +254,11 @@
       + '</div>'
       + '<div class="sb-body">'
 
-    // ── Work section (table style like HQ posts) ──
+    // ── Tasks section ──
     if (dayTasks.length > 0) {
       html += '<div class="sb-section">'
-        + '<div class="sb-section-head">Work <em>' + dayTasks.length + '</em></div>'
-        + '<table class="sb-tbl"><thead><tr><th>Task</th><th class="r">Status</th></tr></thead><tbody>'
+        + '<div class="sb-section-head">Tasks <em>' + dayTasks.length + '</em></div>'
+        + '<table class="sb-tbl"><tbody>'
 
       for (var i = 0; i < dayTasks.length; i++) {
         var t = dayTasks[i]
