@@ -552,18 +552,38 @@
     var view = document.getElementById('view-db-posts')
     if (!view) return
     wireFilters()
+
+    // If already fetched, render existing data immediately
     if (state.fetched) { render(); return }
 
-    // Instantly render from cache while fresh data loads
+    // First load: render from cache instantly while API loads
     var cached = loadFromCache()
     if (cached) {
       applyTimeseries(cached, view)
     }
 
+    fetchFresh(view)
+  }
+
+  function fetchFresh(view) {
     if (fetchInFlight) return
     fetchInFlight = true
     state.fetched = true
 
+    get('/api/platform/timeseries').then(function (ts) {
+      fetchInFlight = false
+      if (!ts) return
+      saveToCache(ts)
+      if (!view) view = document.getElementById('view-db-posts')
+      if (view) applyTimeseries(ts, view)
+    })
+  }
+
+  // Background refresh — called on re-navigate to keep data fresh
+  function backgroundRefresh() {
+    var view = document.getElementById('view-db-posts')
+    if (!view || fetchInFlight) return
+    fetchInFlight = true
     get('/api/platform/timeseries').then(function (ts) {
       fetchInFlight = false
       if (!ts) return
@@ -576,7 +596,13 @@
   var origNav = window.navigate
   window.navigate = function (id) {
     var r = typeof origNav === 'function' ? origNav(id) : undefined
-    if (id === 'db-posts') setTimeout(populate, 150)
+    if (id === 'db-posts') {
+      setTimeout(function () {
+        populate()
+        // If already loaded, trigger background refresh for fresh data
+        if (state.fetched) backgroundRefresh()
+      }, 150)
+    }
     return r
   }
 })()

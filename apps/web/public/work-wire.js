@@ -544,22 +544,19 @@
   // ── Navigation wiring ──────────────────────────────────────────
   var origNavigate = window.navigate
   window.navigate = function (id) {
-    if (id === 'db-team') {
-      // New standalone Team page — don't redirect to Work anymore
-      var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-      return r
-    }
+    // Always pass the original ID down the chain so all handlers see it
+    var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
     if (id === 'db-outputs') {
+      // Outputs is part of the unified Work page — show tasks view, switch to inbox tab
       currentTab = 'inbox'
-      var r2 = typeof origNavigate === 'function' ? origNavigate('db-tasks') : undefined
+      // Show the tasks view if not already visible
+      var tasksView = document.getElementById('view-db-tasks')
+      if (tasksView) tasksView.style.display = ''
       setTimeout(injectWork, 60)
-      return r2
-    }
-    var r3 = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-tasks') {
+    } else if (id === 'db-tasks') {
       setTimeout(injectWork, 60)
     }
-    return r3
+    return r
   }
 
   var prevEnter = window.enterDashboard
@@ -582,7 +579,5 @@
     }
   } catch {}
 
-  if (document.readyState !== 'loading') setTimeout(injectWork, 700)
-  document.addEventListener('DOMContentLoaded', function () { setTimeout(injectWork, 800) })
   setInterval(retry, 1500)
 })()

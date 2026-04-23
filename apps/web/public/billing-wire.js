@@ -187,6 +187,4 @@
     return r
   }
 
-  if (document.readyState !== 'loading') setTimeout(refresh, 700)
-  document.addEventListener('DOMContentLoaded', () => setTimeout(refresh, 800))
 })()

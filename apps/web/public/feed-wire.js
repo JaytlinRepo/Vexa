@@ -217,11 +217,4 @@
     load()
   }
 
-  // Initial best-effort: if the feed grids exist and the user is on the
-  // marketing /knowledge view by default, populate those too.
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('#mkt-feed-grid') || document.querySelector('#db-feed-grid')) {
-      setTimeout(() => load(), 600)
-    }
-  })
 })()

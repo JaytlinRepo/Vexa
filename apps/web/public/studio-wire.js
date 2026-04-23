@@ -803,10 +803,17 @@
     }
   }
 
-  // Wait for DOM to be ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initStudioTab)
-  } else {
-    initStudioTab()
+  // ── Navigation wiring ──────────────────────────────────────────
+  var origNavigate = window.navigate
+  window.navigate = function (id) {
+    var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
+    if (id === 'db-studio') setTimeout(initStudioTab, 60)
+    return r
+  }
+
+  var prevEnter = window.enterDashboard
+  window.enterDashboard = async function () {
+    if (typeof prevEnter === 'function') await prevEnter()
+    // Studio initializes on navigate('db-studio'), not on enterDashboard
   }
 })()

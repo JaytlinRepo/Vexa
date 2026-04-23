@@ -230,6 +230,4 @@
     setTimeout(init, 100)
   }
 
-  document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200))
-  if (document.readyState !== 'loading') setTimeout(init, 300)
 })()

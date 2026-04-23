@@ -37,10 +37,9 @@
     var attempts = 0
     function check() {
       var S = window.__vxDashState
-      // Wait until overview is loaded (it comes in the second batch after me/tasks)
-      if (S && S.me && S.overview) { cb(S); return }
-      // After 30 attempts (~7.5s), run with whatever we have
-      if (S && S.me && ++attempts >= 30) { cb(S); return }
+      // Run as soon as me is available — don't wait for overview
+      // Overview-dependent sections (charts) handle null ov gracefully
+      if (S && S.me) { cb(S); return }
       if (++attempts < 60) setTimeout(check, 250)
     }
     check()

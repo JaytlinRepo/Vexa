@@ -877,7 +877,7 @@
   window.vxRenderContent = async function (host) {
     host.innerHTML = '<div style="padding:4px 0">'
       + uploadZone()
-      + '<div id="vx-uploads-list"><div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">Loading...</div></div>'
+      + '<div id="vx-uploads-list"><div style="text-align:center;padding:24px"><div class="vx-spin" style="margin:0 auto"></div></div></div>'
       + '</div>'
 
     // Wire upload zone

@@ -165,7 +165,5 @@
     if (typeof prevEnter === 'function') await prevEnter()
     setTimeout(inject, 260)
   }
-  document.addEventListener('DOMContentLoaded', () => setTimeout(inject, 900))
-  if (document.readyState !== 'loading') setTimeout(inject, 900)
   setInterval(retry, 1300)
 })()

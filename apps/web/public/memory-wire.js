@@ -160,6 +160,4 @@
     return r
   }
 
-  document.addEventListener('DOMContentLoaded', () => setTimeout(init, 400))
-  if (document.readyState !== 'loading') setTimeout(init, 500)
 })()

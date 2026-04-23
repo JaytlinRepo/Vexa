@@ -87,6 +87,8 @@
     try { if (me?.user) localStorage.setItem('vx-authed', '1') } catch {}
     // Expose state for agent drawer
     window.__vxDashState = STATE
+    // Notify HQ early — masthead + pipeline can render with me/tasks before overview loads
+    window.dispatchEvent(new CustomEvent('vx-dash-ready'))
 
     const companyId = me?.companies?.[0]?.id
     if (companyId) {

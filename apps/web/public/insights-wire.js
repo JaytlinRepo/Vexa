@@ -305,6 +305,4 @@
     return r
   }
 
-  if (document.readyState !== 'loading') setTimeout(render, 900)
-  document.addEventListener('DOMContentLoaded', () => setTimeout(render, 950))
 })()

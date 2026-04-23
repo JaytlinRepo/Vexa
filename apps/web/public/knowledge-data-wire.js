@@ -19,9 +19,9 @@
     var imagesCol = document.getElementById('knowledge-images-col')
     var reelsGrid = document.getElementById('knowledge-reels-grid')
     var articlesRail = document.getElementById('knowledge-articles-rail')
-    if (imagesCol && !populated) imagesCol.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-size:12px">Loading Instagram...</div>'
-    if (reelsGrid && !populated) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:12px">Loading reels...</div>'
-    if (articlesRail && !populated) articlesRail.innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px">Loading articles...</div>'
+    if (imagesCol && !populated) imagesCol.innerHTML = '<div style="text-align:center;padding:30px"><div class="vx-spin" style="margin:0 auto"></div></div>'
+    if (reelsGrid && !populated) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px"><div class="vx-spin" style="margin:0 auto"></div></div>'
+    if (articlesRail && !populated) articlesRail.innerHTML = '<div style="padding:20px;text-align:center"><div class="vx-spin" style="margin:0 auto"></div></div>'
 
     get('/api/feed?limit=25').then(function (data) {
       if (!data || !data.items || data.items.length === 0) {
@@ -223,11 +223,11 @@
     return days + 'd ago'
   }
 
-  // Hook into navigation
+  // Hook into navigation — force refresh on re-visit so content stays fresh
   var origNav = window.navigate
   window.navigate = function (id) {
     var r = typeof origNav === 'function' ? origNav(id) : undefined
-    if (id === 'db-knowledge') setTimeout(populate, 150)
+    if (id === 'db-knowledge') setTimeout(function () { populate(true) }, 150)
     return r
   }
 })()

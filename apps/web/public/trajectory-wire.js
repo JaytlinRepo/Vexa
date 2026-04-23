@@ -571,11 +571,6 @@
     setTimeout(inject, 250)
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(inject, 900)
-  })
-  if (document.readyState !== 'loading') setTimeout(inject, 900)
-
   // Light polling to re-inject when dashboard-v2 rerenders
   setInterval(retryInject, 1200)
 })()
