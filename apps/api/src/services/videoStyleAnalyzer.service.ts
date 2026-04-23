@@ -255,28 +255,27 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
     // Aggregate into profile
     const profile = aggregateStyles(styles)
 
-    // Store in brand_memory using 'preference' as memoryType
-    // First, try to find existing style preference
+    // Store in brand_memory with a unique source tag so we can retrieve it reliably
+    const profileData = { source: 'video_style_analysis', ...profile } as any
     const existing = await prisma.brandMemory.findFirst({
       where: {
         companyId,
         memoryType: 'preference',
+        content: { path: ['source'], equals: 'video_style_analysis' },
       },
     })
 
     if (existing) {
       await prisma.brandMemory.update({
         where: { id: existing.id },
-        data: {
-          content: profile as any,
-        },
+        data: { content: profileData },
       })
     } else {
       await prisma.brandMemory.create({
         data: {
           companyId,
           memoryType: 'preference',
-          content: profile as any,
+          content: profileData,
           weight: 1.0,
         },
       })
@@ -299,11 +298,13 @@ export async function getStyleProfile(companyId: string): Promise<StyleProfile |
       where: {
         companyId,
         memoryType: 'preference',
+        content: { path: ['source'], equals: 'video_style_analysis' },
       },
     })
 
     if (!memory) return null
-    return memory.content as unknown as StyleProfile
+    const { source: _, ...profile } = memory.content as Record<string, unknown>
+    return profile as unknown as StyleProfile
   } catch (err) {
     console.error('[videoStyleAnalyzer] Failed to get style profile:', err)
     return null
