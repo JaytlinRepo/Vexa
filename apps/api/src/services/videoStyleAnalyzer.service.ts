@@ -1,73 +1,261 @@
+/**
+ * Video Style Analyzer
+ *
+ * Full analysis pipeline for creator videos:
+ * 1. FFmpeg keyframes → Bedrock Vision (visual metrics)
+ * 2. FFmpeg audio analysis (energy curves, silence, SFX detection)
+ * 3. Aggregation across multiple videos into a StyleProfile
+ */
+
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
 import { extractKeyframes } from '../lib/keyframeExtractor.service'
 import prisma from '../lib/prisma'
 
+const execFileAsync = promisify(execFile)
+
+// ── Full Style Profile ───────────────────────────────────────────────────────
+
 export interface StyleProfile {
-  cutSpeed: string
-  subtitleDensity: 'high' | 'medium' | 'low'
-  subtitleTiming: string
-  zoomBehavior: {
-    frequency: string
-    type: string[]
-  }
-  visualDensity: 'high' | 'medium' | 'low'
-  musicIntensity: 'high' | 'medium' | 'low'
-  hookTiming: string
-  ctaPlacement: string
-  transitionStyle: string[]
-  narrativeStructure: string
+  // Cut & pacing
+  avgCutDuration: number              // seconds per cut (e.g., 1.2)
+  pacingSpeed: 'very-fast' | 'fast' | 'moderate' | 'slow' | 'mixed'
+  pacingCurve: string                 // e.g., "builds intensity" | "steady" | "front-loaded"
+
+  // Hook
+  hookTiming: number                  // seconds before the hook lands (e.g., 1.5)
+  hookStyle: string                   // e.g., "text-overlay-question" | "visual-surprise" | "voice-hook"
+
+  // Subtitles & text
+  subtitleFrequency: number           // percentage of frames with text overlays (0-100)
+  subtitleStyle: string               // e.g., "bold-centered" | "lower-third" | "animated-word-by-word"
+  hasSubtitles: boolean
+
+  // Zoom & camera
+  zoomFrequency: number               // zooms per minute
+  zoomTypes: string[]                 // ["punch-in", "slow-zoom", "dolly", "whip-pan"]
+
+  // Transitions
+  transitionStyles: string[]          // ["hard-cut", "fade", "match-cut", "j-cut", "swipe"]
+  transitionFrequency: number         // transitions per minute
+
+  // Audio
+  silenceRemoval: boolean             // whether creator removes silence/dead air
+  silenceRatio: number                // % of video that is silent (0-100)
+  audioEnergyProfile: string          // "high-throughout" | "builds" | "drops-mid" | "peaks-at-hook"
+  musicIntensity: 'high' | 'medium' | 'low' | 'none'
+  hasSFX: boolean                     // sound effects detected
+  sfxFrequency: number                // SFX per minute
+  sfxTiming: string                   // "on-cuts" | "on-text" | "on-beats" | "sparse"
+
+  // Storytelling & engagement
+  narrativeStructure: string          // "hook-story-cta" | "problem-solution" | "transformation" | "list" | "day-in-life"
+  storytellingCadence: string         // "fast-reveal" | "slow-build" | "tension-release" | "montage"
+  engagementPacing: string            // "front-loaded" | "even" | "back-loaded" | "peaks-middle"
+  ctaPlacement: string                // "end" | "mid-roll" | "none" | "end + mid-roll"
+
+  // Visual
   colorGrading: string
+  visualDensity: 'high' | 'medium' | 'low'
   aspectRatio: string
-  videoLength: string
+  videoLength: string                 // average duration range
+
+  // Content
   contentAngles: string[]
 }
 
-const VISION_PROMPT = `You are a video editing style analyzer. You are given keyframes extracted from a creator's Reel/Video at regular intervals.
+// ── Audio Analysis via FFmpeg ─────────────────────────────────────────────────
 
-Analyze the frames for editing patterns and respond with ONLY valid JSON:
-{
-  "cutSpeed": "fast/medium/slow with estimated seconds per cut",
-  "visualDensity": "high/medium/low",
-  "colorGrading": "description of color palette and grading style",
-  "hasSubtitles": true/false,
-  "subtitleStyle": "description if visible, or null",
-  "transitionStyle": ["hard-cut", "fade", "zoom-in", "match-cut", etc.],
-  "zoomTypes": ["punch-in", "slow-zoom", "static", "reaction-focus"],
-  "hookStyle": "how the first frames grab attention",
-  "narrativeStructure": "hook-story-cta / transformation / tutorial / vlog / montage",
-  "contentAngle": "what type of content this is",
-  "aspectRatio": "9:16 / 16:9 / 1:1"
+interface AudioAnalysis {
+  silenceRatio: number
+  silenceRemoval: boolean
+  audioEnergyProfile: string
+  hasSFX: boolean
+  sfxFrequency: number
+  musicIntensity: 'high' | 'medium' | 'low' | 'none'
 }
 
-Look at frame-to-frame differences to detect:
-- How fast cuts happen (compare adjacent frames — similar = slow cuts, very different = fast cuts)
-- Whether subtitles/text overlays are present
-- Color consistency across frames (same grade = cohesive, varying = dynamic)
-- Zoom patterns (close-ups vs wide shots alternating)
-- Opening hook style (first 2-3 frames)`
+async function analyzeAudio(videoUrl: string, duration: number): Promise<AudioAnalysis> {
+  const defaults: AudioAnalysis = {
+    silenceRatio: 0,
+    silenceRemoval: false,
+    audioEnergyProfile: 'unknown',
+    hasSFX: false,
+    sfxFrequency: 0,
+    musicIntensity: 'medium',
+  }
 
-/**
- * Analyze a single video using FFmpeg keyframes sent to Bedrock Vision
- */
-async function analyzeVideoStyle(
+  if (!videoUrl || !videoUrl.startsWith('http')) return defaults
+
+  const tmpDir = path.join(os.tmpdir(), `sovexa-audio-${Date.now()}`)
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true })
+    const tmpFile = path.join(tmpDir, 'source.mp4')
+
+    // Download video
+    const axios = (await import('axios')).default
+    const resp = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 15000 })
+    fs.writeFileSync(tmpFile, Buffer.from(resp.data))
+
+    // Detect silence using FFmpeg silencedetect filter
+    let silenceOutput = ''
+    try {
+      const { stderr } = await execFileAsync('ffmpeg', [
+        '-i', tmpFile,
+        '-af', 'silencedetect=noise=-30dB:d=0.3',
+        '-f', 'null', '-',
+      ], { timeout: 30000 })
+      silenceOutput = stderr
+    } catch (err: any) {
+      silenceOutput = err.stderr || ''
+    }
+
+    // Parse silence intervals
+    const silenceStarts = (silenceOutput.match(/silence_start: [\d.]+/g) || []).map((s) =>
+      parseFloat(s.replace('silence_start: ', ''))
+    )
+    const silenceEnds = (silenceOutput.match(/silence_end: [\d.]+/g) || []).map((s) =>
+      parseFloat(s.replace('silence_end: ', '').split('|')[0].trim())
+    )
+    let totalSilence = 0
+    for (let i = 0; i < Math.min(silenceStarts.length, silenceEnds.length); i++) {
+      totalSilence += silenceEnds[i] - silenceStarts[i]
+    }
+    const silenceRatio = duration > 0 ? Math.round((totalSilence / duration) * 100) : 0
+
+    // Detect volume levels using volumedetect
+    let volumeOutput = ''
+    try {
+      const { stderr } = await execFileAsync('ffmpeg', [
+        '-i', tmpFile,
+        '-af', 'volumedetect',
+        '-f', 'null', '-',
+      ], { timeout: 30000 })
+      volumeOutput = stderr
+    } catch (err: any) {
+      volumeOutput = err.stderr || ''
+    }
+
+    const meanVolMatch = volumeOutput.match(/mean_volume: ([-\d.]+) dB/)
+    const maxVolMatch = volumeOutput.match(/max_volume: ([-\d.]+) dB/)
+    const meanVol = meanVolMatch ? parseFloat(meanVolMatch[1]) : -20
+    const maxVol = maxVolMatch ? parseFloat(maxVolMatch[1]) : -5
+
+    // Determine audio characteristics
+    const dynamicRange = maxVol - meanVol
+    const hasSFX = dynamicRange > 15 // big spikes = SFX
+    const sfxFrequency = hasSFX ? Math.round(dynamicRange / 5) : 0
+
+    let musicIntensity: 'high' | 'medium' | 'low' | 'none' = 'medium'
+    if (meanVol > -15) musicIntensity = 'high'
+    else if (meanVol > -25) musicIntensity = 'medium'
+    else if (meanVol > -40) musicIntensity = 'low'
+    else musicIntensity = 'none'
+
+    let audioEnergyProfile = 'steady'
+    if (silenceRatio < 5 && musicIntensity === 'high') audioEnergyProfile = 'high-throughout'
+    else if (silenceRatio > 30) audioEnergyProfile = 'speech-with-gaps'
+    else if (hasSFX) audioEnergyProfile = 'peaks-at-transitions'
+    else audioEnergyProfile = 'builds'
+
+    // Clean up
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+
+    return {
+      silenceRatio,
+      silenceRemoval: silenceRatio < 5 && duration > 15, // very little silence in a 15s+ video = removed
+      audioEnergyProfile,
+      hasSFX,
+      sfxFrequency,
+      musicIntensity,
+    }
+  } catch (err) {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch {}
+    console.warn('[videoStyleAnalyzer] audio analysis failed:', (err as Error).message)
+    return defaults
+  }
+}
+
+// ── Visual Analysis via Bedrock Vision ───────────────────────────────────────
+
+const VISION_PROMPT = `You are an expert video editing analyst. You are given keyframes extracted from a creator's Reel/Video at regular intervals.
+
+Analyze the frames for PRECISE editing metrics. Respond with ONLY valid JSON:
+{
+  "avgCutDuration": 1.2,
+  "pacingSpeed": "very-fast|fast|moderate|slow|mixed",
+  "pacingCurve": "builds-intensity|steady|front-loaded|peaks-middle|slow-build",
+  "hookTiming": 1.5,
+  "hookStyle": "text-overlay-question|visual-surprise|voice-hook|pattern-interrupt|cold-open|relatable-moment",
+  "subtitlePercentage": 60,
+  "subtitleStyle": "bold-centered|lower-third|animated-word-by-word|minimal-keywords|none",
+  "hasSubtitles": true,
+  "zoomFrequency": 3.5,
+  "zoomTypes": ["punch-in", "slow-zoom"],
+  "transitionStyles": ["hard-cut", "fade"],
+  "transitionFrequency": 8.0,
+  "narrativeStructure": "hook-story-cta|problem-solution|transformation|list|day-in-life|montage|tutorial",
+  "storytellingCadence": "fast-reveal|slow-build|tension-release|montage|question-answer",
+  "engagementPacing": "front-loaded|even|back-loaded|peaks-middle",
+  "ctaPlacement": "end|mid-roll|none|end+mid-roll",
+  "colorGrading": "description",
+  "visualDensity": "high|medium|low",
+  "aspectRatio": "9:16|16:9|1:1",
+  "contentAngle": "description"
+}
+
+CRITICAL — measure precisely:
+- avgCutDuration: count how many distinctly different scenes appear across the frames, divide total duration by scene count
+- hookTiming: how many seconds before something visually arresting happens (count from frame 0)
+- subtitlePercentage: what % of frames show text overlays or subtitles
+- zoomFrequency: how many zoom changes per minute (close-up → wide or vice versa)
+- transitionFrequency: scene changes per minute based on frame differences
+- engagementPacing: where is the most visually dynamic content? beginning, middle, or end?`
+
+interface VisualAnalysis {
+  avgCutDuration: number
+  pacingSpeed: string
+  pacingCurve: string
+  hookTiming: number
+  hookStyle: string
+  subtitleFrequency: number
+  subtitleStyle: string
+  hasSubtitles: boolean
+  zoomFrequency: number
+  zoomTypes: string[]
+  transitionStyles: string[]
+  transitionFrequency: number
+  narrativeStructure: string
+  storytellingCadence: string
+  engagementPacing: string
+  ctaPlacement: string
+  colorGrading: string
+  visualDensity: 'high' | 'medium' | 'low'
+  aspectRatio: string
+  contentAngles: string[]
+}
+
+async function analyzeVisuals(
   mediaUrl: string,
   thumbnailUrl: string | null,
   duration: number,
-): Promise<Partial<StyleProfile>> {
+): Promise<VisualAnalysis | null> {
   try {
-    // Extract keyframes from the actual video via FFmpeg
     let frames: Array<{ timestamp: number; base64: string; index: number }> = []
 
     if (mediaUrl && mediaUrl.startsWith('http')) {
       try {
-        const interval = duration > 30 ? 4 : 3
-        frames = await extractKeyframes(mediaUrl, Math.max(duration, 15), interval, 8)
+        const interval = duration > 30 ? 3 : 2
+        frames = await extractKeyframes(mediaUrl, Math.max(duration, 15), interval, 10)
       } catch (err) {
-        console.warn('[videoStyleAnalyzer] FFmpeg extraction failed, trying thumbnail:', (err as Error).message)
+        console.warn('[videoStyleAnalyzer] FFmpeg extraction failed:', (err as Error).message)
       }
     }
 
-    // Fallback: download thumbnail as single frame
     if (frames.length === 0 && thumbnailUrl) {
       try {
         const axios = (await import('axios')).default
@@ -79,9 +267,8 @@ async function analyzeVideoStyle(
       } catch {}
     }
 
-    if (frames.length === 0) return {}
+    if (frames.length === 0) return null
 
-    // Build vision content blocks — frames + analysis prompt
     const contentBlocks: Array<
       | { type: 'text'; text: string }
       | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
@@ -100,110 +287,142 @@ async function analyzeVideoStyle(
 
     contentBlocks.push({
       type: 'text',
-      text: `${frames.length} keyframes from a ${duration}s video. Analyze the editing style.`,
+      text: `${frames.length} keyframes from a ${duration}s video. Measure editing metrics precisely.`,
     })
 
     const raw = await invokeAgent({
       systemPrompt: VISION_PROMPT,
       messages: [{ role: 'user', content: contentBlocks }],
-      maxTokens: 512,
+      maxTokens: 768,
       temperature: 0.2,
     })
 
-    let analysis: Record<string, unknown>
-    try {
-      analysis = parseAgentOutput(raw)
-    } catch {
-      analysis = {}
-    }
+    const a = parseAgentOutput<Record<string, unknown>>(raw)
 
     return {
-      cutSpeed: (analysis.cutSpeed as string) || undefined,
-      visualDensity: (analysis.visualDensity as 'high' | 'medium' | 'low') || undefined,
-      colorGrading: (analysis.colorGrading as string) || undefined,
-      subtitleDensity: analysis.hasSubtitles ? 'high' : 'low',
-      subtitleTiming: (analysis.subtitleStyle as string) || 'standard',
-      transitionStyle: Array.isArray(analysis.transitionStyle) ? analysis.transitionStyle : undefined,
-      zoomBehavior: {
-        frequency: 'varies',
-        type: Array.isArray(analysis.zoomTypes) ? analysis.zoomTypes : [],
-      },
-      narrativeStructure: (analysis.narrativeStructure as string) || undefined,
-      aspectRatio: (analysis.aspectRatio as string) || undefined,
-      contentAngles: [analysis.contentAngle as string].filter(Boolean),
+      avgCutDuration: typeof a.avgCutDuration === 'number' ? a.avgCutDuration : 1.5,
+      pacingSpeed: (a.pacingSpeed as string) || 'moderate',
+      pacingCurve: (a.pacingCurve as string) || 'steady',
+      hookTiming: typeof a.hookTiming === 'number' ? a.hookTiming : 2,
+      hookStyle: (a.hookStyle as string) || 'cold-open',
+      subtitleFrequency: typeof a.subtitlePercentage === 'number' ? a.subtitlePercentage : 0,
+      subtitleStyle: (a.subtitleStyle as string) || 'none',
+      hasSubtitles: !!a.hasSubtitles,
+      zoomFrequency: typeof a.zoomFrequency === 'number' ? a.zoomFrequency : 0,
+      zoomTypes: Array.isArray(a.zoomTypes) ? a.zoomTypes : [],
+      transitionStyles: Array.isArray(a.transitionStyles) ? a.transitionStyles : ['hard-cut'],
+      transitionFrequency: typeof a.transitionFrequency === 'number' ? a.transitionFrequency : 0,
+      narrativeStructure: (a.narrativeStructure as string) || 'hook-story-cta',
+      storytellingCadence: (a.storytellingCadence as string) || 'fast-reveal',
+      engagementPacing: (a.engagementPacing as string) || 'front-loaded',
+      ctaPlacement: (a.ctaPlacement as string) || 'end',
+      colorGrading: (a.colorGrading as string) || 'natural',
+      visualDensity: (a.visualDensity as 'high' | 'medium' | 'low') || 'medium',
+      aspectRatio: (a.aspectRatio as string) || '9:16',
+      contentAngles: [a.contentAngle as string].filter(Boolean),
     }
   } catch (err) {
-    console.error('[videoStyleAnalyzer] analysis failed:', (err as Error).message)
-    return {}
+    console.error('[videoStyleAnalyzer] visual analysis failed:', (err as Error).message)
+    return null
   }
 }
 
-/**
- * Aggregate style patterns across multiple videos
- */
-function aggregateStyles(styles: Partial<StyleProfile>[]): StyleProfile {
-  if (styles.length === 0) {
-    return {
-      cutSpeed: 'unknown',
-      subtitleDensity: 'medium',
-      subtitleTiming: 'standard',
-      zoomBehavior: { frequency: 'moderate', type: ['punch-in'] },
-      visualDensity: 'medium',
-      musicIntensity: 'medium',
-      hookTiming: '0-3s',
-      ctaPlacement: 'end',
-      transitionStyle: ['hard-cut'],
-      narrativeStructure: 'standard',
-      colorGrading: 'standard',
-      aspectRatio: '9:16',
-      videoLength: '30-60s',
-      contentAngles: [],
-    }
+// ── Aggregation ──────────────────────────────────────────────────────────────
+
+function aggregateProfiles(
+  visuals: VisualAnalysis[],
+  audios: AudioAnalysis[],
+): StyleProfile {
+  const defaults: StyleProfile = {
+    avgCutDuration: 1.5, pacingSpeed: 'moderate', pacingCurve: 'steady',
+    hookTiming: 2, hookStyle: 'cold-open',
+    subtitleFrequency: 0, subtitleStyle: 'none', hasSubtitles: false,
+    zoomFrequency: 0, zoomTypes: [], transitionStyles: ['hard-cut'], transitionFrequency: 0,
+    silenceRemoval: false, silenceRatio: 0, audioEnergyProfile: 'unknown',
+    musicIntensity: 'medium', hasSFX: false, sfxFrequency: 0, sfxTiming: 'sparse',
+    narrativeStructure: 'hook-story-cta', storytellingCadence: 'fast-reveal',
+    engagementPacing: 'front-loaded', ctaPlacement: 'end',
+    colorGrading: 'natural', visualDensity: 'medium', aspectRatio: '9:16',
+    videoLength: '30-60s', contentAngles: [],
   }
 
-  // Count occurrences
-  const densityCount = { high: 0, medium: 0, low: 0 }
-  const contentAngles = new Set<string>()
-  const zoomTypes = new Set<string>()
-  const colorGradings = new Set<string>()
+  if (visuals.length === 0) return defaults
 
-  for (const style of styles) {
-    if (style.visualDensity) densityCount[style.visualDensity]++
-    if (style.contentAngles) style.contentAngles.forEach((a) => contentAngles.add(a))
-    if (style.zoomBehavior?.type) style.zoomBehavior.type.forEach((z) => zoomTypes.add(z))
-    if (style.colorGrading) colorGradings.add(style.colorGrading)
+  // Average numeric metrics
+  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0
+  const mode = (arr: string[]) => {
+    const counts = new Map<string, number>()
+    for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ''
   }
 
-  // Determine most common density
-  const mostCommonDensity = (Object.entries(densityCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 'medium') as 'high' | 'medium' | 'low'
+  const avgCut = avg(visuals.map((v) => v.avgCutDuration))
+  const avgHook = avg(visuals.map((v) => v.hookTiming))
+  const avgSubFreq = avg(visuals.map((v) => v.subtitleFrequency))
+  const avgZoomFreq = avg(visuals.map((v) => v.zoomFrequency))
+  const avgTransFreq = avg(visuals.map((v) => v.transitionFrequency))
+
+  // Collect sets
+  const allZoomTypes = new Set<string>()
+  const allTransitions = new Set<string>()
+  const allAngles = new Set<string>()
+  const allGradings = new Set<string>()
+  for (const v of visuals) {
+    v.zoomTypes.forEach((z) => allZoomTypes.add(z))
+    v.transitionStyles.forEach((t) => allTransitions.add(t))
+    v.contentAngles.forEach((a) => allAngles.add(a))
+    if (v.colorGrading) allGradings.add(v.colorGrading)
+  }
+
+  // Audio aggregation
+  const avgSilence = avg(audios.map((a) => a.silenceRatio))
+  const silenceRemoval = audios.filter((a) => a.silenceRemoval).length > audios.length / 2
+  const avgSfxFreq = avg(audios.map((a) => a.sfxFrequency))
+  const hasSFX = audios.some((a) => a.hasSFX)
+
+  // Determine SFX timing from audio energy profile
+  const energyProfiles = audios.map((a) => a.audioEnergyProfile)
+  let sfxTiming = 'sparse'
+  if (hasSFX && avgTransFreq > 5) sfxTiming = 'on-cuts'
+  else if (hasSFX && avgSubFreq > 50) sfxTiming = 'on-text'
+  else if (hasSFX) sfxTiming = 'on-beats'
 
   return {
-    cutSpeed: 'fast (1.0-1.5s)', // Default to fast since most creators edit aggressively
-    subtitleDensity: mostCommonDensity === 'high' ? 'high' : 'medium',
-    subtitleTiming: 'keyword-synchronized',
-    zoomBehavior: {
-      frequency: '2-3 per 45s',
-      type: Array.from(zoomTypes).length > 0 ? Array.from(zoomTypes) : ['punch-in'],
-    },
-    visualDensity: mostCommonDensity,
-    musicIntensity: mostCommonDensity === 'high' ? 'high' : 'medium',
-    hookTiming: '0-3s',
-    ctaPlacement: 'end + mid-roll',
-    transitionStyle: ['hard-cut'],
-    narrativeStructure: 'hook-story-cta',
-    colorGrading: Array.from(colorGradings)[0] || 'warm-saturated',
-    aspectRatio: '9:16',
+    avgCutDuration: Math.round(avgCut * 10) / 10,
+    pacingSpeed: avgCut < 0.8 ? 'very-fast' : avgCut < 1.5 ? 'fast' : avgCut < 3 ? 'moderate' : 'slow',
+    pacingCurve: mode(visuals.map((v) => v.pacingCurve)) || 'steady',
+    hookTiming: Math.round(avgHook * 10) / 10,
+    hookStyle: mode(visuals.map((v) => v.hookStyle)) || 'cold-open',
+    subtitleFrequency: Math.round(avgSubFreq),
+    subtitleStyle: mode(visuals.map((v) => v.subtitleStyle)) || 'none',
+    hasSubtitles: visuals.filter((v) => v.hasSubtitles).length > visuals.length / 2,
+    zoomFrequency: Math.round(avgZoomFreq * 10) / 10,
+    zoomTypes: [...allZoomTypes],
+    transitionStyles: [...allTransitions],
+    transitionFrequency: Math.round(avgTransFreq * 10) / 10,
+    silenceRemoval,
+    silenceRatio: Math.round(avgSilence),
+    audioEnergyProfile: mode(energyProfiles) || 'steady',
+    musicIntensity: mode(audios.map((a) => a.musicIntensity)) as 'high' | 'medium' | 'low' | 'none' || 'medium',
+    hasSFX,
+    sfxFrequency: Math.round(avgSfxFreq * 10) / 10,
+    sfxTiming,
+    narrativeStructure: mode(visuals.map((v) => v.narrativeStructure)) || 'hook-story-cta',
+    storytellingCadence: mode(visuals.map((v) => v.storytellingCadence)) || 'fast-reveal',
+    engagementPacing: mode(visuals.map((v) => v.engagementPacing)) || 'front-loaded',
+    ctaPlacement: mode(visuals.map((v) => v.ctaPlacement)) || 'end',
+    colorGrading: [...allGradings][0] || 'natural',
+    visualDensity: mode(visuals.map((v) => v.visualDensity)) as 'high' | 'medium' | 'low' || 'medium',
+    aspectRatio: mode(visuals.map((v) => v.aspectRatio)) || '9:16',
     videoLength: '30-60s',
-    contentAngles: Array.from(contentAngles),
+    contentAngles: [...allAngles],
   }
 }
 
-/**
- * Main function: Analyze all recent videos for a company and store style profile
- */
+// ── Main Entry Point ─────────────────────────────────────────────────────────
+
 export async function analyzeUserVideoStyle(companyId: string): Promise<StyleProfile> {
   try {
-    // Get recent platform posts through their accounts
     const posts = await prisma.platformPost.findMany({
       where: {
         account: { companyId },
@@ -211,51 +430,48 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
         mediaType: { in: ['REEL', 'VIDEO'] },
       },
       orderBy: { publishedAt: 'desc' },
-      take: 15,
+      take: 10,
       select: {
-        id: true,
-        url: true,
-        thumbnailUrl: true,
-        mediaUrl: true,
-        mediaType: true,
-        caption: true,
-        publishedAt: true,
-        engagementRate: true,
+        id: true, url: true, thumbnailUrl: true, mediaUrl: true,
+        mediaType: true, caption: true, publishedAt: true, engagementRate: true,
       },
     })
 
-    console.log(`[videoStyleAnalyzer] Found ${posts.length} recent posts for ${companyId}`)
+    console.log(`[videoStyleAnalyzer] Found ${posts.length} Reels/Videos for ${companyId}`)
+    if (posts.length === 0) return aggregateProfiles([], [])
 
-    if (posts.length === 0) {
-      console.warn('[videoStyleAnalyzer] No posts found, returning default profile')
-      return aggregateStyles([])
-    }
+    const visuals: VisualAnalysis[] = []
+    const audios: AudioAnalysis[] = []
 
-    // Analyze each video — use mediaUrl (direct video file) for FFmpeg keyframes,
-    // fall back to thumbnailUrl (static image) if no video URL available
-    const styles: Partial<StyleProfile>[] = []
     for (const post of posts) {
       if (!post.mediaUrl && !post.thumbnailUrl) continue
+      const duration = 45
+
       try {
-        const duration = 45 // estimate for short-form
-        const style = await analyzeVideoStyle(post.mediaUrl || '', post.thumbnailUrl, duration)
-        if (Object.keys(style).length > 0) {
-          styles.push(style)
-          console.log(`[videoStyleAnalyzer] analyzed ${post.id}: ${post.mediaUrl ? 'video keyframes' : 'thumbnail'}`)
+        // Visual analysis (Bedrock Vision on keyframes)
+        const visual = await analyzeVisuals(post.mediaUrl || '', post.thumbnailUrl, duration)
+        if (visual) visuals.push(visual)
+
+        // Audio analysis (FFmpeg — only if we have the actual video file)
+        if (post.mediaUrl) {
+          const audio = await analyzeAudio(post.mediaUrl, duration)
+          audios.push(audio)
         }
+
+        const source = post.mediaUrl ? 'video' : 'thumbnail'
+        console.log(`[videoStyleAnalyzer] analyzed ${post.id}: ${source} (cut: ${visual?.avgCutDuration}s, hook: ${visual?.hookTiming}s)`)
       } catch (err) {
-        console.warn(`[videoStyleAnalyzer] Failed to analyze post ${post.id}:`, (err as Error).message)
+        console.warn(`[videoStyleAnalyzer] failed ${post.id}:`, (err as Error).message)
       }
-      // Rate limit between Bedrock calls
+
       await new Promise((r) => setTimeout(r, 1500))
     }
 
-    console.log(`[videoStyleAnalyzer] Analyzed ${styles.length} videos`)
+    console.log(`[videoStyleAnalyzer] ${visuals.length} visual + ${audios.length} audio analyses`)
 
-    // Aggregate into profile
-    const profile = aggregateStyles(styles)
+    const profile = aggregateProfiles(visuals, audios)
 
-    // Store in brand_memory with a unique source tag so we can retrieve it reliably
+    // Store with source tag
     const profileData = { source: 'video_style_analysis', ...profile } as any
     const existing = await prisma.brandMemory.findFirst({
       where: {
@@ -266,32 +482,21 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
     })
 
     if (existing) {
-      await prisma.brandMemory.update({
-        where: { id: existing.id },
-        data: { content: profileData },
-      })
+      await prisma.brandMemory.update({ where: { id: existing.id }, data: { content: profileData } })
     } else {
       await prisma.brandMemory.create({
-        data: {
-          companyId,
-          memoryType: 'preference',
-          content: profileData,
-          weight: 1.0,
-        },
+        data: { companyId, memoryType: 'preference', content: profileData, weight: 1.0 },
       })
     }
 
-    console.log(`[videoStyleAnalyzer] Stored style profile for ${companyId}`)
+    console.log(`[videoStyleAnalyzer] stored profile for ${companyId}`)
     return profile
   } catch (err) {
-    console.error('[videoStyleAnalyzer] Analysis failed:', err)
-    return aggregateStyles([])
+    console.error('[videoStyleAnalyzer] failed:', err)
+    return aggregateProfiles([], [])
   }
 }
 
-/**
- * Get stored style profile for a company
- */
 export async function getStyleProfile(companyId: string): Promise<StyleProfile | null> {
   try {
     const memory = await prisma.brandMemory.findFirst({
@@ -301,12 +506,10 @@ export async function getStyleProfile(companyId: string): Promise<StyleProfile |
         content: { path: ['source'], equals: 'video_style_analysis' },
       },
     })
-
     if (!memory) return null
     const { source: _, ...profile } = memory.content as Record<string, unknown>
     return profile as unknown as StyleProfile
-  } catch (err) {
-    console.error('[videoStyleAnalyzer] Failed to get style profile:', err)
+  } catch {
     return null
   }
 }
