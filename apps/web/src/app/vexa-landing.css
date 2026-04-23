@@ -8,8 +8,8 @@
   --ig:#e879a2; --tt:#6fd0cc; --yt:#d68a8a;
   --grain:.03;
   --atmo-1:rgba(212,165,116,.22);
-  --atmo-2:rgba(126,163,196,.14);
-  --atmo-3:rgba(232,121,162,.10);
+  --atmo-2:rgba(180,140,90,.12);
+  --atmo-3:rgba(160,120,70,.08);
   --grid-ln:rgba(255,255,255,.04);
 }
 [data-theme="light"]{
@@ -22,8 +22,8 @@
   --ig:#b94e7c; --tt:#3f908c; --yt:#a05a5a;
   --grain:.02;
   --atmo-1:rgba(184,131,74,.22);
-  --atmo-2:rgba(73,97,138,.14);
-  --atmo-3:rgba(185,78,124,.10);
+  --atmo-2:rgba(150,115,65,.12);
+  --atmo-3:rgba(130,100,55,.08);
   --grid-ln:rgba(0,0,0,.05);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -227,10 +227,10 @@ nav.top .cta .start:hover{background:var(--accent-hov);box-shadow:0 8px 24px var
   font-size:11px;color:var(--t1);margin-left:-8px;
 }
 .hero .proof .avs .av:first-child{margin-left:0}
-.hero .proof .avs .av:nth-child(1){background:linear-gradient(135deg,#c48a8a,#8a5a5a)}
-.hero .proof .avs .av:nth-child(2){background:linear-gradient(135deg,#7ea37a,#4e6a3e)}
-.hero .proof .avs .av:nth-child(3){background:linear-gradient(135deg,#8ba3c4,#49618a)}
-.hero .proof .avs .av:nth-child(4){background:linear-gradient(135deg,#d4a574,#a77239)}
+.hero .proof .avs .av:nth-child(1){background:linear-gradient(135deg,#d4a574,#a77239)}
+.hero .proof .avs .av:nth-child(2){background:linear-gradient(135deg,#c4a882,#8a7a5a)}
+.hero .proof .avs .av:nth-child(3){background:linear-gradient(135deg,#b89a6a,#7a6a44)}
+.hero .proof .avs .av:nth-child(4){background:linear-gradient(135deg,#c8935a,#8a6030)}
 .hero .proof .t{font-size:13px;color:var(--t2)}
 .hero .proof .t em{color:var(--t1);font-style:normal;font-weight:500}
 
@@ -494,7 +494,7 @@ section.blk{padding:140px 44px;position:relative;z-index:1}
 }
 .voice-quote em{color:var(--accent);font-style:italic}
 .voice-auth{text-align:center;margin-top:40px;display:flex;justify-content:center;align-items:center;gap:14px}
-.voice-auth .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#c48a8a,#8a5a5a);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.voice-auth .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#d4a574,#a77239);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
 .voice-auth .meta{text-align:left}
 .voice-auth .meta .n{font-size:14px;color:var(--t1);font-weight:500}
 .voice-auth .meta .h{font-size:12px;color:var(--t2);letter-spacing:.02em}
