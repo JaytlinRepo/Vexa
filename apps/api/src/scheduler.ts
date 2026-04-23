@@ -6,6 +6,7 @@ import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerConte
 import { isTestMode } from './lib/mode'
 import { getScheduleForCompany, shouldRunNow } from './lib/schedulePrefs'
 import { processThoughtResponses } from './services/thoughts/thoughtResponse.service'
+import { analyzeUserVideoStyle } from './services/videoStyleAnalyzer.service'
 
 let running = false
 let lastRunAt: Date | null = null
@@ -395,6 +396,26 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
   })
   console.log('[scheduler] registered thought response processor (every 6 hours)')
+
+  // Daily 10:00 UTC — Analyze creator video styles (learn from recent posts)
+  cron.schedule('0 10 * * *', async () => {
+    try {
+      const companies = await prisma.company.findMany({ select: { id: true } })
+      let analyzed = 0
+      for (const { id } of companies) {
+        try {
+          await analyzeUserVideoStyle(id)
+          analyzed++
+        } catch (e) {
+          console.warn(`[scheduler] Video style analysis failed for company ${id}:`, (e as Error).message)
+        }
+      }
+      if (analyzed > 0) console.log(`[scheduler] video style analysis: ${analyzed} companies analyzed`)
+    } catch (e) {
+      console.error('[scheduler] video style batch analysis failed:', e)
+    }
+  })
+  console.log('[scheduler] registered video style analyzer (daily 10:00 UTC)')
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {

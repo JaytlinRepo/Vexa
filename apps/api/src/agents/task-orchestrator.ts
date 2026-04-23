@@ -9,6 +9,7 @@ import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { AgentRole } from '../lib/nicheKnowledge'
 import { getModelForTask } from '../lib/modelRouting'
+import { getStyleProfile } from '../services/videoStyleAnalyzer.service'
 
 
 // ─── ORCHESTRATE TASK ─────────────────────────────────────────────────────────
@@ -170,7 +171,7 @@ async function executeAgentTask(task: {
       if (task.type === 'competitor_analysis') {
         return executeRileyCompetitorAnalysis({ niche, subNiche: company.subNiche, brandVoice, nicheContext, brandMemory, platformData, companyId: task.companyId })
       }
-      return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description })
+      return executeRileyTask({ niche, brandVoice, nicheContext, brandMemory, platformData, description, companyId: task.companyId })
 
     default:
       throw new Error(`Unknown employee role: ${employee.role}`)
@@ -414,10 +415,15 @@ async function executeRileyTask(ctx: {
   brandMemory: string
   platformData?: string
   description: string | null
+  companyId: string
 }): Promise<ShotListOutput> {
+  // Load creator's editing style profile
+  const styleProfile = await getStyleProfile(ctx.companyId)
+
   const basePrompt = buildRileySystemPrompt({
     niche: ctx.niche,
     brandVoice: ctx.brandVoice,
+    creatorStyle: styleProfile || undefined,
   })
 
   const systemPrompt = buildLayeredPrompt({

@@ -424,6 +424,14 @@ export function buildRileySystemPrompt(context: {
   brandVoice: string
   approvedScript?: string
   visualStyle?: string
+  creatorStyle?: {
+    cutSpeed?: string
+    subtitleDensity?: string
+    zoomBehavior?: { frequency: string; type: string[] }
+    visualDensity?: string
+    colorGrading?: string
+    contentAngles?: string[]
+  }
 }): string {
   return `You are Riley, the Creative Director at a content company.
 
@@ -439,6 +447,22 @@ export function buildRileySystemPrompt(context: {
 ${context.approvedScript ? `- Approved script from Alex: ${context.approvedScript}` : ''}
 ${context.visualStyle ? `- Visual style preferences: ${context.visualStyle}` : ''}
 
+## Creator's Editing Style (Learned From Their Content)
+${
+  context.creatorStyle
+    ? `
+- Cut speed: ${context.creatorStyle.cutSpeed || 'standard'}
+- Subtitle density: ${context.creatorStyle.subtitleDensity || 'medium'}
+- Zoom behavior: ${context.creatorStyle.zoomBehavior?.frequency || '2-3 per 45s'} (types: ${(context.creatorStyle.zoomBehavior?.type || ['punch-in']).join(', ')})
+- Visual density: ${context.creatorStyle.visualDensity || 'medium'}
+- Color grading: ${context.creatorStyle.colorGrading || 'standard'}
+- Content angles they excel at: ${(context.creatorStyle.contentAngles || []).join(', ') || 'various'}
+
+**Important:** When creating shot lists, match these patterns. The creator's audience knows and expects this editing rhythm. Your job is to create briefs that fit THEIR style, not impose a new one.
+`
+    : ''
+}
+
 ## Your Job
 Turn approved scripts into detailed production briefs — shot lists, pacing notes, visual direction, and editing guidance. Your job is to make sure the creator knows EXACTLY how to film and edit this content.
 
@@ -449,6 +473,7 @@ When a shot list is approved, you also prepare a Creatomate template spec for vi
 - NEVER add prose outside the JSON
 - Every shot must be so clear it could be filmed without questions
 - rileyNote must reveal your creative intention — why you made these choices
+- Match the creator's editing style in your pacing and rhythm recommendations
 
 ## Response Format
 {
@@ -462,7 +487,7 @@ When a shot list is approved, you also prepare a Creatomate template spec for vi
       "audioNote": "string (optional — what's being said or heard)"
     }
   ],
-  "editingNotes": "string (pacing, transitions, cut rhythm)",
+  "editingNotes": "string (pacing, transitions, cut rhythm — match their style)",
   "musicMood": "string (describe the audio feel — used for Creatomate/trending audio selection)",
   "textOverlayGuide": "string (how and where text should appear on screen)",
   "rileyNote": "string (Riley's creative note — the intention behind this direction)"
