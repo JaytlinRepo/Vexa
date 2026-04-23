@@ -44,60 +44,80 @@ export function buildCreatorFilters(
   vf.push('scale=1080:1920:force_original_aspect_ratio=decrease')
   vf.push('pad=1080:1920:(ow-iw)/2:(oh-ih)/2')
 
-  // ── Zoom / punch-in (from creator's actual editing style, not audience optimization) ──
-  const zoomTypes = style?.zoomTypes || []
-  const zoomBehavior = zoomTypes.includes('punch-in') ? 'aggressive'
-    : zoomTypes.includes('slow-zoom') ? 'moderate'
-    : zoomTypes.length > 0 ? 'moderate'
-    : 'none' // if creator doesn't zoom, don't add zoom
-  if (zoomBehavior === 'aggressive') {
-    // Ken Burns-style slow zoom on each segment
-    vf.push('zoompan=z=\'min(zoom+0.0015,1.15)\':x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':d=1:s=1080x1920:fps=30')
-  } else if (zoomBehavior === 'moderate') {
-    // Subtle 5% zoom
-    vf.push('zoompan=z=\'min(zoom+0.0008,1.05)\':x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':d=1:s=1080x1920:fps=30')
+  // ── All filters below are DATA-DRIVEN from the creator's actual profile ──
+  // No hardcoded thresholds — if the profile says the creator does it, we do it.
+  // If no profile exists, we apply nothing extra (just base scaling).
+
+  // ── Zoom ──
+  // zoompan creates a slow Ken Burns creep — only use if the creator's profile
+  // shows they actually use slow-zoom. For punch-in, use a static crop-scale instead.
+  if (style) {
+    const zoomFreq = style.zoomFrequency || 0
+    const types = style.zoomTypes || []
+    // Only apply if the creator's measured zoom frequency is meaningful
+    // The frequency comes from the analyzer — let the data decide
+    if (zoomFreq > 0 && types.length > 0) {
+      if (types.includes('slow-zoom') && zoomFreq > 1) {
+        // Creator uses slow zooms frequently — apply subtle animated zoom
+        vf.push('zoompan=z=\'min(zoom+0.0005,1.03)\':x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':d=1:s=1080x1920:fps=30')
+      } else if (types.includes('punch-in') && zoomFreq > 1) {
+        // Creator uses punch-ins — static 5% crop-zoom (fast, no slowmo effect)
+        vf.push('scale=1134:2016:force_original_aspect_ratio=decrease')
+        vf.push('crop=1080:1920')
+      }
+      // Low frequency = creator rarely zooms = don't apply
+    }
   }
-  // 'minimal' or 'none' — no zoom applied
 
   // ── Speed / pacing ──
+  // Derived from creator's measured pacingSpeed — not our judgment
   let speedFactor = 1.0
-  const pacing = style?.pacingSpeed || 'moderate'
-  if (pacing === 'very-fast') {
-    speedFactor = 0.85 // speed up 15%
-    vf.push('setpts=0.85*PTS')
-    af.push('atempo=1.176') // inverse of 0.85
-  } else if (pacing === 'fast') {
-    speedFactor = 0.92
-    vf.push('setpts=0.92*PTS')
-    af.push('atempo=1.087')
+  if (style) {
+    const pacing = style.pacingSpeed
+    if (pacing === 'very-fast') {
+      speedFactor = 0.85
+      vf.push('setpts=0.85*PTS')
+      af.push('atempo=1.176')
+    } else if (pacing === 'fast') {
+      speedFactor = 0.92
+      vf.push('setpts=0.92*PTS')
+      af.push('atempo=1.087')
+    }
+    // moderate, slow, mixed, or empty = 1x speed (natural)
   }
-  // moderate and slow = 1x speed
 
   // ── Silence removal ──
-  const removeSilence = style?.silenceRemoval || false
-  if (removeSilence) {
+  // Only if the creator's profile shows they remove silence (measured from their content)
+  if (style?.silenceRemoval) {
     af.push('silenceremove=start_periods=1:start_silence=0.3:start_threshold=-30dB:detection=peak')
   }
 
   // ── Audio normalization ──
-  const musicIntensity = style?.musicIntensity || retention?.styleProfile.audioEnergyCurve || 'medium'
-  if (musicIntensity === 'high' || musicIntensity === 'high-intensity') {
-    af.push('loudnorm=I=-14:TP=-2:LRA=7')
-  } else if (musicIntensity !== 'none') {
-    af.push('loudnorm=I=-16:TP=-1.5:LRA=11')
+  // Applied based on the creator's measured music intensity
+  if (style) {
+    const intensity = style.musicIntensity
+    if (intensity === 'high') {
+      af.push('loudnorm=I=-14:TP=-2:LRA=7')
+    } else if (intensity === 'medium' || intensity === 'low') {
+      af.push('loudnorm=I=-16:TP=-1.5:LRA=11')
+    }
+    // 'none' = no music detected = no normalization
   }
 
   // ── Transitions ──
-  const transitionStyles = style?.transitionStyles || ['hard-cut']
+  // Directly from the creator's measured transition styles
+  const transitionStyles = style?.transitionStyles || []
   let segmentTransition: CreatorFilters['segmentTransition'] = { type: 'none', duration: 0 }
 
-  if (transitionStyles.includes('fade')) {
+  // Only apply non-hard-cut transitions if the creator actually uses them
+  if (transitionStyles.includes('fade') && !transitionStyles.includes('hard-cut')) {
     segmentTransition = { type: 'fade', duration: 0.3 }
   } else if (transitionStyles.includes('dissolve')) {
     segmentTransition = { type: 'dissolve', duration: 0.5 }
   } else if (transitionStyles.includes('wipe') || transitionStyles.includes('swipe')) {
     segmentTransition = { type: 'wipeleft', duration: 0.3 }
   }
+  // If hard-cut is in the list (most common), transitions stay as 'none'
 
   // ── Target duration from retention data ──
   const optimalLength = retention?.performanceCorrelations.videoLength.optimal || 45

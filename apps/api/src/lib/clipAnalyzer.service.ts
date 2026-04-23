@@ -267,9 +267,10 @@ export async function analyzeAndPickClip(
   const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.65))
 
   // Dynamic segments from creator's actual cut speed
-  // Cap at 5s max — values above that are from thumbnail-only analysis (inaccurate)
+  // The analyzer now filters out thumbnail-only data (returns -1 for unreliable metrics)
+  // so avgCutDuration here is from real multi-frame analysis only
   const rawCutSpeed = (style as any)?.avgCutDuration || 3
-  const avgCutSpeed = Math.min(5, Math.max(1, rawCutSpeed))
+  const avgCutSpeed = Math.max(1, rawCutSpeed) // floor at 1s, no ceiling — trust the data
   const maxSegments = Math.max(3, Math.ceil(targetLen / avgCutSpeed))
   const segDuration = `${Math.max(1, avgCutSpeed - 1).toFixed(0)}-${(avgCutSpeed + 1).toFixed(0)}`
 
@@ -316,6 +317,9 @@ HARD CONSTRAINTS (DO NOT VIOLATE):
 - MAXIMUM SEGMENTS: ${maxSegments} segments
 - EACH SEGMENT: ${segDuration} seconds. Match this creator's editing rhythm
 - YOU MUST CUT CONTENT. Not everything makes the reel. Be ruthless — only the peak moments survive
+- COVER THE FULL VIDEO — don't just take segments from the beginning. Scan ALL frames and pick the best moments across the entire timeline
+- SKIP DEAD TIME — if the first few seconds are static/boring (establishing shots with no action), skip them or keep them very short (1s max). Start with action
+- CAPTURE THE ENDING — if there's a satisfying conclusion, close, or payoff at the end of the video, include it. Good reels have a beginning AND an end
 
 ${editingRules}
 

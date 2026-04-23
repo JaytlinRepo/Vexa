@@ -305,9 +305,9 @@ async function analyzeVisuals(
 
     return {
       avgCutDuration: isThumbnailOnly ? -1 : (typeof a.avgCutDuration === 'number' ? a.avgCutDuration : 1.5),
-      pacingSpeed: (a.pacingSpeed as string) || 'moderate',
-      pacingCurve: (a.pacingCurve as string) || 'steady',
-      hookTiming: typeof a.hookTiming === 'number' ? a.hookTiming : 2,
+      pacingSpeed: isThumbnailOnly ? '' : ((a.pacingSpeed as string) || 'moderate'), // empty = exclude from mode
+      pacingCurve: isThumbnailOnly ? '' : ((a.pacingCurve as string) || 'steady'),
+      hookTiming: isThumbnailOnly ? -1 : (typeof a.hookTiming === 'number' ? a.hookTiming : 2),
       hookStyle: (a.hookStyle as string) || 'cold-open',
       subtitleFrequency: typeof a.subtitlePercentage === 'number' ? a.subtitlePercentage : 0,
       subtitleStyle: (a.subtitleStyle as string) || 'none',
@@ -359,7 +359,10 @@ function aggregateProfiles(
   }
   const mode = (arr: string[]) => {
     const counts = new Map<string, number>()
-    for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1)
+    for (const v of arr) {
+      if (!v) continue // skip empty (thumbnail-only, unreliable)
+      counts.set(v, (counts.get(v) || 0) + 1)
+    }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ''
   }
 
