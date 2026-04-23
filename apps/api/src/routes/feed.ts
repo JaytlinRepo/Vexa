@@ -185,7 +185,7 @@ const SUBREDDITS_BY_NICHE: Record<string, string[]> = {
   finance: ['personalfinance', 'investing'],
   food: ['Cooking', 'food'],
   coaching: ['coaching', 'productivity'],
-  lifestyle: ['lifestyle', 'productivity'],
+  lifestyle: ['minimalism', 'simpleliving', 'selfimprovement', 'DecidingToBeBetter'],
   personal_development: ['selfimprovement', 'getdisciplined'],
 }
 
@@ -522,20 +522,26 @@ router.get('/', requireAuth, async (req, res, next) => {
     const baseSubs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
     const subs = extraSubs.length > 0 ? [...new Set([...extraSubs, ...baseSubs])] : baseSubs
 
-    // Build a YouTube query from the user's actual profile context
+    // Build YouTube query from user's content profile + bio
     const platformAcct = await prisma.platformAccount.findFirst({
       where: { companyId: company.id },
       select: { bio: true, handle: true },
     })
     const bioKeywords = (platformAcct?.bio || '').replace(/[|·•\n]/g, ' ').split(/\s+/).filter((w: string) => w.length > 3).slice(0, 4).join(' ')
-    const ytQuery = bioKeywords.length > 8
-      ? `${bioKeywords} content creator`
-      : undefined // fall back to niche-based search in the service
 
-    // Hard cap at 10 items — keeps the feed tight and rotating.
-    // Reddit capped at 1 — feed should be articles and news, not forums.
-    const requestedLimit = Math.max(1, Math.min(10, Number(req.query.limit) || 10))
-    const maxRedditShare = 1
+    // Use content profile themes + visual style for dynamic queries
+    let ytQuery: string | undefined
+    if (userProfile) {
+      const themes = userProfile.performancePattern?.contentThemes || []
+      const style = userProfile.visualStyle?.filters || []
+      const profileTerms = [...themes, ...style].filter(Boolean).slice(0, 3).join(' ')
+      if (profileTerms.length > 5) ytQuery = `${profileTerms} ${niche} creator`
+    }
+    if (!ytQuery && bioKeywords.length > 8) ytQuery = `${bioKeywords} content creator`
+
+    // Feed limits — more reels, articles on the side
+    const requestedLimit = Math.max(1, Math.min(25, Number(req.query.limit) || 25))
+    const maxRedditShare = 3
 
     // ── Check cache ──────────────────────────────────────────────
     const cacheKey = `${niche}:${detectedSub || ''}`
@@ -552,7 +558,7 @@ router.get('/', requireAuth, async (req, res, next) => {
       fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
       searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
-      searchNicheVideos(niche, detectedSub || undefined, 8, ytQuery || undefined).catch(() => [] as YouTubeVideo[]), // Increased for mixed Reel/article feed
+      searchNicheVideos(niche, detectedSub || undefined, 10, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
     ])
 
     let items: FeedItem[] = [
@@ -560,8 +566,8 @@ router.get('/', requireAuth, async (req, res, next) => {
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // Real niche videos/Reels — mixed with articles for inspiration
-      ...ytVideos.slice(0, 8).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
-      // One Reddit post for community signal
+      ...ytVideos.slice(0, 10).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // Reddit community discussions
       ...redditResults.flat().slice(0, maxRedditShare),
     ]
     let feedSource = 'live'

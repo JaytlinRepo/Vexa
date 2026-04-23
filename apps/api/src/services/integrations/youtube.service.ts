@@ -58,7 +58,7 @@ const NICHE_SEARCH_TERMS: Record<string, string> = {
   finance:            'personal finance investing tips',
   food:               'recipe cooking viral',
   coaching:           'productivity mindset coaching',
-  lifestyle:          'lifestyle wellness routine',
+  lifestyle:          'aesthetic lifestyle vlog minimalist slow living',
   personal_development: 'self improvement habits motivation',
   tech:               'tech content creator tips',
   'data science':     'data science content machine learning',
