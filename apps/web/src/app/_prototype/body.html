@@ -2406,39 +2406,35 @@
     <div class="nav-section">Collections</div>
   </aside>
 
-  <!-- FEED -->
-  <div class="feed">
-    <div class="feed-head">
-      <div class="l">
-        <h2>All <em>signal</em></h2>
-        <span class="sub">142 ITEMS · last 24h · Maya scored · auto-refresh 5m</span>
+  <!-- MAIN: Reels grid + Articles rail -->
+  <div class="feed" style="display:grid;grid-template-columns:1fr 320px;gap:24px;flex:1">
+
+    <!-- Reels Grid -->
+    <div>
+      <div class="feed-head">
+        <div class="l">
+          <h2>Reels & <em>Videos</em></h2>
+          <span class="sub">Loading...</span>
+        </div>
+        <div class="r">
+          <button class="on">Relevance</button>
+          <button>Recency</button>
+        </div>
       </div>
-      <div class="r">
-        <button class="on">Relevance</button>
-        <button>Recency</button>
-        <button>Heat</button>
+      <div id="knowledge-reels-grid" class="grid" style="grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px">
+        <!-- Populated by knowledge-data-wire.js -->
       </div>
     </div>
 
-    <!-- Feed items populated by knowledge-data-wire.js -->
+    <!-- Articles Rail -->
+    <aside style="border-left:1px solid var(--b1);padding-left:20px">
+      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:14px">Articles & Discussions</div>
+      <div id="knowledge-articles-rail">
+        <!-- Populated by knowledge-data-wire.js -->
+      </div>
+    </aside>
 
-    <!-- Feed items -->
   </div>
-
-  <!-- RIGHT: MAYA CONTEXT -->
-  <aside class="ctx">
-    <div class="ctx-head">Trending <span class="live"><span class="dd"></span>LIVE</span></div>
-
-    <div class="ctx-block">
-      <div class="lab">Rising this week</div>
-      <!-- Populated by knowledge-data-wire.js -->
-    </div>
-
-    <div class="ctx-block">
-      <div class="lab">Fading</div>
-      <!-- Populated by knowledge-data-wire.js -->
-    </div>
-  </aside>
 
 </section>
 

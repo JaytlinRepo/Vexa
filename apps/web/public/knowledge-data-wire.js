@@ -1,12 +1,10 @@
-/* Knowledge page — wire real /api/feed data into the static layout.
- * Reads from window.__vxDashState.feed (populated by dashboard-v2.js)
- * or fetches directly if not available.
+/* Knowledge page — reels grid + articles rail
+ * Fetches /api/feed, splits into videos (grid) and articles (rail).
  */
 ;(function () {
   'use strict'
 
   var get = function (u) { return fetch(u, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
-
   function esc(s) { return String(s || '').replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] }) }
 
   var populated = false
@@ -17,202 +15,133 @@
     if (!view) return
     if (populated && !force) return
 
-    var items = (window.__vxDashState && window.__vxDashState.feed) || []
-    if (items.length > 0) {
-      render(view, items, false)
-      scheduleRefresh()
-      return
-    }
-
-    // Fetch directly
     get('/api/feed').then(function (data) {
-      if (!data) return
+      if (!data || !data.items || data.items.length === 0) return
+      render(view, data.items, data.source === 'cached')
 
-      // Check if user needs to upload content first
-      if (data.requiresContent) {
-        showContentUploadPrompt(view, data.message)
-        return
-      }
-
-      if (!data.items || data.items.length === 0) return
-      var isCached = data.source === 'cached'
-      render(view, data.items, isCached)
-      scheduleRefresh()
+      // Auto-refresh every 5 minutes
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(function () { populate(true) }, 5 * 60 * 1000)
     })
-  }
-
-  function showContentUploadPrompt(view, message) {
-    var feed = view.querySelector('.feed')
-    if (!feed) return
-
-    populated = true
-    feed.innerHTML = '<div style="padding:60px 40px;text-align:center;color:var(--t2)">'
-      + '<div style="font-size:18px;margin-bottom:20px;color:var(--t1)">Knowledge Feed</div>'
-      + '<div style="font-size:14px;line-height:1.6;max-width:400px;margin:0 auto">'
-      + (message || 'Upload your first video to unlock personalized content inspiration.')
-      + '</div>'
-      + '<button onclick="navigate(\'studio\')" style="margin-top:24px;padding:10px 20px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:500;cursor:pointer">'
-      + 'Upload Content'
-      + '</button>'
-      + '</div>'
-  }
-
-  function scheduleRefresh() {
-    if (refreshTimer) clearTimeout(refreshTimer)
-    // Auto-refresh every 5 minutes
-    refreshTimer = setTimeout(function () {
-      populate(true)
-    }, 5 * 60 * 1000)
   }
 
   function render(view, items, isCached) {
     populated = true
 
+    // Split into videos and articles
+    var reels = items.filter(function (it) { return it.type === 'youtube' || it.type === 'video' })
+    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' })
+
     // Update masthead stats
     var stats = view.querySelectorAll('.mini-stats .stat')
-    if (stats.length >= 2) {
+    if (stats.length >= 1) {
       var s0v = stats[0].querySelector('.v')
       if (s0v) s0v.innerHTML = '<em>' + items.length + '</em>'
-
+      var s0d = stats[0].querySelector('.d')
+      if (s0d) s0d.textContent = reels.length + ' reels, ' + articles.length + ' articles'
+    }
+    if (stats.length >= 2) {
       var sources = {}
       items.forEach(function (it) { sources[it.source || 'unknown'] = true })
       var s1v = stats[1].querySelector('.v')
       if (s1v) s1v.textContent = Object.keys(sources).length
+      var s1d = stats[1].querySelector('.d')
+      if (s1d) s1d.textContent = 'active sources'
     }
-
-    // Count videos (Reels) vs articles
-    var videoCount = items.filter(function (it) { return it.type === 'video' }).length
     if (stats.length >= 3) {
       var s2v = stats[2].querySelector('.v')
-      if (s2v) s2v.textContent = videoCount + ' Reels'
+      if (s2v) s2v.textContent = reels.length + ' Reels'
+      var s2d = stats[2].querySelector('.d')
+      if (s2d) s2d.textContent = isCached ? 'cached' : 'live'
     }
 
-    // Show cache indicator if needed
-    var feedHead = view.querySelector('.feed-head')
-    if (feedHead && isCached) {
-      var cacheNote = feedHead.querySelector('.cache-note')
-      if (!cacheNote) {
-        cacheNote = document.createElement('div')
-        cacheNote.className = 'cache-note'
-        cacheNote.style.cssText = 'font-size:12px; color:var(--t3); margin-top:8px'
-        cacheNote.textContent = '(showing cached data — refreshing...)'
-        feedHead.appendChild(cacheNote)
-      }
-    } else if (feedHead) {
-      var note = feedHead.querySelector('.cache-note')
-      if (note) note.remove()
+    // Update feed header
+    var feedSub = view.querySelector('.feed-head .sub')
+    if (feedSub) {
+      feedSub.textContent = items.length + ' items · ' + (isCached ? 'cached' : 'live') + ' · auto-refresh 5m'
     }
 
-    // Populate feed items
-    var feed = view.querySelector('.feed')
-    if (!feed) return
-
-    var feedBody = feed.querySelector('.feed-head')
-    if (!feedBody) return
-
-    // Find existing feed items container or the feed itself
-    var existingItems = feed.querySelectorAll('.k')
-    var dayDivs = feed.querySelectorAll('.day-div')
-
-    // Build new feed items from real data - mix articles and reels
-    var feedHtml = ''
-    var lastDate = ''
-
-    items.forEach(function (item, i) {
-      var date = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'Today'
-      if (date !== lastDate) {
-        feedHtml += '<div class="day-div"><div class="l"></div><div class="t">' + esc(date) + '</div><div class="l"></div></div>'
-        lastDate = date
-      }
-
-      // Use item.type for reliable source classification
-      var thClass = 'art'
-      var thLabel = (item.type || 'article').toUpperCase()
-      if (item.type === 'reddit') { thClass = 'tt1'; thLabel = 'REDDIT' }
-      else if (item.type === 'video') { thClass = 'yt1'; thLabel = 'YOUTUBE' }
-      else if (item.type === 'trend') { thClass = 'ig1'; thLabel = 'TREND' }
-      else if (item.type === 'research') { thClass = 'sub'; thLabel = 'RESEARCH' }
-
-      var score = item.score || Math.round(50 + Math.random() * 40)
-
-      // Render as Reel card if video type
-      if (item.type === 'video') {
-        feedHtml += '<div class="k k-video">'
-          + '<div class="k-video-thumb">'
-          + (item.imageUrl ? '<img src="' + esc(item.imageUrl) + '" alt="' + esc(item.title) + '" />' : '<div class="k-video-placeholder"></div>')
-          + '<div class="k-video-overlay">'
-          + '<div class="k-video-play">▶</div>'
-          + '</div>'
-          + '</div>'
-          + '<div class="k-video-meta">'
-          + '<div class="k-video-creator">' + esc(item.source || 'Creator') + '</div>'
-          + '<div class="k-video-title">' + esc(item.title || '') + '</div>'
-          + '<div class="k-video-stats">'
-          + (item.summary ? '<span>' + esc(item.summary.split(' · ')[0] || '') + '</span>' : '')
-          + '<span>' + timeAgo(item.createdAt) + '</span>'
-          + '</div>'
-          + '</div>'
-          + '</div>'
+    // Render reels grid
+    var reelsGrid = document.getElementById('knowledge-reels-grid')
+    if (reelsGrid) {
+      if (reels.length === 0) {
+        reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:13px">No reels found. Check back soon.</div>'
       } else {
-        // Render as article card (original format)
-        feedHtml += '<div class="k">'
-          + '<div class="th ' + thClass + '"><span class="lbl">' + esc(thLabel) + '</span></div>'
-          + '<div class="b">'
-          + '<div class="src"><span class="plat ' + thClass + '">' + esc(item.source || 'Source') + '</span><span class="name">' + esc(item.author || '') + '</span></div>'
-          + '<div class="t">' + esc(item.title || '') + '</div>'
-          + (item.mayaTake ? '<div class="why"><span class="mk">Maya:</span> ' + esc(item.mayaTake) + '</div>' : '')
-          + '<div class="meta">'
-          + (item.score ? '<span class="tag hot">Score · ' + item.score + '</span>' : '')
-          + '<span>' + timeAgo(item.createdAt) + '</span>'
-          + '</div>'
-          + '</div>'
-          + '<div class="r">'
-          + '<div class="score"><em>' + score + '</em><span style="color:var(--t3);font-size:14px">/100</span></div>'
-          + '<div class="score-l">Signal</div>'
-          + '</div>'
-          + '</div>'
+        reelsGrid.innerHTML = reels.map(function (item) {
+          var url = item.url || ''
+          var vidMatch = url.match(/[?&]v=([^&]+)/) || url.match(/shorts\/([^?&]+)/) || url.match(/youtu\.be\/([^?&]+)/)
+          var videoId = vidMatch ? vidMatch[1] : ''
+          var isShort = url.indexOf('/shorts/') >= 0
+          var thumb = item.thumbnail || item.imageUrl || ''
+          var embedUrl = videoId ? 'https://www.youtube.com/embed/' + videoId : ''
+
+          return '<div class="card" data-url="' + esc(url) + '" style="cursor:pointer">'
+            + '<div class="th" style="aspect-ratio:9/16;position:relative;background:#000">'
+            + (embedUrl
+              ? '<iframe src="' + embedUrl + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" allow="autoplay;encrypted-media" allowfullscreen loading="lazy"></iframe>'
+              : (thumb
+                ? '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" referrerpolicy="no-referrer" onerror="this.remove()" />'
+                : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;color:var(--t3)">▶</div>'
+              )
+            )
+            + '<span class="plat"><span class="d yt"></span>YT' + (isShort ? ' Short' : '') + '</span>'
+            + '</div>'
+            + '<div class="body" style="padding:10px 12px">'
+            + '<div style="font-size:12px;font-weight:500;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.title || '') + '</div>'
+            + '<div style="font-size:10px;color:var(--t3);margin-top:4px">' + esc(item.source || item.author || '') + '</div>'
+            + '</div>'
+            + '</div>'
+        }).join('')
       }
-    })
 
-    // Remove existing mock items and insert real ones
-    existingItems.forEach(function (el) { el.remove() })
-    dayDivs.forEach(function (el) { el.remove() })
-
-    // Also remove the synth (Maya synthesis) mock if no real data
-    var synth = feed.querySelector('.synth')
-
-    // Insert after synth or after feed-head
-    var insertAfter = synth || feedBody
-    var temp = document.createElement('div')
-    temp.innerHTML = feedHtml
-    while (temp.firstChild) {
-      insertAfter.parentNode.insertBefore(temp.firstChild, insertAfter.nextSibling)
-      insertAfter = insertAfter.nextSibling
+      // Click to open in new tab
+      reelsGrid.addEventListener('click', function (e) {
+        var card = e.target.closest('.card[data-url]')
+        if (card && card.dataset.url && !e.target.closest('iframe')) {
+          window.open(card.dataset.url, '_blank', 'noopener')
+        }
+      })
     }
 
-    // Update trending sidebar
-    populateTrending(view, items)
-  }
+    // Render articles rail
+    var articlesRail = document.getElementById('knowledge-articles-rail')
+    if (articlesRail) {
+      if (articles.length === 0) {
+        articlesRail.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">No articles found.</div>'
+      } else {
+        articlesRail.innerHTML = articles.map(function (item) {
+          var thumb = item.thumbnail || item.imageUrl || ''
+          var score = item.score || Math.round(50 + Math.random() * 30)
+          var sourceType = (item.type || 'article').toLowerCase()
+          var typeLabel = sourceType === 'reddit' ? 'REDDIT' : 'ARTICLE'
+          var typeColor = sourceType === 'reddit' ? 'var(--tt)' : 'var(--accent)'
 
-  function populateTrending(view, items) {
-    var ctx = view.querySelector('.ctx')
-    if (!ctx) return
-
-    var trendBlock = ctx.querySelector('.ctx-block')
-    if (!trendBlock) return
-
-    // Find trend items specifically
-    var trends = items.filter(function (it) { return it.type === 'trend' || (it.source || '').toLowerCase().indexOf('trend') >= 0 })
-    if (trends.length === 0) return
-
-    var trendEls = trendBlock.querySelectorAll('.trend')
-    trends.slice(0, trendEls.length).forEach(function (t, i) {
-      if (!trendEls[i]) return
-      var nm = trendEls[i].querySelector('.nm')
-      if (nm) {
-        nm.innerHTML = esc(t.title || t.keyword || '') + '<span class="d">' + esc(t.summary || '') + '</span>'
+          return '<a href="' + esc(item.url || '#') + '" target="_blank" rel="noopener" style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--b1);text-decoration:none;color:inherit">'
+            + (thumb
+              ? '<img src="' + esc(thumb) + '" style="width:64px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'" />'
+              : '<div style="width:64px;height:48px;border-radius:6px;background:var(--s2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:\'JetBrains Mono\',monospace;font-size:8px;color:var(--t3);letter-spacing:.08em">' + typeLabel + '</div>'
+            )
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:12px;font-weight:500;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.title || '') + '</div>'
+            + '<div style="font-size:10px;color:var(--t3);margin-top:3px;display:flex;gap:6px;align-items:center">'
+            + '<span style="color:' + typeColor + '">' + esc(item.source || '') + '</span>'
+            + '<span>' + timeAgo(item.createdAt || item.publishedAt) + '</span>'
+            + '</div>'
+            + '</div>'
+            + '</a>'
+        }).join('')
       }
-    })
+    }
+
+    // Update sidebar nav counts
+    var navItems = view.querySelectorAll('.nav-item .c')
+    if (navItems.length >= 5) {
+      navItems[0].textContent = items.length   // All signal
+      navItems[1].textContent = reels.length   // Rising (reels)
+      navItems[2].textContent = articles.filter(function (a) { return a.score && a.score < 60 }).length // Fading
+      navItems[3].textContent = 0              // Competitor
+      navItems[4].textContent = 0              // Saved
+    }
   }
 
   function timeAgo(dateStr) {
@@ -226,7 +155,7 @@
     return days + 'd ago'
   }
 
-  // Run on navigate to Knowledge
+  // Hook into navigation
   var origNav = window.navigate
   window.navigate = function (id) {
     var r = typeof origNav === 'function' ? origNav(id) : undefined
