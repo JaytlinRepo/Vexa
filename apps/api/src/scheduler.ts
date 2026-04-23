@@ -5,6 +5,7 @@ import { syncInstagramAccount } from './lib/instagramSync'
 import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap, triggerWeeklyMayaPulse, triggerWeeklyJordanPlan, triggerWeeklyAlexHooks, triggerWeeklyRileyBriefs } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 import { getScheduleForCompany, shouldRunNow } from './lib/schedulePrefs'
+import { processThoughtResponses } from './services/thoughts/thoughtResponse.service'
 
 let running = false
 let lastRunAt: Date | null = null
@@ -384,6 +385,16 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
     }
   })
   console.log('[scheduler] registered weekly Riley briefs at Sunday 19:30 UTC')
+
+  // Every 6 hours — Process thoughts and generate agent responses
+  cron.schedule('0 */6 * * *', async () => {
+    try {
+      await processThoughtResponses()
+    } catch (e) {
+      console.error('[scheduler] thought response processing failed:', e)
+    }
+  })
+  console.log('[scheduler] registered thought response processor (every 6 hours)')
 }
 
 export function schedulerStatus(): { lastRunAt: Date | null; lastResultCount: number; running: boolean } {

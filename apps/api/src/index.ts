@@ -24,6 +24,7 @@ import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
 import knowledgeRouter from './routes/knowledge'
+import thoughtsRouter from './routes/thoughts'
 import platformDataRouter from './routes/platformData'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
@@ -114,6 +115,7 @@ app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/memory', memoryRouter)
 app.use('/api/knowledge', knowledgeRouter)
+app.use('/api/thoughts', thoughtsRouter)
 app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)

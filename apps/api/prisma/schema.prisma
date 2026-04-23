@@ -148,6 +148,8 @@ model Company {
   tasks            Task[]
   outputs          Output[]
   meetings         Meeting[]
+  thoughts         Thought[]
+  thoughtResponses ThoughtResponse[]
   memory           BrandMemory[]
   knowledge        Knowledge[]
   instagram        InstagramConnection?
@@ -169,10 +171,11 @@ model Employee {
   isActive   Boolean      @default(true) @map("is_active")
   lastActive DateTime?    @map("last_active")
 
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  tasks    Task[]
-  outputs  Output[]
-  meetings Meeting[]
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks             Task[]
+  outputs           Output[]
+  meetings          Meeting[]
+  thoughtResponses  ThoughtResponse[]
 
   @@unique([companyId, role])
   @@map("employees")
@@ -235,6 +238,40 @@ model Meeting {
   employee Employee @relation(fields: [employeeId], references: [id])
 
   @@map("meetings")
+}
+
+model Thought {
+  id                String             @id @default(uuid())
+  companyId         String             @map("company_id")
+  content           String             @db.Text
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  thoughtResponses  ThoughtResponse[]
+
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("thoughts")
+}
+
+model ThoughtResponse {
+  id          String    @id @default(uuid())
+  thoughtId   String    @map("thought_id")
+  companyId   String    @map("company_id")
+  employeeId  String    @map("employee_id")
+  content     String    @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  thought   Thought  @relation(fields: [thoughtId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([thoughtId, employeeId])
+  @@index([thoughtId])
+  @@index([companyId])
+  @@index([employeeId])
+  @@map("thought_responses")
 }
 
 model BrandMemory {
