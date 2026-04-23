@@ -30,6 +30,7 @@
     "@vexa/types": "*",
     "axios": "^1.7.0",
     "bcryptjs": "^3.0.3",
+    "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "creatomate": "^1.2.1",
@@ -49,6 +50,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/compression": "^1.7.5",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",

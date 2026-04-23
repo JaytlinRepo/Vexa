@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import compression from 'compression'
 import {
   registerSSEClient,
   getNotifications,
@@ -76,6 +77,9 @@ app.use(
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '2mb' }))
 app.use(cookieParser())
+
+// Enable gzip compression for all responses (reduces payload by 60-70%)
+app.use(compression())
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
