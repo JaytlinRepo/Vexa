@@ -256,6 +256,7 @@ async function analyzeVisuals(
       }
     }
 
+    // Thumbnail fallback — single frame can detect visual style but NOT cut speed/transitions
     if (frames.length === 0 && thumbnailUrl) {
       try {
         const axios = (await import('axios')).default
@@ -299,8 +300,11 @@ async function analyzeVisuals(
 
     const a = parseAgentOutput<Record<string, unknown>>(raw)
 
+    // If only 1 frame (thumbnail), cut speed and transition metrics are unreliable
+    const isThumbnailOnly = frames.length <= 1
+
     return {
-      avgCutDuration: typeof a.avgCutDuration === 'number' ? a.avgCutDuration : 1.5,
+      avgCutDuration: isThumbnailOnly ? -1 : (typeof a.avgCutDuration === 'number' ? a.avgCutDuration : 1.5),
       pacingSpeed: (a.pacingSpeed as string) || 'moderate',
       pacingCurve: (a.pacingCurve as string) || 'steady',
       hookTiming: typeof a.hookTiming === 'number' ? a.hookTiming : 2,
@@ -348,8 +352,11 @@ function aggregateProfiles(
 
   if (visuals.length === 0) return defaults
 
-  // Average numeric metrics
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0
+  // Average numeric metrics — filter out -1 (thumbnail-only, unreliable for timing)
+  const avg = (arr: number[]) => {
+    const valid = arr.filter((v) => v >= 0)
+    return valid.length > 0 ? valid.reduce((s, v) => s + v, 0) / valid.length : 0
+  }
   const mode = (arr: string[]) => {
     const counts = new Map<string, number>()
     for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1)
