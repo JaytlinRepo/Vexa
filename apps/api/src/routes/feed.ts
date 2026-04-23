@@ -15,6 +15,10 @@ const router = Router()
 const feedCache = new Map<string, { items: FeedItem[]; trends: TrendItem[]; videos: YouTubeVideo[]; ts: number }>()
 const FEED_CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
+// ─── Trend cache: Google Trends calls are expensive + slow ────────────────────
+const trendCache = new Map<string, { data: TrendItem[]; ts: number }>()
+const TREND_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 interface FeedItem {
   id: string
   source: string
@@ -48,6 +52,12 @@ const TREND_SEEDS: Record<string, string[]> = {
 }
 
 async function fetchTrendSignals(niche: string): Promise<TrendItem[]> {
+  // Check cache first
+  const cached = trendCache.get(niche)
+  if (cached && Date.now() - cached.ts < TREND_CACHE_TTL) {
+    return cached.data
+  }
+
   const seeds = TREND_SEEDS[niche] || TREND_SEEDS.lifestyle!
   const results: TrendItem[] = []
 
@@ -91,7 +101,12 @@ async function fetchTrendSignals(niche: string): Promise<TrendItem[]> {
   }
 
   // Sort by rising percent, highest first
-  return results.sort((a, b) => b.risingPercent - a.risingPercent).slice(0, 6)
+  const sorted = results.sort((a, b) => b.risingPercent - a.risingPercent).slice(0, 6)
+
+  // Cache the results
+  trendCache.set(niche, { data: sorted, ts: Date.now() })
+
+  return sorted
 }
 
 function trendToFeedItem(t: TrendItem): FeedItem {
@@ -487,6 +502,31 @@ router.get('/', requireAuth, async (req, res, next) => {
 const articleCache = new Map<string, { content: string; ts: number }>()
 const ARTICLE_CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
+// ── Manual cache refresh ────────────────────────────────────────────────────
+// Allow users to force a fresh feed without waiting for TTL to expire
+router.post('/refresh', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const companyId = (req.query.companyId as string | undefined) ?? undefined
+    const company = companyId
+      ? await prisma.company.findFirst({ where: { id: companyId, userId } })
+      : await prisma.company.findFirst({ where: { userId } })
+    if (!company) {
+      return res.json({ success: false, message: 'Company not found' })
+    }
+
+    const niche = effectiveNiche(company) || 'lifestyle'
+    const detectedSub = company.detectedSubNiche
+    const cacheKey = `${niche}:${detectedSub || ''}`
+    feedCache.delete(cacheKey) // Clear cache for this niche
+    trendCache.delete(niche) // Clear trend cache
+    articleCache.clear() // Also clear article cache
+
+    res.json({ success: true, message: 'Cache cleared — fetching fresh data...' })
+  } catch (err) {
+    next(err)
+  }
+})
 router.get('/article', requireAuth, async (req, res) => {
   const url = req.query.url as string
   if (!url || typeof url !== 'string') {
