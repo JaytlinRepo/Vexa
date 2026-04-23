@@ -666,7 +666,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 
     // Feed limits — more reels, articles on the side
     const requestedLimit = Math.max(1, Math.min(25, Number(req.query.limit) || 25))
-    const maxRedditShare = 3
+    const maxRedditShare = 8
 
     // ── Check cache ──────────────────────────────────────────────
     const cacheKey = `${niche}:${detectedSub || ''}`
@@ -682,8 +682,8 @@ router.get('/', requireAuth, async (req, res, next) => {
     const igHashtags = getHashtagsForNiche(niche, detectedSub)
 
     const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igPosts] = await Promise.all([
-      Promise.all(subs.slice(0, 1).map((s) => fetchRedditTop(s, 2, niche, detectedSub))),
-      fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
+      Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
+      fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
       searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
       searchNicheVideos(niche, detectedSub || undefined, 10, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
@@ -698,7 +698,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     let items: FeedItem[] = [
       // Articles and news
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
-      ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
+      ...newsItems.slice(0, 5).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // YouTube videos/Reels
       // YouTube reels/videos
       ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
