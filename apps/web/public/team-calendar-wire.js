@@ -356,19 +356,15 @@
           detailHtml = '<div class="sb-detail-empty">No output yet</div>'
         }
 
-        html += '<tr class="sb-task-expandable" data-task-id="' + (t.id || i) + '">'
+        html += '<tr class="sb-task-expandable" data-task-idx="' + i + '">'
           + '<td><div class="sb-task-row">'
           + '<div class="sb-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
           + '<div class="sb-task-info">'
           + '<div class="sb-task-title">' + escHtml(t.title || typeLabel) + '</div>'
           + '<div class="sb-task-meta">' + ag.label + ' · ' + typeLabel + '</div>'
           + '</div>'
-          + '<span class="sb-expand-icon">+</span>'
           + '</div></td>'
           + '<td class="r"><span class="sb-status' + (sc ? ' ' + sc : '') + '">' + status + '</span></td>'
-          + '</tr>'
-          + '<tr class="sb-task-detail" id="detail-' + (t.id || i) + '" style="display:none">'
-          + '<td colspan="2"><div class="sb-detail">' + detailHtml + '</div></td>'
           + '</tr>'
       }
       html += '</tbody></table></div>'
@@ -428,23 +424,14 @@
 
     sidebar.innerHTML = html
 
-    // Wire task expand/collapse
+    // Wire task click → modal
+    sidebar._dayTasks = dayTasks
     var expandRows = sidebar.querySelectorAll('.sb-task-expandable')
     expandRows.forEach(function (row) {
       row.addEventListener('click', function () {
-        var id = row.dataset.taskId
-        var detail = document.getElementById('detail-' + id)
-        if (!detail) return
-        var icon = row.querySelector('.sb-expand-icon')
-        if (detail.style.display === 'none') {
-          detail.style.display = ''
-          if (icon) icon.textContent = '\u2212' // minus
-          row.classList.add('expanded')
-        } else {
-          detail.style.display = 'none'
-          if (icon) icon.textContent = '+'
-          row.classList.remove('expanded')
-        }
+        var idx = parseInt(row.dataset.taskIdx, 10)
+        var task = sidebar._dayTasks[idx]
+        if (task) openTaskModal(task)
       })
     })
 
@@ -454,6 +441,62 @@
     var textarea = document.getElementById('new-thought-input')
     if (textarea) textarea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitThought(dateStr) }
+    })
+  }
+
+  function openTaskModal(task) {
+    var existing = document.getElementById('task-modal-overlay')
+    if (existing) existing.remove()
+
+    var roleKey = task.employee ? task.employee.role : 'strategist'
+    var ag = AGENTS[roleKey] || AGENTS.strategist
+    var typeLabel = TYPE_LABEL[task.type] || task.type
+    var status = task.status || 'pending'
+    var sc = statusClass(status)
+    var created = task.createdAt ? new Date(task.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+    var completed = task.completedAt ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+
+    // Build output detail
+    var detailHtml = ''
+    if (task.description) {
+      detailHtml += '<div class="tm-desc">' + escHtml(task.description) + '</div>'
+    }
+    if (task.outputs && task.outputs.length > 0) {
+      var out = task.outputs[task.outputs.length - 1]
+      if (out.content) detailHtml += renderOutputContent(out.content, task.type, ag)
+    }
+    if (!detailHtml) {
+      detailHtml = '<div class="sb-detail-empty">No output yet — task is ' + status + '</div>'
+    }
+
+    var overlay = document.createElement('div')
+    overlay.id = 'task-modal-overlay'
+    overlay.className = 'tm-overlay'
+    overlay.innerHTML = '<div class="tm-backdrop"></div>'
+      + '<div class="tm-modal">'
+      + '<div class="tm-header">'
+      + '<div class="tm-header-left">'
+      + '<div class="sb-port" style="border-color:' + ag.css + ';width:36px;height:36px;font-size:14px">' + ag.initial + '</div>'
+      + '<div>'
+      + '<div class="tm-title">' + escHtml(task.title || typeLabel) + '</div>'
+      + '<div class="tm-meta">' + ag.label + ' · ' + typeLabel + ' · <span class="sb-status ' + sc + '">' + status + '</span></div>'
+      + '</div>'
+      + '</div>'
+      + '<button class="tm-close">&times;</button>'
+      + '</div>'
+      + '<div class="tm-timestamps">'
+      + (created ? '<span>Created ' + created + '</span>' : '')
+      + (completed ? '<span>Completed ' + completed + '</span>' : '')
+      + '</div>'
+      + '<div class="tm-body">' + detailHtml + '</div>'
+      + '</div>'
+
+    document.body.appendChild(overlay)
+
+    overlay.querySelector('.tm-backdrop').addEventListener('click', function () { overlay.remove() })
+    overlay.querySelector('.tm-close').addEventListener('click', function () { overlay.remove() })
+    document.addEventListener('keydown', function onEsc(e) {
+      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) }
     })
   }
 
