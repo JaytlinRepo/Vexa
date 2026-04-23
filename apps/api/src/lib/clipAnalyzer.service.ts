@@ -263,16 +263,10 @@ export async function analyzeAndPickClip(
   // NOT audience optimization — that's Maya's job. Riley matches the creator's style.
   const style = creatorProfile?.style as Record<string, unknown> | undefined
 
-  // Dynamic target from creator's typical video length (not audience-optimal)
-  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.65))
-
-  // Dynamic segments from creator's actual cut speed
-  // The analyzer now filters out thumbnail-only data (returns -1 for unreliable metrics)
-  // so avgCutDuration here is from real multi-frame analysis only
+  // No hard target — Riley decides the output length based on what she sees + the creator's style.
+  // We give her the source duration and her style profile. She decides what to keep and what to cut.
   const rawCutSpeed = (style as any)?.avgCutDuration || 3
-  const avgCutSpeed = Math.max(1, rawCutSpeed) // floor at 1s, no ceiling — trust the data
-  const maxSegments = Math.max(3, Math.ceil(targetLen / avgCutSpeed))
-  const segDuration = `${Math.max(1, avgCutSpeed - 1).toFixed(0)}-${(avgCutSpeed + 1).toFixed(0)}`
+  const avgCutSpeed = Math.max(1, rawCutSpeed)
 
   // Build creator style instructions — how THIS creator edits
   let creatorInstructions = ''
@@ -310,20 +304,15 @@ export async function analyzeAndPickClip(
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
-Your job: edit this video the way THIS creator would edit it. Match their cut speed, pacing, hook style, and visual choices. You are saving them time, not changing their style.
+Your job: edit this ${videoDuration.toFixed(0)}s video the way THIS creator would edit it. Keep everything worth keeping. Cut everything that's boring, repetitive, or dead time. You decide the final length based on how much good content there is.
 ${creatorInstructions}
-HARD CONSTRAINTS (DO NOT VIOLATE):
-- MAXIMUM OUTPUT: ${targetLen} seconds total
-- MAXIMUM SEGMENTS: ${maxSegments} segments
-- EACH SEGMENT: ${segDuration} seconds
-
-EDITING RULES:
-- CUT WHERE THE ACTION CHANGES — keep segments where something interesting is happening, skip segments where nothing changes. Consecutive segments are fine IF the content is continuous action. Gaps are fine IF there's dead footage in between
-- USE THE FULL ${targetLen}s BUDGET — your segments should add up close to ${targetLen}s total. Don't leave budget unused
-- SPREAD ACROSS THE FULL VIDEO — pick moments from the beginning, middle, AND end of the ${videoDuration.toFixed(0)}s source. Your last segment should come from the final third (after ${(videoDuration * 0.66).toFixed(0)}s)
-- SKIP DEAD TIME — static shots with no action, repetitive movements, walking without purpose = cut them
-- START WITH ACTION — open with the first interesting moment, not a static establishing shot
-- END WITH A PAYOFF — include a satisfying conclusion from the end of the video
+EDITING GUIDELINES:
+- CUT SPEED: this creator averages ~${avgCutSpeed.toFixed(1)}s per segment. Match that rhythm
+- Keep segments where something interesting is happening (action, emotion, reveals, interaction)
+- Cut segments where nothing changes (static shots, walking, repetitive motion, dead air)
+- Consecutive segments are fine when there's continuous action. Gaps are natural when you skip dead footage
+- Cover the FULL video — pick moments from beginning, middle, AND end. Include content from the last 10 seconds if there's a conclusion or payoff
+- Start with the first interesting action, not a static establishing shot
 
 ${editingRules}
 
@@ -365,7 +354,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
 
   content.push({
     type: 'text',
-    text: `\nBased on what you SEE in these frames, build a ${targetLen}s reel. Cut where the action changes, keep interesting continuous action, skip dead time. Use moments from across the FULL ${videoDuration.toFixed(0)}s video including the ending. Your segments should total close to ${targetLen}s. Output JSON only.`
+    text: `\nBased on what you SEE in these frames, edit this video. Keep everything interesting, cut everything boring. Use the creator's ~${avgCutSpeed.toFixed(1)}s cut rhythm. Include content from across the full ${videoDuration.toFixed(0)}s video including the ending. Output JSON only.`
   })
 
   try {
