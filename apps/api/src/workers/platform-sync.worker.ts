@@ -66,6 +66,11 @@ export function createPlatformSyncWorker(): Worker {
             const { generateMayaPlaybook } = await import('../lib/metricTracking')
             await generateMayaPlaybook(prisma, companyId)
           } catch {}
+          // Rebuild retention intelligence (learns from new performance data)
+          try {
+            const { buildRetentionProfile } = await import('../services/intelligence/retentionIntelligence')
+            await buildRetentionProfile(prisma, companyId)
+          } catch {}
           break
         }
 
