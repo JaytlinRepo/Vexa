@@ -15,8 +15,19 @@
     if (!view) return
     if (populated && !force) return
 
-    get('/api/feed').then(function (data) {
-      if (!data || !data.items || data.items.length === 0) return
+    // Show loading state
+    var imagesCol = document.getElementById('knowledge-images-col')
+    var reelsGrid = document.getElementById('knowledge-reels-grid')
+    var articlesRail = document.getElementById('knowledge-articles-rail')
+    if (imagesCol && !populated) imagesCol.innerHTML = '<div style="text-align:center;padding:30px;color:var(--t3);font-size:12px">Loading Instagram...</div>'
+    if (reelsGrid && !populated) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:12px">Loading reels...</div>'
+    if (articlesRail && !populated) articlesRail.innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px">Loading articles...</div>'
+
+    get('/api/feed?limit=25').then(function (data) {
+      if (!data || !data.items || data.items.length === 0) {
+        if (reelsGrid) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:13px">No content found. Try refreshing.</div>'
+        return
+      }
       render(view, data.items, data.source === 'cached')
 
       // Auto-refresh every 5 minutes

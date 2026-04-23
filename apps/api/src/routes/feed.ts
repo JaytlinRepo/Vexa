@@ -691,7 +691,7 @@ router.get('/', requireAuth, async (req, res, next) => {
         // Get Instagram token from user's connected account
         const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
         if (!igConn?.accessToken || !igConn?.igBusinessId) return []
-        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 4), 12)
+        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
       })().catch(() => []),
     ])
 

@@ -70,21 +70,18 @@ export async function fetchInstagramTrendingByHashtag(
   const allPosts: InstagramHashtagPost[] = []
 
   try {
-    // Search for each hashtag and fetch top posts
-    for (const hashtag of hashtags.slice(0, 4)) {
-      // Limit API calls
-      try {
-        // First, search for the hashtag ID
+    // Fetch all hashtags in parallel for speed
+    const perTag = Math.ceil(limit / hashtags.length)
+    const results = await Promise.allSettled(
+      hashtags.slice(0, 4).map(async (hashtag) => {
         const hashtagId = await meta.searchHashtag(hashtag, token, igBusinessId)
-        if (!hashtagId) continue
+        if (!hashtagId) return []
+        return meta.getHashtagTopPosts(hashtagId, token, igBusinessId, perTag)
+      })
+    )
 
-        // Then get top posts for that hashtag
-        const posts = await meta.getHashtagTopPosts(hashtagId, token, igBusinessId, Math.ceil(limit / hashtags.length))
-        allPosts.push(...posts)
-      } catch (err) {
-        console.warn(`[instagram-trending] failed to fetch hashtag ${hashtag}:`, err)
-        continue
-      }
+    for (const r of results) {
+      if (r.status === 'fulfilled') allPosts.push(...r.value)
     }
 
     // Dedupe by ID and return
