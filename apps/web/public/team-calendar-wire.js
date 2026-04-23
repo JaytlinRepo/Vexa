@@ -231,6 +231,78 @@
     })
   }
 
+  function renderOutputContent(content, taskType, ag) {
+    if (!content || typeof content !== 'object') return ''
+    var html = ''
+
+    // Trend reports (Maya)
+    if (content.trends && Array.isArray(content.trends)) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Trends</div>'
+      for (var i = 0; i < Math.min(content.trends.length, 3); i++) {
+        var tr = content.trends[i]
+        html += '<div class="sb-detail-item">'
+          + '<div class="sb-detail-item-title">' + escHtml(tr.topic || tr.keyword || '') + '</div>'
+          + (tr.whyItMatters ? '<div class="sb-detail-item-body">' + escHtml(tr.whyItMatters).slice(0, 150) + '</div>' : '')
+          + (tr.growthPercent ? '<span class="sb-detail-tag ok">+' + tr.growthPercent + '%</span>' : '')
+          + '</div>'
+      }
+      html += '</div>'
+    }
+
+    // Content plan (Jordan)
+    if (content.days && Array.isArray(content.days)) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Plan</div>'
+      for (var j = 0; j < Math.min(content.days.length, 5); j++) {
+        var day = content.days[j]
+        html += '<div class="sb-detail-item">'
+          + '<div class="sb-detail-item-title">' + escHtml(day.day || day.date || '') + '</div>'
+          + '<div class="sb-detail-item-body">' + escHtml(day.topic || day.content || day.description || '').slice(0, 120) + '</div>'
+          + '</div>'
+      }
+      html += '</div>'
+    }
+
+    // Hooks (Alex)
+    if (content.hooks && Array.isArray(content.hooks)) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Hooks</div>'
+      for (var k = 0; k < Math.min(content.hooks.length, 5); k++) {
+        var hook = content.hooks[k]
+        var hookText = typeof hook === 'string' ? hook : (hook.text || hook.hook || '')
+        html += '<div class="sb-detail-hook">' + escHtml(hookText) + '</div>'
+      }
+      html += '</div>'
+    }
+
+    // Captions / scripts
+    if (content.caption) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Caption</div>'
+        + '<div class="sb-detail-text">' + escHtml(content.caption).slice(0, 300) + '</div></div>'
+    }
+    if (content.script) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Script</div>'
+        + '<div class="sb-detail-text">' + escHtml(typeof content.script === 'string' ? content.script : JSON.stringify(content.script)).slice(0, 300) + '</div></div>'
+    }
+
+    // Briefs (morning/evening)
+    if (content.summary) {
+      html += '<div class="sb-detail-section"><div class="sb-detail-label">Summary</div>'
+        + '<div class="sb-detail-text">' + escHtml(content.summary).slice(0, 400) + '</div></div>'
+    }
+
+    // Fallback: show key-value pairs
+    if (!html) {
+      var keys = Object.keys(content).filter(function (k) { return k !== 'tags' && k !== 'version' })
+      for (var m = 0; m < Math.min(keys.length, 4); m++) {
+        var val = content[keys[m]]
+        var display = typeof val === 'string' ? val.slice(0, 200) : (Array.isArray(val) ? val.length + ' items' : JSON.stringify(val).slice(0, 100))
+        html += '<div class="sb-detail-section"><div class="sb-detail-label">' + escHtml(keys[m]) + '</div>'
+          + '<div class="sb-detail-text">' + escHtml(display) + '</div></div>'
+      }
+    }
+
+    return html
+  }
+
   function statusClass(s) {
     if (s === 'delivered' || s === 'approved') return 'ok'
     if (s === 'in_progress') return 'accent'
@@ -268,15 +340,35 @@
         var status = t.status || 'pending'
         var sc = statusClass(status)
 
-        html += '<tr>'
+        // Build detail content from task outputs
+        var detailHtml = ''
+        if (t.description) {
+          detailHtml += '<div class="sb-detail-desc">' + escHtml(t.description) + '</div>'
+        }
+        if (t.outputs && t.outputs.length > 0) {
+          var out = t.outputs[t.outputs.length - 1] // latest output
+          var content = out.content
+          if (content) {
+            detailHtml += renderOutputContent(content, t.type, ag)
+          }
+        }
+        if (!detailHtml) {
+          detailHtml = '<div class="sb-detail-empty">No output yet</div>'
+        }
+
+        html += '<tr class="sb-task-expandable" data-task-id="' + (t.id || i) + '">'
           + '<td><div class="sb-task-row">'
           + '<div class="sb-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
           + '<div class="sb-task-info">'
           + '<div class="sb-task-title">' + escHtml(t.title || typeLabel) + '</div>'
           + '<div class="sb-task-meta">' + ag.label + ' · ' + typeLabel + '</div>'
           + '</div>'
+          + '<span class="sb-expand-icon">+</span>'
           + '</div></td>'
           + '<td class="r"><span class="sb-status' + (sc ? ' ' + sc : '') + '">' + status + '</span></td>'
+          + '</tr>'
+          + '<tr class="sb-task-detail" id="detail-' + (t.id || i) + '" style="display:none">'
+          + '<td colspan="2"><div class="sb-detail">' + detailHtml + '</div></td>'
           + '</tr>'
       }
       html += '</tbody></table></div>'
@@ -336,7 +428,27 @@
 
     sidebar.innerHTML = html
 
-    // Wire events
+    // Wire task expand/collapse
+    var expandRows = sidebar.querySelectorAll('.sb-task-expandable')
+    expandRows.forEach(function (row) {
+      row.addEventListener('click', function () {
+        var id = row.dataset.taskId
+        var detail = document.getElementById('detail-' + id)
+        if (!detail) return
+        var icon = row.querySelector('.sb-expand-icon')
+        if (detail.style.display === 'none') {
+          detail.style.display = ''
+          if (icon) icon.textContent = '\u2212' // minus
+          row.classList.add('expanded')
+        } else {
+          detail.style.display = 'none'
+          if (icon) icon.textContent = '+'
+          row.classList.remove('expanded')
+        }
+      })
+    })
+
+    // Wire submit
     var btn = document.getElementById('submit-thought-btn')
     if (btn) btn.addEventListener('click', function () { submitThought(dateStr) })
     var textarea = document.getElementById('new-thought-input')
