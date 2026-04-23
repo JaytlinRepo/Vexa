@@ -801,3 +801,20 @@ model ContentTimeline {
   @@index([companyId])
   @@map("content_timelines")
 }
+
+// ── Video Compilation (multi-video → single reel) ───────────────────────────
+
+model VideoCompilation {
+  id             String   @id @default(cuid())
+  companyId      String   @map("company_id")
+  uploadIds      String[] @map("upload_ids")
+  strategy       String   @default("montage")  // montage | sequential | intercut
+  targetDuration Int      @default(60)          @map("target_duration")
+  status         String   @default("pending")   // pending | processing | complete | failed
+  clipId         String?  @map("clip_id")       // resulting VideoClip ID
+  error          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@map("video_compilations")
+}

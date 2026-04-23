@@ -190,6 +190,7 @@ export async function analyzeAndPickClip(
   sceneData: SceneAnalysis | undefined,
   frames: ExtractedFrame[],
   prisma?: PrismaClient,
+  creatorProfile?: { style?: Record<string, unknown> | null; retention?: Record<string, unknown> | null } | null,
 ): Promise<ClipDecision> {
   // Very short video — use the whole thing
   if (videoDuration <= 10) {
@@ -258,19 +259,50 @@ export async function analyzeAndPickClip(
     editingRules = DEFAULT_EDITING_RULES
   }
 
-  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.65))
-  const maxSegments = Math.max(3, Math.floor(targetLen / 3)) // roughly 3s per segment
+  // Use creator profile to adjust editing parameters
+  const retention = creatorProfile?.retention as Record<string, unknown> | undefined
+  const style = creatorProfile?.style as Record<string, unknown> | undefined
+  const retentionStyle = (retention as any)?.styleProfile || {}
+  const perfCorr = (retention as any)?.performanceCorrelations || {}
+  const audiencePatterns = (retention as any)?.audiencePatterns || {}
+
+  // Dynamic target duration from retention data (replaces hardcoded 60s)
+  const optimalDuration = perfCorr.videoLength?.optimal || targetDuration
+  const targetLen = Math.min(optimalDuration, Math.floor(videoDuration * 0.65))
+
+  // Dynamic segment count from creator's cut speed
+  const avgCutSpeed = (style as any)?.avgCutDuration || retentionStyle.avgCutSpeed || 3
+  const maxSegments = Math.max(3, Math.ceil(targetLen / avgCutSpeed))
+  const segDuration = `${Math.max(1, avgCutSpeed - 1).toFixed(0)}-${(avgCutSpeed + 1).toFixed(0)}`
+
+  // Build creator-specific editing instructions
+  let creatorInstructions = ''
+  if (retention || style) {
+    const parts: string[] = []
+    if (retentionStyle.hookPattern) parts.push(`Hook style: ${retentionStyle.hookPattern} — this is what grabs THIS creator's audience`)
+    if (retentionStyle.avgCutSpeed) parts.push(`Cut speed: ${retentionStyle.avgCutSpeed}s per cut — match this creator's rhythm`)
+    if (retentionStyle.subtitleDensity) parts.push(`Subtitles: ${retentionStyle.subtitleDensity} density — their audience expects this`)
+    if (retentionStyle.zoomBehavior) parts.push(`Zoom: ${retentionStyle.zoomBehavior} — match their visual intensity`)
+    if ((style as any)?.engagementPacing) parts.push(`Engagement pacing: ${(style as any).engagementPacing} — put the best content there`)
+    if ((style as any)?.narrativeStructure) parts.push(`Story structure: ${(style as any).narrativeStructure}`)
+    if (audiencePatterns.topTopics?.length) parts.push(`Audience loves: ${audiencePatterns.topTopics.join(', ')}`)
+    if (audiencePatterns.avoidTopics?.length) parts.push(`Audience dislikes: ${audiencePatterns.avoidTopics.join(', ')} — deprioritize these`)
+
+    if (parts.length > 0) {
+      creatorInstructions = `\nCREATOR-SPECIFIC EDITING (learned from this creator's best-performing content):\n${parts.map(p => '- ' + p).join('\n')}\n`
+    }
+  }
 
   const systemPrompt = `You are Riley, a Creative Director who edits reels. You can SEE the actual video frames.
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
 Your job: build a CapCut-style reel — multiple jump cuts of ONLY the best visual moments.
-
+${creatorInstructions}
 HARD CONSTRAINTS (DO NOT VIOLATE):
 - MAXIMUM OUTPUT: ${targetLen} seconds total. Add up all your segment durations — they MUST total ${targetLen}s or less
 - MAXIMUM SEGMENTS: ${maxSegments} segments
-- EACH SEGMENT: 2-4 seconds. No segment longer than 5 seconds
+- EACH SEGMENT: ${segDuration} seconds. Match this creator's editing rhythm
 - YOU MUST CUT CONTENT. Not everything makes the reel. Be ruthless — only the peak moments survive
 
 ${editingRules}

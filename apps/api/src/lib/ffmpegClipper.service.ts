@@ -17,6 +17,8 @@ import * as os from 'os'
 import axios from 'axios'
 import { uploadFile } from '../services/storage/s3.service'
 import { ReelSegment } from './clipAnalyzer.service'
+import type { CreatorFilters } from './ffmpegFilterBuilder'
+import { buildSegmentVF, buildSegmentAF, buildTransitionFilter, describeFilters } from './ffmpegFilterBuilder'
 
 const execFileAsync = promisify(execFile)
 
@@ -35,8 +37,10 @@ export async function buildReel(params: {
   segments: ReelSegment[]
   companyId: string
   uploadId: string
+  creatorFilters?: CreatorFilters | null
+  sourceInputs?: string[]  // for multi-video compilation — additional input paths
 }): Promise<ClipResult> {
-  const { sourceUrl, segments, companyId, uploadId } = params
+  const { sourceUrl, segments, companyId, uploadId, creatorFilters } = params
   const tmpDir = os.tmpdir()
   const workDir = path.join(tmpDir, `sovexa-reel-${uploadId}`)
   const inputPath = path.join(workDir, 'source.mp4')
@@ -53,42 +57,68 @@ export async function buildReel(params: {
     fs.writeFileSync(inputPath, Buffer.from(response.data))
     console.log(`[ffmpeg] Downloaded ${(response.data.byteLength / 1024 / 1024).toFixed(1)}MB`)
 
-    // 2. Cut each segment individually (re-encode to ensure consistent format)
+    // 2. Build creator-specific filter chains
+    const vfStr = creatorFilters ? buildSegmentVF(creatorFilters) : 'format=yuv420p,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2'
+    const afStr = creatorFilters ? buildSegmentAF(creatorFilters) : ''
+    const fps = creatorFilters?.targetFps || 30
+
+    if (creatorFilters) {
+      const desc = describeFilters(creatorFilters)
+      console.log(`[ffmpeg] Creator-aware filters: ${desc.join(' | ')}`)
+    }
+
+    // 3. Cut each segment individually with creator-specific filters
     console.log(`[ffmpeg] Cutting ${segments.length} segments...`)
+    const segmentDurations: number[] = []
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i]
       const duration = seg.endTime - seg.startTime
+      segmentDurations.push(duration)
       const segPath = path.join(workDir, `seg-${i.toString().padStart(3, '0')}.mp4`)
       segmentPaths.push(segPath)
 
       console.log(`[ffmpeg]   ${i + 1}/${segments.length}: ${seg.startTime.toFixed(1)}s - ${seg.endTime.toFixed(1)}s (${duration.toFixed(1)}s) — ${seg.label}`)
 
-      await execFileAsync('ffmpeg', [
+      const args = [
         '-y',
         '-ss', String(seg.startTime),
         '-i', inputPath,
         '-t', String(duration),
         '-c:v', 'h264_videotoolbox', '-b:v', '8M',
         '-c:a', 'aac', '-b:a', '128k',
-        '-vf', 'format=yuv420p,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
+        '-vf', vfStr,
+        ...(afStr ? ['-af', afStr] : []),
         '-movflags', '+faststart',
-        '-r', '30',
+        '-r', String(fps),
         segPath,
-      ], { timeout: 120000 })
+      ]
+
+      await execFileAsync('ffmpeg', args, { timeout: 120000 })
     }
 
-    // 3. Build concat list
-    const concatContent = segmentPaths
-      .map(p => `file '${p}'`)
-      .join('\n')
-    fs.writeFileSync(concatListPath, concatContent)
+    // 4. Concatenate with transitions
+    const transition = creatorFilters?.segmentTransition || { type: 'none' as const, duration: 0 }
+    const transitionFilter = buildTransitionFilter(segments.length, segmentDurations, transition)
 
-    // 4. Concatenate all segments
-    console.log(`[ffmpeg] Concatenating ${segments.length} segments into reel...`)
+    console.log(`[ffmpeg] Concatenating ${segments.length} segments (${transition.type} transitions)...`)
     if (segments.length === 1) {
-      // Single segment — just rename
       fs.copyFileSync(segmentPaths[0], outputPath)
+    } else if (transitionFilter) {
+      // Use filter_complex for cross-segment transitions (xfade)
+      const inputs = segmentPaths.flatMap((p) => ['-i', p])
+      await execFileAsync('ffmpeg', [
+        '-y',
+        ...inputs,
+        '-filter_complex', transitionFilter,
+        '-map', '[outv]',
+        '-c:v', 'h264_videotoolbox', '-b:v', '8M',
+        '-movflags', '+faststart',
+        outputPath,
+      ], { timeout: 120000 })
     } else {
+      // Standard concat (hard cuts)
+      const concatContent = segmentPaths.map((p) => `file '${p}'`).join('\n')
+      fs.writeFileSync(concatListPath, concatContent)
       await execFileAsync('ffmpeg', [
         '-y',
         '-f', 'concat',

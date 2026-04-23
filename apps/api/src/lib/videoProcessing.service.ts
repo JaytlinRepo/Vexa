@@ -97,32 +97,53 @@ export class VideoProcessingService extends EventEmitter {
       })
 
       // ── 2c. Extract keyframes for visual analysis ─────────────────
+      // ── Load creator profiles for style-aware editing ───────────────
+      let creatorProfile: { style: Record<string, unknown> | null; retention: Record<string, unknown> | null } | null = null
+      let creatorFilters: import('./ffmpegFilterBuilder').CreatorFilters | null = null
+      try {
+        const { getStyleProfile } = await import('../services/videoStyleAnalyzer.service')
+        const { getRetentionProfile } = await import('../services/intelligence/retentionIntelligence')
+        const { buildCreatorFilters } = await import('./ffmpegFilterBuilder')
+        const [styleProfile, retentionProfile] = await Promise.all([
+          getStyleProfile(company.id),
+          getRetentionProfile(this.prisma, company.id),
+        ])
+        if (styleProfile || retentionProfile) {
+          creatorProfile = { style: styleProfile as any, retention: retentionProfile as any }
+          creatorFilters = buildCreatorFilters(styleProfile, retentionProfile, videoDuration)
+          console.log(`[video] Creator profile loaded: ${creatorFilters.targetDuration}s target, ${creatorFilters.maxSegments} max segments`)
+        }
+      } catch (err) {
+        console.warn('[video] Could not load creator profile:', (err as Error).message)
+      }
+
+      const frameInterval = creatorFilters?.frameInterval || (videoDuration <= 60 ? 2 : 3)
       const frames = await this.stage('Extract keyframes', async () => {
         const freshUrl = await getPresignedUrl(s3Key, 3600)
-        // Shorter videos get tighter frame intervals so Riley doesn't miss actions
-        const interval = videoDuration <= 60 ? 2 : 3
         const maxFrames = 15
-        const extracted = await extractKeyframes(freshUrl, videoDuration, interval, maxFrames)
-        console.log(`[video] Keyframes: ${extracted.length} frames extracted`)
+        const extracted = await extractKeyframes(freshUrl, videoDuration, frameInterval, maxFrames)
+        console.log(`[video] Keyframes: ${extracted.length} frames extracted (interval: ${frameInterval}s)`)
         return extracted
       })
 
-      // ── 3. Riley picks the best segments (with VISION) ─────────────
+      // ── 3. Riley picks the best segments (with VISION + creator profile) ──
+      const targetDuration = creatorFilters?.targetDuration || 60
       const clipDecision = await this.stage('Analyze clip (Riley)', async () => {
         const decision = await analyzeAndPickClip(
           transcript,
           videoDuration,
-          60, // target 60 seconds
+          targetDuration,
           company.id,
           sceneData,
           frames,
           this.prisma,
+          creatorProfile,
         )
         console.log(`[video] Riley picked ${decision.segments.length} segments, ${decision.totalDuration.toFixed(1)}s total — hook: "${decision.hook}"`)
         return decision
       })
 
-      // ── 4. FFmpeg builds the reel from segments ─────────────────────
+      // ── 4. FFmpeg builds the reel with creator-specific filters ─────
       const freshSourceUrl = await getPresignedUrl(s3Key, 3600)
       const clipResult = await this.stage('Build reel (FFmpeg)', async () => {
         return buildReel({
@@ -130,6 +151,7 @@ export class VideoProcessingService extends EventEmitter {
           segments: clipDecision.segments,
           companyId: company.id,
           uploadId,
+          creatorFilters,
         })
       })
 

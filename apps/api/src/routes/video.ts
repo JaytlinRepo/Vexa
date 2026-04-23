@@ -167,6 +167,87 @@ export function initVideoRoutes(_prisma: PrismaClient) {
     }
   })
 
+  // ── Batch Upload (multi-video compilation) ──────────────────────────────────
+
+  const batchUpload = multer({ storage: multer.memoryStorage() })
+
+  router.post('/upload-batch', requireAuth, batchUpload.array('videos', 10), async (req, res) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { companyId, strategy, targetDuration } = req.body as {
+        companyId?: string
+        strategy?: string
+        targetDuration?: string
+      }
+
+      const company = companyId
+        ? await prisma.company.findFirst({ where: { id: companyId, userId } })
+        : await prisma.company.findFirst({ where: { userId } })
+      if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
+
+      const files = req.files as Express.Multer.File[]
+      if (!files || files.length < 2) {
+        res.status(400).json({ error: 'At least 2 video files required' })
+        return
+      }
+
+      // Upload all files to S3 and create VideoUpload records
+      const uploadIds: string[] = []
+      for (const file of files) {
+        const s3Key = `studio/clips/${company.id}/${Date.now()}-${file.originalname}`
+        await uploadFile({ key: s3Key, body: file.buffer, contentType: file.mimetype })
+
+        const upload = await prisma.videoUpload.create({
+          data: {
+            companyId: company.id,
+            sourceVideoUrl: `s3://${s3Key}`,
+            fileName: file.originalname,
+          },
+        })
+        uploadIds.push(upload.id)
+      }
+
+      // Create compilation record
+      const compilation = await prisma.videoCompilation.create({
+        data: {
+          companyId: company.id,
+          uploadIds,
+          strategy: strategy || 'montage',
+          targetDuration: parseInt(targetDuration || '60', 10),
+        },
+      })
+
+      // Enqueue for background processing
+      try {
+        const { videoQueue } = await import('../queues')
+        await videoQueue.add('compilation', {
+          uploadId: compilation.id,
+          videoUrl: '',
+          userId,
+          companyId: company.id,
+          s3Key: '',
+        })
+      } catch {
+        // Fallback: process directly if queue not available
+        const { processCompilation } = await import('../lib/videoCompilation.service')
+        processCompilation(prisma, compilation.id).catch((e) =>
+          console.error('[video] compilation processing failed:', e),
+        )
+      }
+
+      res.status(202).json({
+        compilationId: compilation.id,
+        uploadCount: files.length,
+        strategy: compilation.strategy,
+        status: 'processing',
+        message: `${files.length} videos uploaded. Riley is analyzing all of them to build your reel.`,
+      })
+    } catch (err) {
+      console.error('[video] batch upload failed:', err)
+      res.status(500).json({ error: 'upload_failed' })
+    }
+  })
+
   return router
 }
 
