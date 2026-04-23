@@ -501,6 +501,11 @@ function getDefaultProfile(): ContentProfile {
       audienceSegment: 'general',
       contentThemes: ['lifestyle'],
     },
+    audienceCharacteristics: {
+      lifestyle: 'minimalist',
+      vibe: 'relatable',
+      specificity: 'niche',
+    },
   }
 }
 
