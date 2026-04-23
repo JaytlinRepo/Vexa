@@ -132,7 +132,10 @@
       html += '<div class="' + cls + '" data-date="' + dateStr + '">'
         + '<div class="cal-day-top">'
         + '<span class="cal-day-num">' + day.getDate() + '</span>'
+        + '<div class="cal-day-top-r">'
         + (dayThoughts.length > 0 ? '<span class="cal-day-thoughts">' + dayThoughts.length + '</span>' : '')
+        + '<button class="cal-day-add" data-add-date="' + dateStr + '">+</button>'
+        + '</div>'
         + '</div>'
 
       if (dayTasks.length > 0) {
@@ -188,6 +191,19 @@
       render()
       // Re-select the current day if one was selected
       if (selectedDate) selectDay(selectedDate)
+      return
+    }
+
+    // "+" button on day cell → open sidebar with add focus
+    var addBtn = e.target.closest('.cal-day-add')
+    if (addBtn) {
+      e.stopPropagation()
+      selectDay(addBtn.dataset.addDate)
+      // Focus the textarea after sidebar renders
+      setTimeout(function () {
+        var ta = document.getElementById('new-thought-input')
+        if (ta) ta.focus()
+      }, 200)
       return
     }
 
@@ -410,16 +426,47 @@
     if (dayTasks.length === 0 && thoughts.length === 0) {
       html += '<div class="sb-empty">'
         + '<div class="sb-empty-lbl">No entries</div>'
-        + '<div class="sb-empty-hint">Share a thought — your team will respond.</div>'
+        + '<div class="sb-empty-hint">Share a thought or assign work below.</div>'
         + '</div>'
     }
 
     html += '</div>'
 
-    // ── Input area ──
-    html += '<div class="sb-input">'
+    // ── Add to calendar input ──
+    html += '<div class="sb-add">'
+      + '<div class="sb-add-tabs">'
+      + '<button class="sb-add-tab on" data-tab="thought">Thought</button>'
+      + '<button class="sb-add-tab" data-tab="task">Assign work</button>'
+      + '</div>'
+
+      // Thought input
+      + '<div class="sb-add-pane" id="pane-thought">'
       + '<textarea id="new-thought-input" placeholder="What\'s on your mind?" rows="2"></textarea>'
       + '<button class="btn-primary" id="submit-thought-btn">Share thought</button>'
+      + '</div>'
+
+      // Task assignment input
+      + '<div class="sb-add-pane" id="pane-task" style="display:none">'
+      + '<div class="sb-add-agents">'
+    for (var ai = 0; ai < ROLE_LIST.length; ai++) {
+      var assignAg = AGENTS[ROLE_LIST[ai]]
+      html += '<button class="sb-agent-pick" data-role="' + ROLE_LIST[ai] + '">'
+        + '<div class="sb-port sm" style="border-color:' + assignAg.css + '">' + assignAg.initial + '</div>'
+        + '<span>' + assignAg.label + '</span>'
+        + '</button>'
+    }
+    html += '</div>'
+      + '<select id="task-type-select" class="sb-add-select">'
+      + '<option value="trend_report">Trend report</option>'
+      + '<option value="content_plan">Content plan</option>'
+      + '<option value="hooks">Hooks</option>'
+      + '<option value="caption">Caption</option>'
+      + '<option value="script">Script</option>'
+      + '<option value="shot_list">Shot list</option>'
+      + '</select>'
+      + '<textarea id="new-task-desc" placeholder="Describe what you need..." rows="2"></textarea>'
+      + '<button class="btn-primary" id="submit-task-btn">Assign</button>'
+      + '</div>'
       + '</div>'
 
     sidebar.innerHTML = html
@@ -435,12 +482,53 @@
       })
     })
 
-    // Wire submit
-    var btn = document.getElementById('submit-thought-btn')
-    if (btn) btn.addEventListener('click', function () { submitThought(dateStr) })
-    var textarea = document.getElementById('new-thought-input')
-    if (textarea) textarea.addEventListener('keydown', function (e) {
+    // Wire add tabs
+    var tabs = sidebar.querySelectorAll('.sb-add-tab')
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t) { t.classList.remove('on') })
+        tab.classList.add('on')
+        var paneT = document.getElementById('pane-thought')
+        var paneW = document.getElementById('pane-task')
+        if (tab.dataset.tab === 'thought') {
+          if (paneT) paneT.style.display = ''
+          if (paneW) paneW.style.display = 'none'
+        } else {
+          if (paneT) paneT.style.display = 'none'
+          if (paneW) paneW.style.display = ''
+        }
+      })
+    })
+
+    // Wire agent pick
+    var selectedRole = null
+    var agentBtns = sidebar.querySelectorAll('.sb-agent-pick')
+    agentBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        agentBtns.forEach(function (b) { b.classList.remove('on') })
+        btn.classList.add('on')
+        selectedRole = btn.dataset.role
+      })
+    })
+
+    // Wire thought submit
+    var thoughtBtn = document.getElementById('submit-thought-btn')
+    if (thoughtBtn) thoughtBtn.addEventListener('click', function () { submitThought(dateStr) })
+    var thoughtArea = document.getElementById('new-thought-input')
+    if (thoughtArea) thoughtArea.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitThought(dateStr) }
+    })
+
+    // Wire task submit
+    var taskBtn = document.getElementById('submit-task-btn')
+    if (taskBtn) taskBtn.addEventListener('click', function () {
+      var desc = document.getElementById('new-task-desc')
+      var typeSelect = document.getElementById('task-type-select')
+      if (!selectedRole) { agentBtns[0].classList.add('flash'); setTimeout(function () { agentBtns[0].classList.remove('flash') }, 600); return }
+      if (!desc || !desc.value.trim()) return
+
+      var taskType = typeSelect ? typeSelect.value : 'hooks'
+      submitTask(dateStr, selectedRole, taskType, desc.value.trim())
     })
   }
 
@@ -497,6 +585,33 @@
     overlay.querySelector('.tm-close').addEventListener('click', function () { overlay.remove() })
     document.addEventListener('keydown', function onEsc(e) {
       if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) }
+    })
+  }
+
+  function submitTask(dateStr, role, type, description) {
+    var btn = document.getElementById('submit-task-btn')
+    var desc = document.getElementById('new-task-desc')
+    if (btn) btn.disabled = true
+
+    fetch('/api/tasks', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: role, type: type, description: description }),
+    }).then(function (r) {
+      if (r.ok) {
+        return r.json().then(function (data) {
+          // Add to local tasks array and re-render
+          if (data.task) allTasks.unshift(data.task)
+          saveCache()
+          render()
+          selectDay(dateStr)
+        })
+      } else {
+        if (btn) btn.disabled = false
+      }
+    }).catch(function () {
+      if (btn) btn.disabled = false
     })
   }
 

@@ -555,17 +555,74 @@
   line-height: 1.5;
 }
 
-/* Input area */
-.sb-input {
-  padding: 14px 20px;
+/* (input area moved to .sb-add) */
+
+/* ── "+" button on day cells ── */
+.cal-day-top-r {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cal-day-add {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--b1);
+  background: none;
+  color: var(--t3);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+  line-height: 1;
+}
+.cal-day:hover .cal-day-add { opacity: 1 }
+.cal-day-add:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+/* ── Add to calendar area ── */
+.sb-add {
   border-top: 1px solid var(--b1);
-  background: var(--s1);
+  margin-top: auto;
+}
+.sb-add-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--b1);
+}
+.sb-add-tab {
+  flex: 1;
+  padding: 9px 0;
+  background: none;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  text-align: center;
+}
+.sb-add-tab:hover { background: var(--s1) }
+.sb-add-tab.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sb-add-pane {
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: auto;
 }
-.sb-input textarea {
+.sb-add-pane textarea {
   padding: 10px 12px;
   border: 1px solid var(--b1);
   border-radius: 8px;
@@ -576,12 +633,9 @@
   color: var(--t1);
   line-height: 1.5;
 }
-.sb-input textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.sb-input textarea::placeholder { color: var(--t3) }
-.sb-input .btn-primary {
+.sb-add-pane textarea:focus { outline: none; border-color: var(--accent) }
+.sb-add-pane textarea::placeholder { color: var(--t3) }
+.sb-add-pane .btn-primary {
   padding: 9px 14px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
@@ -595,7 +649,60 @@
   cursor: pointer;
   transition: background .15s;
 }
-.sb-input .btn-primary:hover { background: var(--accent-hov) }
+.sb-add-pane .btn-primary:hover { background: var(--accent-hov) }
+.sb-add-pane .btn-primary:disabled { opacity: .5; cursor: default }
+
+/* Agent picker */
+.sb-add-agents {
+  display: flex;
+  gap: 5px;
+}
+.sb-agent-pick {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .03em;
+  color: var(--t3);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.sb-agent-pick:hover { background: var(--s1); color: var(--t2) }
+.sb-agent-pick.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sb-agent-pick.flash {
+  animation: sb-flash .4s ease;
+}
+@keyframes sb-flash {
+  0%,100% { border-color: var(--b1) }
+  50% { border-color: var(--down) }
+}
+
+.sb-add-select {
+  padding: 8px 10px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .03em;
+  background: var(--bg);
+  color: var(--t1);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23454540' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.sb-add-select:focus { outline: none; border-color: var(--accent) }
 
 /* ── Task detail modal ── */
 .tm-overlay {
