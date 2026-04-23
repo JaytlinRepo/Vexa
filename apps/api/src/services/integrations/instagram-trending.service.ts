@@ -129,7 +129,7 @@ export function instagramPostToFeedItem(post: InstagramHashtagPost, niche: strin
     url: post.permalink,
     imageUrl: post.mediaUrl || null,
     createdAt: post.timestamp,
-    type: 'video',
+    type: 'instagram',
     score: Math.min(99, 50 + Math.floor(Math.log10(Math.max(10, estimatedViews)) * 5)),
     mayaTake,
   }

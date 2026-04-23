@@ -691,7 +691,7 @@ router.get('/', requireAuth, async (req, res, next) => {
         // Get Instagram token from user's connected account
         const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
         if (!igConn?.accessToken || !igConn?.igBusinessId) return []
-        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 3), 5)
+        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 4), 12)
       })().catch(() => []),
     ])
 
@@ -700,9 +700,10 @@ router.get('/', requireAuth, async (req, res, next) => {
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // YouTube videos/Reels
-      ...ytVideos.slice(0, 10).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
-      // Instagram trending posts
-      ...igPosts.slice(0, 5).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
+      // YouTube (secondary — 2 max)
+      ...ytVideos.slice(0, 2).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // Instagram trending (primary — 8 max)
+      ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
       // Reddit community discussions
       ...redditResults.flat().slice(0, maxRedditShare),
     ]

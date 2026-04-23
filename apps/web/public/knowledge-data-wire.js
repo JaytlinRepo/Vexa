@@ -28,9 +28,9 @@
   function render(view, items, isCached) {
     populated = true
 
-    // Split into videos and articles
-    var reels = items.filter(function (it) { return it.type === 'youtube' || it.type === 'video' })
-    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' })
+    // Split into videos/reels and articles
+    var reels = items.filter(function (it) { return it.type === 'youtube' || it.type === 'video' || it.type === 'instagram' })
+    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' && it.type !== 'instagram' })
     console.log('[knowledge] reels:', reels.length, 'articles:', articles.length, 'total:', items.length)
     console.log('[knowledge] types:', items.map(function(i) { return i.type }).join(', '))
 
@@ -71,22 +71,35 @@
       } else {
         reelsGrid.innerHTML = reels.map(function (item) {
           var url = item.url || ''
-          var vidMatch = url.match(/[?&]v=([^&]+)/) || url.match(/shorts\/([^?&]+)/) || url.match(/youtu\.be\/([^?&]+)/)
-          var videoId = vidMatch ? vidMatch[1] : ''
-          var isShort = url.indexOf('/shorts/') >= 0
+          var isIG = item.type === 'instagram'
           var thumb = item.thumbnail || item.imageUrl || ''
-          var embedUrl = videoId ? 'https://www.youtube.com/embed/' + videoId : ''
+
+          var mediaHtml = ''
+          if (isIG) {
+            // Instagram embed
+            var igEmbedUrl = url.replace(/\/$/, '') + '/embed/'
+            mediaHtml = '<iframe src="' + esc(igEmbedUrl) + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" loading="lazy" scrolling="no"></iframe>'
+          } else {
+            // YouTube embed
+            var vidMatch = url.match(/[?&]v=([^&]+)/) || url.match(/shorts\/([^?&]+)/) || url.match(/youtu\.be\/([^?&]+)/)
+            var videoId = vidMatch ? vidMatch[1] : ''
+            if (videoId) {
+              mediaHtml = '<iframe src="https://www.youtube.com/embed/' + videoId + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" allow="autoplay;encrypted-media" allowfullscreen loading="lazy"></iframe>'
+            } else if (thumb) {
+              mediaHtml = '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" referrerpolicy="no-referrer" onerror="this.remove()" />'
+            } else {
+              mediaHtml = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;color:var(--t3)">▶</div>'
+            }
+          }
+
+          var platBadge = isIG
+            ? '<span class="plat"><span class="d ig"></span>IG</span>'
+            : '<span class="plat"><span class="d yt"></span>YT</span>'
 
           return '<div class="card" data-url="' + esc(url) + '" style="cursor:pointer">'
-            + '<div class="th" style="aspect-ratio:9/16;position:relative;background:#000">'
-            + (embedUrl
-              ? '<iframe src="' + embedUrl + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" allow="autoplay;encrypted-media" allowfullscreen loading="lazy"></iframe>'
-              : (thumb
-                ? '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" referrerpolicy="no-referrer" onerror="this.remove()" />'
-                : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;color:var(--t3)">▶</div>'
-              )
-            )
-            + '<span class="plat"><span class="d yt"></span>YT' + (isShort ? ' Short' : '') + '</span>'
+            + '<div class="th" style="aspect-ratio:' + (isIG ? '4/5' : '9/16') + ';position:relative;background:#000">'
+            + mediaHtml
+            + platBadge
             + '</div>'
             + '<div class="body" style="padding:10px 12px">'
             + '<div style="font-size:12px;font-weight:500;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.title || '') + '</div>'
