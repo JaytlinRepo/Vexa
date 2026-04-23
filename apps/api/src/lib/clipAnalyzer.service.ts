@@ -275,6 +275,7 @@ export async function analyzeAndPickClip(
 
     // Cut & pacing
     if ((style as any).avgCutDuration) parts.push(`Cut rhythm: ${(style as any).avgCutDuration}s per cut — match this creator's pacing exactly`)
+    if ((style as any).avgCutsPerVideo) parts.push(`Cuts per video: ${(style as any).avgCutsPerVideo} — this is how many cuts this creator typically makes`)
     if ((style as any).pacingSpeed) parts.push(`Pacing: ${(style as any).pacingSpeed} — this is how they edit`)
     if ((style as any).pacingCurve) parts.push(`Pacing curve: ${(style as any).pacingCurve}`)
 

@@ -23,6 +23,7 @@ const execFileAsync = promisify(execFile)
 export interface StyleProfile {
   // Cut & pacing
   avgCutDuration: number              // seconds per cut (e.g., 1.2)
+  avgCutsPerVideo: number             // average number of cuts per video
   pacingSpeed: 'very-fast' | 'fast' | 'moderate' | 'slow' | 'mixed'
   pacingCurve: string                 // e.g., "builds intensity" | "steady" | "front-loaded"
 
@@ -187,6 +188,7 @@ const VISION_PROMPT = `You are an expert video editing analyst. You are given ke
 Analyze the frames for PRECISE editing metrics. Respond with ONLY valid JSON:
 {
   "avgCutDuration": 1.2,
+  "cutCount": 8,
   "pacingSpeed": "very-fast|fast|moderate|slow|mixed",
   "pacingCurve": "builds-intensity|steady|front-loaded|peaks-middle|slow-build",
   "hookTiming": 1.5,
@@ -218,6 +220,7 @@ CRITICAL — measure precisely:
 
 interface VisualAnalysis {
   avgCutDuration: number
+  cutCount: number
   pacingSpeed: string
   pacingCurve: string
   hookTiming: number
@@ -305,6 +308,7 @@ async function analyzeVisuals(
 
     return {
       avgCutDuration: isThumbnailOnly ? -1 : (typeof a.avgCutDuration === 'number' ? a.avgCutDuration : 1.5),
+      cutCount: isThumbnailOnly ? -1 : (typeof a.cutCount === 'number' ? a.cutCount : 0),
       pacingSpeed: isThumbnailOnly ? '' : ((a.pacingSpeed as string) || 'moderate'), // empty = exclude from mode
       pacingCurve: isThumbnailOnly ? '' : ((a.pacingCurve as string) || 'steady'),
       hookTiming: isThumbnailOnly ? -1 : (typeof a.hookTiming === 'number' ? a.hookTiming : 2),
@@ -338,7 +342,7 @@ function aggregateProfiles(
   audios: AudioAnalysis[],
 ): StyleProfile {
   const defaults: StyleProfile = {
-    avgCutDuration: 1.5, pacingSpeed: 'moderate', pacingCurve: 'steady',
+    avgCutDuration: 1.5, avgCutsPerVideo: 0, pacingSpeed: 'moderate', pacingCurve: 'steady',
     hookTiming: 2, hookStyle: 'cold-open',
     subtitleFrequency: 0, subtitleStyle: 'none', hasSubtitles: false,
     zoomFrequency: 0, zoomTypes: [], transitionStyles: ['hard-cut'], transitionFrequency: 0,
@@ -367,6 +371,7 @@ function aggregateProfiles(
   }
 
   const avgCut = avg(visuals.map((v) => v.avgCutDuration))
+  const avgCuts = avg(visuals.map((v) => v.cutCount))
   const avgHook = avg(visuals.map((v) => v.hookTiming))
   const avgSubFreq = avg(visuals.map((v) => v.subtitleFrequency))
   const avgZoomFreq = avg(visuals.map((v) => v.zoomFrequency))
@@ -399,6 +404,7 @@ function aggregateProfiles(
 
   return {
     avgCutDuration: Math.round(avgCut * 10) / 10,
+    avgCutsPerVideo: Math.round(avgCuts),
     pacingSpeed: avgCut < 0.8 ? 'very-fast' : avgCut < 1.5 ? 'fast' : avgCut < 3 ? 'moderate' : 'slow',
     pacingCurve: mode(visuals.map((v) => v.pacingCurve)) || 'steady',
     hookTiming: Math.round(avgHook * 10) / 10,
