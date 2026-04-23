@@ -279,16 +279,20 @@ nav.top .cta .start:hover{background:var(--accent-hov);box-shadow:0 8px 24px var
 .agent.active .rt .sdot{background:var(--accent);box-shadow:0 0 8px var(--accent-glow);animation:pulse 1.6s ease-in-out infinite}
 .agent .bar{
   position:absolute;bottom:0;left:16px;right:16px;height:2px;background:var(--accent);
-  transform-origin:left;transform:scaleX(0);
+  transform-origin:left;transform:scaleX(0);opacity:.6;
 }
-.agent.active .bar{animation:fill 3.5s linear forwards}
-@keyframes fill{to{transform:scaleX(1)}}
+.agent.active .bar{animation:bar-loop 5s ease-in-out infinite}
+.agent[data-k="maya"].active .bar{animation-delay:0s}
+.agent[data-k="jordan"].active .bar{animation-delay:1.4s}
+.agent[data-k="alex"].active .bar{animation-delay:2.8s}
+.agent[data-k="riley"].active .bar{animation-delay:4.2s}
+@keyframes bar-loop{0%{transform:scaleX(0);opacity:.3}40%{transform:scaleX(1);opacity:.7}60%{transform:scaleX(1);opacity:.7}100%{transform:scaleX(0);opacity:.3}}
 
 .agent-connector{
-  display:flex;align-items:center;justify-content:center;height:8px;position:relative;
+  display:flex;align-items:center;justify-content:center;height:4px;position:relative;
 }
-.agent-connector::before{content:'';width:1px;height:100%;background:var(--b2)}
-.agent-connector.handoff::before{background:var(--accent);box-shadow:0 0 6px var(--accent-glow)}
+.agent-connector::before{content:'';width:1px;height:100%;background:var(--b2);border-radius:1px}
+.agent-connector.handoff::before{background:var(--accent);box-shadow:0 0 4px var(--accent-glow)}
 
 .out-ticker{
   margin-top:20px;padding-top:18px;border-top:1px solid var(--b1);

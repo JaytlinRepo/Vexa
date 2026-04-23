@@ -65,17 +65,20 @@
     }
   }
 
-  // Live pipeline simulation — all agents always working
+  // Live pipeline simulation — cascade: Maya kicks off, rest follow
   var agents = document.querySelectorAll('.agent');
   var connectors = document.querySelectorAll('.agent-connector');
   if(agents.length){
-    // Set all agents active immediately
-    agents.forEach(function(a){
-      a.classList.add('active');
-      var rt = a.querySelector('.rt span:last-child');
-      if(rt) rt.textContent = 'WORKING';
+    // Cascade activation: each agent activates after the previous
+    agents.forEach(function(a, i){
+      setTimeout(function(){
+        a.classList.add('active');
+        var rt = a.querySelector('.rt span:last-child');
+        if(rt) rt.textContent = 'WORKING';
+        // Activate the connector before this agent (if any)
+        if(i > 0 && connectors[i-1]) connectors[i-1].classList.add('handoff');
+      }, i * 1400); // 1.4s between each agent
     });
-    connectors.forEach(function(c){ c.classList.add('handoff'); });
 
     // Cycle task text on each agent independently with staggered timing
     agents.forEach(function(a, i){
@@ -84,23 +87,14 @@
       var tasks = JSON.parse(taskEl.dataset.tasks);
       var ti = 0;
       taskEl.innerHTML = tasks[0];
-      // Stagger start so agents don't all flip at once
       setTimeout(function(){
         setInterval(function(){
           ti = (ti+1) % tasks.length;
           taskEl.style.opacity = 0;
           setTimeout(function(){ taskEl.innerHTML = tasks[ti]; taskEl.style.opacity = 1; }, 200);
-        }, 2200 + i * 400);
-      }, i * 800);
+        }, 2800 + i * 500);
+      }, 1500 + i * 1400);
     });
-
-    // Periodically pulse the progress bars
-    setInterval(function(){
-      agents.forEach(function(a){
-        var bar = a.querySelector('.bar');
-        if(bar){ bar.style.animation='none'; setTimeout(function(){ bar.style.animation=''; }, 50); }
-      });
-    }, 8000);
   }
 
   // Ticker micro-updates
