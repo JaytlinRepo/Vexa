@@ -52,9 +52,9 @@ async function analyzeVideoStyle(videoUrl: string, duration: number): Promise<Pa
     // Call Bedrock Vision to analyze the image/poster
     const visionResponse = await bedrockClient.send(
       new InvokeModelCommand({
-        modelId: 'anthropic.claude-3-5-sonnet-20241022',
+        modelId: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
         body: JSON.stringify({
-          anthropic_version: 'bedrock-2023-06-01',
+          anthropic_version: 'bedrock-2023-05-31',
           max_tokens: 1024,
           messages: [
             {
@@ -96,8 +96,8 @@ Respond as JSON:
       }),
     )
 
-    const responseBody = visionResponse.body as unknown as { content: Array<{ text: string }> }
-    const analysisText = responseBody.content[0].text
+    const responseBody = JSON.parse(new TextDecoder().decode(visionResponse.body as Uint8Array))
+    const analysisText = responseBody.content?.[0]?.text || '{}'
     let analysis
 
     try {
@@ -193,14 +193,19 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
     const posts = await prisma.platformPost.findMany({
       where: {
         account: { companyId },
+        thumbnailUrl: { not: null },
+        mediaType: { in: ['REEL', 'VIDEO'] },
       },
       orderBy: { publishedAt: 'desc' },
-      take: 10, // Analyze last 10 videos
+      take: 15,
       select: {
         id: true,
         url: true,
+        thumbnailUrl: true,
         mediaType: true,
+        caption: true,
         publishedAt: true,
+        engagementRate: true,
       },
     })
 
@@ -211,20 +216,21 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
       return aggregateStyles([])
     }
 
-    // Analyze each video
+    // Analyze each post's thumbnail (direct CDN URL, not Instagram permalink)
     const styles: Partial<StyleProfile>[] = []
     for (const post of posts) {
-      if ((post.mediaType === 'VIDEO' || post.mediaType === 'REEL') && post.url) {
-        try {
-          const duration = 45 // Assume standard short-form video
-          const style = await analyzeVideoStyle(post.url, duration)
-          if (Object.keys(style).length > 0) {
-            styles.push(style)
-          }
-        } catch (err) {
-          console.warn(`[videoStyleAnalyzer] Failed to analyze post ${post.id}:`, err)
+      if (!post.thumbnailUrl) continue
+      try {
+        const duration = post.mediaType === 'REEL' || post.mediaType === 'VIDEO' ? 45 : 0
+        const style = await analyzeVideoStyle(post.thumbnailUrl, duration)
+        if (Object.keys(style).length > 0) {
+          styles.push(style)
         }
+      } catch (err) {
+        console.warn(`[videoStyleAnalyzer] Failed to analyze post ${post.id}:`, err)
       }
+      // Rate limit — 1.2s between Bedrock calls
+      if (styles.length < posts.length) await new Promise((r) => setTimeout(r, 1200))
     }
 
     console.log(`[videoStyleAnalyzer] Analyzed ${styles.length} videos`)
