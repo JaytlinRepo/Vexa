@@ -6,6 +6,7 @@ import { searchNicheArticles, NewsArticle } from '../services/integrations/newsa
 import { getRelatedQueries, getKeywordTrend } from '../services/integrations/google-trends.service'
 import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtube.service'
 import { effectiveNiche } from '../lib/nicheDetection'
+import { fetchInstagramTrendingByHashtag, getHashtagsForNiche, instagramPostToFeedItem } from '../services/integrations/instagram-trending.service'
 
 import prisma from '../lib/prisma'
 const router = Router()
@@ -418,13 +419,34 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
+    // Check for Instagram connection for trending content
+    const igConnection = await prisma.instagramConnection.findFirst({
+      where: { companyId: company.id },
+    })
+
     // ── Fetch all sources in parallel ────────────────────────────
-    const [redditResults, rssItems, newsItems, trendSignals, ytVideos] = await Promise.all([
+    const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igTrendingPosts] = await Promise.all([
       Promise.all(subs.slice(0, 1).map((s) => fetchRedditTop(s, 2, niche, detectedSub))),
       fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
       searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
       searchNicheVideos(niche, detectedSub || undefined, 5, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
+      // Fetch Instagram trending if connected
+      igConnection && igConnection.accessToken && igConnection.igBusinessId
+        ? (async () => {
+            try {
+              const hashtags = getHashtagsForNiche(niche, detectedSub)
+              const igId = igConnection.igBusinessId || igConnection.igUserId || ''
+              if (!igId) return []
+              const token = igConnection.accessToken || ''
+              if (!token) return []
+              return await fetchInstagramTrendingByHashtag(token, igId, hashtags, 8)
+            } catch (err) {
+              console.warn('[feed] instagram trending failed:', err)
+              return []
+            }
+          })()
+        : Promise.resolve([]),
     ])
 
     let items: FeedItem[] = [
@@ -433,6 +455,8 @@ router.get('/', requireAuth, async (req, res, next) => {
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // Real niche videos — study what's working
       ...ytVideos.slice(0, 5).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // Instagram trending content from your niche hashtags
+      ...igTrendingPosts.slice(0, 4).map((p) => instagramPostToFeedItem(p, niche, detectedSub || undefined)),
       // One Reddit post for community signal
       ...redditResults.flat().slice(0, maxRedditShare),
     ]
