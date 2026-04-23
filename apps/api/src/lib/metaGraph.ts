@@ -443,14 +443,13 @@ export interface IGHashtagPost {
  */
 export async function searchHashtag(hashtag: string, token: string, igBusinessId: string): Promise<string | null> {
   try {
-    const res = await graphGet<{ data: Array<{ id: string; name: string }> }>(
-      `/${igBusinessId}/ig_hashtag_search`,
+    const res = await graphGet<{ data: Array<{ id: string }> }>(
+      '/ig_hashtag_search',
       token,
-      { user_id: igBusinessId, fields: 'id,name', search_string: hashtag },
+      { user_id: igBusinessId, q: hashtag },
     )
 
-    const found = res.data?.find((h) => h.name.toLowerCase() === hashtag.toLowerCase())
-    return found?.id || null
+    return res.data?.[0]?.id || null
   } catch (err) {
     console.warn('[meta] hashtag search failed for', hashtag, (err as Error).message?.slice(0, 100))
     return null
@@ -460,7 +459,7 @@ export async function searchHashtag(hashtag: string, token: string, igBusinessId
 /**
  * Get top posts for a hashtag
  */
-export async function getHashtagTopPosts(hashtagId: string, token: string, limit = 9): Promise<IGHashtagPost[]> {
+export async function getHashtagTopPosts(hashtagId: string, token: string, igBusinessId: string, limit = 9): Promise<IGHashtagPost[]> {
   try {
     const res = await graphGet<{
       data: Array<{
@@ -473,10 +472,10 @@ export async function getHashtagTopPosts(hashtagId: string, token: string, limit
         like_count?: number | string
         comments_count?: number | string
       }>
-    }>(`/${hashtagId}/top_posts`, token, {
+    }>(`/${hashtagId}/top_media`, token, {
       fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count',
       limit: String(limit),
-      user_id: token,
+      user_id: igBusinessId,
     })
 
     return (res.data || []).map((p) => ({

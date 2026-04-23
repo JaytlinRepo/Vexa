@@ -79,7 +79,7 @@ export async function fetchInstagramTrendingByHashtag(
         if (!hashtagId) continue
 
         // Then get top posts for that hashtag
-        const posts = await meta.getHashtagTopPosts(hashtagId, token, Math.ceil(limit / hashtags.length))
+        const posts = await meta.getHashtagTopPosts(hashtagId, token, igBusinessId, Math.ceil(limit / hashtags.length))
         allPosts.push(...posts)
       } catch (err) {
         console.warn(`[instagram-trending] failed to fetch hashtag ${hashtag}:`, err)

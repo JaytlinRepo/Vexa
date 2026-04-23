@@ -31,6 +31,8 @@
     // Split into videos and articles
     var reels = items.filter(function (it) { return it.type === 'youtube' || it.type === 'video' })
     var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' })
+    console.log('[knowledge] reels:', reels.length, 'articles:', articles.length, 'total:', items.length)
+    console.log('[knowledge] types:', items.map(function(i) { return i.type }).join(', '))
 
     // Update masthead stats
     var stats = view.querySelectorAll('.mini-stats .stat')
