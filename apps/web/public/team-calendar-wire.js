@@ -345,6 +345,25 @@
     })
   }
 
+  // ── localStorage cache ──
+  var LS_KEY = 'vexa_team_cal'
+  function saveCache() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), tasks: allTasks, thoughts: allThoughts }))
+    } catch (e) { /* quota */ }
+  }
+  function loadCache() {
+    try {
+      var raw = localStorage.getItem(LS_KEY)
+      if (!raw) return false
+      var obj = JSON.parse(raw)
+      if (Date.now() - obj.ts > 30 * 60 * 1000) return false
+      allTasks = obj.tasks || []
+      allThoughts = obj.thoughts || []
+      return true
+    } catch (e) { return false }
+  }
+
   // ── Init ──
   async function init() {
     var now = today()
@@ -352,9 +371,17 @@
     viewMonth = now.getMonth()
     selectedDate = fmtDate(now)
 
-    var container = document.getElementById('team-calendar')
-    if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
+    // Render from cache instantly if available
+    var hadCache = loadCache()
+    if (hadCache) {
+      render()
+      selectDay(selectedDate)
+    } else {
+      var container = document.getElementById('team-calendar')
+      if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
+    }
 
+    // Fetch fresh data in background
     var results = await Promise.all([
       get('/api/tasks'),
       get('/api/thoughts'),
@@ -362,6 +389,7 @@
 
     allTasks = (results[0] && results[0].tasks) || []
     allThoughts = (results[1] && results[1].thoughts) || []
+    saveCache()
 
     render()
     selectDay(selectedDate)
