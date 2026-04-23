@@ -45,10 +45,15 @@ export async function detectScenes(videoUrl: string, videoDuration: number): Pro
   const inputPath = path.join(tmpDir, `sovexa-scene-${Date.now()}.mp4`)
 
   try {
-    // Download video
-    console.log('[scene-detect] Downloading video for analysis...')
-    const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 180000 })
-    fs.writeFileSync(inputPath, Buffer.from(response.data))
+    // Get video — use local file if path exists, otherwise download
+    if (videoUrl.startsWith('/') && fs.existsSync(videoUrl)) {
+      console.log('[scene-detect] Using local file for analysis')
+      fs.copyFileSync(videoUrl, inputPath)
+    } else {
+      console.log('[scene-detect] Downloading video for analysis...')
+      const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 180000 })
+      fs.writeFileSync(inputPath, Buffer.from(response.data))
+    }
 
     // 1. Detect scene changes
     console.log('[scene-detect] Running scene detection...')

@@ -40,10 +40,15 @@ export async function extractKeyframes(
   try {
     fs.mkdirSync(workDir, { recursive: true })
 
-    // Download video
-    console.log('[keyframes] Downloading video...')
-    const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 180000 })
-    fs.writeFileSync(inputPath, Buffer.from(response.data))
+    // Get video — use local file if path exists, otherwise download
+    if (videoUrl.startsWith('/') && fs.existsSync(videoUrl)) {
+      console.log('[keyframes] Using local file')
+      fs.copyFileSync(videoUrl, inputPath)
+    } else {
+      console.log('[keyframes] Downloading video...')
+      const response = await axios.get(videoUrl, { responseType: 'arraybuffer', timeout: 180000 })
+      fs.writeFileSync(inputPath, Buffer.from(response.data))
+    }
 
     // Calculate actual interval to stay within maxFrames
     const totalPossible = Math.floor(videoDuration / intervalSeconds)

@@ -38,9 +38,10 @@ export async function buildReel(params: {
   companyId: string
   uploadId: string
   creatorFilters?: CreatorFilters | null
+  localSource?: boolean   // true = sourceUrl is a local file path, skip download
   sourceInputs?: string[]  // for multi-video compilation — additional input paths
 }): Promise<ClipResult> {
-  const { sourceUrl, segments, companyId, uploadId, creatorFilters } = params
+  const { sourceUrl, segments, companyId, uploadId, creatorFilters, localSource } = params
   const tmpDir = os.tmpdir()
   const workDir = path.join(tmpDir, `sovexa-reel-${uploadId}`)
   const inputPath = path.join(workDir, 'source.mp4')
@@ -51,11 +52,18 @@ export async function buildReel(params: {
   try {
     fs.mkdirSync(workDir, { recursive: true })
 
-    // 1. Download source video
-    console.log(`[ffmpeg] Downloading source video...`)
-    const response = await axios.get(sourceUrl, { responseType: 'arraybuffer', timeout: 180000 })
-    fs.writeFileSync(inputPath, Buffer.from(response.data))
-    console.log(`[ffmpeg] Downloaded ${(response.data.byteLength / 1024 / 1024).toFixed(1)}MB`)
+    // 1. Get source video (local file or download)
+    if (localSource) {
+      // Source already downloaded — copy or symlink to work dir
+      fs.copyFileSync(sourceUrl, inputPath)
+      const sizeMB = (fs.statSync(inputPath).size / 1024 / 1024).toFixed(1)
+      console.log(`[ffmpeg] Using local source: ${sizeMB}MB (no download)`)
+    } else {
+      console.log(`[ffmpeg] Downloading source video...`)
+      const response = await axios.get(sourceUrl, { responseType: 'arraybuffer', timeout: 180000 })
+      fs.writeFileSync(inputPath, Buffer.from(response.data))
+      console.log(`[ffmpeg] Downloaded ${(response.data.byteLength / 1024 / 1024).toFixed(1)}MB`)
+    }
 
     // 2. Build creator-specific filter chains
     const vfStr = creatorFilters ? buildSegmentVF(creatorFilters) : 'format=yuv420p,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2'

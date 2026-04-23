@@ -8,9 +8,12 @@
 
 import { PrismaClient } from '@prisma/client'
 import { EventEmitter } from 'events'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { transcribeVideo, TranscriptionResult } from './transcribe.service'
 import { analyzeAndPickClip } from './clipAnalyzer.service'
-import { buildReel, getVideoDurationFromUrl } from './ffmpegClipper.service'
+import { buildReel } from './ffmpegClipper.service'
 import { detectScenes, SceneAnalysis } from './sceneDetection.service'
 import { extractKeyframes } from './keyframeExtractor.service'
 import StudioCopywritingService from './studioCopywriting.service'
@@ -67,10 +70,21 @@ export class VideoProcessingService extends EventEmitter {
       // Extract S3 key from the presigned URL
       const s3Key = this.extractS3Key(upload.sourceVideoUrl)
 
-      // ── 1. Get video duration ───────────────────────────────────────
-      const videoDuration = await this.stage('Get video duration', async () => {
+      // ── 1. Download source video ONCE ──────────────────────────────
+      // The video was being downloaded 4 times (probe, scenes, keyframes, render).
+      // Now we download once and reuse the local file for all stages.
+      const localVideoPath = path.join(os.tmpdir(), `sovexa-source-${uploadId}.mp4`)
+      const videoDuration = await this.stage('Download + probe', async () => {
         const freshUrl = await getPresignedUrl(s3Key, 3600)
-        const dur = await getVideoDurationFromUrl(freshUrl)
+        const axios = (await import('axios')).default
+        const resp = await axios.get(freshUrl, { responseType: 'arraybuffer', timeout: 180000 })
+        fs.writeFileSync(localVideoPath, Buffer.from(resp.data))
+        const sizeMB = (resp.data.byteLength / 1024 / 1024).toFixed(1)
+        console.log(`[video] Downloaded ${sizeMB}MB to ${localVideoPath}`)
+
+        // Probe duration from local file (instant — no network)
+        const { getVideoDuration } = await import('./ffmpegClipper.service')
+        const dur = await getVideoDuration(localVideoPath)
         console.log(`[video] Duration: ${dur}s`)
         return dur
       })
@@ -81,50 +95,60 @@ export class VideoProcessingService extends EventEmitter {
         data: { duration: Math.round(videoDuration) },
       })
 
-      // ── 2. Transcribe with AWS Transcribe ───────────────────────────
-      const transcript = await this.stage('Transcribe (AWS)', async () => {
-        const result = await transcribeVideo(s3Key)
-        console.log(`[video] Transcript: ${result.hasSpeech ? result.words.length + ' words' : 'no speech detected'}`)
-        return result
-      })
+      // ── 2. Parallel analysis using LOCAL file (no re-downloads) ────
+      broadcastProcessingEvent('stage_start', { uploadId, stage: 'Analyze video', progress: 25 })
+      const analysisStart = Date.now()
 
-      // ── 2b. Scene detection (always — gives Riley motion + visual data) ─
-      const sceneData = await this.stage('Detect scenes (FFmpeg)', async () => {
-        const freshUrl = await getPresignedUrl(s3Key, 3600)
-        const scenes = await detectScenes(freshUrl, videoDuration)
-        console.log(`[video] Scenes: ${scenes.totalScenes} detected, ${scenes.highMotionSegments} high-motion`)
-        return scenes
-      })
-
-      // ── 2c. Extract keyframes for visual analysis ─────────────────
-      // ── Load creator profiles for style-aware editing ───────────────
+      // Load creator profile (fast DB query)
       let creatorProfile: { style: Record<string, unknown> | null; retention: Record<string, unknown> | null } | null = null
       let creatorFilters: import('./ffmpegFilterBuilder').CreatorFilters | null = null
-      try {
-        const { getStyleProfile } = await import('../services/videoStyleAnalyzer.service')
-        const { getRetentionProfile } = await import('../services/intelligence/retentionIntelligence')
-        const { buildCreatorFilters } = await import('./ffmpegFilterBuilder')
-        const [styleProfile, retentionProfile] = await Promise.all([
-          getStyleProfile(company.id),
-          getRetentionProfile(this.prisma, company.id),
-        ])
-        if (styleProfile || retentionProfile) {
-          creatorProfile = { style: styleProfile as any, retention: retentionProfile as any }
-          creatorFilters = buildCreatorFilters(styleProfile, retentionProfile, videoDuration)
-          console.log(`[video] Creator profile loaded: ${creatorFilters.targetDuration}s target, ${creatorFilters.maxSegments} max segments`)
-        }
-      } catch (err) {
-        console.warn('[video] Could not load creator profile:', (err as Error).message)
-      }
 
-      const frameInterval = creatorFilters?.frameInterval || (videoDuration <= 60 ? 2 : 3)
-      const frames = await this.stage('Extract keyframes', async () => {
-        const freshUrl = await getPresignedUrl(s3Key, 3600)
-        const maxFrames = 15
-        const extracted = await extractKeyframes(freshUrl, videoDuration, frameInterval, maxFrames)
-        console.log(`[video] Keyframes: ${extracted.length} frames extracted (interval: ${frameInterval}s)`)
-        return extracted
-      })
+      const profilePromise = (async () => {
+        try {
+          const { getStyleProfile } = await import('../services/videoStyleAnalyzer.service')
+          const { getRetentionProfile } = await import('../services/intelligence/retentionIntelligence')
+          const { buildCreatorFilters } = await import('./ffmpegFilterBuilder')
+          const [styleProfile, retentionProfile] = await Promise.all([
+            getStyleProfile(company.id),
+            getRetentionProfile(this.prisma, company.id),
+          ])
+          if (styleProfile || retentionProfile) {
+            creatorProfile = { style: styleProfile as any, retention: retentionProfile as any }
+            creatorFilters = buildCreatorFilters(styleProfile, retentionProfile, videoDuration)
+            console.log(`[video] Creator profile loaded: ${creatorFilters.targetDuration}s target, ${creatorFilters.maxSegments} max segments`)
+          }
+        } catch (err) {
+          console.warn('[video] Could not load creator profile:', (err as Error).message)
+        }
+      })()
+
+      const frameInterval = videoDuration <= 60 ? 2 : 3
+
+      const [transcript, sceneData, frames] = await Promise.all([
+        // Transcribe uses S3 key directly (AWS Transcribe reads from S3, no download)
+        transcribeVideo(s3Key).then((result) => {
+          console.log(`[video] Transcript: ${result.hasSpeech ? result.words.length + ' words' : 'no speech detected'}`)
+          return result
+        }),
+
+        // Scene detection — uses LOCAL file (no download)
+        detectScenes(localVideoPath, videoDuration).then((scenes) => {
+          console.log(`[video] Scenes: ${scenes.totalScenes} detected, ${scenes.highMotionSegments} high-motion`)
+          return scenes
+        }).catch(() => undefined),
+
+        // Keyframes — uses LOCAL file (no download)
+        extractKeyframes(localVideoPath, videoDuration, frameInterval, 15).then((extracted) => {
+          console.log(`[video] Keyframes: ${extracted.length} frames extracted (interval: ${frameInterval}s)`)
+          return extracted
+        }),
+      ])
+
+      await profilePromise
+
+      const analysisTime = ((Date.now() - analysisStart) / 1000).toFixed(1)
+      console.log(`[video] Parallel analysis complete in ${analysisTime}s (local file, no re-downloads)`)
+      broadcastProcessingEvent('stage_done', { uploadId, stage: 'Analyze video', progress: 55 })
 
       // ── 3. Riley picks the best segments (with VISION + creator profile) ──
       const targetDuration = creatorFilters?.targetDuration || 60
@@ -143,15 +167,15 @@ export class VideoProcessingService extends EventEmitter {
         return decision
       })
 
-      // ── 4. FFmpeg builds the reel with creator-specific filters ─────
-      const freshSourceUrl = await getPresignedUrl(s3Key, 3600)
+      // ── 4. FFmpeg builds the reel from LOCAL file (no re-download) ──
       const clipResult = await this.stage('Build reel (FFmpeg)', async () => {
         return buildReel({
-          sourceUrl: freshSourceUrl,
+          sourceUrl: localVideoPath,
           segments: clipDecision.segments,
           companyId: company.id,
           uploadId,
           creatorFilters,
+          localSource: true,
         })
       })
 
@@ -240,6 +264,9 @@ export class VideoProcessingService extends EventEmitter {
         error: err instanceof Error ? err.message : 'Unknown error',
       })
       throw err
+    } finally {
+      // Cleanup temp source file
+      try { fs.unlinkSync(localVideoPath) } catch {}
     }
   }
 
