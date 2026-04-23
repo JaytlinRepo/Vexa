@@ -28,11 +28,24 @@
   function render(view, items, isCached) {
     populated = true
 
-    // Split into videos/reels and articles
-    var reels = items.filter(function (it) { return it.type === 'youtube' || it.type === 'video' || it.type === 'instagram' })
-    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' && it.type !== 'instagram' })
-    console.log('[knowledge] reels:', reels.length, 'articles:', articles.length, 'total:', items.length)
-    console.log('[knowledge] types:', items.map(function(i) { return i.type }).join(', '))
+    // Split into 3 columns: images/carousels, videos/reels, articles
+    var images = items.filter(function (it) {
+      if (it.type !== 'instagram') return false
+      var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
+      return url && url.indexOf('.mp4') < 0 && url.indexOf('video') < 0
+    })
+    var reels = items.filter(function (it) {
+      if (it.type === 'youtube' || it.type === 'video') return true
+      if (it.type === 'instagram') {
+        var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
+        return url.indexOf('.mp4') >= 0 || url.indexOf('video') >= 0
+      }
+      return false
+    })
+    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' && it.type !== 'instagram' && it.type !== 'reddit' })
+    // Reddit goes to articles
+    var redditItems = items.filter(function (it) { return it.type === 'reddit' })
+    articles = articles.concat(redditItems)
 
     // Update masthead stats
     var stats = view.querySelectorAll('.mini-stats .stat')
@@ -126,7 +139,34 @@
       })
     }
 
-    // Render articles rail
+    // Render images & carousels column (left)
+    var imagesCol = document.getElementById('knowledge-images-col')
+    if (imagesCol) {
+      if (images.length === 0) {
+        imagesCol.innerHTML = '<div style="text-align:center;padding:30px 10px;color:var(--t3);font-size:12px">No images yet</div>'
+      } else {
+        imagesCol.innerHTML = images.map(function (item) {
+          var thumb = item.imageUrl || item.thumbnail || ''
+          return '<div data-url="' + esc(item.url || '') + '" style="cursor:pointer;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--b1);background:var(--bg)">'
+            + '<div style="position:relative">'
+            + (thumb ? '<img src="' + esc(thumb) + '" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.parentElement.parentElement.remove()" />' : '')
+            + '<span style="position:absolute;top:8px;left:8px;font-family:Inter,sans-serif;font-weight:500;font-size:9px;letter-spacing:.22em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:rgba(0,0,0,.55);color:#fff;backdrop-filter:blur(8px);display:inline-flex;align-items:center;gap:5px"><span style="width:5px;height:5px;border-radius:50%;background:var(--ig)"></span>IG</span>'
+            + '</div>'
+            + '<div style="padding:8px 10px">'
+            + '<div style="font-size:11px;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + esc((item.title || '').slice(0, 80)) + '</div>'
+            + '<div style="font-size:10px;color:var(--t3);margin-top:3px">' + esc(item.source || '') + '</div>'
+            + '</div>'
+            + '</div>'
+        }).join('')
+
+        imagesCol.addEventListener('click', function (e) {
+          var card = e.target.closest('[data-url]')
+          if (card && card.dataset.url) window.open(card.dataset.url, '_blank', 'noopener')
+        })
+      }
+    }
+
+    // Render articles rail (right)
     var articlesRail = document.getElementById('knowledge-articles-rail')
     if (articlesRail) {
       if (articles.length === 0) {

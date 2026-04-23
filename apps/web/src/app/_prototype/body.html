@@ -2388,28 +2388,20 @@
   </div>
 </section>
 
-<section class="layout" style="grid-template-columns:200px 1fr;gap:0">
+<section style="padding:0 40px">
 
-  <!-- NAV -->
-  <aside class="nav">
-    <div class="nav-section">Feeds</div>
-    <div class="nav-item on"><span class="icn">◉</span>All signal<span class="c">0</span></div>
-    <div class="nav-item"><span class="icn">↑</span>Rising<span class="c">0</span></div>
-    <div class="nav-item"><span class="icn">↓</span>Fading<span class="c">0</span></div>
-    <div class="nav-item"><span class="icn">!</span>Competitor<span class="c">0</span></div>
-    <div class="nav-item"><span class="icn">✓</span>Saved<span class="c">0</span></div>
+  <!-- 3-column layout: Images/Carousels | Reels/Videos | Articles -->
+  <div style="display:grid;grid-template-columns:280px 1fr 340px;gap:24px">
 
-    <!-- Sources populated by knowledge-data-wire.js -->
-    <div class="nav-section">Sources</div>
+    <!-- LEFT: Images & Carousels -->
+    <div>
+      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:14px">Images & Carousels</div>
+      <div id="knowledge-images-col">
+        <!-- Populated by knowledge-data-wire.js -->
+      </div>
+    </div>
 
-    <!-- Collections populated by knowledge-data-wire.js -->
-    <div class="nav-section">Collections</div>
-  </aside>
-
-  <!-- MAIN: Reels grid + Articles rail -->
-  <div class="feed" style="display:grid;grid-template-columns:1fr 360px;gap:32px;flex:1">
-
-    <!-- Reels Grid -->
+    <!-- CENTER: Reels & Videos (main) -->
     <div>
       <div class="feed-head">
         <div class="l">
@@ -2426,13 +2418,13 @@
       </div>
     </div>
 
-    <!-- Articles Rail -->
-    <aside style="border-left:1px solid var(--b1);padding-left:20px">
+    <!-- RIGHT: Articles & Discussions -->
+    <div>
       <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:14px">Articles & Discussions</div>
       <div id="knowledge-articles-rail">
         <!-- Populated by knowledge-data-wire.js -->
       </div>
-    </aside>
+    </div>
 
   </div>
 
