@@ -124,16 +124,26 @@
     }, 2200);
   }
 
-  // Reveal on scroll
-  var revealEls = document.querySelectorAll('.reveal');
-  if(revealEls.length){
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){
-        if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-      });
-    }, {threshold:.15, rootMargin:'0px 0px -8% 0px'});
-    revealEls.forEach(function(el){ io.observe(el); });
+  // Reveal on scroll — delay to ensure body.html is fully parsed
+  function initReveals() {
+    var revealEls = document.querySelectorAll('.reveal:not(.in)');
+    if(revealEls.length){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+        });
+      }, {threshold:.1, rootMargin:'0px 0px -5% 0px'});
+      revealEls.forEach(function(el){ io.observe(el); });
+    }
   }
+  // Run after a tick to ensure DOM is ready, and re-run on navigate to home
+  setTimeout(initReveals, 300);
+  var _origNav = window.navigate;
+  window.navigate = function(id) {
+    var r = typeof _origNav === 'function' ? _origNav(id) : undefined;
+    if(id === 'home') setTimeout(initReveals, 200);
+    return r;
+  };
 
   // Stats count-up
   var statEls = document.querySelectorAll('.stats');

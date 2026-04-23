@@ -470,8 +470,8 @@
   }
 
   function showSideTabs() {
-    createSideTabs()
-    if (tabsContainer) tabsContainer.style.display = 'flex'
+    // Side tabs removed — agents accessible from Team calendar + pipeline
+    return
   }
 
   function hideSideTabs() {
