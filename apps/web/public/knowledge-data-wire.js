@@ -75,8 +75,16 @@
           var thumb = item.thumbnail || item.imageUrl || ''
 
           var mediaHtml = ''
-          if (isIG) {
-            // Instagram embed
+          if (isIG && thumb) {
+            // Instagram — use direct media URL (image or video)
+            var isIGVideo = thumb.indexOf('.mp4') >= 0 || thumb.indexOf('video') >= 0
+            if (isIGVideo) {
+              mediaHtml = '<video src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" playsinline muted loop preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>'
+            } else {
+              mediaHtml = '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.remove()" />'
+            }
+          } else if (isIG) {
+            // No media URL — fallback to embed
             var igEmbedUrl = url.replace(/\/$/, '') + '/embed/'
             mediaHtml = '<iframe src="' + esc(igEmbedUrl) + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" loading="lazy" scrolling="no"></iframe>'
           } else {
