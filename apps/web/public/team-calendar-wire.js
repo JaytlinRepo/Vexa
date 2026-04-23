@@ -1,10 +1,16 @@
 /* Team Calendar — Monthly view of work + daily thoughts */
 ;(function () {
+  // Use CSS custom properties matching vexa-shared.css platform tints
   const AGENT_COLORS = {
-    maya: { bg: '#4A90E2', text: '#fff', initial: 'M', label: 'Maya' },
-    jordan: { bg: '#7ED321', text: '#000', initial: 'J', label: 'Jordan' },
-    alex: { bg: '#F5A623', text: '#000', initial: 'A', label: 'Alex' },
-    riley: { bg: '#BD10E0', text: '#fff', initial: 'R', label: 'Riley' },
+    analyst:           { css: 'var(--ig)',     initial: 'M', label: 'Maya' },
+    strategist:        { css: 'var(--tt)',     initial: 'J', label: 'Jordan' },
+    copywriter:        { css: 'var(--accent)', initial: 'A', label: 'Alex' },
+    creative_director: { css: 'var(--yt)',     initial: 'R', label: 'Riley' },
+    // Aliases for name-based lookup
+    maya:    { css: 'var(--ig)',     initial: 'M', label: 'Maya' },
+    jordan:  { css: 'var(--tt)',     initial: 'J', label: 'Jordan' },
+    alex:    { css: 'var(--accent)', initial: 'A', label: 'Alex' },
+    riley:   { css: 'var(--yt)',     initial: 'R', label: 'Riley' },
   }
 
   const TYPE_LABEL = {
@@ -131,7 +137,7 @@
           const roleKey = t.employee?.role
           const color = AGENT_COLORS[roleKey] || AGENT_COLORS.jordan
           const typeLabel = TYPE_LABEL[t.type] || t.type
-          html += `    <div class="work-dot" style="background: ${color.bg}" title="${typeLabel}"></div>`
+          html += `    <div class="work-dot" style="background: ${color.css}" title="${typeLabel}"></div>`
         }
         if (dayTasks.length > 3) {
           html += `    <div class="work-overflow">+${dayTasks.length - 3}</div>`
@@ -141,7 +147,7 @@
 
       // Show thought indicator
       if (dayThoughts.length > 0) {
-        html += `  <div class="thought-indicator" title="${dayThoughts.length} thought${dayThoughts.length > 1 ? 's' : ''}">💭</div>`
+        html += `  <div class="thought-indicator" title="${dayThoughts.length} thought${dayThoughts.length > 1 ? 's' : ''}">${dayThoughts.length}</div>`
       }
 
       html += '</div>'
@@ -156,7 +162,7 @@
   }
 
   async function loadDayDetails(dateStr) {
-    const resp = await fetch(`/api/thoughts?date=${dateStr}`)
+    const resp = await fetch(`/api/thoughts?date=${dateStr}`, { credentials: 'include' })
     const data = await resp.json()
     return data.thoughts || []
   }
@@ -185,9 +191,9 @@
     if (thoughts.length === 0) {
       html += `
         <div class="empty-state">
-          <div class="emoji">💭</div>
+          <div class="empty-icon">NO ENTRIES</div>
           <p>No thoughts or responses yet.</p>
-          <p class="hint">Add what's on your mind—your team will respond.</p>
+          <p class="hint">Add what's on your mind — your team will respond.</p>
         </div>
       `
     } else {
@@ -213,9 +219,7 @@
             html += `
               <div class="response">
                 <div class="response-header">
-                  <div class="agent-badge" style="background: ${color.bg}; color: ${color.text}">
-                    <span class="agent-initial">${color.initial}</span>
-                  </div>
+                  <div class="agent-badge">${color.initial}</div>
                   <div class="response-meta">
                     <div class="agent-name">${agentName}</div>
                     <div class="response-time">${respTime}</div>
@@ -226,7 +230,7 @@
             `
           }
         } else {
-          html += '<div class="response-pending">⏳ Team reviewing...</div>'
+          html += '<div class="response-pending">Team reviewing...</div>'
         }
 
         html += '</div>'
@@ -259,6 +263,7 @@
     try {
       const resp = await fetch('/api/thoughts', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: input.value.trim() }),
       })
@@ -276,10 +281,10 @@
   // Load initial data
   async function init() {
     try {
-      const tasksResp = await fetch('/api/tasks')
+      const tasksResp = await fetch('/api/tasks', { credentials: 'include' })
       const tasksData = await tasksResp.json()
 
-      const thoughtsResp = await fetch('/api/thoughts')
+      const thoughtsResp = await fetch('/api/thoughts', { credentials: 'include' })
       const thoughtsData = await thoughtsResp.json()
 
       renderCalendar(tasksData.tasks || [], thoughtsData.thoughts || [])
@@ -292,10 +297,15 @@
     }
   }
 
-  // Trigger on page load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init)
-  } else {
-    init()
+  // Hook into navigation — only init when Team tab is shown
+  var calendarLoaded = false
+  var origNav = window.navigate
+  window.navigate = function (id) {
+    var r = typeof origNav === 'function' ? origNav(id) : undefined
+    if (id === 'db-team' && !calendarLoaded) {
+      calendarLoaded = true
+      setTimeout(init, 150)
+    }
+    return r
   }
 })()
