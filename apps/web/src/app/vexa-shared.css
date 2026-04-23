@@ -1,4 +1,8 @@
 
+/* ── Shared spinner ──────────────────────────────────────────── */
+.vx-spin{width:28px;height:28px;border:2px solid var(--b1);border-top-color:var(--accent);border-radius:50%;animation:vx-rotate .7s linear infinite}
+@keyframes vx-rotate{to{transform:rotate(360deg)}}
+
 /* Luxury-minimal: em is color-only, never italic, never serif */
 .kpi-head em,.plat em,.mini-card em,.posts-tbl em,.aud-card em,.app-card em,.k-item em,.masthead .stat em,.node-task em,.sched-row em,.mem em,.pf-row em,.posts-card em,.pipe-title em,.section-head em,.posts-card .ph em,.mod em{font-style:normal !important;font-family:inherit !important;color:var(--accent);font-weight:500}
 /* Masthead H1 keeps serif as the ONE hero moment */

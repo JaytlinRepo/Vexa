@@ -32,6 +32,42 @@
     platformAccounts: [], // connected platform accounts
   }
 
+  // ─── localStorage cache for instant HQ load ──────────────────────
+  const LS_DASH_KEY = 'vexa_dash_state'
+  function saveDashCache() {
+    try {
+      // Only cache the data needed for HQ rendering, skip large/transient fields
+      localStorage.setItem(LS_DASH_KEY, JSON.stringify({
+        ts: Date.now(),
+        me: STATE.me,
+        tasks: STATE.tasks,
+        usage: STATE.usage,
+        overview: STATE.overview,
+        insights: STATE.insights,
+        tiktok: STATE.tiktok,
+      }))
+    } catch {}
+  }
+  function loadDashCache() {
+    try {
+      const raw = localStorage.getItem(LS_DASH_KEY)
+      if (!raw) return false
+      const obj = JSON.parse(raw)
+      if (Date.now() - obj.ts > 30 * 60 * 1000) return false // 30 min TTL
+      if (obj.me) STATE.me = obj.me
+      if (obj.tasks) STATE.tasks = obj.tasks
+      if (obj.usage) STATE.usage = obj.usage
+      if (obj.overview) STATE.overview = obj.overview
+      if (obj.insights) STATE.insights = obj.insights
+      if (obj.tiktok) STATE.tiktok = obj.tiktok
+      window.__vxDashState = STATE
+      return true
+    } catch { return false }
+  }
+
+  // Load cached state immediately so HQ renders before API calls complete
+  loadDashCache()
+
   // ─────────────── data ────────────────────────────────────────────
   const get = (u) => fetch(u, { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
 
@@ -66,6 +102,10 @@
       STATE.tiktok = tiktok?.connection || null
       STATE.overview = overview || null
       STATE.notifs = notifs?.items || []
+
+      // Cache state + notify HQ to re-render with fresh data
+      saveDashCache()
+      window.dispatchEvent(new CustomEvent('vx-dash-ready'))
 
       // Supplementary: feed + platform accounts are fetched after render.
       // Fetch after render so they don't delay the dashboard.
@@ -1986,7 +2026,12 @@
     // If the new Vexa-2 HQ layout is present, skip the old JS-generated dashboard.
     // The new layout is static HTML styled by vexa-shared.css.
     if (view.querySelector('.masthead') || view.querySelector('.pipe-wrap')) {
-      try { await fetchAll() } catch (e) {}
+      // If we have cached state, populate HQ immediately while fresh API data loads
+      if (window.__vxDashState && window.__vxDashState.me) {
+        window.dispatchEvent(new CustomEvent('vx-dash-ready'))
+      }
+      // Fetch fresh data in background — vx-dash-ready fires again when done
+      fetchAll().catch(() => {})
       return
     }
     try { await fetchAll() } catch (e) { console.warn('[v2] fetchAll failed, rendering with partial data', e) }

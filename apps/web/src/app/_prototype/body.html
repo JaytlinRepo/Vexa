@@ -959,8 +959,13 @@
     <!-- DASHBOARD HOME (HQ) -->
     <div class="view" id="view-db-dashboard">
 
+<!-- Loading overlay — hidden once data populates -->
+<div id="hq-loader" style="display:flex;align-items:center;justify-content:center;padding:120px 0">
+  <div class="vx-spin"></div>
+</div>
+
 <!-- ══ PIPELINE HERO ═══════════ -->
-<section class="pipe-wrap">
+<section class="pipe-wrap hq-content" style="display:none">
   <div class="pipe-head">
     <div class="pipe-title"><span class="n">§ 01</span><h2>The <em>pipeline</em>, live.</h2></div>
     <div class="pipe-meta"><span class="live"><span class="dd"></span>LIVE · 09:42:18</span><span>AUTO-HANDOFF · ON</span><span>CYCLE · 087</span></div>
@@ -1002,7 +1007,7 @@
 </section>
 
 <!-- ══ DASHBOARD GRID ══════════ -->
-<section class="dash">
+<section class="dash hq-content" style="display:none">
 
 <!-- ── MAIN ── -->
 <div class="dash-main">
@@ -1110,14 +1115,14 @@
   <!-- Forecast chart (full width) -->
   <div class="mini-card" style="margin-bottom:22px">
     <div class="lbl" data-tip="Where your follower count is headed based on your current daily growth rate. The dotted line shows the projected trajectory. Post consistently to keep the curve climbing.">Follower <em>forecast</em></div>
-    <div id="forecast-chart" style="height:260px;position:relative"></div>
+    <div id="forecast-chart" style="height:260px;position:relative;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
     <div id="forecast-milestones" style="margin-top:8px"></div>
   </div>
 
   <!-- Likes forecast chart -->
   <div class="mini-card" style="margin-bottom:22px">
     <div class="lbl" data-tip="Projects your total likes trajectory based on how quickly your posts accumulate likes. Uses exponential smoothing to weight recent trends more heavily than older patterns.">Likes <em>forecast</em></div>
-    <div id="likes-forecast-chart" style="height:220px;position:relative"></div>
+    <div id="likes-forecast-chart" style="height:220px;position:relative;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
     <div id="likes-forecast-insight" style="margin-top:8px"></div>
   </div>
 
@@ -1147,7 +1152,7 @@
       <thead>
         <tr><th>POST</th><th class="r sort" data-sort="views" data-tip="Total number of people who saw this post. For Reels this is video plays. For photos and carousels this is reach. More views = your content is being pushed by the algorithm.">VIEWS</th><th class="r sort" data-sort="likes" data-tip="Number of likes on this post. Likes signal to the algorithm that your content is worth showing to more people. Improve by creating relatable or surprising moments.">LIKES</th><th class="r sort" data-sort="eng" data-tip="This post's (likes + comments + saves + shares) ÷ reach. To improve: write captions that ask a question, create 'save-worthy' tips or lists, and make content people want to share with friends.">ENG</th></tr>
       </thead>
-      <tbody></tbody>
+      <tbody><tr><td colspan="4" style="text-align:center;padding:40px 0"><div class="vx-spin" style="margin:0 auto"></div></td></tr></tbody>
     </table>
     </div>
   </div>
@@ -1155,13 +1160,13 @@
   <!-- Heatmap below posts -->
   <div class="mini-card" style="margin-top:16px">
     <div class="lbl" data-tip="Shows which day and hour your posts get the highest engagement. Darker cells = better performance. Schedule your posts during the darkest slots for maximum reach.">Best time to <em>post</em></div>
-    <div id="heatmap-chart" style="min-height:180px"></div>
+    <div id="heatmap-chart" style="min-height:180px;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
   </div>
 
   <!-- Correlation analysis below heatmap -->
   <div class="mini-card" style="margin-top:16px">
     <div class="lbl" data-tip="Shows which factors have the strongest relationship with your likes and views. Longer bars = stronger influence. Based on correlation analysis across all your posts.">What drives your <em>likes</em></div>
-    <div id="correlation-chart" style="min-height:200px"></div>
+    <div id="correlation-chart" style="min-height:200px;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
     <div id="correlation-insight" style="margin-top:8px"></div>
   </div>
 
@@ -1298,12 +1303,14 @@
   <div class="list-col">
     <div class="list-head">
       <h2>All <em>posts</em></h2>
-      <span class="c">Loading...</span>
+      <span class="c"></span>
       <div class="view"><button class="on">Grid</button><button>Table</button></div>
     </div>
 
     <div class="grid">
-      <!-- Populated dynamically by posts-data-wire.js -->
+      <div class="posts-loader" style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;padding:80px 0">
+        <div class="vx-spin"></div>
+      </div>
     </div>
 
     <div class="pagination" style="margin-top:28px;display:flex;justify-content:center;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);letter-spacing:.05em">

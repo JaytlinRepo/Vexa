@@ -4,6 +4,10 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import prisma from '../lib/prisma'
 const router = Router()
 
+// ─── Timeseries cache: avoid repeated DB queries for the same user ───────────
+const tsCache = new Map<string, { data: unknown; ts: number }>()
+const TS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 router.get('/timeseries', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
@@ -12,6 +16,14 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       res.json({ account: null, snapshots: [], posts: [], audiences: [] })
       return
     }
+
+    // Check cache
+    const cached = tsCache.get(company.id)
+    if (cached && Date.now() - cached.ts < TS_CACHE_TTL) {
+      res.json(cached.data)
+      return
+    }
+
     const accounts = await prisma.platformAccount.findMany({
       where: { companyId: company.id },
       orderBy: { lastSyncedAt: 'desc' },
@@ -40,7 +52,9 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       }),
     ])
 
-    res.json({ account: accounts[0], accounts, snapshots, posts, audiences })
+    const result = { account: accounts[0], accounts, snapshots, posts, audiences }
+    tsCache.set(company.id, { data: result, ts: Date.now() })
+    res.json(result)
   } catch (err) {
     next(err)
   }

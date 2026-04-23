@@ -47,8 +47,8 @@
   }
 
   var hqPopulated = false
-  function populateHQ(S) {
-    if (hqPopulated) return
+  function populateHQ(S, force) {
+    if (hqPopulated && !force) return
     hqPopulated = true
     var ov = S.overview
     var me = S.me
@@ -57,6 +57,12 @@
     var user = me && me.user
     var company = me && me.companies && me.companies[0]
     if (!user) return
+
+    // Remove loading spinner and show content sections
+    var loader = document.getElementById('hq-loader')
+    if (loader) loader.remove()
+    var hqSections = document.querySelectorAll('#view-db-dashboard .hq-content')
+    hqSections.forEach(function (el) { el.style.display = '' })
 
     // ── MASTHEAD ──
     var masthead = document.querySelector('#view-db-dashboard .masthead')
@@ -1305,15 +1311,21 @@
     return days + 'd ago'
   }
 
-  // Run when state is ready
-  waitForState(populateHQ)
-
-  // Re-run on navigation to dashboard
-  var origNav = window.navigate
-  if (typeof origNav === 'function') {
-    // Don't re-wrap if already wrapped — just hook into vx-task-changed
+  // Run immediately if cached state is available, otherwise poll
+  var S = window.__vxDashState
+  if (S && S.me && S.overview) {
+    populateHQ(S)
+  } else {
+    waitForState(populateHQ)
   }
+
+  // Re-populate with fresh data when API calls complete
+  window.addEventListener('vx-dash-ready', function () {
+    if (window.__vxDashState) populateHQ(window.__vxDashState, true)
+  })
+
+  // Re-run on task changes
   window.addEventListener('vx-task-changed', function () {
-    if (window.__vxDashState) populateHQ(window.__vxDashState)
+    if (window.__vxDashState) populateHQ(window.__vxDashState, true)
   })
 })()

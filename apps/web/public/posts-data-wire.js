@@ -486,53 +486,89 @@
     }
   }
 
+  /* ── localStorage cache key ─────────────────────────── */
+  var LS_KEY = 'vexa_posts_ts'
+
+  function saveToCache(ts) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), data: ts })) } catch (e) { /* quota */ }
+  }
+  function loadFromCache() {
+    try {
+      var raw = localStorage.getItem(LS_KEY)
+      if (!raw) return null
+      var obj = JSON.parse(raw)
+      // Accept cache up to 30 minutes old
+      if (Date.now() - obj.ts > 30 * 60 * 1000) return null
+      return obj.data
+    } catch (e) { return null }
+  }
+
+  /* ── apply timeseries data to UI ─────────────────── */
+  function applyTimeseries(ts, view) {
+    if (!ts || !ts.posts || ts.posts.length === 0) {
+      var gridEl = view.querySelector('.grid')
+      if (gridEl && allPosts.length === 0) gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--t3);font-size:14px">No posts synced yet. Connect a platform to see your content here.</div>'
+      return
+    }
+
+    acctMap = {}
+    var accts = ts.accounts || (ts.account ? [ts.account] : [])
+    accts.forEach(function (a) { if (a && a.id) acctMap[a.id] = a.platform })
+
+    // Populate platform filter buttons based on connected accounts
+    var platGroup = document.getElementById('platform-filters')
+    if (platGroup) {
+      var connected = {}
+      accts.forEach(function (a) { if (a && a.platform) connected[a.platform] = true })
+      var platLabels = { instagram: 'IG', tiktok: 'TikTok', youtube: 'YT' }
+      var platDots = { instagram: 'ig', tiktok: 'tt', youtube: 'yt' }
+      var html = '<span class="lab">Platform</span><button class="fchip on">All</button>'
+      Object.keys(connected).forEach(function (plat) {
+        html += '<button class="fchip"><span class="dot ' + (platDots[plat] || '') + '"></span>' + (platLabels[plat] || plat) + '</button>'
+      })
+      platGroup.innerHTML = html
+    }
+
+    // Populate Top 10 platform dropdown
+    var top5Plat = document.querySelector('.top5-plat')
+    if (top5Plat) {
+      var platHtml = '<option value="all">All</option>'
+      var connected2 = {}
+      accts.forEach(function (a) { if (a && a.platform) connected2[a.platform] = true })
+      Object.keys(connected2).forEach(function (plat) {
+        var label = plat === 'instagram' ? 'IG' : plat === 'tiktok' ? 'TikTok' : plat === 'youtube' ? 'YT' : plat
+        platHtml += '<option value="' + plat + '">' + label + '</option>'
+      })
+      top5Plat.innerHTML = platHtml
+    }
+
+    allPosts = ts.posts
+    render()
+  }
+
   /* ── fetch + populate ─────────────────────────────── */
+  var fetchInFlight = false
   function populate() {
     var view = document.getElementById('view-db-posts')
     if (!view) return
     wireFilters()
     if (state.fetched) { render(); return }
+
+    // Instantly render from cache while fresh data loads
+    var cached = loadFromCache()
+    if (cached) {
+      applyTimeseries(cached, view)
+    }
+
+    if (fetchInFlight) return
+    fetchInFlight = true
     state.fetched = true
 
     get('/api/platform/timeseries').then(function (ts) {
-      if (!ts || !ts.posts || ts.posts.length === 0) {
-        var gridEl = view.querySelector('.grid')
-        if (gridEl) gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--t3);font-size:14px">No posts synced yet. Connect a platform to see your content here.</div>'
-        return
-      }
-
-      acctMap = {}
-      // Use full accounts array if available, fall back to single account
-      var accts = ts.accounts || (ts.account ? [ts.account] : [])
-      accts.forEach(function (a) { if (a && a.id) acctMap[a.id] = a.platform })
-
-      // Populate platform filter buttons based on connected accounts
-      var platGroup = document.getElementById('platform-filters')
-      if (platGroup) {
-        var connected = {}
-        accts.forEach(function (a) { if (a && a.platform) connected[a.platform] = true })
-        var platLabels = { instagram: 'IG', tiktok: 'TikTok', youtube: 'YT' }
-        var platDots = { instagram: 'ig', tiktok: 'tt', youtube: 'yt' }
-        var html = '<span class="lab">Platform</span><button class="fchip on">All</button>'
-        Object.keys(connected).forEach(function (plat) {
-          html += '<button class="fchip"><span class="dot ' + (platDots[plat] || '') + '"></span>' + (platLabels[plat] || plat) + '</button>'
-        })
-        platGroup.innerHTML = html
-      }
-
-      // Populate Top 10 platform dropdown
-      var top5Plat = document.querySelector('.top5-plat')
-      if (top5Plat) {
-        var platHtml = '<option value="all">All</option>'
-        Object.keys(connected).forEach(function (plat) {
-          var label = plat === 'instagram' ? 'IG' : plat === 'tiktok' ? 'TikTok' : plat === 'youtube' ? 'YT' : plat
-          platHtml += '<option value="' + plat + '">' + label + '</option>'
-        })
-        top5Plat.innerHTML = platHtml
-      }
-
-      allPosts = ts.posts
-      render()
+      fetchInFlight = false
+      if (!ts) return
+      saveToCache(ts)
+      applyTimeseries(ts, view)
     })
   }
 
