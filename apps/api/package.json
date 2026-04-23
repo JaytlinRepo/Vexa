@@ -5,8 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:workers": "tsx watch src/workers/index.ts",
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
+    "start:workers": "node dist/workers/index.js",
     "start:prod": "prisma db push --skip-generate --accept-data-loss && node dist/index.js",
     "postinstall": "prisma generate || true",
     "type-check": "tsc --noEmit",

@@ -15,7 +15,16 @@ import { detectScenes, SceneAnalysis } from './sceneDetection.service'
 import { extractKeyframes } from './keyframeExtractor.service'
 import StudioCopywritingService from './studioCopywriting.service'
 import { getPresignedUrl } from '../services/storage/s3.service'
-import { broadcastProcessingEvent } from '../routes/video'
+import { broadcastProcessingEvent as _defaultBroadcast } from '../routes/video'
+
+// Allow workers to override the broadcast function (for Redis Pub/Sub relay)
+let _broadcastFn: (event: string, data: unknown) => void = _defaultBroadcast
+export function setBroadcastFn(fn: (event: string, data: unknown) => void): void {
+  _broadcastFn = fn
+}
+function broadcastProcessingEvent(event: string, data: unknown): void {
+  _broadcastFn(event, data)
+}
 
 export interface ProcessingStage {
   name: string

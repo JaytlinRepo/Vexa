@@ -785,3 +785,19 @@ model ProcessingMetric {
   @@index([createdAt])
   @@map("processing_metrics")
 }
+
+// ── Content Timeline (weekly calendar generated from agent outputs) ──────────
+
+model ContentTimeline {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  weekOf      String   @map("week_of")       // ISO date of the Monday
+  slots       Json                            // TimelineSlot[]
+  strategy    String?                         // Jordan's one-line strategy
+  sourceTaskIds String[] @default([]) @map("source_task_ids")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  @@unique([companyId, weekOf])
+  @@index([companyId])
+  @@map("content_timelines")
+}

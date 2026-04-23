@@ -38,6 +38,9 @@ import { initWeeklyRoutes } from './routes/weekly'
 import { initVideoRoutes } from './routes/video'
 import { initStudioRoutes } from './routes/studio'
 import { registerScheduledJobs } from './scheduler'
+import { registerBullMQSchedules } from './scheduler2'
+import { initSSEBridge } from './queues/sse-bridge'
+import { setupQueueDashboard } from './routes/admin-queues'
 import prisma from './lib/prisma'
 import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
 
@@ -124,6 +127,7 @@ app.use('/api/tiktok', tiktokRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/stripe', stripeRouter)
 app.use('/api/admin', adminRouter)
+app.use('/admin/queues', setupQueueDashboard())
 app.use('/api/waitlist', waitlistRouter)
 app.use('/api/briefs', initBriefRoutes(prisma))
 app.use('/api/weekly', initWeeklyRoutes(prisma))
@@ -195,4 +199,15 @@ app.listen(PORT, () => {
     console.log(`[api] TEST MODE — this is the preview stack. Do not route real users.`)
   }
   registerScheduledJobs(prisma)
+
+  // BullMQ job queues — register repeatable schedules + SSE bridge
+  registerBullMQSchedules(prisma).catch((err) =>
+    console.error('[api] BullMQ schedule registration failed:', err)
+  )
+  try {
+    const { broadcastProcessingEvent } = require('./lib/videoProcessing.service')
+    initSSEBridge(broadcastProcessingEvent)
+  } catch (err) {
+    console.warn('[api] SSE bridge init skipped:', (err as Error).message)
+  }
 })
