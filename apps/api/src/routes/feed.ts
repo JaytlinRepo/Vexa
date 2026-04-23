@@ -678,20 +678,31 @@ router.get('/', requireAuth, async (req, res, next) => {
     }
 
     // ── Fetch all sources in parallel ────────────────────────────
-    const [redditResults, rssItems, newsItems, trendSignals, ytVideos] = await Promise.all([
+    // Get Instagram hashtags for niche
+    const igHashtags = getHashtagsForNiche(niche, detectedSub)
+
+    const [redditResults, rssItems, newsItems, trendSignals, ytVideos, igPosts] = await Promise.all([
       Promise.all(subs.slice(0, 1).map((s) => fetchRedditTop(s, 2, niche, detectedSub))),
       fetchNicheRSSFeeds(niche, 4, 3, detectedSub).catch(() => [] as RSSItem[]),
       searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
       fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
       searchNicheVideos(niche, detectedSub || undefined, 10, ytQuery || undefined).catch(() => [] as YouTubeVideo[]),
+      (async () => {
+        // Get Instagram token from user's connected account
+        const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
+        if (!igConn?.accessToken || !igConn?.igBusinessId) return []
+        return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 3), 5)
+      })().catch(() => []),
     ])
 
     let items: FeedItem[] = [
-      // Articles and news — the core of the feed (RSS + NewsAPI combined)
+      // Articles and news
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
-      // Real niche videos/Reels — mixed with articles for inspiration
+      // YouTube videos/Reels
       ...ytVideos.slice(0, 10).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // Instagram trending posts
+      ...igPosts.slice(0, 5).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
       // Reddit community discussions
       ...redditResults.flat().slice(0, maxRedditShare),
     ]
