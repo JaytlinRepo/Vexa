@@ -259,45 +259,57 @@ export async function analyzeAndPickClip(
     editingRules = DEFAULT_EDITING_RULES
   }
 
-  // Use creator profile to adjust editing parameters
-  const retention = creatorProfile?.retention as Record<string, unknown> | undefined
+  // Use creator's STYLE profile to replicate how they edit
+  // NOT audience optimization — that's Maya's job. Riley matches the creator's style.
   const style = creatorProfile?.style as Record<string, unknown> | undefined
-  const retentionStyle = (retention as any)?.styleProfile || {}
-  const perfCorr = (retention as any)?.performanceCorrelations || {}
-  const audiencePatterns = (retention as any)?.audiencePatterns || {}
 
-  // Dynamic target duration from retention data (replaces hardcoded 60s)
-  const optimalDuration = perfCorr.videoLength?.optimal || targetDuration
-  const targetLen = Math.min(optimalDuration, Math.floor(videoDuration * 0.65))
+  // Dynamic target from creator's typical video length (not audience-optimal)
+  const targetLen = Math.min(targetDuration, Math.floor(videoDuration * 0.65))
 
-  // Dynamic segment count from creator's cut speed
-  const avgCutSpeed = (style as any)?.avgCutDuration || retentionStyle.avgCutSpeed || 3
+  // Dynamic segments from creator's actual cut speed
+  // Cap at 5s max — values above that are from thumbnail-only analysis (inaccurate)
+  const rawCutSpeed = (style as any)?.avgCutDuration || 3
+  const avgCutSpeed = Math.min(5, Math.max(1, rawCutSpeed))
   const maxSegments = Math.max(3, Math.ceil(targetLen / avgCutSpeed))
   const segDuration = `${Math.max(1, avgCutSpeed - 1).toFixed(0)}-${(avgCutSpeed + 1).toFixed(0)}`
 
-  // Build creator-specific editing instructions
+  // Build creator style instructions — how THIS creator edits
   let creatorInstructions = ''
-  if (retention || style) {
+  if (style) {
     const parts: string[] = []
-    if (retentionStyle.hookPattern) parts.push(`Hook style: ${retentionStyle.hookPattern} — this is what grabs THIS creator's audience`)
-    if (retentionStyle.avgCutSpeed) parts.push(`Cut speed: ${retentionStyle.avgCutSpeed}s per cut — match this creator's rhythm`)
-    if (retentionStyle.subtitleDensity) parts.push(`Subtitles: ${retentionStyle.subtitleDensity} density — their audience expects this`)
-    if (retentionStyle.zoomBehavior) parts.push(`Zoom: ${retentionStyle.zoomBehavior} — match their visual intensity`)
-    if ((style as any)?.engagementPacing) parts.push(`Engagement pacing: ${(style as any).engagementPacing} — put the best content there`)
-    if ((style as any)?.narrativeStructure) parts.push(`Story structure: ${(style as any).narrativeStructure}`)
-    if (audiencePatterns.topTopics?.length) parts.push(`Audience loves: ${audiencePatterns.topTopics.join(', ')}`)
-    if (audiencePatterns.avoidTopics?.length) parts.push(`Audience dislikes: ${audiencePatterns.avoidTopics.join(', ')} — deprioritize these`)
+
+    // Cut & pacing
+    if ((style as any).avgCutDuration) parts.push(`Cut rhythm: ${(style as any).avgCutDuration}s per cut — match this creator's pacing exactly`)
+    if ((style as any).pacingSpeed) parts.push(`Pacing: ${(style as any).pacingSpeed} — this is how they edit`)
+    if ((style as any).pacingCurve) parts.push(`Pacing curve: ${(style as any).pacingCurve}`)
+
+    // Hook
+    if ((style as any).hookStyle) parts.push(`Hook style: ${(style as any).hookStyle} — replicate how this creator opens their videos`)
+    if ((style as any).hookTiming) parts.push(`Hook lands at: ${(style as any).hookTiming}s — match this timing`)
+
+    // Structure
+    if ((style as any).narrativeStructure) parts.push(`Story structure: ${(style as any).narrativeStructure} — follow this format`)
+    if ((style as any).storytellingCadence) parts.push(`Cadence: ${(style as any).storytellingCadence}`)
+
+    // Visual
+    if ((style as any).zoomTypes?.length) parts.push(`Zoom style: ${(style as any).zoomTypes.join(', ')} — this is how they frame shots`)
+    if ((style as any).transitionStyles?.length) parts.push(`Transitions: ${(style as any).transitionStyles.join(', ')}`)
+    if ((style as any).colorGrading) parts.push(`Color grade: ${(style as any).colorGrading}`)
+
+    // Subtitles
+    if ((style as any).hasSubtitles) parts.push(`Subtitles: yes, ${(style as any).subtitleStyle || 'standard'} style`)
+    else if ((style as any).hasSubtitles === false) parts.push(`Subtitles: this creator does NOT use subtitles`)
 
     if (parts.length > 0) {
-      creatorInstructions = `\nCREATOR-SPECIFIC EDITING (learned from this creator's best-performing content):\n${parts.map(p => '- ' + p).join('\n')}\n`
+      creatorInstructions = `\nCREATOR STYLE (replicate how this creator edits — preserve their identity):\n${parts.map(p => '- ' + p).join('\n')}\n\nYour goal is to edit this video exactly how the creator would edit it themselves. Save them time, not change their style.\n`
     }
   }
 
-  const systemPrompt = `You are Riley, a Creative Director who edits reels. You can SEE the actual video frames.
+  const systemPrompt = `You are Riley, a Creative Director who replicates a creator's editing style. You can SEE the actual video frames.
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
-Your job: build a CapCut-style reel — multiple jump cuts of ONLY the best visual moments.
+Your job: edit this video the way THIS creator would edit it. Match their cut speed, pacing, hook style, and visual choices. You are saving them time, not changing their style.
 ${creatorInstructions}
 HARD CONSTRAINTS (DO NOT VIOLATE):
 - MAXIMUM OUTPUT: ${targetLen} seconds total. Add up all your segment durations — they MUST total ${targetLen}s or less

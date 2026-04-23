@@ -44,8 +44,12 @@ export function buildCreatorFilters(
   vf.push('scale=1080:1920:force_original_aspect_ratio=decrease')
   vf.push('pad=1080:1920:(ow-iw)/2:(oh-ih)/2')
 
-  // ── Zoom / punch-in ──
-  const zoomBehavior = retention?.styleProfile.zoomBehavior || style?.zoomTypes?.[0] || 'moderate'
+  // ── Zoom / punch-in (from creator's actual editing style, not audience optimization) ──
+  const zoomTypes = style?.zoomTypes || []
+  const zoomBehavior = zoomTypes.includes('punch-in') ? 'aggressive'
+    : zoomTypes.includes('slow-zoom') ? 'moderate'
+    : zoomTypes.length > 0 ? 'moderate'
+    : 'none' // if creator doesn't zoom, don't add zoom
   if (zoomBehavior === 'aggressive') {
     // Ken Burns-style slow zoom on each segment
     vf.push('zoompan=z=\'min(zoom+0.0015,1.15)\':x=\'iw/2-(iw/zoom/2)\':y=\'ih/2-(ih/zoom/2)\':d=1:s=1080x1920:fps=30')
