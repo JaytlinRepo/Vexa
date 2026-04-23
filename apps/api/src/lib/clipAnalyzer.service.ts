@@ -313,13 +313,17 @@ You're looking at ${frames.length} keyframes extracted from a ${videoDuration.to
 Your job: edit this video the way THIS creator would edit it. Match their cut speed, pacing, hook style, and visual choices. You are saving them time, not changing their style.
 ${creatorInstructions}
 HARD CONSTRAINTS (DO NOT VIOLATE):
-- MAXIMUM OUTPUT: ${targetLen} seconds total. Add up all your segment durations — they MUST total ${targetLen}s or less
+- MAXIMUM OUTPUT: ${targetLen} seconds total
 - MAXIMUM SEGMENTS: ${maxSegments} segments
-- EACH SEGMENT: ${segDuration} seconds. Match this creator's editing rhythm
-- YOU MUST CUT CONTENT. Not everything makes the reel. Be ruthless — only the peak moments survive
-- COVER THE FULL VIDEO — don't just take segments from the beginning. Scan ALL frames and pick the best moments across the entire timeline
-- SKIP DEAD TIME — if the first few seconds are static/boring (establishing shots with no action), skip them or keep them very short (1s max). Start with action
-- CAPTURE THE ENDING — if there's a satisfying conclusion, close, or payoff at the end of the video, include it. Good reels have a beginning AND an end
+- EACH SEGMENT: ${segDuration} seconds
+
+EDITING RULES:
+- CUT WHERE THE ACTION CHANGES — keep segments where something interesting is happening, skip segments where nothing changes. Consecutive segments are fine IF the content is continuous action. Gaps are fine IF there's dead footage in between
+- USE THE FULL ${targetLen}s BUDGET — your segments should add up close to ${targetLen}s total. Don't leave budget unused
+- SPREAD ACROSS THE FULL VIDEO — pick moments from the beginning, middle, AND end of the ${videoDuration.toFixed(0)}s source. Your last segment should come from the final third (after ${(videoDuration * 0.66).toFixed(0)}s)
+- SKIP DEAD TIME — static shots with no action, repetitive movements, walking without purpose = cut them
+- START WITH ACTION — open with the first interesting moment, not a static establishing shot
+- END WITH A PAYOFF — include a satisfying conclusion from the end of the video
 
 ${editingRules}
 
@@ -361,7 +365,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
 
   content.push({
     type: 'text',
-    text: `\nBased on what you SEE in these frames + the audio/motion data above, build a reel. Cut the boring parts. Keep only what's visually compelling. Output JSON only.`
+    text: `\nBased on what you SEE in these frames, build a ${targetLen}s reel. Cut where the action changes, keep interesting continuous action, skip dead time. Use moments from across the FULL ${videoDuration.toFixed(0)}s video including the ending. Your segments should total close to ${targetLen}s. Output JSON only.`
   })
 
   try {
@@ -403,7 +407,18 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
         .join(' ')
     }).filter(Boolean).join(' ')
 
+    // Check if Riley actually jump-cut or just trimmed from the start
+    let hasGaps = false
+    for (let i = 1; i < segments.length; i++) {
+      const gap = segments[i].startTime - segments[i - 1].endTime
+      if (gap > 0.5) { hasGaps = true; break }
+    }
+    const lastSegEnd = segments.length > 0 ? segments[segments.length - 1].endTime : 0
+    const coversEnd = lastSegEnd > videoDuration * 0.6
+
     console.log(`[clip-analyzer] Riley (vision) picked ${segments.length} segments, ${totalDuration.toFixed(1)}s total`)
+    console.log(`  Jump cuts: ${hasGaps ? 'YES' : 'NO (contiguous — may need re-cut)'}`)
+    console.log(`  Covers end: ${coversEnd ? 'YES' : 'NO (last segment ends at ' + fmt(lastSegEnd) + ' of ' + fmt(videoDuration) + ')'}`)
     segments.forEach((s, i) => {
       console.log(`  ${i + 1}. [${fmt(s.startTime)}-${fmt(s.endTime)}] ${s.energy} — ${s.label}`)
     })
