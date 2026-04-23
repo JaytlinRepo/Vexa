@@ -486,22 +486,7 @@
     }
   }
 
-  /* ── localStorage cache key ─────────────────────────── */
-  var LS_KEY = 'vexa_posts_ts'
-
-  function saveToCache(ts) {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), data: ts })) } catch (e) { /* quota */ }
-  }
-  function loadFromCache() {
-    try {
-      var raw = localStorage.getItem(LS_KEY)
-      if (!raw) return null
-      var obj = JSON.parse(raw)
-      // Accept cache up to 30 minutes old
-      if (Date.now() - obj.ts > 30 * 60 * 1000) return null
-      return obj.data
-    } catch (e) { return null }
-  }
+  /* Server-side caching handles fast responses — no localStorage needed */
 
   /* ── apply timeseries data to UI ─────────────────── */
   function applyTimeseries(ts, view) {
@@ -556,12 +541,6 @@
     // If already fetched, render existing data immediately
     if (state.fetched) { render(); return }
 
-    // First load: render from cache instantly while API loads
-    var cached = loadFromCache()
-    if (cached) {
-      applyTimeseries(cached, view)
-    }
-
     fetchFresh(view)
   }
 
@@ -573,7 +552,7 @@
     get('/api/platform/timeseries').then(function (ts) {
       fetchInFlight = false
       if (!ts) return
-      saveToCache(ts)
+      // server cache handles freshness
       if (!view) view = document.getElementById('view-db-posts')
       if (view) applyTimeseries(ts, view)
     })
@@ -587,7 +566,7 @@
     get('/api/platform/timeseries').then(function (ts) {
       fetchInFlight = false
       if (!ts) return
-      saveToCache(ts)
+      // server cache handles freshness
       applyTimeseries(ts, view)
     })
   }

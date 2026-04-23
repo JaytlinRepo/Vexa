@@ -120,6 +120,10 @@ router.post('/change-password', async (req, res, next) => {
   }
 })
 
+// ─── /me cache: avoid redundant DB queries on rapid page loads ───────────────
+const meCache = new Map<string, { data: unknown; ts: number }>()
+const ME_CACHE_TTL = 30_000 // 30 seconds
+
 router.get('/me', async (req, res, next) => {
   try {
     const session = await readSession(req)
@@ -127,6 +131,14 @@ router.get('/me', async (req, res, next) => {
       res.status(401).json({ error: 'unauthorized' })
       return
     }
+
+    // Check cache
+    const cached = meCache.get(session.userId)
+    if (cached && Date.now() - cached.ts < ME_CACHE_TTL) {
+      res.json(cached.data)
+      return
+    }
+
     // Auto-transition expired trials to active before reading the user row.
     await rolloverTrialIfDue(prisma, session.userId)
     const user = await prisma.user.findUnique({
@@ -145,7 +157,7 @@ router.get('/me', async (req, res, next) => {
       res.status(401).json({ error: 'unauthorized' })
       return
     }
-    res.json({
+    const result = {
       user: {
         id: user.id,
         email: user.email,
@@ -156,7 +168,9 @@ router.get('/me', async (req, res, next) => {
         trialEndsAt: user.trialEndsAt,
       },
       companies: user.companies,
-    })
+    }
+    meCache.set(session.userId, { data: result, ts: Date.now() })
+    res.json(result)
   } catch (err) {
     next(err)
   }

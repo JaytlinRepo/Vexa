@@ -32,41 +32,7 @@
     platformAccounts: [], // connected platform accounts
   }
 
-  // ─── localStorage cache for instant HQ load ──────────────────────
-  const LS_DASH_KEY = 'vexa_dash_state'
-  function saveDashCache() {
-    try {
-      // Only cache the data needed for HQ rendering, skip large/transient fields
-      localStorage.setItem(LS_DASH_KEY, JSON.stringify({
-        ts: Date.now(),
-        me: STATE.me,
-        tasks: STATE.tasks,
-        usage: STATE.usage,
-        overview: STATE.overview,
-        insights: STATE.insights,
-        tiktok: STATE.tiktok,
-      }))
-    } catch {}
-  }
-  function loadDashCache() {
-    try {
-      const raw = localStorage.getItem(LS_DASH_KEY)
-      if (!raw) return false
-      const obj = JSON.parse(raw)
-      if (Date.now() - obj.ts > 30 * 60 * 1000) return false // 30 min TTL
-      if (obj.me) STATE.me = obj.me
-      if (obj.tasks) STATE.tasks = obj.tasks
-      if (obj.usage) STATE.usage = obj.usage
-      if (obj.overview) STATE.overview = obj.overview
-      if (obj.insights) STATE.insights = obj.insights
-      if (obj.tiktok) STATE.tiktok = obj.tiktok
-      window.__vxDashState = STATE
-      return true
-    } catch { return false }
-  }
-
-  // Load cached state immediately so HQ renders before API calls complete
-  loadDashCache()
+  // Server-side caching handles fast responses — no localStorage needed
 
   // ─────────────── data ────────────────────────────────────────────
   const get = (u) => fetch(u, { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
@@ -105,8 +71,7 @@
       STATE.overview = overview || null
       STATE.notifs = notifs?.items || []
 
-      // Cache state + notify HQ to re-render with fresh data
-      saveDashCache()
+      // Notify HQ to render with fresh data
       window.dispatchEvent(new CustomEvent('vx-dash-ready'))
 
       // Supplementary: feed + platform accounts are fetched after render.

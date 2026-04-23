@@ -4,6 +4,10 @@ import prisma from '../lib/prisma'
 
 const router = Router()
 
+// ─── Employees cache: avoid N+1 on every HQ render ─────────────────────────
+const empCache = new Map<string, { data: unknown; ts: number }>()
+const EMP_CACHE_TTL = 60_000 // 1 minute
+
 // Get all employees for a company with recent task summary
 router.get('/', requireAuth, async (req, res, next) => {
   try {
@@ -16,6 +20,13 @@ router.get('/', requireAuth, async (req, res, next) => {
       : await prisma.company.findFirst({ where: { userId } })
     if (!company) {
       res.json({ employees: [] })
+      return
+    }
+
+    // Check cache
+    const cached = empCache.get(company.id)
+    if (cached && Date.now() - cached.ts < EMP_CACHE_TTL) {
+      res.json(cached.data)
       return
     }
 
@@ -73,7 +84,9 @@ router.get('/', requireAuth, async (req, res, next) => {
       })
     )
 
-    res.json({ employees: enriched, companyId: company.id })
+    const result = { employees: enriched, companyId: company.id }
+    empCache.set(company.id, { data: result, ts: Date.now() })
+    res.json(result)
   } catch (err) {
     next(err)
   }

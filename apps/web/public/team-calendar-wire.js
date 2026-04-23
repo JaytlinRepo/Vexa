@@ -603,7 +603,7 @@
         return r.json().then(function (data) {
           // Add to local tasks array and re-render
           if (data.task) allTasks.unshift(data.task)
-          saveCache()
+          // server cache handles freshness
           render()
           selectDay(dateStr)
         })
@@ -642,24 +642,7 @@
     })
   }
 
-  // ── localStorage cache ──
-  var LS_KEY = 'vexa_team_cal'
-  function saveCache() {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), tasks: allTasks, thoughts: allThoughts }))
-    } catch (e) { /* quota */ }
-  }
-  function loadCache() {
-    try {
-      var raw = localStorage.getItem(LS_KEY)
-      if (!raw) return false
-      var obj = JSON.parse(raw)
-      if (Date.now() - obj.ts > 30 * 60 * 1000) return false
-      allTasks = obj.tasks || []
-      allThoughts = obj.thoughts || []
-      return true
-    } catch (e) { return false }
-  }
+  // Server-side caching handles fast responses — no localStorage needed
 
   // ── Init ──
   async function init() {
@@ -668,15 +651,8 @@
     viewMonth = now.getMonth()
     selectedDate = fmtDate(now)
 
-    // Render from cache instantly if available
-    var hadCache = loadCache()
-    if (hadCache) {
-      render()
-      selectDay(selectedDate)
-    } else {
-      var container = document.getElementById('team-calendar')
-      if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
-    }
+    var container = document.getElementById('team-calendar')
+    if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
 
     // Fetch fresh data in background
     var results = await Promise.all([
@@ -686,7 +662,7 @@
 
     allTasks = (results[0] && results[0].tasks) || []
     allThoughts = (results[1] && results[1].thoughts) || []
-    saveCache()
+    // server cache handles freshness
 
     render()
     selectDay(selectedDate)
