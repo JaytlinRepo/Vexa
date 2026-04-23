@@ -408,6 +408,7 @@ model PlatformPost {
   caption         String?
   url             String?
   thumbnailUrl    String?   @map("thumbnail_url")
+  mediaUrl        String?   @map("media_url")   // direct CDN URL to video/image file
   publishedAt     DateTime? @map("published_at")
   likeCount       Int       @default(0) @map("like_count")
   commentCount    Int       @default(0) @map("comment_count")

@@ -1,125 +1,139 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime'
+import { invokeAgent, parseAgentOutput } from './bedrock/bedrock.service'
+import { extractKeyframes } from '../lib/keyframeExtractor.service'
 import prisma from '../lib/prisma'
 
-const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_BEDROCK_REGION || 'us-east-1' })
-
 export interface StyleProfile {
-  cutSpeed: string // e.g., "1.2-1.5s per cut" or "fast (0.8-1.0s)"
+  cutSpeed: string
   subtitleDensity: 'high' | 'medium' | 'low'
-  subtitleTiming: string // e.g., "keyword-synchronized"
+  subtitleTiming: string
   zoomBehavior: {
-    frequency: string // e.g., "2-3 per 45s"
-    type: string[] // e.g., ["punch-in", "slow-zoom", "reaction-focus"]
+    frequency: string
+    type: string[]
   }
   visualDensity: 'high' | 'medium' | 'low'
   musicIntensity: 'high' | 'medium' | 'low'
-  hookTiming: string // e.g., "0-3 seconds"
-  ctaPlacement: string // e.g., "end + mid-roll"
-  transitionStyle: string[] // e.g., ["hard-cut", "fade", "match-cut"]
-  narrativeStructure: string // e.g., "problem-solution" or "hook-story-cta"
-  colorGrading: string // e.g., "warm-saturated" or "cool-muted"
-  aspectRatio: string // e.g., "9:16 vertical"
-  videoLength: string // e.g., "30-60 seconds average"
-  contentAngles: string[] // detected types: e.g., ["transformation", "educational", "storytelling"]
+  hookTiming: string
+  ctaPlacement: string
+  transitionStyle: string[]
+  narrativeStructure: string
+  colorGrading: string
+  aspectRatio: string
+  videoLength: string
+  contentAngles: string[]
 }
 
+const VISION_PROMPT = `You are a video editing style analyzer. You are given keyframes extracted from a creator's Reel/Video at regular intervals.
+
+Analyze the frames for editing patterns and respond with ONLY valid JSON:
+{
+  "cutSpeed": "fast/medium/slow with estimated seconds per cut",
+  "visualDensity": "high/medium/low",
+  "colorGrading": "description of color palette and grading style",
+  "hasSubtitles": true/false,
+  "subtitleStyle": "description if visible, or null",
+  "transitionStyle": ["hard-cut", "fade", "zoom-in", "match-cut", etc.],
+  "zoomTypes": ["punch-in", "slow-zoom", "static", "reaction-focus"],
+  "hookStyle": "how the first frames grab attention",
+  "narrativeStructure": "hook-story-cta / transformation / tutorial / vlog / montage",
+  "contentAngle": "what type of content this is",
+  "aspectRatio": "9:16 / 16:9 / 1:1"
+}
+
+Look at frame-to-frame differences to detect:
+- How fast cuts happen (compare adjacent frames — similar = slow cuts, very different = fast cuts)
+- Whether subtitles/text overlays are present
+- Color consistency across frames (same grade = cohesive, varying = dynamic)
+- Zoom patterns (close-ups vs wide shots alternating)
+- Opening hook style (first 2-3 frames)`
+
 /**
- * Analyze a single video's keyframes to detect editing patterns
+ * Analyze a single video using FFmpeg keyframes sent to Bedrock Vision
  */
-async function analyzeVideoStyle(videoUrl: string, duration: number): Promise<Partial<StyleProfile>> {
-  if (!videoUrl || !videoUrl.startsWith('http')) {
-    return {}
-  }
-
+async function analyzeVideoStyle(
+  mediaUrl: string,
+  thumbnailUrl: string | null,
+  duration: number,
+): Promise<Partial<StyleProfile>> {
   try {
-    // Fetch the video (or thumbnail for MVP)
-    // For MVP, we'll analyze the poster image/thumbnail
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    // Extract keyframes from the actual video via FFmpeg
+    let frames: Array<{ timestamp: number; base64: string; index: number }> = []
 
-    let response
-    try {
-      response = await fetch(videoUrl, { signal: controller.signal })
-    } finally {
-      clearTimeout(timeoutId)
+    if (mediaUrl && mediaUrl.startsWith('http')) {
+      try {
+        const interval = duration > 30 ? 4 : 3
+        frames = await extractKeyframes(mediaUrl, Math.max(duration, 15), interval, 8)
+      } catch (err) {
+        console.warn('[videoStyleAnalyzer] FFmpeg extraction failed, trying thumbnail:', (err as Error).message)
+      }
     }
 
-    if (!response.ok) return {}
+    // Fallback: download thumbnail as single frame
+    if (frames.length === 0 && thumbnailUrl) {
+      try {
+        const axios = (await import('axios')).default
+        const resp = await axios.get(thumbnailUrl, { responseType: 'arraybuffer', timeout: 8000 })
+        const buf = Buffer.from(resp.data)
+        if (buf.length > 1000) {
+          frames = [{ timestamp: 0, base64: buf.toString('base64'), index: 0 }]
+        }
+      } catch {}
+    }
 
-    const buffer = await response.arrayBuffer()
-    const base64 = Buffer.from(buffer).toString('base64')
+    if (frames.length === 0) return {}
 
-    // Call Bedrock Vision to analyze the image/poster
-    const visionResponse = await bedrockClient.send(
-      new InvokeModelCommand({
-        modelId: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
-        body: JSON.stringify({
-          anthropic_version: 'bedrock-2023-05-31',
-          max_tokens: 1024,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: base64,
-                  },
-                },
-                {
-                  type: 'text',
-                  text: `Analyze this video thumbnail/poster for editing style. Identify:
-1. Visual density (how much is happening in frame)
-2. Color grading (warm/cool, saturated/muted, contrast level)
-3. Subtitle presence and style if visible
-4. Zoom/focal point emphasis
-5. Aspect ratio
-6. Content angle (transformation, educational, storytelling, entertainment, etc.)
+    // Build vision content blocks — frames + analysis prompt
+    const contentBlocks: Array<
+      | { type: 'text'; text: string }
+      | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+    > = []
 
-Respond as JSON:
-{
-  "visualDensity": "high/medium/low",
-  "colorGrading": "description",
-  "hasSubtitles": boolean,
-  "subtitleStyle": "description if present",
-  "zoomStyle": "punch-in/slow-zoom/static/other",
-  "aspectRatio": "9:16/16:9/1:1/other",
-  "contentAngle": "angle detected"
-}`,
-                },
-              ],
-            },
-          ],
-        }),
-      }),
-    )
+    for (const frame of frames) {
+      contentBlocks.push({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/jpeg', data: frame.base64 },
+      })
+      contentBlocks.push({
+        type: 'text',
+        text: `Frame at ${frame.timestamp.toFixed(1)}s`,
+      })
+    }
 
-    const responseBody = JSON.parse(new TextDecoder().decode(visionResponse.body as Uint8Array))
-    const analysisText = responseBody.content?.[0]?.text || '{}'
-    let analysis
+    contentBlocks.push({
+      type: 'text',
+      text: `${frames.length} keyframes from a ${duration}s video. Analyze the editing style.`,
+    })
 
+    const raw = await invokeAgent({
+      systemPrompt: VISION_PROMPT,
+      messages: [{ role: 'user', content: contentBlocks }],
+      maxTokens: 512,
+      temperature: 0.2,
+    })
+
+    let analysis: Record<string, unknown>
     try {
-      analysis = JSON.parse(analysisText)
+      analysis = parseAgentOutput(raw)
     } catch {
       analysis = {}
     }
 
     return {
-      visualDensity: analysis.visualDensity,
-      colorGrading: analysis.colorGrading,
+      cutSpeed: (analysis.cutSpeed as string) || undefined,
+      visualDensity: (analysis.visualDensity as 'high' | 'medium' | 'low') || undefined,
+      colorGrading: (analysis.colorGrading as string) || undefined,
       subtitleDensity: analysis.hasSubtitles ? 'high' : 'low',
-      subtitleTiming: analysis.subtitleStyle || 'standard',
+      subtitleTiming: (analysis.subtitleStyle as string) || 'standard',
+      transitionStyle: Array.isArray(analysis.transitionStyle) ? analysis.transitionStyle : undefined,
       zoomBehavior: {
         frequency: 'varies',
-        type: [analysis.zoomStyle].filter(Boolean),
+        type: Array.isArray(analysis.zoomTypes) ? analysis.zoomTypes : [],
       },
-      aspectRatio: analysis.aspectRatio,
-      contentAngles: [analysis.contentAngle].filter(Boolean),
+      narrativeStructure: (analysis.narrativeStructure as string) || undefined,
+      aspectRatio: (analysis.aspectRatio as string) || undefined,
+      contentAngles: [analysis.contentAngle as string].filter(Boolean),
     }
   } catch (err) {
-    console.error('[videoStyleAnalyzer] Vision analysis failed:', err)
+    console.error('[videoStyleAnalyzer] analysis failed:', (err as Error).message)
     return {}
   }
 }
@@ -202,6 +216,7 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
         id: true,
         url: true,
         thumbnailUrl: true,
+        mediaUrl: true,
         mediaType: true,
         caption: true,
         publishedAt: true,
@@ -216,21 +231,23 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
       return aggregateStyles([])
     }
 
-    // Analyze each post's thumbnail (direct CDN URL, not Instagram permalink)
+    // Analyze each video — use mediaUrl (direct video file) for FFmpeg keyframes,
+    // fall back to thumbnailUrl (static image) if no video URL available
     const styles: Partial<StyleProfile>[] = []
     for (const post of posts) {
-      if (!post.thumbnailUrl) continue
+      if (!post.mediaUrl && !post.thumbnailUrl) continue
       try {
-        const duration = post.mediaType === 'REEL' || post.mediaType === 'VIDEO' ? 45 : 0
-        const style = await analyzeVideoStyle(post.thumbnailUrl, duration)
+        const duration = 45 // estimate for short-form
+        const style = await analyzeVideoStyle(post.mediaUrl || '', post.thumbnailUrl, duration)
         if (Object.keys(style).length > 0) {
           styles.push(style)
+          console.log(`[videoStyleAnalyzer] analyzed ${post.id}: ${post.mediaUrl ? 'video keyframes' : 'thumbnail'}`)
         }
       } catch (err) {
-        console.warn(`[videoStyleAnalyzer] Failed to analyze post ${post.id}:`, err)
+        console.warn(`[videoStyleAnalyzer] Failed to analyze post ${post.id}:`, (err as Error).message)
       }
-      // Rate limit — 1.2s between Bedrock calls
-      if (styles.length < posts.length) await new Promise((r) => setTimeout(r, 1200))
+      // Rate limit between Bedrock calls
+      await new Promise((r) => setTimeout(r, 1500))
     }
 
     console.log(`[videoStyleAnalyzer] Analyzed ${styles.length} videos`)
