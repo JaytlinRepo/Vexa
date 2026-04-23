@@ -700,8 +700,8 @@ router.get('/', requireAuth, async (req, res, next) => {
       ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
       ...newsItems.slice(0, 3).map((a) => newsToFeedItem(a, niche, detectedSub)),
       // YouTube videos/Reels
-      // YouTube (secondary — 2 max)
-      ...ytVideos.slice(0, 2).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
+      // YouTube reels/videos
+      ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
       // Instagram trending (primary — 8 max)
       ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
       // Reddit community discussions

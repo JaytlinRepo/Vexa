@@ -28,24 +28,24 @@
   function render(view, items, isCached) {
     populated = true
 
-    // Split into 3 columns: images/carousels, videos/reels, articles
+    // Split into 3 columns:
+    // Left: Instagram images/carousels (non-video)
+    // Center: Instagram reels + YouTube videos
+    // Right: Articles + Reddit
     var images = items.filter(function (it) {
       if (it.type !== 'instagram') return false
       var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
-      return url && url.indexOf('.mp4') < 0 && url.indexOf('video') < 0
+      return !url.includes('.mp4') && !url.includes('video')
     })
     var reels = items.filter(function (it) {
       if (it.type === 'youtube' || it.type === 'video') return true
       if (it.type === 'instagram') {
         var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
-        return url.indexOf('.mp4') >= 0 || url.indexOf('video') >= 0
+        return url.includes('.mp4') || url.includes('video')
       }
       return false
     })
-    var articles = items.filter(function (it) { return it.type !== 'youtube' && it.type !== 'video' && it.type !== 'instagram' && it.type !== 'reddit' })
-    // Reddit goes to articles
-    var redditItems = items.filter(function (it) { return it.type === 'reddit' })
-    articles = articles.concat(redditItems)
+    var articles = items.filter(function (it) { return it.type === 'article' || it.type === 'reddit' || it.type === 'research' || it.type === 'news' })
 
     // Update masthead stats
     var stats = view.querySelectorAll('.mini-stats .stat')
@@ -89,17 +89,11 @@
 
           var mediaHtml = ''
           if (isIG && thumb) {
-            // Instagram — use direct media URL (image or video)
-            var isIGVideo = thumb.indexOf('.mp4') >= 0 || thumb.indexOf('video') >= 0
-            if (isIGVideo) {
-              mediaHtml = '<video src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" playsinline muted loop preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>'
-            } else {
-              mediaHtml = '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.remove()" />'
-            }
+            // Instagram reel — play inline with video tag
+            mediaHtml = '<video src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" playsinline muted loop preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>'
+              + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0.7;transition:opacity .2s" class="play-overlay"><div style="width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff">▶</div></div>'
           } else if (isIG) {
-            // No media URL — fallback to embed
-            var igEmbedUrl = url.replace(/\/$/, '') + '/embed/'
-            mediaHtml = '<iframe src="' + esc(igEmbedUrl) + '" style="width:100%;height:100%;position:absolute;inset:0;border:none;border-radius:10px 10px 0 0" loading="lazy" scrolling="no"></iframe>'
+            mediaHtml = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--s2);font-size:24px;color:var(--t3)">IG</div>'
           } else {
             // YouTube embed
             var vidMatch = url.match(/[?&]v=([^&]+)/) || url.match(/shorts\/([^?&]+)/) || url.match(/youtu\.be\/([^?&]+)/)

@@ -472,7 +472,8 @@ export async function getHashtagTopPosts(hashtagId: string, token: string, igBus
         like_count?: number | string
         comments_count?: number | string
       }>
-    }>(`/${hashtagId}/top_media`, token, {
+    // Use recent_media — top_media doesn't return Reels/VIDEO
+    }>(`/${hashtagId}/recent_media`, token, {
       fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count',
       limit: String(limit),
       user_id: igBusinessId,
