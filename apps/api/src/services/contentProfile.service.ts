@@ -33,6 +33,13 @@ export interface ContentProfile {
     audienceSegment: string // type of audience (e.g., "young professionals", "fitness enthusiasts")
     contentThemes: string[] // main topics they cover
   }
+  audienceCharacteristics: {
+    ageRange?: string // 'teens', 'young adults 18-25', '25-35', '35-50', '50+', 'families with kids'
+    lifeStage?: string // 'single', 'dating', 'married', 'parents', 'empty nesters', 'professionals'
+    lifestyle?: string // 'minimalist', 'luxury', 'budget-conscious', 'family-focused', 'adventurous', 'health-focused'
+    specificity?: string // 'very niche', 'niche', 'broad' — how specific their audience is
+    vibe?: string // 'energetic', 'calm', 'spiritual', 'educational', 'entertaining', 'luxury', 'relatable'
+  }
 }
 
 export function createContentProfile(prisma: PrismaClient) {
@@ -63,16 +70,18 @@ export function createContentProfile(prisma: PrismaClient) {
       }
 
       // Extract patterns from videos (Visual uses Claude Vision)
-      const [visualStyle, copyStyle, performancePattern] = await Promise.all([
+      const [visualStyle, copyStyle, performancePattern, audienceCharacteristics] = await Promise.all([
         extractVisualPatterns(uploads),
         extractCopyPatterns(uploads),
         extractPerformancePattern(uploads),
+        extractAudienceCharacteristics(uploads),
       ])
 
       const profile: ContentProfile = {
         visualStyle,
         copyStyle,
         performancePattern,
+        audienceCharacteristics,
       }
 
       return profile
@@ -183,6 +192,114 @@ function extractPerformancePattern(uploads: any[]) {
     audienceSegment: 'lifestyle & wellness enthusiasts',
     contentThemes: ['morning routine', 'minimal living', 'wellness'],
   }
+}
+
+function extractAudienceCharacteristics(uploads: any[]): any {
+  // Extract specific audience demographics and characteristics from captions/hooks
+  const allText = uploads
+    .flatMap((u) => u.clips)
+    .map((c) => `${c.caption || ''} ${c.hook || ''}`)
+    .join(' ')
+    .toLowerCase()
+
+  return {
+    ageRange: detectAgeRange(allText),
+    lifeStage: detectLifeStage(allText),
+    lifestyle: detectLifestyle(allText),
+    specificity: detectSpecificity(allText),
+    vibe: detectVibe(allText),
+  }
+}
+
+function detectAgeRange(text: string): string | undefined {
+  const indicators: Record<string, string[]> = {
+    'teens': ['teen', 'high school', 'college', '13-19'],
+    'young adults 18-25': ['college', 'graduating', 'first job', 'young adult', '20s'],
+    '25-35': ['career', 'startup', 'professional', 'raising kids', 'mortgage'],
+    '35-50': ['parents', 'kids in school', 'teenagers', 'family vacation', 'empty nest coming'],
+    '50+': ['retirement', 'grandkids', 'golden years', 'pension', 'empty nesters'],
+    'families with kids': ['kids', 'baby', 'toddler', 'school', 'family', 'parenting', 'children'],
+  }
+
+  for (const [ageGroup, keywords] of Object.entries(indicators)) {
+    if (keywords.some((k) => text.includes(k))) {
+      return ageGroup
+    }
+  }
+  return undefined
+}
+
+function detectLifeStage(text: string): string | undefined {
+  const indicators: Record<string, string[]> = {
+    single: ['solo', 'single life', 'myself', 'just me', 'solo travel', 'independent'],
+    dating: ['dating', 'boyfriend', 'girlfriend', 'partner', 'relationship', 'couple goals'],
+    married: ['husband', 'wife', 'spouse', 'marriage', 'married life', 'anniversary'],
+    parents: ['kids', 'children', 'mom', 'dad', 'parent', 'son', 'daughter', 'family of'],
+    'empty nesters': ['kids grown', 'empty nest', 'teenagers now', 'finally alone'],
+    professionals: ['career', 'work', 'office', 'job', 'boss', 'meeting', 'corporate'],
+  }
+
+  for (const [stage, keywords] of Object.entries(indicators)) {
+    if (keywords.some((k) => text.includes(k))) {
+      return stage
+    }
+  }
+  return undefined
+}
+
+function detectLifestyle(text: string): string | undefined {
+  const indicators: Record<string, string[]> = {
+    minimalist: ['minimal', 'declutter', 'simple living', 'less is more', 'capsule wardrobe', 'essentialism'],
+    luxury: ['luxury', 'premium', 'designer', 'high-end', 'splurge', 'exclusive', 'vip'],
+    'budget-conscious': ['budget', 'frugal', 'save money', 'deal', 'cheap', 'affordable', 'diy'],
+    'family-focused': ['family time', 'kids', 'parenting', 'family activities', 'quality time'],
+    adventurous: ['travel', 'adventure', 'explore', 'journey', 'bucket list', 'thrill'],
+    'health-focused': ['fitness', 'workout', 'healthy', 'nutrition', 'wellness', 'exercise', 'diet'],
+    'spiritual': ['meditation', 'yoga', 'mindfulness', 'spiritual', 'purpose', 'soul'],
+  }
+
+  for (const [lifestyle, keywords] of Object.entries(indicators)) {
+    if (keywords.some((k) => text.includes(k))) {
+      return lifestyle
+    }
+  }
+  return undefined
+}
+
+function detectSpecificity(text: string): string {
+  // Count how specific/niche the content is based on keyword density
+  const niche_keywords = [
+    'minimalist', 'yoga', 'solopreneur', 'freelance', 'startup', 'specific niche',
+    'particular', 'specialized', 'focused', 'specific audience',
+  ]
+  const broad_keywords = ['lifestyle', 'wellness', 'motivation', 'general', 'everyone']
+
+  const nicheCount = niche_keywords.filter((k) => text.includes(k)).length
+  const broadCount = broad_keywords.filter((k) => text.includes(k)).length
+
+  if (nicheCount >= 2) return 'very niche'
+  if (nicheCount === 1) return 'niche'
+  if (broadCount >= 2) return 'broad'
+  return 'niche' // default: assume focused
+}
+
+function detectVibe(text: string): string {
+  const indicators: Record<string, string[]> = {
+    energetic: ['energetic', 'hype', 'excited', 'motivat', 'let\'s go', '!', 'pump up'],
+    calm: ['calm', 'peaceful', 'serene', 'mindful', 'slow', 'breathe', 'relax'],
+    spiritual: ['spiritual', 'soul', 'purpose', 'meditation', 'inner', 'conscious'],
+    educational: ['learn', 'teach', 'how to', 'guide', 'tips', 'advice', 'strategy'],
+    entertaining: ['funny', 'laugh', 'entertainment', 'fun', 'jokes', 'comedy'],
+    luxury: ['luxury', 'elegant', 'premium', 'sophisticated', 'refined'],
+    relatable: ['real', 'honest', 'authentic', 'raw', 'genuine', 'vulnerable'],
+  }
+
+  for (const [vibe, keywords] of Object.entries(indicators)) {
+    if (keywords.some((k) => text.includes(k))) {
+      return vibe
+    }
+  }
+  return 'relatable' // default
 }
 
 // ─── DETECTION HELPERS ────────────────────────────────────────────────────

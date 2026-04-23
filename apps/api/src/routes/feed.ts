@@ -304,36 +304,120 @@ function interleaveByType(items: FeedItem[]): FeedItem[] {
 
 function boostProfileMatchedReels(items: FeedItem[], userProfile: any): FeedItem[] {
   // Boost Reels (videos) that match user's content profile
-  // Videos matching their aesthetic get higher scores
+  // Videos matching their aesthetic, themes, and audience characteristics get higher scores
   if (!userProfile) return items
 
   return items.map((item) => {
     if (item.type !== 'video') return item
 
     let boost = 0
+    const title = item.title.toLowerCase()
+    const summary = item.summary.toLowerCase()
+    const combined = `${title} ${summary}`
 
-    // If title/description contains their content themes
+    // ── Content theme matching ──
     if (userProfile.performancePattern?.contentThemes) {
       for (const theme of userProfile.performancePattern.contentThemes) {
-        if (
-          item.title.toLowerCase().includes(theme.toLowerCase()) ||
-          item.summary.toLowerCase().includes(theme.toLowerCase())
-        ) {
+        if (combined.includes(theme.toLowerCase())) {
           boost += 5
         }
       }
     }
 
-    // If it's their best performing format
+    // ── Format matching ──
     if (userProfile.performancePattern?.bestPerformingFormat) {
-      if (item.summary.toLowerCase().includes(userProfile.performancePattern.bestPerformingFormat)) {
+      if (combined.includes(userProfile.performancePattern.bestPerformingFormat)) {
         boost += 8
       }
     }
 
-    // If the creator's tone matches theirs
+    // ── Audience characteristics matching ──
+    const audioCharacteristics = userProfile.audienceCharacteristics || {}
+
+    // Age range and life stage keywords
+    if (audioCharacteristics.ageRange) {
+      const ageKeywords: Record<string, string[]> = {
+        'teens': ['teen', 'student', 'school', 'college'],
+        'young adults 18-25': ['young adult', 'college', 'university', 'early career'],
+        '25-35': ['professional', 'career', 'young professional', 'startup'],
+        '35-50': ['parent', 'family', 'kids', 'career'],
+        '50+': ['empty nester', 'retirement', 'senior', 'boomer'],
+        'families with kids': ['parent', 'kids', 'family', 'children', 'parenting', 'motherhood', 'fatherhood'],
+      }
+      const keywords = ageKeywords[audioCharacteristics.ageRange] || []
+      for (const kw of keywords) {
+        if (combined.includes(kw)) {
+          boost += 3
+          break // Only count once per category
+        }
+      }
+    }
+
+    // Lifestyle matching
+    if (audioCharacteristics.lifestyle) {
+      const lifestyleKeywords: Record<string, string[]> = {
+        'minimalist': ['minimalist', 'minimal', 'declutter', 'simple'],
+        'luxury': ['luxury', 'premium', 'high-end', 'exclusive'],
+        'budget-conscious': ['budget', 'frugal', 'cheap', 'affordable', 'diy'],
+        'family-focused': ['family', 'kids', 'parenting', 'household'],
+        'adventurous': ['travel', 'adventure', 'explore', 'journey'],
+        'health-focused': ['health', 'wellness', 'fitness', 'nutrition'],
+        'spiritual': ['spiritual', 'meditation', 'mindfulness', 'yoga'],
+      }
+      const keywords = lifestyleKeywords[audioCharacteristics.lifestyle] || []
+      for (const kw of keywords) {
+        if (combined.includes(kw)) {
+          boost += 3
+          break
+        }
+      }
+    }
+
+    // Vibe matching
+    if (audioCharacteristics.vibe) {
+      const vibeKeywords: Record<string, string[]> = {
+        'energetic': ['fast', 'quick', 'rapid', 'dynamic', 'high energy'],
+        'calm': ['calm', 'peaceful', 'relaxing', 'slow', 'zen'],
+        'educational': ['tutorial', 'how to', 'learn', 'guide', 'tips'],
+        'entertaining': ['funny', 'humor', 'laugh', 'entertainment'],
+        'luxury': ['luxury', 'premium', 'exclusive', 'high-end'],
+        'relatable': ['relatable', 'real', 'authentic', 'honest'],
+      }
+      const keywords = vibeKeywords[audioCharacteristics.vibe] || []
+      for (const kw of keywords) {
+        if (combined.includes(kw)) {
+          boost += 2
+          break
+        }
+      }
+    }
+
+    // ── Specificity filtering ──
+    // If user has "very niche" content, filter out overly generic content
+    if (audioCharacteristics.specificity === 'very niche') {
+      const genericKeywords = ['lifestyle', 'wellness', 'self care', 'health', 'motivation', 'tips', 'advice']
+      let genericCount = 0
+      for (const gk of genericKeywords) {
+        if (combined.includes(gk)) genericCount++
+      }
+      // Penalize if content looks too generic
+      if (genericCount >= 3) {
+        boost -= 5
+      }
+    } else if (audioCharacteristics.specificity === 'niche') {
+      // Same but less aggressive
+      const genericKeywords = ['lifestyle', 'wellness', 'self care', 'health', 'motivation']
+      let genericCount = 0
+      for (const gk of genericKeywords) {
+        if (combined.includes(gk)) genericCount++
+      }
+      if (genericCount >= 4) {
+        boost -= 2
+      }
+    }
+
+    // ── Tone matching ──
     if (userProfile.copyStyle?.tone) {
-      // Heuristic: energetic tone creators often have high engagement
       if (item.mayaTake.includes('engagement')) {
         boost += 3
       }
@@ -341,7 +425,7 @@ function boostProfileMatchedReels(items: FeedItem[], userProfile: any): FeedItem
 
     return {
       ...item,
-      score: Math.min(99, item.score + boost),
+      score: Math.min(99, Math.max(1, item.score + boost)),
     }
   })
 }
@@ -522,20 +606,60 @@ router.get('/', requireAuth, async (req, res, next) => {
     const baseSubs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
     const subs = extraSubs.length > 0 ? [...new Set([...extraSubs, ...baseSubs])] : baseSubs
 
-    // Build YouTube query from user's content profile + bio
+    // Build YouTube query from user's content profile + bio + audience characteristics
     const platformAcct = await prisma.platformAccount.findFirst({
       where: { companyId: company.id },
       select: { bio: true, handle: true },
     })
     const bioKeywords = (platformAcct?.bio || '').replace(/[|·•\n]/g, ' ').split(/\s+/).filter((w: string) => w.length > 3).slice(0, 4).join(' ')
 
-    // Use content profile themes + visual style for dynamic queries
+    // Use content profile themes + visual style + audience characteristics for dynamic queries
     let ytQuery: string | undefined
     if (userProfile) {
+      const queryParts: string[] = []
+
+      // Add content themes
       const themes = userProfile.performancePattern?.contentThemes || []
+      queryParts.push(...themes.slice(0, 2))
+
+      // Add audience-specific keywords to narrow results
+      const audioCh = userProfile.audienceCharacteristics || {}
+      if (audioCh.ageRange) {
+        const ageToQuery: Record<string, string> = {
+          'teens': 'teen creator',
+          'young adults 18-25': 'young adult 25',
+          '25-35': 'professional 30s',
+          '35-50': 'parent 40s',
+          '50+': 'over 50',
+          'families with kids': 'parent family kids',
+        }
+        const ageQuery = ageToQuery[audioCh.ageRange]
+        if (ageQuery) queryParts.push(ageQuery)
+      }
+
+      // Add lifestyle for specificity
+      if (audioCh.lifestyle) {
+        const lifestyleToQuery: Record<string, string> = {
+          'minimalist': 'minimalist lifestyle',
+          'luxury': 'luxury lifestyle',
+          'budget-conscious': 'budget friendly diy',
+          'family-focused': 'family focused',
+          'adventurous': 'travel adventure',
+          'health-focused': 'wellness health',
+          'spiritual': 'spiritual mindfulness',
+        }
+        const lifestyleQuery = lifestyleToQuery[audioCh.lifestyle]
+        if (lifestyleQuery) queryParts.push(lifestyleQuery)
+      }
+
+      // Add visual style
       const style = userProfile.visualStyle?.filters || []
-      const profileTerms = [...themes, ...style].filter(Boolean).slice(0, 3).join(' ')
-      if (profileTerms.length > 5) ytQuery = `${profileTerms} ${niche} creator`
+      queryParts.push(...style.slice(0, 1))
+
+      // Build final query from parts (deduped)
+      const uniqueTerms = [...new Set(queryParts.filter(Boolean))]
+      const profileTerms = uniqueTerms.slice(0, 4).join(' ')
+      if (profileTerms.length > 5) ytQuery = `${profileTerms} creator`
     }
     if (!ytQuery && bioKeywords.length > 8) ytQuery = `${bioKeywords} content creator`
 
