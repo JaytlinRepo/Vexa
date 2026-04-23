@@ -222,100 +222,118 @@
     })
   }
 
-  function renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts) {
-    var html = '<div class="sidebar-header"><div class="sidebar-date">' + dayLabel + '</div></div>'
-      + '<div class="sidebar-content">'
+  function statusClass(s) {
+    if (s === 'delivered' || s === 'approved') return 'ok'
+    if (s === 'in_progress') return 'accent'
+    return ''
+  }
 
-    // Tasks section
+  function timeShort(iso) {
+    if (!iso) return ''
+    var d = new Date(iso)
+    var h = d.getHours(); var m = d.getMinutes()
+    var ampm = h >= 12 ? 'pm' : 'am'
+    h = h % 12 || 12
+    return h + ':' + pad(m) + ampm
+  }
+
+  function renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts) {
+    // ── Header ──
+    var html = '<div class="sb-head">'
+      + '<div class="sb-day">' + dayLabel + '</div>'
+      + '<div class="sb-count">' + (dayTasks.length + thoughts.length) + ' items</div>'
+      + '</div>'
+      + '<div class="sb-body">'
+
+    // ── Work section (table style like HQ posts) ──
     if (dayTasks.length > 0) {
-      html += '<div style="margin-bottom:4px"><div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;font-weight:600;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">WORK · ' + dayTasks.length + '</div>'
+      html += '<div class="sb-section">'
+        + '<div class="sb-section-head">Work <em>' + dayTasks.length + '</em></div>'
+        + '<table class="sb-tbl"><thead><tr><th>Task</th><th class="r">Status</th></tr></thead><tbody>'
+
       for (var i = 0; i < dayTasks.length; i++) {
         var t = dayTasks[i]
         var roleKey = t.employee ? t.employee.role : 'strategist'
         var ag = AGENTS[roleKey] || AGENTS.strategist
         var typeLabel = TYPE_LABEL[t.type] || t.type
         var status = t.status || 'pending'
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1)">'
-          + '<div class="agent-badge">' + ag.initial + '</div>'
-          + '<div style="flex:1;min-width:0">'
-          + '<div style="font-family:Inter,sans-serif;font-size:11px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(t.title || typeLabel) + '</div>'
-          + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;color:var(--t3);letter-spacing:.04em">' + ag.label + ' · ' + status + '</div>'
-          + '</div></div>'
+        var sc = statusClass(status)
+
+        html += '<tr>'
+          + '<td><div class="sb-task-row">'
+          + '<div class="sb-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+          + '<div class="sb-task-info">'
+          + '<div class="sb-task-title">' + escHtml(t.title || typeLabel) + '</div>'
+          + '<div class="sb-task-meta">' + ag.label + ' · ' + typeLabel + '</div>'
+          + '</div>'
+          + '</div></td>'
+          + '<td class="r"><span class="sb-status' + (sc ? ' ' + sc : '') + '">' + status + '</span></td>'
+          + '</tr>'
       }
-      html += '</div>'
+      html += '</tbody></table></div>'
     }
 
-    // Thoughts section
+    // ── Thoughts section ──
     if (thoughts.length > 0) {
-      html += '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;font-weight:600;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">THOUGHTS · ' + thoughts.length + '</div>'
-      html += '<div class="thoughts-list">'
+      html += '<div class="sb-section">'
+        + '<div class="sb-section-head">Thoughts <em>' + thoughts.length + '</em></div>'
+
       for (var j = 0; j < thoughts.length; j++) {
         var th = thoughts[j]
-        html += '<div class="thought">'
-          + '<div class="thought-header">'
-          + '<div class="thought-label">You</div>'
-          + '<div class="thought-time">' + new Date(th.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + '</div>'
+        html += '<div class="sb-thought">'
+          + '<div class="sb-thought-head">'
+          + '<span class="sb-thought-you">You</span>'
+          + '<span class="sb-thought-time">' + timeShort(th.createdAt) + '</span>'
           + '</div>'
-          + '<div class="thought-content">' + escHtml(th.content) + '</div>'
+          + '<div class="sb-thought-body">' + escHtml(th.content) + '</div>'
 
         if (th.thoughtResponses && th.thoughtResponses.length > 0) {
           for (var k = 0; k < th.thoughtResponses.length; k++) {
             var resp = th.thoughtResponses[k]
             var role = resp.employee ? resp.employee.role : 'strategist'
             var ag2 = AGENTS[role] || AGENTS.strategist
-            html += '<div class="response">'
-              + '<div class="response-header">'
-              + '<div class="agent-badge">' + ag2.initial + '</div>'
-              + '<div class="response-meta">'
-              + '<div class="agent-name">' + ag2.label + '</div>'
-              + '<div class="response-time">' + new Date(resp.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) + '</div>'
-              + '</div></div>'
-              + '<div class="response-content">' + escHtml(resp.content) + '</div>'
+            html += '<div class="sb-reply">'
+              + '<div class="sb-reply-head">'
+              + '<div class="sb-port sm" style="border-color:' + ag2.css + '">' + ag2.initial + '</div>'
+              + '<span class="sb-reply-name">' + ag2.label + '</span>'
+              + '<span class="sb-reply-time">' + timeShort(resp.createdAt) + '</span>'
+              + '</div>'
+              + '<div class="sb-reply-body">' + escHtml(resp.content) + '</div>'
               + '</div>'
           }
         } else {
-          html += '<div class="response-pending">Team reviewing...</div>'
+          html += '<div class="sb-pending"><span class="sb-pending-dot"></span>Team reviewing</div>'
         }
         html += '</div>'
       }
       html += '</div>'
     }
 
-    // Empty state
+    // ── Empty state ──
     if (dayTasks.length === 0 && thoughts.length === 0) {
-      html += '<div class="empty-state">'
-        + '<div class="empty-icon">NO ENTRIES</div>'
-        + '<p>Nothing for this day yet.</p>'
-        + '<p class="hint">Share a thought — your team will respond.</p>'
+      html += '<div class="sb-empty">'
+        + '<div class="sb-empty-lbl">No entries</div>'
+        + '<div class="sb-empty-hint">Share a thought — your team will respond.</div>'
         + '</div>'
     }
 
-    // Input
     html += '</div>'
-      + '<div class="thought-input-area">'
+
+    // ── Input area ──
+    html += '<div class="sb-input">'
       + '<textarea id="new-thought-input" placeholder="What\'s on your mind?" rows="2"></textarea>'
       + '<button class="btn-primary" id="submit-thought-btn">Share thought</button>'
       + '</div>'
 
     sidebar.innerHTML = html
 
-    // Wire submit
+    // Wire events
     var btn = document.getElementById('submit-thought-btn')
-    if (btn) {
-      btn.addEventListener('click', function () {
-        submitThought(dateStr)
-      })
-    }
-    // Enter to submit
+    if (btn) btn.addEventListener('click', function () { submitThought(dateStr) })
     var textarea = document.getElementById('new-thought-input')
-    if (textarea) {
-      textarea.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault()
-          submitThought(dateStr)
-        }
-      })
-    }
+    if (textarea) textarea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitThought(dateStr) }
+    })
   }
 
   function submitThought(dateStr) {
