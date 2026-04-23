@@ -65,50 +65,42 @@
     }
   }
 
-  // Live pipeline simulation
+  // Live pipeline simulation — all agents always working
   var agents = document.querySelectorAll('.agent');
   var connectors = document.querySelectorAll('.agent-connector');
   if(agents.length){
-    var idx = 0;
-    function pipeStep(){
-      agents.forEach(function(a){
-        a.classList.remove('active');
-        var rt = a.querySelector('.rt span:last-child');
-        if(rt) rt.textContent = 'IDLE';
-      });
-      connectors.forEach(function(c){ c.classList.remove('handoff'); });
-
-      var cur = agents[idx];
-      cur.classList.add('active');
-      var rt = cur.querySelector('.rt span:last-child');
+    // Set all agents active immediately
+    agents.forEach(function(a){
+      a.classList.add('active');
+      var rt = a.querySelector('.rt span:last-child');
       if(rt) rt.textContent = 'WORKING';
+    });
+    connectors.forEach(function(c){ c.classList.add('handoff'); });
 
-      var taskEl = cur.querySelector('.task');
-      if(taskEl && taskEl.dataset.tasks){
-        var tasks = JSON.parse(taskEl.dataset.tasks);
-        var ti = 0;
-        taskEl.innerHTML = tasks[0];
-        var taskTimer = setInterval(function(){
+    // Cycle task text on each agent independently with staggered timing
+    agents.forEach(function(a, i){
+      var taskEl = a.querySelector('.task');
+      if(!taskEl || !taskEl.dataset.tasks) return;
+      var tasks = JSON.parse(taskEl.dataset.tasks);
+      var ti = 0;
+      taskEl.innerHTML = tasks[0];
+      // Stagger start so agents don't all flip at once
+      setTimeout(function(){
+        setInterval(function(){
           ti = (ti+1) % tasks.length;
           taskEl.style.opacity = 0;
           setTimeout(function(){ taskEl.innerHTML = tasks[ti]; taskEl.style.opacity = 1; }, 200);
-        }, 1100);
+        }, 2200 + i * 400);
+      }, i * 800);
+    });
 
-        setTimeout(function(){
-          clearInterval(taskTimer);
-          if(idx < agents.length-1) connectors[idx].classList.add('handoff');
-          idx = (idx+1) % agents.length;
-          if(idx === 0){
-            agents.forEach(function(a){
-              var bar = a.querySelector('.bar');
-              if(bar){ bar.style.animation='none'; setTimeout(function(){ bar.style.animation=''; }, 50); }
-            });
-          }
-          pipeStep();
-        }, 3500);
-      }
-    }
-    pipeStep();
+    // Periodically pulse the progress bars
+    setInterval(function(){
+      agents.forEach(function(a){
+        var bar = a.querySelector('.bar');
+        if(bar){ bar.style.animation='none'; setTimeout(function(){ bar.style.animation=''; }, 50); }
+      });
+    }, 8000);
   }
 
   // Ticker micro-updates
