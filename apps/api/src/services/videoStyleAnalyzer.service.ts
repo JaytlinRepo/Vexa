@@ -439,6 +439,7 @@ function aggregateProfiles(
 
 export async function analyzeUserVideoStyle(companyId: string): Promise<StyleProfile> {
   try {
+    // Prioritize posts with mediaUrl (real video analysis) over thumbnail-only
     const posts = await prisma.platformPost.findMany({
       where: {
         account: { companyId },
@@ -446,7 +447,7 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
         mediaType: { in: ['REEL', 'VIDEO'] },
       },
       orderBy: { publishedAt: 'desc' },
-      take: 10,
+      take: 30,
       select: {
         id: true, url: true, thumbnailUrl: true, mediaUrl: true,
         mediaType: true, caption: true, publishedAt: true, engagementRate: true,
