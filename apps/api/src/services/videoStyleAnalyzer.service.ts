@@ -1,5 +1,5 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime'
-import prisma from '../../lib/prisma'
+import prisma from '../lib/prisma'
 
 const bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_BEDROCK_REGION || 'us-east-1' })
 
@@ -34,7 +34,16 @@ async function analyzeVideoStyle(videoUrl: string, duration: number): Promise<Pa
   try {
     // Fetch the video (or thumbnail for MVP)
     // For MVP, we'll analyze the poster image/thumbnail
-    const response = await fetch(videoUrl, { timeout: 5000 })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+    let response
+    try {
+      response = await fetch(videoUrl, { signal: controller.signal })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
     if (!response.ok) return {}
 
     const buffer = await response.arrayBuffer()
@@ -87,7 +96,8 @@ Respond as JSON:
       }),
     )
 
-    const analysisText = (visionResponse.body as { content: Array<{ text: string }> }).content[0].text
+    const responseBody = visionResponse.body as unknown as { content: Array<{ text: string }> }
+    const analysisText = responseBody.content[0].text
     let analysis
 
     try {
@@ -179,14 +189,16 @@ function aggregateStyles(styles: Partial<StyleProfile>[]): StyleProfile {
  */
 export async function analyzeUserVideoStyle(companyId: string): Promise<StyleProfile> {
   try {
-    // Get recent platform posts (Instagram, TikTok, etc.)
+    // Get recent platform posts through their accounts
     const posts = await prisma.platformPost.findMany({
-      where: { companyId },
+      where: {
+        account: { companyId },
+      },
       orderBy: { publishedAt: 'desc' },
       take: 10, // Analyze last 10 videos
       select: {
         id: true,
-        mediaUrls: true,
+        url: true,
         mediaType: true,
         publishedAt: true,
       },
@@ -202,10 +214,10 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
     // Analyze each video
     const styles: Partial<StyleProfile>[] = []
     for (const post of posts) {
-      if (post.mediaType === 'VIDEO' && post.mediaUrls?.[0]) {
+      if ((post.mediaType === 'VIDEO' || post.mediaType === 'REEL') && post.url) {
         try {
           const duration = 45 // Assume standard short-form video
-          const style = await analyzeVideoStyle(post.mediaUrls[0], duration)
+          const style = await analyzeVideoStyle(post.url, duration)
           if (Object.keys(style).length > 0) {
             styles.push(style)
           }
@@ -220,21 +232,32 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
     // Aggregate into profile
     const profile = aggregateStyles(styles)
 
-    // Store in brand_memory
-    await prisma.brandMemory.upsert({
+    // Store in brand_memory using 'preference' as memoryType
+    // First, try to find existing style preference
+    const existing = await prisma.brandMemory.findFirst({
       where: {
-        companyId_memoryType: { companyId, memoryType: 'style' },
-      },
-      update: {
-        content: profile,
-      },
-      create: {
         companyId,
-        memoryType: 'style',
-        content: profile,
-        weight: 1.0,
+        memoryType: 'preference',
       },
     })
+
+    if (existing) {
+      await prisma.brandMemory.update({
+        where: { id: existing.id },
+        data: {
+          content: profile as any,
+        },
+      })
+    } else {
+      await prisma.brandMemory.create({
+        data: {
+          companyId,
+          memoryType: 'preference',
+          content: profile as any,
+          weight: 1.0,
+        },
+      })
+    }
 
     console.log(`[videoStyleAnalyzer] Stored style profile for ${companyId}`)
     return profile
@@ -249,14 +272,15 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
  */
 export async function getStyleProfile(companyId: string): Promise<StyleProfile | null> {
   try {
-    const memory = await prisma.brandMemory.findUnique({
+    const memory = await prisma.brandMemory.findFirst({
       where: {
-        companyId_memoryType: { companyId, memoryType: 'style' },
+        companyId,
+        memoryType: 'preference',
       },
     })
 
     if (!memory) return null
-    return memory.content as StyleProfile
+    return memory.content as unknown as StyleProfile
   } catch (err) {
     console.error('[videoStyleAnalyzer] Failed to get style profile:', err)
     return null
