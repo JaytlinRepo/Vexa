@@ -424,3 +424,73 @@ export async function getIGAudienceInsights(igId: string, token: string): Promis
     return null
   }
 }
+
+// ── Hashtag trending ───────────────────────────────────────────────
+
+export interface IGHashtagPost {
+  id: string
+  caption: string
+  mediaType: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'
+  mediaUrl?: string
+  permalink: string
+  timestamp: string
+  likeCount: number
+  commentsCount: number
+}
+
+/**
+ * Search for a hashtag and return its ID
+ */
+export async function searchHashtag(hashtag: string, token: string, igBusinessId: string): Promise<string | null> {
+  try {
+    const res = await graphGet<{ data: Array<{ id: string; name: string }> }>(
+      `/${igBusinessId}/ig_hashtag_search`,
+      token,
+      { user_id: igBusinessId, fields: 'id,name', search_string: hashtag },
+    )
+
+    const found = res.data?.find((h) => h.name.toLowerCase() === hashtag.toLowerCase())
+    return found?.id || null
+  } catch (err) {
+    console.warn('[meta] hashtag search failed for', hashtag, (err as Error).message?.slice(0, 100))
+    return null
+  }
+}
+
+/**
+ * Get top posts for a hashtag
+ */
+export async function getHashtagTopPosts(hashtagId: string, token: string, limit = 9): Promise<IGHashtagPost[]> {
+  try {
+    const res = await graphGet<{
+      data: Array<{
+        id: string
+        caption?: string
+        media_type?: string
+        media_url?: string
+        permalink?: string
+        timestamp?: string
+        like_count?: number | string
+        comments_count?: number | string
+      }>
+    }>(`/${hashtagId}/top_posts`, token, {
+      fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count',
+      limit: String(limit),
+      user_id: token,
+    })
+
+    return (res.data || []).map((p) => ({
+      id: p.id,
+      caption: p.caption || '',
+      mediaType: ((p.media_type || 'IMAGE').toUpperCase()) as 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM',
+      mediaUrl: p.media_url,
+      permalink: p.permalink || '',
+      timestamp: p.timestamp || new Date().toISOString(),
+      likeCount: typeof p.like_count === 'number' ? p.like_count : parseInt(String(p.like_count)) || 0,
+      commentsCount: typeof p.comments_count === 'number' ? p.comments_count : parseInt(String(p.comments_count)) || 0,
+    }))
+  } catch (err) {
+    console.warn('[meta] get hashtag top posts failed:', (err as Error).message?.slice(0, 100))
+    return []
+  }
+}

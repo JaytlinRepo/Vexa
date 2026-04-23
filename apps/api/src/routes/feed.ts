@@ -7,6 +7,7 @@ import { getRelatedQueries, getKeywordTrend } from '../services/integrations/goo
 import { searchNicheVideos, YouTubeVideo } from '../services/integrations/youtube.service'
 import { effectiveNiche } from '../lib/nicheDetection'
 import { createContentProfile } from '../services/contentProfile.service'
+import { fetchInstagramTrendingByHashtag, getHashtagsForNiche, instagramPostToFeedItem } from '../services/integrations/instagram-trending.service'
 
 import prisma from '../lib/prisma'
 const router = Router()
