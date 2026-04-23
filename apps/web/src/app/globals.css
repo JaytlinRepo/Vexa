@@ -35,24 +35,47 @@
 
 .calendar-legend {
   display: flex;
-  gap: 16px;
+  gap: 6px;
+  align-items: center;
+}
+
+.cal-filter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--b1);
+  border-radius: 6px;
+  background: none;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   letter-spacing: .04em;
+  color: var(--t3);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+.cal-filter:hover {
+  background: var(--s1);
   color: var(--t2);
 }
 
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.cal-filter.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.legend-item .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
+.cal-filter .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   flex-shrink: 0;
+}
+
+.cal-nav:hover {
+  background: var(--s1) !important;
+  border-color: var(--b2) !important;
 }
 
 .calendar-grid {
