@@ -552,6 +552,9 @@
       if (detailEl) detailEl.textContent = json.message || 'Processing compilation'
       if (progressEl) progressEl.textContent = '15%'
       showToast(files.length + ' videos uploaded — compilation started', 'success')
+      // Clear preview strip
+      var previewsEl = document.getElementById('studio-previews')
+      if (previewsEl) previewsEl.style.display = 'none'
 
       // Poll until clip appears
       pollUntilClipReady(json.compilationId)
@@ -601,6 +604,8 @@
       if (detailEl) detailEl.textContent = 'Your video is being analyzed'
       if (progressEl) progressEl.textContent = '15%'
       showToast('Video uploaded — processing started', 'success')
+      var previewsEl = document.getElementById('studio-previews')
+      if (previewsEl) previewsEl.style.display = 'none'
 
       // Poll until clip appears (SSE is unreliable with auth cookies)
       pollUntilClipReady(json.uploadId)
