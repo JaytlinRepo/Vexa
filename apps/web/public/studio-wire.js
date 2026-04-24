@@ -480,6 +480,53 @@
 
   // ── Upload ────────────────────────────────────────────────────────
 
+  async function uploadBatch(files) {
+    if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
+
+    const processingEl = document.getElementById('studio-processing')
+    const bar = document.getElementById('processing-bar')
+    const statusEl = document.getElementById('processing-status')
+    const detailEl = document.getElementById('processing-detail')
+    const progressEl = document.getElementById('processing-progress')
+
+    if (processingEl) processingEl.style.display = 'block'
+    if (statusEl) statusEl.textContent = 'Uploading ' + files.length + ' videos...'
+    if (detailEl) detailEl.textContent = files.map(f => f.name).join(', ')
+    if (bar) bar.style.width = '10%'
+    if (progressEl) progressEl.textContent = '10%'
+
+    const form = new FormData()
+    for (const file of files) {
+      form.append('videos', file)
+    }
+    form.append('companyId', currentCompanyId)
+    form.append('strategy', 'montage')
+
+    try {
+      const res = await fetch(`${API}/api/video/upload-batch`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Batch upload failed')
+      }
+      const json = await res.json()
+      if (bar) bar.style.width = '15%'
+      if (statusEl) statusEl.textContent = files.length + ' videos uploaded — Riley is analyzing all of them...'
+      if (detailEl) detailEl.textContent = json.message || 'Processing compilation'
+      if (progressEl) progressEl.textContent = '15%'
+      showToast(files.length + ' videos uploaded — compilation started', 'success')
+
+      // Poll until clip appears
+      pollUntilClipReady(json.compilationId)
+    } catch (err) {
+      showToast('Upload failed: ' + err.message, 'error')
+      if (processingEl) processingEl.style.display = 'none'
+    }
+  }
+
   async function uploadVideo(file) {
     if (!currentCompanyId) {
       showToast('Not signed in', 'error')
@@ -773,12 +820,18 @@
     const fileInput = document.getElementById('studio-file-input')
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
-        const file = e.target.files?.[0]
-        if (file) uploadVideo(file)
+        const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/'))
+        if (files.length === 0) return
+        if (files.length === 1) {
+          uploadVideo(files[0])
+        } else {
+          uploadBatch(files)
+        }
+        fileInput.value = '' // reset so same files can be re-selected
       })
     }
 
-    // Wire drag & drop
+    // Wire drag & drop (supports multiple files)
     const dropZone = document.getElementById('studio-upload-zone')
     if (dropZone) {
       dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)' })
@@ -786,9 +839,10 @@
       dropZone.addEventListener('drop', (e) => {
         e.preventDefault()
         dropZone.style.borderColor = 'var(--b2)'
-        const file = e.dataTransfer?.files?.[0]
-        if (file && file.type.startsWith('video/')) uploadVideo(file)
-        else showToast('Please drop a video file', 'error')
+        const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('video/'))
+        if (files.length === 0) { showToast('Please drop video files', 'error'); return }
+        if (files.length === 1) uploadVideo(files[0])
+        else uploadBatch(files)
       })
     }
 
