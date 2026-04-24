@@ -34,7 +34,7 @@
     + '<input id="vx-wl-name" type="text" placeholder="Full name" required style="padding:14px 18px;border-radius:10px;border:1px solid var(--b1,rgba(255,255,255,.08));background:var(--s1,#111);font:15px Inter,sans-serif;color:var(--t1,#edede9);outline:none;transition:border-color .2s" />'
     + '<input id="vx-wl-email" type="email" placeholder="Email" required style="padding:14px 18px;border-radius:10px;border:1px solid var(--b1,rgba(255,255,255,.08));background:var(--s1,#111);font:15px Inter,sans-serif;color:var(--t1,#edede9);outline:none;transition:border-color .2s" />'
     + '<input id="vx-wl-username" type="text" placeholder="Username" required style="padding:14px 18px;border-radius:10px;border:1px solid var(--b1,rgba(255,255,255,.08));background:var(--s1,#111);font:15px Inter,sans-serif;color:var(--t1,#edede9);outline:none;transition:border-color .2s" />'
-    + '<input id="vx-wl-password" type="password" placeholder="Password" required minlength="6" style="padding:14px 18px;border-radius:10px;border:1px solid var(--b1,rgba(255,255,255,.08));background:var(--s1,#111);font:15px Inter,sans-serif;color:var(--t1,#edede9);outline:none;transition:border-color .2s" />'
+    + '<input id="vx-wl-password" type="password" placeholder="Password (8+ characters)" required minlength="8" style="padding:14px 18px;border-radius:10px;border:1px solid var(--b1,rgba(255,255,255,.08));background:var(--s1,#111);font:15px Inter,sans-serif;color:var(--t1,#edede9);outline:none;transition:border-color .2s" />'
     + '<div id="vx-wl-error" style="font-family:Inter,sans-serif;font-size:12px;color:#c48a8a;min-height:16px"></div>'
     + '<button type="submit" id="vx-wl-btn" style="padding:14px 28px;border-radius:10px;border:none;background:var(--accent,#d4a574);color:var(--accent-text,#1a0f06);font:600 12px/1 JetBrains Mono,monospace;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .3s;box-shadow:0 4px 24px var(--accent-glow,rgba(212,165,116,.28))">Create account</button>'
     + '</form>'
@@ -160,7 +160,7 @@
     errEl.textContent=''
 
     if(!email||!username||!password||!name){ errEl.textContent='All fields are required.'; return }
-    if(password.length<6){ errEl.textContent='Password must be at least 6 characters.'; return }
+    if(password.length<8){ errEl.textContent='Password must be at least 8 characters.'; return }
 
     btn.textContent='CREATING ACCOUNT...'
     btn.disabled=true
@@ -175,8 +175,9 @@
     .then(function(res){
       if(!res.ok){
         var msg=res.data.error||res.data.message||'Account creation failed'
-        if(msg==='email_taken') msg='An account with this email already exists.'
+        if(msg==='email_taken'||msg==='email_or_username_in_use') msg='An account with this email or username already exists.'
         if(msg==='username_taken') msg='This username is already taken.'
+        if(msg==='invalid_input') msg='Please check all fields and try again.'
         errEl.textContent=msg
         btn.textContent='CREATE ACCOUNT'; btn.disabled=false
         return
