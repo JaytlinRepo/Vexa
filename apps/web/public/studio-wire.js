@@ -483,14 +483,16 @@
   function showVideoPreviews(files) {
     const previewsEl = document.getElementById('studio-previews')
     const gridEl = document.getElementById('studio-preview-grid')
+    const countEl = document.getElementById('studio-preview-count')
     if (!previewsEl || !gridEl) return
 
     previewsEl.style.display = 'block'
     gridEl.innerHTML = ''
+    if (countEl) countEl.textContent = files.length + ' video' + (files.length > 1 ? 's' : '') + ' selected'
 
     for (const file of files) {
       const card = document.createElement('div')
-      card.style.cssText = 'width:120px;border-radius:8px;overflow:hidden;border:1px solid var(--b1);background:var(--s1)'
+      card.style.cssText = 'width:72px;flex-shrink:0;border-radius:6px;overflow:hidden;border:1px solid var(--b1);background:var(--s1)'
 
       const video = document.createElement('video')
       video.src = URL.createObjectURL(file)
@@ -500,8 +502,8 @@
       video.addEventListener('loadeddata', function () { video.currentTime = 1 })
 
       const label = document.createElement('div')
-      label.style.cssText = 'padding:6px 8px;font-family:JetBrains Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
-      label.textContent = file.name
+      label.style.cssText = 'padding:3px 5px;font-family:JetBrains Mono,monospace;font-size:7px;color:var(--t3);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+      label.textContent = file.name.replace(/\.[^.]+$/, '')
 
       card.appendChild(video)
       card.appendChild(label)

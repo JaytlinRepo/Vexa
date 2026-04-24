@@ -1884,7 +1884,10 @@
 
 <!-- UPLOAD PREVIEWS (shown when files are selected) -->
 <div id="studio-previews" style="display:none;padding:12px 40px 0">
-  <div id="studio-preview-grid" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <span id="studio-preview-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.04em"></span>
+  </div>
+  <div id="studio-preview-grid" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px"></div>
 </div>
 
 <!-- PROCESSING STATUS (hidden until active) -->
