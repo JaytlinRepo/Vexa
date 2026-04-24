@@ -854,21 +854,21 @@
     wireStudioTab()
 
     // Wire file upload
+    // ── File selection: show previews, wait for submit ──
+    let selectedFiles = []
+
     const fileInput = document.getElementById('studio-file-input')
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/'))
-        if (files.length === 0) return
-        if (files.length === 1) {
-          uploadVideo(files[0])
-        } else {
-          uploadBatch(files)
-        }
-        fileInput.value = '' // reset so same files can be re-selected
+        const newFiles = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/'))
+        if (newFiles.length === 0) return
+        selectedFiles = [...selectedFiles, ...newFiles]
+        showVideoPreviews(selectedFiles)
+        fileInput.value = ''
       })
     }
 
-    // Wire drag & drop (supports multiple files)
+    // Drag & drop adds to selection
     const dropZone = document.getElementById('studio-upload-zone')
     if (dropZone) {
       dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)' })
@@ -876,10 +876,34 @@
       dropZone.addEventListener('drop', (e) => {
         e.preventDefault()
         dropZone.style.borderColor = 'var(--b2)'
-        const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('video/'))
-        if (files.length === 0) { showToast('Please drop video files', 'error'); return }
-        if (files.length === 1) uploadVideo(files[0])
-        else uploadBatch(files)
+        const newFiles = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('video/'))
+        if (newFiles.length === 0) { showToast('Please drop video files', 'error'); return }
+        selectedFiles = [...selectedFiles, ...newFiles]
+        showVideoPreviews(selectedFiles)
+      })
+    }
+
+    // Submit button — triggers upload
+    const submitBtn = document.getElementById('studio-submit-btn')
+    if (submitBtn) {
+      submitBtn.addEventListener('click', () => {
+        if (selectedFiles.length === 0) { showToast('No videos selected', 'error'); return }
+        if (selectedFiles.length === 1) {
+          uploadVideo(selectedFiles[0])
+        } else {
+          uploadBatch(selectedFiles)
+        }
+        selectedFiles = []
+      })
+    }
+
+    // Clear button
+    const clearBtn = document.getElementById('studio-clear-btn')
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        selectedFiles = []
+        const previewsEl = document.getElementById('studio-previews')
+        if (previewsEl) previewsEl.style.display = 'none'
       })
     }
 
