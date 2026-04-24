@@ -181,8 +181,9 @@
     .then(function(res){
       if(!res.ok){
         var msg=res.data.error||res.data.message||'Account creation failed'
-        if(msg==='email_taken'||msg==='email_or_username_in_use') msg='An account with this email or username already exists.'
-        if(msg==='username_taken') msg='This username is already taken.'
+        if(msg==='email_taken') msg=res.data.message||'An account with this email already exists.'
+        if(msg==='username_taken') msg=res.data.message||'This username is already taken.'
+        if(msg==='email_or_username_in_use') msg='An account with this email or username already exists.'
         if(msg==='invalid_input'){
           // Show the first specific validation error from Zod
           var issues=res.data.issues

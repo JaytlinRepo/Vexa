@@ -30,11 +30,15 @@ const loginSchema = z.object({
 router.post('/signup', async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body)
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ email: data.email }, { username: data.username }] },
-    })
-    if (existing) {
-      res.status(409).json({ error: 'email_or_username_in_use' })
+    // Check email and username separately for specific error messages
+    const existingEmail = await prisma.user.findFirst({ where: { email: data.email } })
+    if (existingEmail) {
+      res.status(409).json({ error: 'email_taken', message: 'An account with this email already exists.' })
+      return
+    }
+    const existingUsername = await prisma.user.findFirst({ where: { username: data.username } })
+    if (existingUsername) {
+      res.status(409).json({ error: 'username_taken', message: 'This username is already taken.' })
       return
     }
     const passwordHash = await bcrypt.hash(data.password, 10)
