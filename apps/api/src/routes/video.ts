@@ -26,13 +26,14 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Upload Video ───────────────────────────────────────────────────────────
 
+  // Accept both 'video' (single) and 'videos' (batch) field names
   const upload = multer({ storage: multer.memoryStorage() })
 
   /**
    * POST /api/video/upload
-   * Upload video for processing
+   * Upload video for processing (accepts field name 'video' or 'videos')
    */
-  router.post('/upload', requireAuth, upload.single('video'), async (req: Request, res: Response) => {
+  router.post('/upload', requireAuth, upload.any(), async (req: Request, res: Response) => {
     try {
       const { userId } = (req as AuthedRequest).session
       const { companyId } = req.body
@@ -50,16 +51,17 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         return res.status(403).json({ error: 'Company not found' })
       }
 
-      if (!req.file) {
+      const file = (req as any).files?.[0] || (req as any).file
+      if (!file) {
         return res.status(400).json({ error: 'No video file provided' })
       }
 
       // Upload to S3
-      const s3Key = buildUploadKey(companyId, req.file.originalname)
+      const s3Key = buildUploadKey(companyId, file.originalname)
       await uploadFile({
         key: s3Key,
-        body: req.file.buffer,
-        contentType: req.file.mimetype,
+        body: file.buffer,
+        contentType: file.mimetype,
       })
       const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
 
@@ -68,7 +70,7 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         data: {
           companyId,
           sourceVideoUrl: videoUrl,
-          fileName: req.file.originalname
+          fileName: file.originalname
         }
       })
 
@@ -169,9 +171,7 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Batch Upload (multi-video compilation) ──────────────────────────────────
 
-  const batchUpload = multer({ storage: multer.memoryStorage() })
-
-  router.post('/upload-batch', requireAuth, batchUpload.array('videos', 10), async (req, res) => {
+  router.post('/upload-batch', requireAuth, upload.any(), async (req, res) => {
     try {
       const { userId } = (req as AuthedRequest).session
       const { companyId, strategy, targetDuration } = req.body as {
