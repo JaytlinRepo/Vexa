@@ -462,7 +462,23 @@ export async function analyzeUserVideoStyle(companyId: string): Promise<StylePro
 
     for (const post of posts) {
       if (!post.mediaUrl && !post.thumbnailUrl) continue
-      const duration = 45
+
+      // Get actual duration from FFprobe if we have the video, otherwise estimate
+      let duration = 45
+      if (post.mediaUrl) {
+        try {
+          const { getVideoDuration } = await import('../lib/ffmpegClipper.service')
+          // FFprobe can read duration from URL without full download
+          const { execFile } = await import('child_process')
+          const { promisify } = await import('util')
+          const execFileAsync = promisify(execFile)
+          const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', post.mediaUrl,
+          ], { timeout: 10000 })
+          const probed = parseFloat(stdout.trim())
+          if (probed > 0) duration = probed
+        } catch {}
+      }
 
       try {
         // Visual analysis (Bedrock Vision on keyframes)
