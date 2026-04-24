@@ -4,6 +4,8 @@
   function sync() {
     var saved = null
     try { saved = localStorage.getItem('vx-t') } catch (_) {}
+    // Force light mode as default — clear any stale dark preference
+    if (saved === 'dark') { try { localStorage.removeItem('vx-t') } catch (_) {}; saved = null }
     var theme = (saved === 'dark' || saved === 'light') ? saved : 'light'
     html.setAttribute('data-theme', theme)
     try { localStorage.setItem('vx-t', theme) } catch (_) {}
