@@ -102,33 +102,31 @@
     + '</section>'
 
     // ─── FOOTER ─────────────────────────────────────────────────
-    + '<footer style="padding:64px 48px 32px;border-top:1px solid rgba(0,0,0,.06)">'
-    + '<div style="max-width:1100px;margin:0 auto">'
+    + '<div id="vx-wl-footer" style="padding:64px 48px 32px;border-top:1px solid rgba(0,0,0,.06)">'
 
-    // Brand + links row
-    + '<div style="display:flex;justify-content:space-between;gap:48px;margin-bottom:40px">'
-    + '<div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;font-style:italic;margin-bottom:10px;color:var(--t1,#edede9)">Sovexa</div>'
-    + '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--t3,#454540);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
-    + '<p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t3,#454540);line-height:1.6;margin:0;max-width:340px">Four AI employees that plan, write, edit, and produce content for your brand.</p>'
-    + '</div>'
-    + '<div style="display:flex;flex-direction:column;gap:10px">'
-    + '<div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3,#454540);margin-bottom:4px">Company</div>'
-    + '<a href="#" id="vx-wl-contact-footer" style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2,#8a8880);text-decoration:none">Contact</a>'
-    + '<a href="#" id="vx-wl-terms" style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2,#8a8880);text-decoration:none">Terms</a>'
-    + '<a href="#" id="vx-wl-privacy" style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2,#8a8880);text-decoration:none">Privacy</a>'
-    + '<a href="#" id="vx-wl-security" style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2,#8a8880);text-decoration:none">Security</a>'
-    + '</div>'
-    + '</div>'
+    // Row 1: brand left, links right
+    + '<table style="width:100%;border-collapse:collapse"><tr>'
+    + '<td style="vertical-align:top;padding:0 0 40px 0">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;font-style:italic;margin-bottom:10px;color:var(--t1)">Sovexa</div>'
+    + '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--t3);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
+    + '<p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t3);line-height:1.6;margin:0">Four AI employees that plan, write, edit, and produce content for your brand.</p>'
+    + '</td>'
+    + '<td style="vertical-align:top;text-align:right;padding:0 0 40px 0;white-space:nowrap">'
+    + '<div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Company</div>'
+    + '<a href="#" id="vx-wl-contact-footer" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Contact</a>'
+    + '<a href="#" id="vx-wl-terms" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Terms</a>'
+    + '<a href="#" id="vx-wl-privacy" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Privacy</a>'
+    + '<a href="#" id="vx-wl-security" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none">Security</a>'
+    + '</td>'
+    + '</tr></table>'
 
-    // Copyright bar at the bottom
-    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(0,0,0,.06);padding-top:20px;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--t3);letter-spacing:.04em">'
-    + '<span>\u00A9 ' + new Date().getFullYear() + ' Sovexa</span>'
-    + '<span>Built for creators</span>'
-    + '</div>'
+    // Row 2: copyright bar (LAST element in footer)
+    + '<table style="width:100%;border-collapse:collapse;border-top:1px solid rgba(0,0,0,.06)"><tr>'
+    + '<td style="padding:20px 0 0 0;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--t3);letter-spacing:.04em">\u00A9 ' + new Date().getFullYear() + ' Sovexa</td>'
+    + '<td style="padding:20px 0 0 0;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;text-align:right">Built for creators</td>'
+    + '</tr></table>'
 
     + '</div>'
-    + '</footer>'
 
   function teamCard(init, name, role, quote, skills) {
     return '<div style="border:1px solid var(--b1,rgba(255,255,255,.08));border-radius:12px;background:var(--s1,#111);padding:28px 24px;transition:border-color .3s" onmouseover="this.style.borderColor=\'var(--accent,#d4a574)\'" onmouseout="this.style.borderColor=\'var(--b1,rgba(255,255,255,.08))\'">'
