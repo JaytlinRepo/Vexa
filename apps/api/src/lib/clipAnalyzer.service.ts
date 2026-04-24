@@ -305,15 +305,21 @@ export async function analyzeAndPickClip(
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
-Your job: edit this ${videoDuration.toFixed(0)}s video the way THIS creator would edit it. Keep everything worth keeping. Cut everything that's boring, repetitive, or dead time. You decide the final length based on how much good content there is.
+Your job: edit this ${videoDuration.toFixed(0)}s video the way THIS creator would edit it.
 ${creatorInstructions}
-EDITING GUIDELINES:
-- CUT SPEED: this creator averages ~${avgCutSpeed.toFixed(1)}s per segment. Match that rhythm
-- Keep segments where something interesting is happening (action, emotion, reveals, interaction)
-- Cut segments where nothing changes (static shots, walking, repetitive motion, dead air)
-- Consecutive segments are fine when there's continuous action. Gaps are natural when you skip dead footage
-- Cover the FULL video — pick moments from beginning, middle, AND end. Include content from the last 10 seconds if there's a conclusion or payoff
-- Start with the first interesting action, not a static establishing shot
+PACING MATH (follow this):
+- This creator averages ~${avgCutSpeed.toFixed(1)}s per segment
+- Source video is ${videoDuration.toFixed(0)}s long
+- At ${avgCutSpeed.toFixed(1)}s per cut, that's ~${Math.round(videoDuration / avgCutSpeed)} segments for the full video
+- Cut boring/dead footage, keep everything interesting
+- Your output should be ${Math.round(videoDuration * 0.6)}-${Math.round(videoDuration * 0.9)}s (60-90% of the source, cutting only dead time)
+
+EDITING:
+- Keep segments where something is happening (action, emotion, reveals, interaction)
+- Cut segments where nothing changes (static shots, repetitive motion, dead air)
+- Consecutive segments are fine when there's continuous action
+- Cover beginning, middle, AND end of the video
+- Start with action, end with a payoff
 
 ${editingRules}
 
@@ -355,7 +361,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
 
   content.push({
     type: 'text',
-    text: `\nBased on what you SEE in these frames, edit this video. Keep everything interesting, cut everything boring. Use the creator's ~${avgCutSpeed.toFixed(1)}s cut rhythm. Include content from across the full ${videoDuration.toFixed(0)}s video including the ending. Output JSON only.`
+    text: `\nEdit this ${videoDuration.toFixed(0)}s video. At ~${avgCutSpeed.toFixed(1)}s per cut = ~${Math.round(videoDuration / avgCutSpeed)} segments. Output should be ${Math.round(videoDuration * 0.6)}-${Math.round(videoDuration * 0.9)}s. Cut dead time, keep action. Cover beginning through ending. Output JSON only.`
   })
 
   try {
