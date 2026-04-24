@@ -227,13 +227,14 @@ export async function analyzeAndPickClip(
     }
   }
 
-  // Scene/motion section
+  // Scene/motion section — label dead vs active so Riley knows what to cut
   let sceneSection = ''
   if (sceneData && sceneData.scenes.length > 0) {
-    const sceneList = sceneData.scenes.map((s, i) => (
-      `Scene ${i + 1}: [${fmt(s.startTime)} - ${fmt(s.endTime)}] ${s.duration.toFixed(1)}s — Motion: ${s.motionScore.toFixed(2)} (${s.label})`
-    )).join('\n')
-    sceneSection = `\nMotion analysis:\n${sceneList}`
+    const sceneList = sceneData.scenes.map((s, i) => {
+      const activity = s.motionScore > 0.5 ? 'ACTIVE' : s.motionScore > 0.3 ? 'MODERATE' : 'DEAD TIME — CUT THIS'
+      return `Scene ${i + 1}: [${fmt(s.startTime)} - ${fmt(s.endTime)}] ${s.duration.toFixed(1)}s — Motion: ${s.motionScore.toFixed(2)} [${activity}] (${s.label})`
+    }).join('\n')
+    sceneSection = `\nMotion analysis (use this to decide what to cut):\n${sceneList}`
   }
 
   // Frame descriptions for the prompt
@@ -314,12 +315,21 @@ PACING MATH (follow this):
 - Cut boring/dead footage, keep everything interesting
 - Your output should be ${Math.round(videoDuration * 0.6)}-${Math.round(videoDuration * 0.9)}s (60-90% of the source, cutting only dead time)
 
-EDITING:
-- Keep segments where something is happening (action, emotion, reveals, interaction)
-- Cut segments where nothing changes (static shots, repetitive motion, dead air)
-- Consecutive segments are fine when there's continuous action
+EDITING — HOW TO JUMP CUT:
+For any continuous action, capture THREE moments: the START, a KEY MOMENT, and the END. Skip everything in between.
+
+Example: "person unloading a car" (20 seconds of footage)
+  BAD:  [0:00-0:20] — keeping all 20 seconds, no cuts
+  GOOD: [0:00-0:03] person grabs first item → SKIP → [0:12-0:14] trunk half full → SKIP → [0:18-0:20] person closes trunk
+
+This is a JUMP CUT — the viewer sees the start, a glimpse of progress, and the result. They understand the full action in 7 seconds instead of 20.
+
+RULES:
+- Max ${avgCutSpeed.toFixed(0)}s per segment
+- Segments MUST have time gaps between them (not back-to-back)
+- ${Math.round(videoDuration / avgCutSpeed)} segments across ${videoDuration.toFixed(0)}s = a cut every ~${avgCutSpeed.toFixed(0)}s with gaps in between
 - Cover beginning, middle, AND end of the video
-- Start with action, end with a payoff
+- Start with action, end with a payoff or conclusion
 
 ${editingRules}
 
