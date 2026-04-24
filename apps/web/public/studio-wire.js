@@ -480,8 +480,39 @@
 
   // ── Upload ────────────────────────────────────────────────────────
 
+  function showVideoPreviews(files) {
+    const previewsEl = document.getElementById('studio-previews')
+    const gridEl = document.getElementById('studio-preview-grid')
+    if (!previewsEl || !gridEl) return
+
+    previewsEl.style.display = 'block'
+    gridEl.innerHTML = ''
+
+    for (const file of files) {
+      const card = document.createElement('div')
+      card.style.cssText = 'width:120px;border-radius:8px;overflow:hidden;border:1px solid var(--b1);background:var(--s1)'
+
+      const video = document.createElement('video')
+      video.src = URL.createObjectURL(file)
+      video.style.cssText = 'width:100%;aspect-ratio:9/16;object-fit:cover;display:block;background:#000'
+      video.muted = true
+      video.preload = 'metadata'
+      video.addEventListener('loadeddata', function () { video.currentTime = 1 })
+
+      const label = document.createElement('div')
+      label.style.cssText = 'padding:6px 8px;font-family:JetBrains Mono,monospace;font-size:9px;color:var(--t2);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+      label.textContent = file.name
+
+      card.appendChild(video)
+      card.appendChild(label)
+      gridEl.appendChild(card)
+    }
+  }
+
   async function uploadBatch(files) {
     if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
+
+    showVideoPreviews(files)
 
     const processingEl = document.getElementById('studio-processing')
     const bar = document.getElementById('processing-bar')
@@ -491,7 +522,7 @@
 
     if (processingEl) processingEl.style.display = 'block'
     if (statusEl) statusEl.textContent = 'Uploading ' + files.length + ' videos...'
-    if (detailEl) detailEl.textContent = files.map(f => f.name).join(', ')
+    if (detailEl) detailEl.textContent = files.length + ' videos selected'
     if (bar) bar.style.width = '10%'
     if (progressEl) progressEl.textContent = '10%'
 
@@ -532,6 +563,9 @@
       showToast('Not signed in', 'error')
       return
     }
+
+    showVideoPreviews([file])
+
     const processingEl = document.getElementById('studio-processing')
     const bar = document.getElementById('processing-bar')
     const statusEl = document.getElementById('processing-status')
@@ -540,7 +574,7 @@
 
     if (processingEl) processingEl.style.display = 'block'
     if (statusEl) statusEl.textContent = 'Uploading...'
-    if (detailEl) detailEl.textContent = file.name
+    if (detailEl) detailEl.textContent = '1 video selected'
     if (bar) bar.style.width = '10%'
     if (progressEl) progressEl.textContent = '10%'
 
