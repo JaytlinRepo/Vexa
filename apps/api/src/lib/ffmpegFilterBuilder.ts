@@ -131,7 +131,7 @@ export function buildCreatorFilters(
   const frameInterval = avgCutSpeed < 1.5 ? 1.5 : avgCutSpeed < 3 ? 2 : 3
 
   // ── FPS ──
-  const targetFps = pacing === 'very-fast' || pacing === 'fast' ? 30 : 30
+  const targetFps = 30
 
   return {
     videoFilters: vf,
