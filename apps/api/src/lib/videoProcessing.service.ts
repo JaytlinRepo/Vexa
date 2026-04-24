@@ -122,23 +122,25 @@ export class VideoProcessingService extends EventEmitter {
         }
       })()
 
-      const frameInterval = videoDuration <= 60 ? 2 : 3
+      // Frame extraction scales with duration — more frames for longer videos
+      // Target: ~1 frame per 5s for short videos, ~1 per 8s for long ones
+      // Max frames scales too: 15 for ≤60s, up to 30 for longer compilations
+      const maxFrames = Math.min(30, Math.max(15, Math.ceil(videoDuration / 8)))
+      const frameInterval = Math.max(2, Math.ceil(videoDuration / maxFrames))
+      console.log(`[video] Frame strategy: ${maxFrames} frames at ${frameInterval}s intervals for ${videoDuration.toFixed(0)}s video`)
 
       const [transcript, sceneData, frames] = await Promise.all([
-        // Transcribe uses S3 key directly (AWS Transcribe reads from S3, no download)
         transcribeVideo(s3Key).then((result) => {
           console.log(`[video] Transcript: ${result.hasSpeech ? result.words.length + ' words' : 'no speech detected'}`)
           return result
         }),
 
-        // Scene detection — uses LOCAL file (no download)
         detectScenes(localVideoPath, videoDuration).then((scenes) => {
           console.log(`[video] Scenes: ${scenes.totalScenes} detected, ${scenes.highMotionSegments} high-motion`)
           return scenes
         }).catch(() => undefined),
 
-        // Keyframes — uses LOCAL file (no download)
-        extractKeyframes(localVideoPath, videoDuration, frameInterval, 15).then((extracted) => {
+        extractKeyframes(localVideoPath, videoDuration, frameInterval, maxFrames).then((extracted) => {
           console.log(`[video] Keyframes: ${extracted.length} frames extracted (interval: ${frameInterval}s)`)
           return extracted
         }),

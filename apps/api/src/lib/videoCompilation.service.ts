@@ -86,15 +86,18 @@ export async function processCompilation(
     const combinedPath = path.join(workDir, 'combined.mp4')
     console.log(`[compilation] Concatenating ${ordered.length} videos...`)
 
+    // Re-encode during concat to ensure consistent codecs across all videos
+    // (different .mov files may have different audio formats or no audio)
     await execFileAsync('ffmpeg', [
       '-y',
       '-f', 'concat',
       '-safe', '0',
       '-i', concatPath,
-      '-c', 'copy',
+      '-c:v', 'h264_videotoolbox', '-b:v', '8M',
+      '-c:a', 'aac', '-b:a', '128k',
       '-movflags', '+faststart',
       combinedPath,
-    ], { timeout: 300000 })
+    ], { timeout: 600000 })
 
     const combinedSize = (fs.statSync(combinedPath).size / 1024 / 1024).toFixed(1)
     console.log(`[compilation] Combined: ${combinedSize}MB`)

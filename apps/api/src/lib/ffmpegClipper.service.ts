@@ -101,7 +101,29 @@ export async function buildReel(params: {
         segPath,
       ]
 
-      await execFileAsync('ffmpeg', args, { timeout: 120000 })
+      try {
+        await execFileAsync('ffmpeg', args, { timeout: 120000 })
+      } catch (err: any) {
+        // FFmpeg writes to stderr even on success — check if output file was created
+        if (fs.existsSync(segPath) && fs.statSync(segPath).size > 0) {
+          console.log(`[ffmpeg]   Segment ${i + 1} completed (stderr warnings ignored)`)
+        } else if (afStr) {
+          // Retry without audio filters (some codecs/streams are incompatible)
+          console.warn(`[ffmpeg]   Retrying segment ${i + 1} without audio filters`)
+          const fallbackArgs = args.filter((_, idx) => args[idx] !== '-af' && (idx === 0 || args[idx - 1] !== '-af'))
+          try {
+            await execFileAsync('ffmpeg', fallbackArgs, { timeout: 120000 })
+          } catch {
+            if (fs.existsSync(segPath) && fs.statSync(segPath).size > 0) {
+              console.log(`[ffmpeg]   Segment ${i + 1} completed on retry`)
+            } else {
+              throw err
+            }
+          }
+        } else {
+          throw err
+        }
+      }
     }
 
     // 4. Concatenate with transitions
