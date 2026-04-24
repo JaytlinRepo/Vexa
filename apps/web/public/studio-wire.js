@@ -540,8 +540,9 @@
         body: form,
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Batch upload failed')
+        let errMsg = 'Batch upload failed'
+        try { const err = await res.json(); errMsg = err.error || errMsg } catch {}
+        throw new Error(errMsg)
       }
       const json = await res.json()
       if (bar) bar.style.width = '15%'
