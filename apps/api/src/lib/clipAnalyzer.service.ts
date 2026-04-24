@@ -362,8 +362,17 @@ ${preferencesSection}
 Here are the keyframes from the video. Each frame is labeled with its timestamp. Look at what's happening visually to decide what to keep and cut:`
   })
 
-  // Add frames with timestamp labels
-  for (const frame of frames) {
+  // Add frames with timestamp labels — Bedrock allows max 20 images per request
+  // If we have more, sample evenly across the timeline to maintain coverage
+  const maxVisionFrames = 20
+  let framesToSend = frames
+  if (frames.length > maxVisionFrames) {
+    const step = frames.length / maxVisionFrames
+    framesToSend = Array.from({ length: maxVisionFrames }, (_, i) => frames[Math.min(Math.floor(i * step), frames.length - 1)])
+    console.log(`[clip-analyzer] Sampled ${framesToSend.length} of ${frames.length} frames for vision (Bedrock limit: ${maxVisionFrames})`)
+  }
+
+  for (const frame of framesToSend) {
     content.push({
       type: 'text',
       text: `\n--- Frame at ${fmt(frame.timestamp)} (${frame.timestamp.toFixed(1)}s) ---`
