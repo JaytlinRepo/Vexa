@@ -318,16 +318,21 @@ PACING MATH (follow this):
 EDITING — HOW TO JUMP CUT:
 For any continuous action, capture THREE moments: the START, a KEY MOMENT, and the END. Skip everything in between.
 
-Example: "person unloading a car" (20 seconds of footage)
+Example: "person posing for photos" (20 seconds of footage)
   BAD:  [0:00-0:20] — keeping all 20 seconds, no cuts
-  GOOD: [0:00-0:03] person grabs first item → SKIP → [0:12-0:14] trunk half full → SKIP → [0:18-0:20] person closes trunk
+  GOOD: [0:00-0:03] first pose → SKIP → [0:10-0:12] different pose → SKIP → [0:18-0:20] final pose
 
-This is a JUMP CUT — the viewer sees the start, a glimpse of progress, and the result. They understand the full action in 7 seconds instead of 20.
+CRITICAL — WHERE TO CUT:
+- NEVER cut in the middle of a movement or gesture. Wait for the action to complete
+- CUT BETWEEN poses, movements, or actions — not during them
+- Each segment should START at the beginning of an action and END when that action completes
+- If someone is mid-step, mid-gesture, or mid-turn — extend the segment to let them finish
+- Clean cuts feel professional. Mid-action cuts feel choppy and amateur
 
 RULES:
 - Max ${avgCutSpeed.toFixed(0)}s per segment
-- Segments MUST have time gaps between them (not back-to-back)
-- ${Math.round(videoDuration / avgCutSpeed)} segments across ${videoDuration.toFixed(0)}s = a cut every ~${avgCutSpeed.toFixed(0)}s with gaps in between
+- Segments should have time gaps between them where less interesting footage is skipped
+- ${Math.round(videoDuration / avgCutSpeed)} segments across ${videoDuration.toFixed(0)}s
 - Cover beginning, middle, AND end of the video
 - Start with action, end with a payoff or conclusion
 
