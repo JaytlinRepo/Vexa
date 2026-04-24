@@ -9,10 +9,17 @@ import prisma from '../lib/prisma'
 const router = Router()
 
 const signupSchema = z.object({
-  email: z.string().email(),
-  username: z.string().min(2).max(40),
-  password: z.string().min(8).max(200),
-  fullName: z.string().max(120).optional(),
+  email: z.string().email('Enter a valid email address'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be under 30 characters')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(200)
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  fullName: z.string().min(1, 'Name is required').max(120).optional(),
 })
 
 const loginSchema = z.object({

@@ -160,7 +160,13 @@
     errEl.textContent=''
 
     if(!email||!username||!password||!name){ errEl.textContent='All fields are required.'; return }
+    if(name.length>120){ errEl.textContent='Name is too long.'; return }
+    if(username.length<3){ errEl.textContent='Username must be at least 3 characters.'; return }
+    if(username.length>30){ errEl.textContent='Username must be under 30 characters.'; return }
+    if(!/^[a-zA-Z0-9_]+$/.test(username)){ errEl.textContent='Username can only contain letters, numbers, and underscores.'; return }
     if(password.length<8){ errEl.textContent='Password must be at least 8 characters.'; return }
+    if(!/[A-Z]/.test(password)){ errEl.textContent='Password must contain at least one uppercase letter.'; return }
+    if(!/[0-9]/.test(password)){ errEl.textContent='Password must contain at least one number.'; return }
 
     btn.textContent='CREATING ACCOUNT...'
     btn.disabled=true
@@ -177,7 +183,12 @@
         var msg=res.data.error||res.data.message||'Account creation failed'
         if(msg==='email_taken'||msg==='email_or_username_in_use') msg='An account with this email or username already exists.'
         if(msg==='username_taken') msg='This username is already taken.'
-        if(msg==='invalid_input') msg='Please check all fields and try again.'
+        if(msg==='invalid_input'){
+          // Show the first specific validation error from Zod
+          var issues=res.data.issues
+          if(issues&&issues.length>0) msg=issues[0].message
+          else msg='Please check all fields and try again.'
+        }
         errEl.textContent=msg
         btn.textContent='CREATE ACCOUNT'; btn.disabled=false
         return
