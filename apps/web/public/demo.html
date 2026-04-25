@@ -1483,14 +1483,11 @@ function runScene4(){}
 
 /* ── Scene 5 · done ── */
 function runScene5(){
-  timers.push(setTimeout(() => {
-    finished = true;
-    $('#replay').classList.add('on');
-    // Signal parent (intro-wire.js) that the demo is done
-    if (window.parent !== window) {
-      window.parent.postMessage('vx-intro-done', '*');
-    }
-  }, 1900));
+  // Skip scene 5 entirely — dissolve straight into the real page
+  finished = true;
+  if (window.parent !== window) {
+    window.parent.postMessage('vx-intro-done', '*');
+  }
 }
 
 function tick(){
