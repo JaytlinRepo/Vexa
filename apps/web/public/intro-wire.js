@@ -16,7 +16,7 @@
   // Create overlay
   var overlay = document.createElement('div')
   overlay.id = 'vx-intro-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0a0a0a);transition:opacity 2s ease,filter 2s ease'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0a0a0a);transition:opacity .6s ease'
 
   // Load the demo page in an iframe
   var iframe = document.createElement('iframe')
@@ -41,13 +41,14 @@
     if (!overlay.parentNode) return
     sessionStorage.setItem('vx-intro-done', '1')
 
-    // Slow dissolve — scene 5 matches the hero underneath so it blends seamlessly
-    overlay.style.opacity = '0'
-    overlay.style.filter = 'blur(4px)'
+    // Quick fade to black, then remove — no double-screen
+    overlay.style.background = '#0a0a0a'
     overlay.style.pointerEvents = 'none'
-
     setTimeout(function () {
-      overlay.remove()
-    }, 2200)
+      overlay.style.opacity = '0'
+      setTimeout(function () {
+        overlay.remove()
+      }, 700)
+    }, 100)
   }
 })()
