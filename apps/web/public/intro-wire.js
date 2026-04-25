@@ -7,14 +7,16 @@
 ;(function () {
   // Don't show for logged-in users
   if (document.cookie.indexOf('vx_session') !== -1) return
-  // Only show on production — skip on dev/localhost
-  var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  // Temporarily showing on localhost for preview
+  // var host = window.location.hostname
+  // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  // Don't show if already seen this session
+  if (sessionStorage.getItem('vx-intro-done')) return
 
   // Create overlay
   var overlay = document.createElement('div')
   overlay.id = 'vx-intro-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#faf9f7;transition:opacity 1.2s ease'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0a0a0a);transition:opacity 1.2s ease'
 
   // Load the demo page in an iframe
   var iframe = document.createElement('iframe')
