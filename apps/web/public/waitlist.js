@@ -9,26 +9,14 @@
   var host = window.location.hostname
   if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
 
-  // Force light theme on the waitlist regardless of saved user preference.
-  // Inject a #id-scoped stylesheet so the light tokens beat any cached dark theme.
-  var lightTheme = document.createElement('style')
-  lightTheme.textContent = '#vx-waitlist,#vx-waitlist *{'
-    + '--bg:#f5f3ee;--s1:#eceae4;--s2:#e4e2db;--s3:#dbd9d1;'
-    + '--b1:rgba(0,0,0,.08);--b2:rgba(0,0,0,.14);--b3:rgba(0,0,0,.22);'
-    + '--t1:#111110;--t2:#7a776f;--t3:#b0ada6;'
-    + '--accent:#b8834a;--accent-hov:#a77239;--accent-text:#f7f3ec;'
-    + '--accent-soft:rgba(184,131,74,.12);--accent-glow:rgba(184,131,74,.24);'
-    + '--ok:#5d7a4b;--ig:#b94e7c;--tt:#3f908c;--yt:#a05a5a;'
-    + '--grain:.02;'
-    + '--atmo-1:rgba(184,131,74,.22);--atmo-2:rgba(150,115,65,.12);--atmo-3:rgba(130,100,55,.08);'
-    + '--grid-ln:rgba(0,0,0,.05);'
-    + '}'
-  document.head.appendChild(lightTheme)
+  // Waitlist visitors aren't users yet — clear any cached theme preference and lock to light.
+  try { localStorage.removeItem('vx-t') } catch (_) {}
+  document.documentElement.setAttribute('data-theme', 'light')
 
   // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')
   overlay.id = 'vx-waitlist'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;overflow-y:auto;overflow-x:hidden;background:#f5f3ee;color:#111110;display:block;visibility:visible'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;overflow-y:auto;overflow-x:hidden;background:var(--bg);display:block;visibility:visible'
 
   overlay.innerHTML = ''
 
