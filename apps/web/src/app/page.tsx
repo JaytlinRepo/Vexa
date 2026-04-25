@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { unstable_noStore as noStore } from 'next/cache'
 import PrototypeShell from './_prototype/PrototypeShell'
+import './vexa-landing.css'
 import './prototype.css'
 
 // Do not statically prerender: body.html is read via fs (not in the module
