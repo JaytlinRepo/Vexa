@@ -739,7 +739,7 @@ a{color:inherit;text-decoration:none}
 
 /* ═══════════════════════════════════════════════════════════ */
 /* SCENE 5 — THE HANDOFF (dissolve into landing hero)           */
-/* Matches Sovexa Landing.html hero composition                  */
+/* Matches # hero composition                  */
 /* ═══════════════════════════════════════════════════════════ */
 .s5{position:absolute;inset:90px 60px 40px;display:grid;grid-template-columns:1.05fr 1fr;gap:60px;align-items:center}
 
@@ -1282,8 +1282,8 @@ a{color:inherit;text-decoration:none}
           </h1>
           <p class="sub">Sovexa gives you a team of four AI employees who <em>scout, plan, write, and ship</em> your content across every platform. You stay on voice. They stay on time. Your calendar is finally full.</p>
           <div class="cta-row">
-            <a class="btn-primary" href="Sovexa Landing.html">Start your company <span class="arr">→</span></a>
-            <a class="btn-ghost" href="Sovexa Landing.html#how"><span class="play">▶</span> See it work · 90s</a>
+            <a class="btn-primary" href="#" onclick="if(window.parent!==window){window.parent.postMessage('vx-intro-done','*')};return false">Start your company <span class="arr">→</span></a>
+            <a class="btn-ghost" href="#" onclick="if(window.parent!==window){window.parent.postMessage('vx-intro-done','*')};return false"><span class="play">▶</span> See it work · 90s</a>
           </div>
           <div class="proof">
             <div class="avs">
@@ -1354,7 +1354,7 @@ const TIMELINE = [
 ];
 const TOTAL = 15200;
 const GAP_MS = 1000;
-const LANDING_URL = 'Sovexa Landing.html';
+const LANDING_URL = '#';
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);

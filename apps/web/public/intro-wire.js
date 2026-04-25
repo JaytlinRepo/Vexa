@@ -10,13 +10,13 @@
   // Temporarily showing on localhost for preview
   // var host = window.location.hostname
   // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
-  // Don't show if already seen this session
-  if (sessionStorage.getItem('vx-intro-done')) return
+  // Clear any stale intro flag so it always plays for testing
+  try { sessionStorage.removeItem('vx-intro-done') } catch (_) {}
 
   // Create overlay
   var overlay = document.createElement('div')
   overlay.id = 'vx-intro-overlay'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0a0a0a);transition:opacity 1.2s ease'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0a0a0a);transition:opacity 2s ease,filter 2s ease'
 
   // Load the demo page in an iframe
   var iframe = document.createElement('iframe')
@@ -40,9 +40,14 @@
   function closeIntro() {
     if (!overlay.parentNode) return
     sessionStorage.setItem('vx-intro-done', '1')
+
+    // Slow dissolve — scene 5 matches the hero underneath so it blends seamlessly
     overlay.style.opacity = '0'
+    overlay.style.filter = 'blur(4px)'
+    overlay.style.pointerEvents = 'none'
+
     setTimeout(function () {
       overlay.remove()
-    }, 1200)
+    }, 2200)
   }
 })()
