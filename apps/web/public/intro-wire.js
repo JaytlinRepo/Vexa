@@ -7,11 +7,11 @@
 ;(function () {
   // Don't show for logged-in users
   if (document.cookie.indexOf('vx_session') !== -1) return
-  // Temporarily showing on localhost for preview
-  // var host = window.location.hostname
-  // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
-  // Clear any stale intro flag so it always plays for testing
-  try { sessionStorage.removeItem('vx-intro-done') } catch (_) {}
+  // Only show on production (sovexa.ai) — skip on dev/localhost so testing isn't blocked
+  var host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  // Once shown this session, don't replay
+  if (sessionStorage.getItem('vx-intro-done') === '1') return
 
   // Create overlay
   var overlay = document.createElement('div')
