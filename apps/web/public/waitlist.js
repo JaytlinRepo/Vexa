@@ -9,8 +9,7 @@
   // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')
   overlay.id = 'vx-waitlist'
-  overlay.className = 'view marketing'
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;overflow-y:auto;overflow-x:hidden;background:var(--bg)'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;overflow-y:auto;overflow-x:hidden;background:var(--bg);display:block;visibility:visible'
 
   overlay.innerHTML = ''
 
