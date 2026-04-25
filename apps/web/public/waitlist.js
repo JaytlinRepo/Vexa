@@ -1,345 +1,336 @@
-/* Waitlist gate — the ONLY screen non-logged-in visitors can reach.
- * Renders immediately (behind the intro overlay) so there's no flash
- * when the demo dissolves. Full scrollable page with header, waitlist
- * form, team section, process section, and footer.
+/* Waitlist gate — full landing page experience with account creation.
+ * Replicates the home page design: atmosphere blobs, reveal animations,
+ * pipeline card with cycling agents, team cards, process steps.
+ * Uses vexa-landing.css classes directly.
  */
 ;(function () {
   if (document.cookie.indexOf('vx_session') !== -1) return
-  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
-  var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
 
+  // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')
   overlay.id = 'vx-waitlist'
-  // Visible from the start, sits behind the intro overlay (z-index 99999)
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:#faf9f7;overflow-y:auto;overflow-x:hidden'
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;overflow-y:auto;overflow-x:hidden;background:var(--bg);display:block;visibility:visible'
 
   overlay.innerHTML = ''
 
-    // ─── HEADER (matches home page topbar) ─────────────────────
-    + '<header id="vx-wl-topbar" style="position:sticky;top:0;z-index:100;padding:18px 48px;display:flex;align-items:center;justify-content:space-between;background:rgba(250,249,247,.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(0,0,0,.04);transition:all .35s cubic-bezier(.16,1,.3,1)">'
-    + '<a href="#" style="font-family:Cormorant Garamond,Georgia,serif;font-size:20px;font-weight:400;font-style:italic;color:#1a1a1a;text-decoration:none;letter-spacing:-.01em" onclick="document.getElementById(\'vx-waitlist\').scrollTo({top:0,behavior:\'smooth\'});return false">Sovexa</a>'
-    + '<nav style="display:flex;align-items:center;gap:24px;font-family:DM Sans,sans-serif;font-size:13px">'
-    + '<a href="#vx-wl-team" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">The team</a>'
-    + '<a href="#vx-wl-process" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">How it works</a>'
-    + '<a href="#" id="vx-wl-contact-link" style="color:#888;text-decoration:none;transition:color .2s" onmouseover="this.style.color=\'#1a1a1a\'" onmouseout="this.style.color=\'#888\'">Contact</a>'
+    // ─── ATMOSPHERE (blobs + stars + grid) ───────────────────────
+    + '<div class="atmo">'
+    + '<div class="blob b1"></div>'
+    + '<div class="blob b2"></div>'
+    + '<div class="blob b3"></div>'
+    + '<div class="grid"></div>'
+    + '<div class="stars" id="wl-stars"></div>'
+    + '</div>'
+
+    // ─── TOPBAR ─────────────────────────────────────────────────
+    + '<nav class="top" id="vx-wl-topbar">'
+    + '<div class="logo"><span class="dot"></span><span class="wordmark">Sovexa</span></div>'
+    + '<div class="links">'
+    + '<a href="#vx-wl-team">The team</a>'
+    + '<a href="#vx-wl-process">How it works</a>'
+    + '<a href="#" id="vx-wl-contact-link">Contact</a>'
+    + '</div>'
     + '</nav>'
-    + '</header>'
 
-    // ─── HERO / WAITLIST FORM ────────────────────────────────────
-    + '<section style="display:flex;align-items:center;justify-content:center;flex-direction:column;padding:80px 20px 60px;text-align:center">'
-    + '<div style="max-width:520px;width:100%">'
+    // ─── HERO ───────────────────────────────────────────────────
+    + '<section class="hero" style="min-height:auto;padding-bottom:60px">'
+    + '<div class="hero-left">'
+    + '<div class="eyebrow-row"><span class="pill"><span class="g"></span>Early Access · <em>Limited spots</em></span></div>'
+    + '<h1>'
+    + '<span class="line"><span>Your AI content team</span></span>'
+    + '<span class="line"><span>is <em>almost ready.</em></span></span>'
+    + '</h1>'
+    + '<p class="sub">Create your account to reserve your spot. Four AI employees that plan, write, edit, and ship your content.</p>'
 
-    + '<h1 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(36px,6vw,56px);font-weight:300;font-style:italic;color:#1a1a1a;line-height:1.08;letter-spacing:-.03em;margin:0 0 16px">Your AI content team<br>is <span style="color:#d4a574">almost ready.</span></h1>'
-    + '<p style="font-family:DM Sans,sans-serif;font-size:16px;line-height:1.7;color:#888;margin:0 0 40px">Join the early access list. Be first to get your team working for you.</p>'
-
-    // Form
-    + '<form id="vx-wl-form" style="display:flex;flex-direction:column;gap:12px;max-width:400px;margin:0 auto">'
-    + '<input id="vx-wl-name" type="text" placeholder="Your name (optional)" style="padding:14px 18px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff;font:15px DM Sans,sans-serif;color:#1a1a1a;outline:none;transition:border-color .2s" />'
-    + '<input id="vx-wl-email" type="email" placeholder="Your email" required style="padding:14px 18px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#fff;font:15px DM Sans,sans-serif;color:#1a1a1a;outline:none;transition:border-color .2s" />'
-    + '<button type="submit" id="vx-wl-btn" style="padding:14px 28px;border-radius:8px;border:none;background:#d4a574;color:#0a0a0a;font:600 14px/1 DM Sans,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .3s;box-shadow:0 4px 20px rgba(212,165,116,.25)">Join the waitlist</button>'
+    // Signup form (replaces CTA buttons)
+    + '<form id="vx-wl-form" style="display:flex;flex-direction:column;gap:10px;max-width:360px;margin-top:32px">'
+    + '<input id="vx-wl-name" type="text" placeholder="Full name" required style="padding:13px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);font:14px Inter,sans-serif;color:var(--t1);outline:none;transition:border-color .2s" />'
+    + '<input id="vx-wl-email" type="email" placeholder="Email" required style="padding:13px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);font:14px Inter,sans-serif;color:var(--t1);outline:none;transition:border-color .2s" />'
+    + '<input id="vx-wl-username" type="text" placeholder="Username" required style="padding:13px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);font:14px Inter,sans-serif;color:var(--t1);outline:none;transition:border-color .2s" />'
+    + '<input id="vx-wl-password" type="password" placeholder="Password (8+ characters)" required minlength="8" style="padding:13px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);font:14px Inter,sans-serif;color:var(--t1);outline:none;transition:border-color .2s" />'
+    + '<div id="vx-wl-error" style="font-size:12px;color:var(--down,#c48a8a);min-height:16px;font-family:Inter,sans-serif"></div>'
+    + '<button type="submit" id="vx-wl-btn" class="btn-primary" style="margin-top:4px">Create account <span class="arr">\u2192</span></button>'
     + '</form>'
 
     // Social proof
-    + '<div id="vx-wl-count" style="margin-top:16px;font-size:12px;color:#aaa"></div>'
+    + '<div class="proof" style="margin-top:24px">'
+    + '<div class="avs"><div class="av">M</div><div class="av">J</div><div class="av">A</div><div class="av">R</div></div>'
+    + '<div class="t" id="vx-wl-count"></div>'
+    + '</div>'
 
     // Success state (hidden)
-    + '<div id="vx-wl-success" style="display:none;max-width:400px;margin:0 auto">'
-    + '<div style="width:56px;height:56px;border-radius:50%;background:rgba(52,210,122,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><svg width="24" height="24" fill="none" stroke="#34d27a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:28px;font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 12px">Thank you for joining.</h2>'
-    + '<p style="font-size:14px;color:#888;line-height:1.6;margin:0">We\'ll send you an email the moment your AI content team is ready.</p>'
+    + '<div id="vx-wl-success" style="display:none;margin-top:32px">'
+    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:32px;font-weight:400;font-style:italic;color:var(--t1);margin:0 0 12px">Welcome to Sovexa.</h2>'
+    + '<p style="font-family:Inter,sans-serif;font-size:15px;color:var(--t2);line-height:1.7;margin:0 0 24px">Your account is created. We\'re building your AI content team right now.</p>'
+    + '<div style="border:1px solid var(--b1);border-radius:10px;background:var(--s1);padding:20px">'
+    + '<div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:12px">What happens next</div>'
+    + '<div style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2);line-height:1.7">'
+    + '<div style="display:flex;gap:10px;margin-bottom:8px"><span style="color:var(--accent);flex-shrink:0">1.</span> We\'re onboarding creators in small batches</div>'
+    + '<div style="display:flex;gap:10px;margin-bottom:8px"><span style="color:var(--accent);flex-shrink:0">2.</span> You\'ll get an email when your team is activated</div>'
+    + '<div style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">3.</span> Log in and your AI employees start working immediately</div>'
+    + '</div></div>'
     + '</div>'
 
+    + '</div>'
+
+    // Pipeline card (right side)
+    + '<div class="hero-right">'
+    + '<div class="orb-ring r2"><span class="dot"></span><span class="dot b"></span></div>'
+    + '<div class="orb-ring"><span class="dot"></span><span class="dot b"></span></div>'
+    + '<div class="orb"></div>'
+    + '<div class="pipe-card">'
+    + '<div class="pc-head"><div class="t">SOVEXA \u00B7 <em>LIVE PIPELINE</em></div><div class="live">Live</div></div>'
+    + '<div class="agent-stack" id="wl-agents">'
+    + agentRow('maya', 'M', 'Maya \u00B7 Trend & Insights Analyst', ['scanning 66 sources', 'found <em>12</em> signals \u00B7 3 hot', 'clustering around trends'])
+    + '<div class="agent-connector"><div></div></div>'
+    + agentRow('jordan', 'J', 'Jordan \u00B7 Content Strategist', ['drafting brief #213', 'mapping to <em>pillar 2</em>', 'angle: boundary \u00B7 not to-do'])
+    + '<div class="agent-connector"><div></div></div>'
+    + agentRow('alex', 'A', 'Alex \u00B7 Copywriter', ['writing Reel caption', 'voice match <em>96%</em>', 'draft 2 of 2'])
+    + '<div class="agent-connector"><div></div></div>'
+    + agentRow('riley', 'R', 'Riley \u00B7 Creative Director', ['editing reel \u00B7 jump cuts', 'style match <em>94%</em>', 'exporting 9:16 vertical'])
+    + '</div>'
+    + '<div class="out-ticker">'
+    + '<div class="m"><div class="l">This week</div><div class="v" id="wl-tk-posts"><em>21</em> posts</div></div>'
+    + '<div class="m center"><div class="l">Reach</div><div class="v" id="wl-tk-reach"><em>1.8</em>M</div></div>'
+    + '<div class="m"><div class="l">CEO hours</div><div class="v" id="wl-tk-hrs"><em>28.4</em>h saved</div></div>'
+    + '</div>'
+    + '</div></div>'
+
+    + '</section>'
+
+    // ─── MARQUEE ────────────────────────────────────────────────
+    + '<div class="marquee"><div class="track">'
+    + '<span>your content team</span><span>always on brand</span><span>four employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
+    + '<span>your content team</span><span>always on brand</span><span>four employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
+    + '</div></div>'
+
+    // ─── TEAM ───────────────────────────────────────────────────
+    + '<section class="blk" id="vx-wl-team" style="scroll-margin-top:80px">'
+    + '<div class="sec-head reveal">'
+    + '<span class="eyebrow">\u00A7 01 \u00B7 meet the team</span>'
+    + '<h2>Four agents. <em>One voice.</em> Yours.</h2>'
+    + '<p class="lede">Four specialists, each with their own lane, personality, and permissions they earn. You manage them like a team.</p>'
+    + '</div>'
+    + '<div class="team-wrap">'
+    + tCard('M', 'Maya', 'Trend & Insights Analyst', '"I read the internet so you don\'t <em>have to</em>."', ['66 sources', 'weekly pulse', 'competitor watch'], 'd1')
+    + tCard('J', 'Jordan', 'Content Strategist', '"Signal is cheap. A <em>plan</em> is the job."', ['pillars', 'briefs', 'cadence'], 'd2')
+    + tCard('A', 'Alex', 'Copywriter & Script Writer', '"Less <em>ought-to</em>, more <em>felt</em>."', ['voice-locked', 'captions', 'shot lists'], 'd3')
+    + tCard('R', 'Riley', 'Creative Director', '"Right post. Right minute. Right <em>feed</em>."', ['IG \u00B7 TT \u00B7 YT', 'auto-edit', 'cross-post'], 'd4')
     + '</div>'
     + '</section>'
 
-    // ─── YOUR AI TEAM (matches home page team-row layout) ─────────
-    + '<section id="vx-wl-team" style="padding:clamp(60px,8vw,100px) 20px;scroll-margin-top:80px">'
-    + '<div style="max-width:960px;margin:0 auto">'
-    + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
-    + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Your AI team</span>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(38px,5vw,68px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 16px;letter-spacing:-.02em;line-height:1.08">Meet your staff.</h2>'
-    + '<p style="font-size:15px;color:#888;line-height:1.7;max-width:540px;margin:0 auto">Four specialized AI employees — each with a distinct role, personality, and expertise. They know your niche, learn your brand, and deliver work without being asked.</p>'
+    // ─── PROCESS ────────────────────────────────────────────────
+    + '<section class="blk" id="vx-wl-process" style="background:linear-gradient(180deg,var(--bg),var(--s1),var(--bg));scroll-margin-top:80px">'
+    + '<div class="sec-head reveal">'
+    + '<span class="eyebrow">\u00A7 02 \u00B7 the pipeline</span>'
+    + '<h2>From <em>signal</em> to <em>shipped</em>, in one room.</h2>'
+    + '<p class="lede">Tell Sovexa what you create. Your team is ready to work in five minutes.</p>'
     + '</div>'
-
-    // Team rows
-    + '<div style="display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
-
-    // Maya
-    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">01</span></div>'
-    + '<div style="padding:44px 48px">'
-    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Trend &amp; Insights Analyst</div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Maya</div>'
-    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Monitors your niche daily across Reddit, news, research, and YouTube. Every Monday she delivers a trend report — what is rising, why it matters, what to make this week.</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Trend reports</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Viral hooks</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Knowledge feed</span></div>'
-    + '</div>'
-    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">Delivers Monday 9am</span></div>'
-    + '</div>'
-
-    // Jordan
-    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">02</span></div>'
-    + '<div style="padding:44px 48px">'
-    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Content Strategist</div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Jordan</div>'
-    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Briefs Alex automatically once you approve.</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Content calendar</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Strategy</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Pipeline</span></div>'
-    + '</div>'
-    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">Delivers Sunday 7pm</span></div>'
-    + '</div>'
-
-    // Alex
-    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">03</span></div>'
-    + '<div style="padding:44px 48px">'
-    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Copywriter &amp; Script Writer</div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Alex</div>'
-    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Has strong opinions about which hook is the right one.</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Hooks</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Reel scripts</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Captions</span></div>'
-    + '</div>'
-    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">After Jordan approves</span></div>'
-    + '</div>'
-
-    // Riley
-    + '<div style="display:grid;grid-template-columns:180px 1fr 200px;background:#faf9f7;transition:background .25s">'
-    + '<div style="padding:44px 40px;border-right:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-family:Cormorant Garamond,Georgia,serif;font-size:56px;font-weight:300;color:rgba(0,0,0,.08);line-height:1;letter-spacing:-.02em">04</span></div>'
-    + '<div style="padding:44px 48px">'
-    + '<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#b0b0b0;margin-bottom:10px">Creative Director</div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:34px;font-weight:300;font-style:italic;letter-spacing:-.01em;margin-bottom:14px;color:#1a1a1a">Riley</div>'
-    + '<div style="font-size:14px;color:#888;line-height:1.75;max-width:500px;margin-bottom:18px">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use.</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:6px"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Shot lists</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Visual direction</span><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0;padding:4px 12px;border:1px solid rgba(0,0,0,.06);border-radius:8px">Video generation</span></div>'
-    + '</div>'
-    + '<div style="padding:40px 36px;border-left:1px solid rgba(0,0,0,.06);display:flex;align-items:flex-start"><span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#b0b0b0">After Alex delivers</span></div>'
-    + '</div>'
-
-    + '</div>'
+    + '<div style="max-width:960px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b1);border:1px solid var(--b1);border-radius:16px;overflow:hidden">'
+    + pCard('01', 'Set your niche', 'Choose your content category. Your team specializes instantly.', '2 minutes')
+    + pCard('02', 'Define your brand', 'Tone, audience, goals. The more context, the better.', '2 minutes')
+    + pCard('03', 'Your team delivers', 'Maya pulls trends. Jordan drafts a plan. Real outputs.', '1 minute')
+    + pCard('04', 'Approve and repeat', 'Action buttons. Approve triggers the next step. Every decision trains your team.', 'Daily habit')
     + '</div>'
     + '</section>'
 
-    // ─── PROCESS (matches home page how-grid layout) ─────────────
-    + '<section id="vx-wl-process" style="padding:clamp(60px,8vw,100px) 20px;border-top:1px solid rgba(0,0,0,.06);scroll-margin-top:80px">'
-    + '<div style="max-width:960px;margin:0 auto">'
-    + '<div style="margin-bottom:clamp(48px,6vw,80px);text-align:center">'
-    + '<span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#b0b0b0;display:block;margin-bottom:20px;font-weight:500">Process</span>'
-    + '<h2 style="font-family:Cormorant Garamond,Georgia,serif;font-size:clamp(38px,5vw,68px);font-weight:300;font-style:italic;color:#1a1a1a;margin:0 0 16px;letter-spacing:-.02em;line-height:1.08">From sign-up to first output <em style="color:#b0b0b0;font-weight:300">in five minutes.</em></h2>'
-    + '<p style="font-size:15px;color:#888;line-height:1.7;max-width:540px;margin:0 auto">No learning curve. No complex setup. Tell Sovexa what you create — your team is ready to work.</p>'
-    + '</div>'
-
-    // 4-column grid
-    + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden">'
-
-    + '<div style="background:#faf9f7;padding:44px 36px">'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">01</div>'
-    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Set your niche</h3>'
-    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Choose your content category and optionally a sub-niche. Your team specializes instantly.</p>'
-    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">2 minutes</span>'
-    + '</div>'
-
-    + '<div style="background:#faf9f7;padding:44px 36px">'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">02</div>'
-    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Define your brand</h3>'
-    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Select your tone, describe your audience, and share your goals. The more context, the better your team sounds.</p>'
-    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">2 minutes</span>'
-    + '</div>'
-
-    + '<div style="background:#faf9f7;padding:44px 36px">'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">03</div>'
-    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Your team delivers</h3>'
-    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Maya pulls trends immediately. Jordan drafts your first plan. Real structured outputs — not a blank dashboard.</p>'
-    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">1 minute</span>'
-    + '</div>'
-
-    + '<div style="background:#faf9f7;padding:44px 36px">'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:rgba(0,0,0,.06);line-height:1;margin-bottom:20px">04</div>'
-    + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:#1a1a1a">Approve and repeat</h3>'
-    + '<p style="font-size:13px;color:#888;line-height:1.72;margin:0 0 14px">Review outputs with action buttons. Approve triggers the next step automatically. Every decision trains your team.</p>'
-    + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b0b0b0;border:1px solid rgba(0,0,0,.06);border-radius:8px;padding:3px 12px">Daily habit</span>'
-    + '</div>'
-
-    + '</div>'
-    + '</div>'
-    + '</section>'
-
-    // ─── FOOTER ──────────────────────────────────────────────────
-    + '<footer style="padding:64px 40px 32px;border-top:1px solid rgba(0,0,0,.06);background:#0a0a0a;color:#edede9">'
-    + '<div style="max-width:900px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr;gap:48px;margin-bottom:40px">'
-
-    // Brand column
-    + '<div>'
-    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:300;font-style:italic;margin-bottom:10px;color:#edede9">Sovexa</div>'
-    + '<p style="font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
-    + '<p style="font-size:12px;color:rgba(255,255,255,.25);line-height:1.6;margin:0;max-width:340px">Four AI specialists — analyst, strategist, copywriter, creative director — that plan, write, and produce content for your brand.</p>'
-    + '</div>'
-
-    // Company column
-    + '<div style="display:flex;flex-direction:column;gap:10px">'
-    + '<div style="font-family:Syne,sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px">Company</div>'
-    + '<a href="#" id="vx-wl-contact-footer" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Contact</a>'
-    + '<a href="#" id="vx-wl-terms" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Terms</a>'
-    + '<a href="#" id="vx-wl-privacy" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Privacy</a>'
-    + '<a href="#" id="vx-wl-security" style="font-size:13px;color:rgba(255,255,255,.45);text-decoration:none">Security</a>'
-    + '</div>'
-
-    + '</div>'
-
-    // Bottom bar
-    + '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding-top:20px;font-size:11px;color:rgba(255,255,255,.2)">'
-    + '<span>&copy; ' + new Date().getFullYear() + ' Sovexa. Built for content businesses.</span>'
-    + '<span style="font-style:italic">v1.0 &middot; made for creators</span>'
-    + '</div>'
+    // ─── FOOTER ─────────────────────────────────────────────────
+    + '<footer style="padding:64px 48px 32px;border-top:1px solid var(--b1)">'
+    + '<table style="width:100%;border-collapse:collapse"><tr>'
+    + '<td style="vertical-align:top;padding:0 0 40px 0">'
+    + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;font-style:italic;margin-bottom:10px;color:var(--t1)">Sovexa</div>'
+    + '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--t3);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
+    + '<p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t3);line-height:1.6;margin:0">Four AI employees that plan, write, edit, and produce content for your brand.</p>'
+    + '</td>'
+    + '<td style="vertical-align:top;text-align:right;padding:0 0 40px 0;white-space:nowrap">'
+    + '<div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Company</div>'
+    + '<a href="#" id="vx-wl-contact-footer" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Contact</a>'
+    + '<a href="#" id="vx-wl-terms" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Terms</a>'
+    + '<a href="#" id="vx-wl-privacy" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none;margin-bottom:8px">Privacy</a>'
+    + '<a href="#" id="vx-wl-security" style="display:block;font-family:Inter,sans-serif;font-size:13px;color:var(--t2);text-decoration:none">Security</a>'
+    + '</td></tr></table>'
+    + '<table style="width:100%;border-collapse:collapse;border-top:1px solid var(--b1)"><tr>'
+    + '<td style="padding:20px 0 0;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--t3);letter-spacing:.04em">\u00A9 ' + new Date().getFullYear() + ' Sovexa</td>'
+    + '<td style="padding:20px 0 0;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--t3);letter-spacing:.04em;text-align:right">Built for creators</td>'
+    + '</tr></table>'
     + '</footer>'
+
+  // ── Helper functions for HTML generation ──
+
+  function agentRow(key, init, name, tasks) {
+    return '<div class="agent" data-k="' + key + '">'
+      + '<div class="av">' + init + '</div>'
+      + '<div class="mid"><div class="nm">' + name + '</div><div class="task" data-tasks=\'' + JSON.stringify(tasks) + '\'>' + tasks[0] + '</div></div>'
+      + '<div class="rt"><span class="sdot"></span><span>IDLE</span></div>'
+      + '<div class="bar"></div>'
+      + '</div>'
+  }
+
+  function tCard(init, name, role, quote, skills, delay) {
+    return '<div class="t-card reveal ' + delay + '">'
+      + '<div class="av">' + init + '</div>'
+      + '<div class="nm"><em>' + name + '</em></div>'
+      + '<div class="rl">' + role + '</div>'
+      + '<div class="bio">' + quote + '</div>'
+      + '<div class="skills">' + skills.map(function(s) { return '<span>' + s + '</span>' }).join('') + '</div>'
+      + '</div>'
+  }
+
+  function pCard(num, title, desc, time) {
+    return '<div class="reveal" style="background:var(--bg);padding:44px 36px">'
+      + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:72px;font-weight:300;color:var(--b2);line-height:1;margin-bottom:20px">' + num + '</div>'
+      + '<h3 style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;letter-spacing:.02em;margin:0 0 10px;color:var(--t1)">' + title + '</h3>'
+      + '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--t2);line-height:1.72;margin:0 0 14px">' + desc + '</p>'
+      + '<span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);border:1px solid var(--b1);border-radius:8px;padding:3px 12px">' + time + '</span>'
+      + '</div>'
+  }
 
   document.body.appendChild(overlay)
 
-  // Fetch count immediately
-  fetchCount()
-
-  function fetchCount() {
-    fetch('/api/waitlist/count').then(function (r) { return r.json() }).then(function (d) {
-      if (d.count > 0) {
-        document.getElementById('vx-wl-count').textContent = d.count + (d.count === 1 ? ' person' : ' people') + ' on the list'
-      }
-    }).catch(function () {})
+  // ── Stars ──
+  var starHost = document.getElementById('wl-stars')
+  if (starHost) {
+    for (var i = 0; i < 20; i++) {
+      var s = document.createElement('span')
+      s.style.left = Math.random() * 100 + '%'
+      s.style.top = Math.random() * 100 + '%'
+      s.style.animationDelay = (Math.random() * 4).toFixed(1) + 's'
+      starHost.appendChild(s)
+    }
   }
 
-  // Handle form submit
-  document.getElementById('vx-wl-form').addEventListener('submit', function (e) {
-    e.preventDefault()
-    var btn = document.getElementById('vx-wl-btn')
-    var email = document.getElementById('vx-wl-email').value.trim()
-    var name = document.getElementById('vx-wl-name').value.trim()
-    if (!email) return
-
-    btn.textContent = 'Joining...'
-    btn.disabled = true
-
-    fetch('/api/waitlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, name: name || undefined }),
-    })
-      .then(function (r) { return r.json() })
-      .then(function (d) {
-        if (d.ok) {
-          document.getElementById('vx-wl-form').style.display = 'none'
-          document.getElementById('vx-wl-success').style.display = 'block'
-          document.getElementById('vx-wl-count').style.display = 'none'
-        } else {
-          btn.textContent = 'Join the waitlist'
-          btn.disabled = false
-        }
-      })
-      .catch(function () {
-        btn.textContent = 'Join the waitlist'
-        btn.disabled = false
-      })
+  // ── Pipeline animation (cascade like home page) ──
+  var agents = overlay.querySelectorAll('.agent')
+  var connectors = overlay.querySelectorAll('.agent-connector')
+  agents.forEach(function(a, i) {
+    setTimeout(function() {
+      a.classList.add('active')
+      var rt = a.querySelector('.rt span:last-child')
+      if (rt) rt.textContent = 'WORKING'
+      if (i > 0 && connectors[i - 1]) connectors[i - 1].classList.add('handoff')
+    }, i * 1400)
+  })
+  agents.forEach(function(a, i) {
+    var taskEl = a.querySelector('.task')
+    if (!taskEl || !taskEl.dataset.tasks) return
+    var tasks = JSON.parse(taskEl.dataset.tasks)
+    var ti = 0
+    setTimeout(function() {
+      setInterval(function() {
+        ti = (ti + 1) % tasks.length
+        taskEl.style.opacity = 0
+        setTimeout(function() { taskEl.innerHTML = tasks[ti]; taskEl.style.opacity = 1 }, 200)
+      }, 2800 + i * 500)
+    }, 1500 + i * 1400)
   })
 
-  // Topbar scroll island morph (matches home page)
-  var wlTopbar = document.getElementById('vx-wl-topbar')
-  var wlCurrentP = 0
-  var ISLAND_START = 4
-  var ISLAND_RANGE = 260
+  // ── Ticker micro-updates ──
+  var tkP = document.getElementById('wl-tk-posts')
+  var tkR = document.getElementById('wl-tk-reach')
+  var tkH = document.getElementById('wl-tk-hrs')
+  if (tkP && tkR && tkH) {
+    var p = 21, r = 1.8, h = 28.4
+    setInterval(function() {
+      if (Math.random() > 0.6) { p++; tkP.innerHTML = '<em>' + p + '</em> posts' }
+      if (Math.random() > 0.4) { r = +(r + Math.random() * 0.03).toFixed(2); tkR.innerHTML = '<em>' + r + '</em>M' }
+      if (Math.random() > 0.5) { h = +(h + 0.1).toFixed(1); tkH.innerHTML = '<em>' + h + '</em>h saved' }
+    }, 2200)
+  }
 
-  overlay.addEventListener('scroll', function () {
-    var y = overlay.scrollTop
-    var targetP = Math.max(0, Math.min(1, (y - ISLAND_START) / ISLAND_RANGE))
-    wlCurrentP += (targetP - wlCurrentP) * 0.14
-    if (Math.abs(targetP - wlCurrentP) < 0.002) wlCurrentP = targetP
+  // ── Reveal animations on scroll ──
+  var reveals = overlay.querySelectorAll('.reveal')
+  if (reveals.length) {
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) }
+      })
+    }, { threshold: 0.1, rootMargin: '0px 0px -5% 0px', root: overlay })
+    reveals.forEach(function(el) { io.observe(el) })
+  }
 
-    var p = wlCurrentP
-    var maxW = Math.min(1040, overlay.clientWidth - 40)
-    wlTopbar.style.width = 'calc(100% - ' + (p * (overlay.clientWidth - maxW)) + 'px)'
-    wlTopbar.style.marginLeft = (p * (overlay.clientWidth - maxW) / 2) + 'px'
-    wlTopbar.style.borderRadius = (p * 100) + 'px'
-    wlTopbar.style.top = (p * 12) + 'px'
-    wlTopbar.style.padding = (18 - 8 * p) + 'px ' + (48 - 20 * p) + 'px'
-    wlTopbar.style.boxShadow = p > 0.01
-      ? '0 ' + (p * 18) + 'px ' + (p * 52) + 'px rgba(0,0,0,.04), 0 0 0 ' + (p * 1) + 'px rgba(0,0,0,.04)'
-      : 'none'
-    wlTopbar.style.borderBottomColor = 'rgba(0,0,0,' + (0.04 + p * 0.02) + ')'
+  // ── Waitlist count ──
+  fetch('/api/waitlist/count').then(function(r) { return r.json() }).then(function(d) {
+    var el = document.getElementById('vx-wl-count')
+    if (d.count > 0 && el) el.innerHTML = '<em>' + d.count + '</em> creators on the list'
+  }).catch(function() {})
 
-    if (Math.abs(targetP - wlCurrentP) > 0.003) {
-      requestAnimationFrame(function () { overlay.dispatchEvent(new Event('scroll')) })
-    }
-  }, { passive: true })
+  // ── Form submit — create account + join waitlist ──
+  document.getElementById('vx-wl-form').addEventListener('submit', function(e) {
+    e.preventDefault()
+    var btn = document.getElementById('vx-wl-btn')
+    var errEl = document.getElementById('vx-wl-error')
+    var email = document.getElementById('vx-wl-email').value.trim()
+    var name = document.getElementById('vx-wl-name').value.trim()
+    var username = document.getElementById('vx-wl-username').value.trim()
+    var password = document.getElementById('vx-wl-password').value
+    errEl.textContent = ''
 
-  // Smooth scroll for nav links
-  overlay.querySelectorAll('a[href^="#vx-wl-"]').forEach(function (a) {
-    a.addEventListener('click', function (e) {
+    if (!email || !username || !password || !name) { errEl.textContent = 'All fields are required.'; return }
+    if (name.length > 120) { errEl.textContent = 'Name is too long.'; return }
+    if (username.length < 3) { errEl.textContent = 'Username must be at least 3 characters.'; return }
+    if (username.length > 30) { errEl.textContent = 'Username must be under 30 characters.'; return }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) { errEl.textContent = 'Username can only contain letters, numbers, and underscores.'; return }
+    if (password.length < 8) { errEl.textContent = 'Password must be at least 8 characters.'; return }
+    if (!/[A-Z]/.test(password)) { errEl.textContent = 'Password must contain at least one uppercase letter.'; return }
+    if (!/[0-9]/.test(password)) { errEl.textContent = 'Password must contain at least one number.'; return }
+
+    btn.textContent = 'Creating account...'
+    btn.disabled = true
+
+    fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, username: username, password: password, fullName: name })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d } }) })
+    .then(function(res) {
+      if (!res.ok) {
+        var msg = res.data.error || 'Account creation failed'
+        if (msg === 'email_taken') msg = res.data.message || 'An account with this email already exists.'
+        if (msg === 'username_taken') msg = res.data.message || 'This username is already taken.'
+        if (msg === 'email_or_username_in_use') msg = 'An account with this email or username already exists.'
+        if (msg === 'invalid_input') {
+          var issues = res.data.issues
+          msg = (issues && issues.length > 0) ? issues[0].message : 'Please check all fields and try again.'
+        }
+        errEl.textContent = msg
+        btn.textContent = 'Create account \u2192'
+        btn.disabled = false
+        return
+      }
+      fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, name: name }) }).catch(function() {})
+      document.getElementById('vx-wl-form').style.display = 'none'
+      document.getElementById('vx-wl-success').style.display = 'block'
+      var countEl = document.getElementById('vx-wl-count')
+      if (countEl) countEl.style.display = 'none'
+    })
+    .catch(function() {
+      errEl.textContent = 'Something went wrong. Please try again.'
+      btn.textContent = 'Create account \u2192'
+      btn.disabled = false
+    })
+  })
+
+  // ── Focus styling ──
+  overlay.querySelectorAll('input').forEach(function(inp) {
+    inp.addEventListener('focus', function() { inp.style.borderColor = 'var(--accent)' })
+    inp.addEventListener('blur', function() { inp.style.borderColor = 'var(--b2)' })
+  })
+
+  // ── Smooth scroll for nav links ──
+  overlay.querySelectorAll('a[href^="#vx-wl-"]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
       e.preventDefault()
       var target = document.querySelector(a.getAttribute('href'))
       if (target) target.scrollIntoView({ behavior: 'smooth' })
     })
   })
 
-  // Focus styling
-  var inputs = overlay.querySelectorAll('input')
-  inputs.forEach(function (inp) {
-    inp.addEventListener('focus', function () { inp.style.borderColor = '#d4a574' })
-    inp.addEventListener('blur', function () { inp.style.borderColor = 'rgba(0,0,0,.1)' })
-  })
-
-  // Legal modals
+  // ── Legal modals ──
   var legalContent = {
-    terms: {
-      title: 'Terms of Service',
-      body: '<p><strong>Last updated:</strong> April 19, 2026</p>'
-        + '<p>By using Sovexa ("the Service"), you agree to these terms. Sovexa is operated by Sovexa Inc.</p>'
-        + '<h4>1. Account</h4><p>You must provide accurate information when creating an account. You are responsible for all activity under your account. You must be 18 or older to use Sovexa.</p>'
-        + '<h4>2. The Service</h4><p>Sovexa provides AI-powered content planning, writing, and strategy tools ("AI Employees"). Outputs are generated by artificial intelligence and should be reviewed before publishing. You retain full ownership of all content you create using the Service.</p>'
-        + '<h4>3. Acceptable Use</h4><p>You may not use Sovexa to generate content that is illegal, harmful, misleading, or infringes on others\' rights. We reserve the right to suspend accounts that violate this policy.</p>'
-        + '<h4>4. Subscriptions &amp; Billing</h4><p>Paid plans are billed monthly or annually. You may cancel anytime — access continues until the end of your billing period. Refunds are handled on a case-by-case basis within 7 days of purchase.</p>'
-        + '<h4>5. Data &amp; Content</h4><p>You own your content. We do not claim rights to anything you create. We may use anonymized, aggregated data to improve the Service. We do not sell your personal data.</p>'
-        + '<h4>6. Limitation of Liability</h4><p>Sovexa is provided "as is." We are not liable for content decisions made based on AI outputs, lost revenue, or service interruptions. Our liability is limited to the amount you paid in the last 12 months.</p>'
-        + '<h4>7. Changes</h4><p>We may update these terms. Continued use after changes constitutes acceptance. Material changes will be communicated via email.</p>'
-        + '<p>Questions? Contact us at <a href="mailto:hello@sovexa.ai" style="color:#d4a574">hello@sovexa.ai</a></p>'
-    },
-    privacy: {
-      title: 'Privacy Policy',
-      body: '<p><strong>Last updated:</strong> April 19, 2026</p>'
-        + '<p>Your privacy matters. This policy explains what we collect, why, and how we protect it.</p>'
-        + '<h4>What We Collect</h4>'
-        + '<ul style="padding-left:20px;margin:8px 0">'
-        + '<li><strong>Account data:</strong> Email, name, password (hashed, never stored in plain text)</li>'
-        + '<li><strong>Brand data:</strong> Company name, niche, brand voice, audience, goals — used to personalize your AI team</li>'
-        + '<li><strong>Platform data:</strong> Social media metrics you connect (followers, posts, engagement) — used for AI analysis only</li>'
-        + '<li><strong>Usage data:</strong> How you interact with outputs (approvals, rejections) — used to train your AI team\'s memory</li>'
-        + '</ul>'
-        + '<h4>What We Never Do</h4>'
-        + '<ul style="padding-left:20px;margin:8px 0">'
-        + '<li>Sell your data to third parties</li>'
-        + '<li>Share your content with other users</li>'
-        + '<li>Store your social media passwords (OAuth tokens only)</li>'
-        + '<li>Use your content to train models for other customers</li>'
-        + '</ul>'
-        + '<h4>Third-Party Services</h4><p>We use AWS (hosting, AI), Stripe (payments), and Resend (email). Each has their own privacy policy. We share only what\'s necessary for each service to function.</p>'
-        + '<h4>Data Retention</h4><p>Your data is retained while your account is active. You may request deletion at any time by emailing <a href="mailto:hello@sovexa.ai" style="color:#d4a574">hello@sovexa.ai</a>. We will delete your data within 30 days.</p>'
-        + '<h4>Cookies</h4><p>We use a single session cookie (vx_session) for authentication. No tracking cookies, no analytics cookies, no third-party ad cookies.</p>'
-        + '<p>Questions? <a href="mailto:hello@sovexa.ai" style="color:#d4a574">hello@sovexa.ai</a></p>'
-    },
-    security: {
-      title: 'Security',
-      body: '<p><strong>Last updated:</strong> April 19, 2026</p>'
-        + '<p>We take security seriously. Here\'s how we protect your data.</p>'
-        + '<h4>Infrastructure</h4>'
-        + '<ul style="padding-left:20px;margin:8px 0">'
-        + '<li><strong>Hosting:</strong> AWS (us-east-1) — SOC 2, ISO 27001 certified infrastructure</li>'
-        + '<li><strong>Database:</strong> AWS RDS PostgreSQL — encrypted at rest (AES-256), automated backups</li>'
-        + '<li><strong>Storage:</strong> AWS S3 — server-side encryption, no public access</li>'
-        + '</ul>'
-        + '<h4>Application Security</h4>'
-        + '<ul style="padding-left:20px;margin:8px 0">'
-        + '<li><strong>Encryption:</strong> All data in transit uses TLS 1.2+</li>'
-        + '<li><strong>Authentication:</strong> JWT sessions with httpOnly cookies, bcrypt-hashed passwords</li>'
-        + '<li><strong>Rate limiting:</strong> Per-user rate limits on all API endpoints</li>'
-        + '<li><strong>Input validation:</strong> Zod schema validation on all user inputs</li>'
-        + '</ul>'
-        + '<h4>Social Account Security</h4><p>When you connect Instagram or TikTok, we use OAuth — we never see or store your social media password. Tokens are stored encrypted and can be revoked by you at any time.</p>'
-        + '<h4>Payment Security</h4><p>All payments are processed by Stripe. We never see or store your card number. Stripe is PCI DSS Level 1 certified.</p>'
-        + '<h4>Reporting Vulnerabilities</h4><p>If you discover a security issue, please report it to <a href="mailto:security@sovexa.ai" style="color:#d4a574">security@sovexa.ai</a>. We take all reports seriously and will respond within 48 hours.</p>'
-    },
+    terms: { title: 'Terms of Service', body: '<p><strong>Last updated:</strong> April 2026</p><p>By using Sovexa you agree to these terms. You must be 18+. You retain full ownership of all content you create. We do not sell your data. Paid plans are billed monthly \u2014 cancel anytime. AI outputs should be reviewed before publishing.</p><p>Questions? <a href="mailto:hello@sovexa.ai" style="color:var(--accent)">hello@sovexa.ai</a></p>' },
+    privacy: { title: 'Privacy Policy', body: '<p><strong>Last updated:</strong> April 2026</p><p>We collect: account data, brand data, platform data (via OAuth), and usage data. We never sell data, share content, store social passwords, or train models on your content. One session cookie for auth \u2014 no tracking.</p><p><a href="mailto:hello@sovexa.ai" style="color:var(--accent)">hello@sovexa.ai</a></p>' },
+    security: { title: 'Security', body: '<p><strong>Last updated:</strong> April 2026</p><p>AWS infrastructure (SOC 2, ISO 27001). RDS PostgreSQL encrypted at rest. TLS 1.2+ in transit. JWT + httpOnly cookies + bcrypt passwords. Rate limiting. OAuth for social accounts. Payments via Stripe (PCI DSS Level 1).</p><p>Report vulnerabilities: <a href="mailto:security@sovexa.ai" style="color:var(--accent)">security@sovexa.ai</a></p>' },
   }
 
   function openLegal(kind) {
@@ -347,83 +338,54 @@
     if (existing) existing.remove()
     var info = legalContent[kind]
     if (!info) return
-    var modal = document.createElement('div')
-    modal.id = 'vx-wl-legal'
-    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
-    modal.innerHTML = '<div style="width:100%;max-width:560px;max-height:80vh;overflow-y:auto;background:#fff;border-radius:14px;padding:32px;color:#1a1a1a;font-family:DM Sans,sans-serif">'
-      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:26px;font-weight:400;margin:0 0 20px">' + info.title + '</h3>'
-      + '<div style="color:#555;font-size:13px;line-height:1.7;margin:0 0 24px">' + info.body + '</div>'
-      + '<div style="text-align:right;border-top:1px solid rgba(0,0,0,.06);padding-top:16px"><button id="vx-wl-legal-close" style="background:#1a1a1a;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600">Close</button></div>'
+    var m = document.createElement('div')
+    m.id = 'vx-wl-legal'
+    m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:24px'
+    m.innerHTML = '<div style="width:100%;max-width:520px;max-height:80vh;overflow-y:auto;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:32px;color:var(--t1);font-family:Inter,sans-serif">'
+      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;margin:0 0 20px">' + info.title + '</h3>'
+      + '<div style="color:var(--t2);font-size:13px;line-height:1.7;margin:0 0 24px">' + info.body + '</div>'
+      + '<div style="text-align:right;border-top:1px solid var(--b1);padding-top:16px"><button id="vx-wl-legal-close" class="btn-primary" style="padding:10px 20px;font-size:12px">Close</button></div>'
       + '</div>'
-    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove() })
-    document.body.appendChild(modal)
-    document.getElementById('vx-wl-legal-close').addEventListener('click', function () { modal.remove() })
+    m.addEventListener('click', function(e) { if (e.target === m) m.remove() })
+    document.body.appendChild(m)
+    document.getElementById('vx-wl-legal-close').addEventListener('click', function() { m.remove() })
   }
 
-  document.getElementById('vx-wl-terms').addEventListener('click', function (e) { e.preventDefault(); openLegal('terms') })
-  document.getElementById('vx-wl-privacy').addEventListener('click', function (e) { e.preventDefault(); openLegal('privacy') })
-  document.getElementById('vx-wl-security').addEventListener('click', function (e) { e.preventDefault(); openLegal('security') })
+  document.getElementById('vx-wl-terms').addEventListener('click', function(e) { e.preventDefault(); openLegal('terms') })
+  document.getElementById('vx-wl-privacy').addEventListener('click', function(e) { e.preventDefault(); openLegal('privacy') })
+  document.getElementById('vx-wl-security').addEventListener('click', function(e) { e.preventDefault(); openLegal('security') })
 
   // Contact modal
   function openContact() {
     var existing = document.getElementById('vx-wl-contact')
     if (existing) existing.remove()
-    var modal = document.createElement('div')
-    modal.id = 'vx-wl-contact'
-    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:24px'
-    modal.innerHTML = '<div style="width:100%;max-width:480px;background:#fff;border-radius:14px;padding:32px;color:#1a1a1a;font-family:DM Sans,sans-serif">'
-      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:26px;font-weight:400;margin:0 0 6px">Get in touch.</h3>'
-      + '<p style="font-size:13px;color:#888;margin:0 0 24px">We reply within one business day.</p>'
-      + '<form id="vx-wl-contact-form" style="display:flex;flex-direction:column;gap:14px">'
-      + '<input name="name" type="text" placeholder="Your name" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none" />'
-      + '<input name="email" type="email" placeholder="Your email" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none" />'
-      + '<select name="reason" style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none">'
-      + '<option value="sales">Sales — interested in a plan</option>'
-      + '<option value="support">Support — question or issue</option>'
-      + '<option value="partnership">Partnership or press</option>'
-      + '<option value="other">Something else</option>'
-      + '</select>'
-      + '<textarea name="message" rows="4" placeholder="Your message" required style="padding:12px 16px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:#faf9f7;font:14px DM Sans,sans-serif;color:#1a1a1a;outline:none;resize:vertical"></textarea>'
-      + '<div style="display:flex;gap:12px;align-items:center">'
-      + '<button type="submit" id="vx-wl-contact-send" style="padding:12px 24px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font:600 13px/1 DM Sans,sans-serif;cursor:pointer">Send message</button>'
-      + '<span id="vx-wl-contact-hint" style="font-size:12px;color:#e87a7a"></span>'
-      + '</div>'
+    var m = document.createElement('div')
+    m.id = 'vx-wl-contact'
+    m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:24px'
+    m.innerHTML = '<div style="width:100%;max-width:480px;background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:32px;color:var(--t1);font-family:Inter,sans-serif">'
+      + '<h3 style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;margin:0 0 6px">Get in touch.</h3>'
+      + '<p style="font-size:13px;color:var(--t2);margin:0 0 24px">We reply within one business day.</p>'
+      + '<form id="vx-wl-contact-form" style="display:flex;flex-direction:column;gap:12px">'
+      + '<input name="name" type="text" placeholder="Your name" required style="padding:12px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);font:14px Inter,sans-serif;color:var(--t1);outline:none" />'
+      + '<input name="email" type="email" placeholder="Your email" required style="padding:12px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);font:14px Inter,sans-serif;color:var(--t1);outline:none" />'
+      + '<textarea name="message" rows="4" placeholder="Your message" required style="padding:12px 16px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);font:14px Inter,sans-serif;color:var(--t1);outline:none;resize:vertical"></textarea>'
+      + '<button type="submit" class="btn-primary" style="padding:12px 24px">Send message</button>'
       + '</form>'
       + '<div id="vx-wl-contact-done" style="display:none;text-align:center;padding:20px 0">'
-      + '<div style="width:48px;height:48px;border-radius:50%;background:rgba(52,210,122,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="22" height="22" fill="none" stroke="#34d27a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'
-      + '<h4 style="font-family:Cormorant Garamond,Georgia,serif;font-size:22px;font-weight:400;font-style:italic;margin:0 0 8px">Got it — talk soon.</h4>'
-      + '<p style="font-size:13px;color:#888;margin:0">We\'ll reply to the email you entered within one business day.</p>'
-      + '</div>'
-      + '</div>'
-    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove() })
-    document.body.appendChild(modal)
-
-    document.getElementById('vx-wl-contact-form').addEventListener('submit', function (e) {
+      + '<h4 style="font-family:Cormorant Garamond,Georgia,serif;font-size:22px;font-weight:400;font-style:italic;margin:0 0 8px">Got it \u2014 talk soon.</h4>'
+      + '<p style="font-size:13px;color:var(--t2);margin:0">We\'ll reply within one business day.</p>'
+      + '</div></div>'
+    m.addEventListener('click', function(e) { if (e.target === m) m.remove() })
+    document.body.appendChild(m)
+    document.getElementById('vx-wl-contact-form').addEventListener('submit', function(e) {
       e.preventDefault()
-      var form = e.target
-      var btn = document.getElementById('vx-wl-contact-send')
-      var name = form.name.value.trim()
-      var email = form.email.value.trim()
-      var message = form.message.value.trim()
-      var reason = form.reason.value
-      if (!name || !email || !message) {
-        document.getElementById('vx-wl-contact-hint').textContent = 'All fields required.'
-        return
-      }
-      btn.textContent = 'Sending...'
-      btn.disabled = true
-      fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, email: email, reason: reason, message: message }),
-      }).catch(function () {})
-      .finally(function () {
-        document.getElementById('vx-wl-contact-form').style.display = 'none'
-        document.getElementById('vx-wl-contact-done').style.display = 'block'
-      })
+      var f = e.target
+      fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name.value, email: f.email.value, message: f.message.value }) }).catch(function() {})
+      document.getElementById('vx-wl-contact-form').style.display = 'none'
+      document.getElementById('vx-wl-contact-done').style.display = 'block'
     })
   }
 
-  document.getElementById('vx-wl-contact-link').addEventListener('click', function (e) { e.preventDefault(); openContact() })
-  document.getElementById('vx-wl-contact-footer').addEventListener('click', function (e) { e.preventDefault(); openContact() })
+  document.getElementById('vx-wl-contact-link').addEventListener('click', function(e) { e.preventDefault(); openContact() })
+  document.getElementById('vx-wl-contact-footer').addEventListener('click', function(e) { e.preventDefault(); openContact() })
 })()

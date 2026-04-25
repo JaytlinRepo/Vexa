@@ -9,10 +9,17 @@ import prisma from '../lib/prisma'
 const router = Router()
 
 const signupSchema = z.object({
-  email: z.string().email(),
-  username: z.string().min(2).max(40),
-  password: z.string().min(8).max(200),
-  fullName: z.string().max(120).optional(),
+  email: z.string().email('Enter a valid email address'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be under 30 characters')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(200)
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  fullName: z.string().min(1, 'Name is required').max(120).optional(),
 })
 
 const loginSchema = z.object({
@@ -23,11 +30,15 @@ const loginSchema = z.object({
 router.post('/signup', async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body)
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ email: data.email }, { username: data.username }] },
-    })
-    if (existing) {
-      res.status(409).json({ error: 'email_or_username_in_use' })
+    // Check email and username separately for specific error messages
+    const existingEmail = await prisma.user.findFirst({ where: { email: data.email } })
+    if (existingEmail) {
+      res.status(409).json({ error: 'email_taken', message: 'An account with this email already exists.' })
+      return
+    }
+    const existingUsername = await prisma.user.findFirst({ where: { username: data.username } })
+    if (existingUsername) {
+      res.status(409).json({ error: 'username_taken', message: 'This username is already taken.' })
       return
     }
     const passwordHash = await bcrypt.hash(data.password, 10)
@@ -120,6 +131,10 @@ router.post('/change-password', async (req, res, next) => {
   }
 })
 
+// ─── /me cache: avoid redundant DB queries on rapid page loads ───────────────
+const meCache = new Map<string, { data: unknown; ts: number }>()
+const ME_CACHE_TTL = 30_000 // 30 seconds
+
 router.get('/me', async (req, res, next) => {
   try {
     const session = await readSession(req)
@@ -127,6 +142,14 @@ router.get('/me', async (req, res, next) => {
       res.status(401).json({ error: 'unauthorized' })
       return
     }
+
+    // Check cache
+    const cached = meCache.get(session.userId)
+    if (cached && Date.now() - cached.ts < ME_CACHE_TTL) {
+      res.json(cached.data)
+      return
+    }
+
     // Auto-transition expired trials to active before reading the user row.
     await rolloverTrialIfDue(prisma, session.userId)
     const user = await prisma.user.findUnique({
@@ -145,7 +168,7 @@ router.get('/me', async (req, res, next) => {
       res.status(401).json({ error: 'unauthorized' })
       return
     }
-    res.json({
+    const result = {
       user: {
         id: user.id,
         email: user.email,
@@ -156,7 +179,9 @@ router.get('/me', async (req, res, next) => {
         trialEndsAt: user.trialEndsAt,
       },
       companies: user.companies,
-    })
+    }
+    meCache.set(session.userId, { data: result, ts: Date.now() })
+    res.json(result)
   } catch (err) {
     next(err)
   }
