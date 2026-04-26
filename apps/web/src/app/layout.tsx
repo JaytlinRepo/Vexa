@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import SovexaThemeBridge from './SovexaThemeBridge'
 import './globals.css'
+// Mobile-only stylesheet — every selector inside is prefixed
+// `html[data-vx-device="mobile"]` so it physically cannot match on desktop.
+// Safe to extend without auditing other CSS files.
+import './mobile.css'
 
 export const metadata: Metadata = {
   title: 'Sovexa — Your AI Content Team',
@@ -30,6 +34,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           html:not([data-vx-ready]) #topbar { visibility: hidden !important; }
           html:not([data-vx-ready]) #onboarding { visibility: hidden !important; }
         `}} />
+        {/* ── Device class: html[data-vx-device="mobile"|"desktop"] ─────
+             Single source of truth for "is this a mobile or desktop UI".
+             Set synchronously in beforeInteractive (no FOUC). matchMedia
+             listener keeps it in sync with resize / DevTools responsive
+             mode. Used by mobile.css (every selector is prefixed with
+             html[data-vx-device="mobile"]) and by .vx-mobile-only /
+             .vx-desktop-only utility classes. Threshold: 820px to match
+             the existing layout breakpoints.                              */}
+        <Script id="vx-device-class" strategy="beforeInteractive">{`
+          try{
+            var mql=window.matchMedia('(max-width: 820px)');
+            var apply=function(){
+              document.documentElement.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop';
+            };
+            apply();
+            if(mql.addEventListener)mql.addEventListener('change',apply);
+            else if(mql.addListener)mql.addListener(apply);
+          }catch(_e){}
+        `}</Script>
         {/* beforeInteractive must live in root layout — not in page-level PrototypeShell */}
         <Script src="/theme-dark-default.js" strategy="beforeInteractive" />
         <Script id="vx-session-gate" strategy="beforeInteractive">{`

@@ -1,0 +1,46 @@
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE-ONLY STYLESHEET
+   ──────────────────────────────────────────────────────────────────────
+   This file is the ONE place to put styles that should only affect the
+   mobile browser UI. Every rule below is prefixed with
+       html[data-vx-device="mobile"]
+   which means it CANNOT match on desktop — even if the @media wrapper is
+   forgotten or the breakpoint is wrong, desktop is physically protected.
+
+   How `data-vx-device` is set:
+     • Inline script in layout.tsx (beforeInteractive — runs before any
+       render, no flash) reads matchMedia('(max-width: 820px)') and sets
+       html[data-vx-device="mobile"] or "desktop".
+     • A matchMedia listener flips the attribute on resize so DevTools
+       responsive mode + window-drag both work without a reload.
+
+   ── Rules for editing this file ───────────────────────────────────────
+   1. Every selector MUST start with  html[data-vx-device="mobile"]
+      so the protection actually applies. A grep test:
+        grep -E "^[^/* ]" mobile.css | grep -v 'html\[data-vx-device="mobile"\]'
+      should return nothing (other than @keyframes / @media wrappers).
+   2. Don't add desktop overrides here. Put those in the relevant shared
+      file (prototype.css, vexa-shared.css, etc.).
+   3. Avoid !important unless you're overriding an inline style. The
+       attribute prefix already gives you 0,0,2,0 specificity which beats
+       most shared rules without escalating.
+   4. Mobile-only ELEMENTS (markup that exists only on phones) should
+      use the `vx-mobile-only` utility class on the markup; CSS-level
+      hiding for desktop is handled below in this file. No @media needed.
+
+   ── Quick reference ───────────────────────────────────────────────────
+     html[data-vx-device="mobile"] .foo  → applies on mobile only
+     html[data-vx-device="desktop"] .foo → applies on desktop only
+     class="vx-mobile-only"              → element shown only on mobile
+     class="vx-desktop-only"             → element shown only on desktop
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Utility classes: show/hide markup based on device class ─────────── */
+.vx-mobile-only,
+.vx-desktop-only{display:none!important}
+html[data-vx-device="mobile"] .vx-mobile-only{display:revert!important}
+html[data-vx-device="desktop"] .vx-desktop-only{display:revert!important}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Add new mobile rules below. Stick to the prefix.
+   ══════════════════════════════════════════════════════════════════════ */
