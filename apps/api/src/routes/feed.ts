@@ -39,7 +39,7 @@ interface FeedItem {
   url: string
   imageUrl: string | null
   createdAt: string
-  type: 'article' | 'research' | 'reddit' | 'trend' | 'video'
+  type: 'article' | 'research' | 'reddit' | 'trend' | 'video' | 'instagram'
   score: number
   mayaTake: string
 }

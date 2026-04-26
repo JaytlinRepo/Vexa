@@ -125,32 +125,37 @@ async function handleScheduledJob(data: ScheduledAgentJobData): Promise<void> {
     }
 
     case 'proactive-cycle': {
+      // triggerKeepAlive iterates all companies internally — calling it once
+      // is correct. Previously the worker also looped over companies, passing
+      // each id as a stray second arg, which would have processed all
+      // companies N×N times if it had compiled.
       const { triggerKeepAlive } = await import('../lib/proactiveAnalysis')
-      const companies = await prisma.company.findMany({ select: { id: true } })
-      for (const { id } of companies) {
-        try { await triggerKeepAlive(prisma, id) } catch {}
-      }
+      try { await triggerKeepAlive(prisma) } catch {}
       break
     }
 
     case 'keep-alive': {
       const { triggerKeepAlive } = await import('../lib/proactiveAnalysis')
-      const companies = await prisma.company.findMany({ select: { id: true } })
-      for (const { id } of companies) {
-        try { await triggerKeepAlive(prisma, id) } catch {}
-      }
+      try { await triggerKeepAlive(prisma) } catch {}
       break
     }
 
     case 'hourly-agent-schedule': {
+      // scheduler.ts already drives the per-agent schedules end-to-end. This
+      // worker case is a stripped-down trigger that fans companies out to the
+      // queue when ANY of their schedule keys is due now. We use the default
+      // 'jordan_plan' key as a representative — full per-key coverage lives
+      // in scheduler.ts.
       const { getScheduleForCompany, shouldRunNow } = await import('../lib/schedulePrefs')
-      const companies = await prisma.company.findMany({ select: { id: true } })
-      for (const { id } of companies) {
+      const companies = await prisma.company.findMany({ select: { id: true, agentTools: true } })
+      const now = new Date()
+      for (const company of companies) {
         try {
-          const schedule = await getScheduleForCompany(prisma, id)
-          if (schedule && shouldRunNow(schedule)) {
+          const tools = (company.agentTools ?? {}) as Record<string, unknown>
+          const schedule = getScheduleForCompany(tools, 'jordan_plan')
+          if (schedule && shouldRunNow(schedule, now)) {
             const { agentQueue } = await import('../queues')
-            await agentQueue.add('scheduled-delivery', { taskId: id, source: 'scheduler' } as AgentTaskJobData)
+            await agentQueue.add('scheduled-delivery', { taskId: company.id, source: 'scheduler' } as AgentTaskJobData)
           }
         } catch {}
       }

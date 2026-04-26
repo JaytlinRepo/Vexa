@@ -612,14 +612,23 @@
 
     var employee = employeesByRole[role]
     if (!companyId || !employee) {
-      // Auth/identity not yet loaded — try to load it once, then bail with
-      // a visible error so the user can retry instead of a silent no-op.
-      if (btn) {
-        btn.disabled = false
-        btn.textContent = 'Team not ready — retry'
-        setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 1800)
-      }
-      loadIdentity()
+      // Identity not loaded yet (network blip or me-fetch failed at init).
+      // Trigger a retry and re-attempt the assign once it lands.
+      if (btn) btn.textContent = 'Loading team…'
+      loadIdentity().then(function () {
+        if (btn) btn.disabled = false
+        var emp2 = employeesByRole[role]
+        if (companyId && emp2) {
+          if (btn) btn.textContent = 'Assign'
+          // Recurse once with the now-populated identity.
+          submitTask(dateStr, role, type, description)
+        } else {
+          if (btn) {
+            btn.textContent = 'Team unavailable — retry'
+            setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 2400)
+          }
+        }
+      })
       return
     }
 
@@ -713,18 +722,36 @@
 
   // ── Identity load (companyId + employees) ──
   // Cached for the page lifetime; re-runs only on explicit retry from submitTask.
+  // identityState: 'idle' before first load, 'loading' during a fetch,
+  // 'ready' once companyId is set, 'error' if the fetch returned no company.
+  var identityState = 'idle'
+  var identityLoadingPromise = null
+
   function loadIdentity() {
-    return get('/api/auth/me').then(function (me) {
+    if (identityLoadingPromise) return identityLoadingPromise
+    identityState = 'loading'
+    identityLoadingPromise = get('/api/auth/me').then(function (me) {
       var company = me && me.companies && me.companies[0]
-      if (!company) return null
+      if (!company) {
+        identityState = 'error'
+        identityLoadingPromise = null
+        return null
+      }
       companyId = company.id
       employeesByRole = {}
       var emps = company.employees || []
       for (var i = 0; i < emps.length; i++) {
         if (emps[i] && emps[i].role) employeesByRole[emps[i].role] = emps[i]
       }
+      identityState = 'ready'
+      identityLoadingPromise = null
       return company
+    }).catch(function () {
+      identityState = 'error'
+      identityLoadingPromise = null
+      return null
     })
+    return identityLoadingPromise
   }
 
   // ── Refresh tasks/thoughts from server (used by event listener + init) ──
@@ -745,7 +772,8 @@
     var container = document.getElementById('team-calendar')
     if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
 
-    // Identity + data in parallel.
+    // Identity + data in parallel. Identity failure isn't fatal for
+    // viewing the calendar — only blocks Assign — so we don't bail here.
     await Promise.all([loadIdentity(), refreshData()])
 
     render()

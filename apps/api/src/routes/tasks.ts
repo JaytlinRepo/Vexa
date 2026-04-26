@@ -54,7 +54,28 @@ const createSchema = z.object({
 })
 
 // Per-user brief cooldown — duration comes from plan limits.
+// NOTE: in-memory only; resets on App Runner restart and does not span
+// instances. Acceptable for now since cooldowns are short (minutes) and
+// we'd rather under-rate-limit on restart than over-rate-limit. Move to
+// Redis or a Postgres RateLimit table if/when we go multi-instance.
 const briefCooldowns = new Map<string, number>()
+// Track each entry's expiry so a periodic sweep can evict stale ones —
+// without this, the map grows unbounded for long-lived processes.
+const briefCooldownExpiry = new Map<string, number>()
+// Lazy sweep: drop entries whose cooldown window has long since passed.
+// Runs at most once a minute regardless of POST volume.
+let lastCooldownSweep = 0
+function evictStaleCooldowns(): void {
+  const now = Date.now()
+  if (now - lastCooldownSweep < 60_000) return
+  lastCooldownSweep = now
+  for (const [key, expiresAt] of briefCooldownExpiry) {
+    if (expiresAt <= now) {
+      briefCooldownExpiry.delete(key)
+      briefCooldowns.delete(key)
+    }
+  }
+}
 
 router.post('/', requireAuth, async (req, res, next) => {
   try {
@@ -80,6 +101,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     const plan = PLAN_LIMITS[user?.plan ?? 'starter']
 
     // Cooldown: plan-based minutes between briefs per agent
+    evictStaleCooldowns()
     const cooldownMs = plan.briefCooldownMin * 60 * 1000
     const cooldownKey = `${userId}:${data.employeeId}`
     const lastBrief = briefCooldowns.get(cooldownKey) || 0
@@ -104,6 +126,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     }
 
     briefCooldowns.set(cooldownKey, Date.now())
+    briefCooldownExpiry.set(cooldownKey, Date.now() + cooldownMs)
 
     try {
       await assertTaskQuota(prisma, userId)
@@ -204,6 +227,11 @@ router.post('/', requireAuth, async (req, res, next) => {
         })
       } catch (err) {
         console.warn('[tasks] background execution failed', err)
+        // Refund the cooldown — the user shouldn't be locked out for an
+        // agent that never actually ran. Both the primary orchestrator
+        // path AND the mock fallback failed to reach this catch.
+        briefCooldowns.delete(cooldownKey)
+        briefCooldownExpiry.delete(cooldownKey)
         try {
           await prisma.output.create({
             data: {

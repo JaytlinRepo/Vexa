@@ -48,6 +48,11 @@ export class VideoProcessingService extends EventEmitter {
    * Main video processing workflow
    */
   async processVideo(uploadId: string, videoUrl: string, userId: string) {
+    // Hoist this so the `finally` block (line ~271) can clean up the temp
+    // file. Previously declared inside the try, which made it out of scope
+    // in finally — fs.unlinkSync threw ReferenceError silently and every
+    // run leaked a multi-MB temp file.
+    const localVideoPath = path.join(os.tmpdir(), `sovexa-source-${uploadId}.mp4`)
     try {
       console.log(`[video] Starting processing for ${uploadId}`)
       this.processingStages = []
@@ -73,7 +78,6 @@ export class VideoProcessingService extends EventEmitter {
       // ── 1. Download source video ONCE ──────────────────────────────
       // The video was being downloaded 4 times (probe, scenes, keyframes, render).
       // Now we download once and reuse the local file for all stages.
-      const localVideoPath = path.join(os.tmpdir(), `sovexa-source-${uploadId}.mp4`)
       const videoDuration = await this.stage('Download + probe', async () => {
         const freshUrl = await getPresignedUrl(s3Key, 3600)
         const axios = (await import('axios')).default
@@ -153,7 +157,11 @@ export class VideoProcessingService extends EventEmitter {
       broadcastProcessingEvent('stage_done', { uploadId, stage: 'Analyze video', progress: 55 })
 
       // ── 3. Riley picks the best segments (with VISION + creator profile) ──
-      const targetDuration = creatorFilters?.targetDuration || 60
+      // creatorFilters is assigned inside an IIFE closure (line ~118) so TS
+      // narrows the outer let to `null`. Cast back to its declared union to
+      // restore optional-chaining behavior.
+      const cf = creatorFilters as import('./ffmpegFilterBuilder').CreatorFilters | null
+      const targetDuration = cf?.targetDuration || 60
       const clipDecision = await this.stage('Analyze clip (Riley)', async () => {
         const decision = await analyzeAndPickClip(
           transcript,

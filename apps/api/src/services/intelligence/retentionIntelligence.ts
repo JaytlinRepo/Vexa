@@ -111,10 +111,12 @@ export async function buildRetentionProfile(
   const cutSpeedCorr = correlateTagDimension(topPerformers, bottomPerformers, 'format')
 
   // Subtitle correlation
+  // CommunityTags doesn't currently include `subtitleStyle` — treat it as an
+  // optional field that may be present in older/extended tag payloads.
   const subtitleCorr = correlatePresence(
     topPerformers,
     bottomPerformers,
-    (tags) => tags?.subtitleStyle !== 'none',
+    (tags) => (tags as (CommunityTags & { subtitleStyle?: string }) | null)?.subtitleStyle !== 'none',
   )
 
   // Hook timing (from tags)
@@ -124,8 +126,10 @@ export async function buildRetentionProfile(
   const lengthCorr = correlateTagDimension(topPerformers, bottomPerformers, 'contentLength')
 
   // Posting time correlation
-  const bestHour = findBestValue(topPerformers, (p) => p.publishHour)
-  const bestDay = findBestValue(topPerformers, (p) => p.publishDayOfWeek)
+  // findBestValue's signature types each post as Record<string, unknown>,
+  // so we cast the read fields to number-or-null at the extractor.
+  const bestHour = findBestValue(topPerformers, (p) => p.publishHour as number | null | undefined)
+  const bestDay = findBestValue(topPerformers, (p) => p.publishDayOfWeek as number | null | undefined)
 
   // Mood correlation
   const moodCorr = correlateTagDimension(topPerformers, bottomPerformers, 'mood')
