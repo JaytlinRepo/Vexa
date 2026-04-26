@@ -1,0 +1,40 @@
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE APP STYLESHEET  (Capacitor wrapper — apps/sovexa-mobile)
+   ──────────────────────────────────────────────────────────────────────
+   This file is the ONE place to put styles for the native-app surface
+   (bottom tab bar, sheet menus, edge-to-edge cards, safe-area insets,
+   etc). Every rule is prefixed with
+       html[data-vx-device="app"]
+   so it physically cannot leak onto the desktop browser OR the mobile
+   browser — even if the @media wrapper is forgotten or wrong.
+
+   How `data-vx-device="app"` is set (see layout.tsx):
+     • Capacitor launches the WebView with ?vxapp=1 → script sets
+       html[data-vx-device="app"] AND persists it in localStorage so
+       subsequent in-app navigations stay on the app surface.
+
+   ── Rules for editing this file ───────────────────────────────────────
+   1. Every selector MUST start with  html[data-vx-device="app"]
+      so the protection actually applies. Audit:
+        grep -E "^[^/* @}]" apps/web/src/app/app.css \
+          | grep -v 'html\[data-vx-device="app"\]\|^\.vx-app-only'
+      should return NOTHING.
+   2. Native-app patterns belong here: bottom tab bars, sheet menus,
+      edge-to-edge cards, swipe gestures, safe-area-inset usage.
+   3. Mobile-browser patterns belong in mobile.css (hamburger drawer,
+      responsive collapse, hidden secondary panels).
+   4. Shared layout (desktop default) lives in prototype.css /
+      vexa-shared.css — never touch those for app-specific work.
+
+   ── Quick reference ───────────────────────────────────────────────────
+     html[data-vx-device="app"] .foo  → applies inside Capacitor only
+     class="vx-app-only"              → element shown only inside app
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Utility class: show element only inside the native app ─────────── */
+.vx-app-only{display:none!important}
+html[data-vx-device="app"] .vx-app-only{display:revert!important}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Add native-app rules below. Stick to the prefix.
+   ══════════════════════════════════════════════════════════════════════ */

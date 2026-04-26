@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import SovexaThemeBridge from './SovexaThemeBridge'
 import './globals.css'
-// Mobile-only stylesheet — every selector inside is prefixed
-// `html[data-vx-device="mobile"]` so it physically cannot match on desktop.
-// Safe to extend without auditing other CSS files.
-import './mobile.css'
+// Platform-specific stylesheets. Each file prefixes every selector with
+// the matching html[data-vx-device="..."] attribute, so a rule in one
+// platform cannot leak to another. Safe to extend each in isolation.
+import './mobile.css'  // phone Safari / Chrome
+import './app.css'     // Capacitor wrapper (apps/sovexa-mobile)
 
 export const metadata: Metadata = {
   title: 'Sovexa — Your AI Content Team',
@@ -34,25 +35,48 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           html:not([data-vx-ready]) #topbar { visibility: hidden !important; }
           html:not([data-vx-ready]) #onboarding { visibility: hidden !important; }
         `}} />
-        {/* ── Device class: html[data-vx-device="mobile"|"desktop"] ─────
-             Single source of truth for "is this a mobile or desktop UI".
+        {/* ── Device class: html[data-vx-device="desktop"|"mobile"|"app"] ─
+             Single source of truth for which UI surface this session uses.
              Set synchronously in beforeInteractive (no FOUC). matchMedia
-             listener keeps it in sync with resize / DevTools responsive
-             mode. Used by mobile.css (every selector is prefixed with
-             html[data-vx-device="mobile"]) and by .vx-mobile-only /
-             .vx-desktop-only utility classes.
-             Threshold: 640px (true phone). Tablets in portrait (e.g. iPad
-             ≥744px) keep desktop UI. Bump to 820px if you want phone UI on
-             small tablets too.                                            */}
+             listener keeps it in sync with resize / DevTools responsive mode.
+
+             Three platforms, three stylesheets:
+               desktop  → shared CSS (no extra file; default)
+               mobile   → mobile.css (phone Safari / Chrome on the web)
+               app      → app.css    (Capacitor wrapper at apps/sovexa-mobile)
+
+             Detection priority (first match wins, never auto-flips):
+               1. ?vxapp=1 in URL  → "app"   (Capacitor injects this on launch)
+               2. localStorage.vx-device-app === '1' → "app" (sticky once detected)
+               3. matchMedia('(max-width: 640px)') → "mobile"
+               4. otherwise → "desktop"
+
+             "app" is sticky so a navigation inside the wrapped WebView keeps
+             the app surface even after the URL param is dropped. Clear it via
+             localStorage.removeItem('vx-device-app') from devtools to leave.
+
+             Each stylesheet's selectors are prefixed with the matching
+             html[data-vx-device="..."] attribute so a rule in one platform
+             cannot leak to another — see the audit grep at the top of each
+             stylesheet.                                                    */}
         <Script id="vx-device-class" strategy="beforeInteractive">{`
           try{
-            var mql=window.matchMedia('(max-width: 640px)');
-            var apply=function(){
-              document.documentElement.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop';
-            };
-            apply();
-            if(mql.addEventListener)mql.addEventListener('change',apply);
-            else if(mql.addListener)mql.addListener(apply);
+            var html=document.documentElement;
+            var sp=new URLSearchParams(location.search);
+            var isApp=sp.get('vxapp')==='1';
+            try{
+              if(isApp)localStorage.setItem('vx-device-app','1');
+              else if(localStorage.getItem('vx-device-app')==='1')isApp=true;
+            }catch(_e){}
+            if(isApp){
+              html.dataset.vxDevice='app';
+            } else {
+              var mql=window.matchMedia('(max-width: 640px)');
+              var apply=function(){ html.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop' };
+              apply();
+              if(mql.addEventListener)mql.addEventListener('change',apply);
+              else if(mql.addListener)mql.addListener(apply);
+            }
           }catch(_e){}
         `}</Script>
         {/* beforeInteractive must live in root layout — not in page-level PrototypeShell */}

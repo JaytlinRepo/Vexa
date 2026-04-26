@@ -162,6 +162,9 @@
     <!-- TOP BAR — Apple-style: logo left, section nav center, auth right -->
     <div id="topbar">
       <div class="topbar-left">
+        <button type="button" class="vx-mobile-only vxm-burger" id="vxm-burger" aria-label="Menu" aria-expanded="false" aria-controls="vxm-drawer">
+          <span></span><span></span><span></span>
+        </button>
         <a href="#" class="topnav-logo" onclick="navigateSovexaLogo();return false">Sovexa</a>
       </div>
 
@@ -233,6 +236,33 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ══ MOBILE BROWSER NAV DRAWER ══════════════════════════════════
+         Slide-out menu for phone Safari/Chrome. Hidden on desktop and
+         inside the native app via .vx-mobile-only. The drawer is the
+         ONLY mobile nav surface — the inline .topnav is hidden on
+         mobile by mobile.css. App surface gets its own bottom tab bar
+         (in app.css), not this drawer. Wired by mobile-shell-wire.js. -->
+    <div class="vx-mobile-only vxm-drawer" id="vxm-drawer" aria-hidden="true">
+      <div class="vxm-drawer-scrim" data-vxm-close></div>
+      <aside class="vxm-drawer-panel" role="menu" aria-label="Mobile navigation">
+        <div class="vxm-drawer-head">Sovexa</div>
+        <div class="vxm-drawer-links" id="vxm-drawer-links-marketing">
+          <a class="vxm-drawer-link" data-vxm-go="home">Home</a>
+          <a class="vxm-drawer-link" data-vxm-scroll="how">How it works</a>
+          <a class="vxm-drawer-link" data-vxm-scroll="pricing">Pricing</a>
+          <a class="vxm-drawer-link" data-vxm-go="contact">Contact</a>
+        </div>
+        <div class="vxm-drawer-links" id="vxm-drawer-links-app" style="display:none">
+          <a class="vxm-drawer-link" data-vxm-go="db-dashboard">HQ</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-posts">Posts</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-studio">Studio</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-knowledge">Knowledge</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-team">Team</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-settings">Settings</a>
+        </div>
+      </aside>
     </div>
 
     <!-- ══ MARKETING VIEWS ══════════════════════════════ -->

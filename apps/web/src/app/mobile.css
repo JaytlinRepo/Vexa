@@ -44,6 +44,82 @@ html[data-vx-device="mobile"] .vx-mobile-only{display:revert!important}
 html[data-vx-device="desktop"] .vx-desktop-only{display:revert!important}
 
 /* ══════════════════════════════════════════════════════════════════════
+   MOBILE NAV CHROME — hamburger button + slide-out drawer
+   The drawer replaces the inline .topnav on phone browsers. Both pieces
+   are .vx-mobile-only so desktop and the native app never see them.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Hide the inline topnav entirely on mobile — drawer is the only nav UI */
+html[data-vx-device="mobile"] .topnav,
+html[data-vx-device="mobile"] .topnav-group{display:none!important}
+
+/* Hamburger button — animated bun, lives in topbar-left */
+html[data-vx-device="mobile"] .vxm-burger{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:4px;
+  width:36px;height:36px;padding:0;margin-right:8px;
+  background:transparent;border:1px solid var(--b1);border-radius:8px;
+  color:var(--t1);cursor:pointer;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+html[data-vx-device="mobile"] .vxm-burger > span{
+  display:block;width:16px;height:1.5px;background:currentColor;
+  transition:transform .25s ease,opacity .15s ease;
+}
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(2){opacity:0}
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
+
+/* Drawer container — fixed, full viewport, behind topbar (z<topbar) */
+html[data-vx-device="mobile"] .vxm-drawer{
+  position:fixed;inset:0;z-index:9000;
+  visibility:hidden;pointer-events:none;
+}
+html[data-vx-device="mobile"] .vxm-drawer.on{visibility:visible;pointer-events:auto}
+
+/* Backdrop scrim */
+html[data-vx-device="mobile"] .vxm-drawer-scrim{
+  position:absolute;inset:0;background:rgba(0,0,0,.5);
+  opacity:0;transition:opacity .3s ease;
+}
+html[data-vx-device="mobile"] .vxm-drawer.on .vxm-drawer-scrim{opacity:1}
+
+/* Sliding panel — from the right edge */
+html[data-vx-device="mobile"] .vxm-drawer-panel{
+  position:absolute;top:0;right:0;bottom:0;
+  width:min(82vw,320px);
+  background:var(--bg);border-left:1px solid var(--b1);
+  padding:20px 0 max(20px,env(safe-area-inset-bottom));
+  transform:translateX(100%);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;
+}
+html[data-vx-device="mobile"] .vxm-drawer.on .vxm-drawer-panel{transform:translateX(0)}
+
+html[data-vx-device="mobile"] .vxm-drawer-head{
+  font-family:'Syne',sans-serif;font-weight:600;font-size:16px;
+  letter-spacing:.04em;color:var(--t1);
+  padding:0 24px 18px;
+  border-bottom:1px solid var(--b1);margin-bottom:8px;
+}
+
+html[data-vx-device="mobile"] .vxm-drawer-link{
+  display:block;padding:14px 24px;
+  font-family:'Inter',sans-serif;font-size:15px;color:var(--t1);
+  text-decoration:none;cursor:pointer;
+  border-bottom:1px solid var(--b1);
+  transition:background .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+html[data-vx-device="mobile"] .vxm-drawer-link:hover,
+html[data-vx-device="mobile"] .vxm-drawer-link:active{background:var(--s1)}
+html[data-vx-device="mobile"] .vxm-drawer-link.on{color:var(--accent);background:var(--accent-soft)}
+
+/* When drawer is open, prevent body scroll (matches the JS `body.vxm-drawer-open` toggle) */
+html[data-vx-device="mobile"] body.vxm-drawer-open{overflow:hidden}
+
+/* ══════════════════════════════════════════════════════════════════════
    PHONE LAYOUT  (data-vx-device="mobile" → viewport ≤ 640px)
    ══════════════════════════════════════════════════════════════════════ */
 
