@@ -155,12 +155,12 @@ function obNext(step){
     companyName=document.getElementById('ob-name-input').value||'My Company'
     document.getElementById('ob-1').classList.remove('active')
     document.getElementById('ob-2').classList.add('active')
-    document.getElementById('ob-prog').style.width='40%'
+    document.getElementById('ob-prog').style.width='66%'
   } else if(step===2){
     if(!selectedNiche)return
     document.getElementById('ob-2').classList.remove('active')
     document.getElementById('ob-4').classList.add('active')
-    document.getElementById('ob-prog').style.width='80%'
+    document.getElementById('ob-prog').style.width='100%'
     document.getElementById('ob-reveal-title').textContent=companyName+' is open for business.'
     startReveal()
   }
@@ -170,11 +170,7 @@ function obPrev(step){
   if(step===2){
     document.getElementById('ob-2').classList.remove('active')
     document.getElementById('ob-1').classList.add('active')
-    document.getElementById('ob-prog').style.width='20%'
-  } else if(step===3){
-    document.getElementById('ob-4').classList.remove('active')
-    document.getElementById('ob-2').classList.add('active')
-    document.getElementById('ob-prog').style.width='40%'
+    document.getElementById('ob-prog').style.width='33%'
   }
 }
 

@@ -5,7 +5,7 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260426-05'
+const VERSION = '20260426-06'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
@@ -20,7 +20,11 @@ export default function PrototypeShell({ html }: { html: string }) {
         style={{ display: 'contents' }}
         dangerouslySetInnerHTML={{ __html: processed }}
       />
-      <Script src={v('/intro-wire.js')} strategy="beforeInteractive" />
+      {/* intro-wire was previously beforeInteractive, but Next.js requires
+          beforeInteractive scripts to live in the root layout — page-level
+          components silently downgrade. afterInteractive is the correct
+          strategy here: the script just attaches a fullscreen overlay. */}
+      <Script src={v('/intro-wire.js')} strategy="afterInteractive" />
       <Script src={v('/waitlist.js')} strategy="afterInteractive" />
       <Script src={v('/prototype.js')} strategy="afterInteractive" />
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />

@@ -5,8 +5,10 @@
  * Loads demo.html content into an iframe overlay, then removes it on completion.
  */
 ;(function () {
-  // Don't show for logged-in users
-  if (document.cookie.indexOf('vx_session') !== -1) return
+  // Don't show for logged-in users.
+  // vx_session is httpOnly so JS can't read it via document.cookie — use the
+  // localStorage flag the auth flow + layout vx-session-gate already maintain.
+  try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
   // Only show on production (sovexa.ai) — skip on dev/localhost so testing isn't blocked
   var host = window.location.hostname
   if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return

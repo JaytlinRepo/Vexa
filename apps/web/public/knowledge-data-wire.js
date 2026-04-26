@@ -4,11 +4,22 @@
 ;(function () {
   'use strict'
 
-  var get = function (u) { return fetch(u, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
+  // get() returns the parsed JSON on 2xx, or an error sentinel { __err: status } on
+  // non-2xx so callers can distinguish "no data" from "not authed" / server error.
+  var get = function (u) {
+    return fetch(u, { credentials: 'include' })
+      .then(function (r) {
+        if (r.ok) return r.json()
+        return { __err: r.status }
+      })
+      .catch(function () { return { __err: 0 } })
+  }
   function esc(s) { return String(s || '').replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] }) }
 
   var populated = false
   var refreshTimer = null
+  var clickWired = false      // single-shot delegated click wiring
+  var visWired = false        // single-shot visibility listener wiring
 
   function populate(force) {
     var view = document.getElementById('view-db-knowledge')
@@ -24,36 +35,94 @@
     if (articlesRail && !populated) articlesRail.innerHTML = '<div style="padding:20px;text-align:center"><div class="vx-spin" style="margin:0 auto"></div></div>'
 
     get('/api/feed?limit=25').then(function (data) {
+      if (data && data.__err) {
+        var msg = data.__err === 401 || data.__err === 403
+          ? 'Sign-in required to load the feed.'
+          : 'Could not load feed (error ' + data.__err + '). Try refreshing.'
+        if (reelsGrid) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:13px">' + msg + '</div>'
+        return
+      }
       if (!data || !data.items || data.items.length === 0) {
         if (reelsGrid) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:13px">No content found. Try refreshing.</div>'
         return
       }
       render(view, data.items, data.source === 'cached')
-
-      // Auto-refresh every 5 minutes
-      if (refreshTimer) clearTimeout(refreshTimer)
-      refreshTimer = setTimeout(function () { populate(true) }, 5 * 60 * 1000)
+      scheduleRefresh()
     })
+  }
+
+  // Schedule the next 5-min refresh, but only when the tab is visible AND
+  // the Knowledge view is the active view. Avoids runaway timers when the
+  // user has navigated away or backgrounded the tab.
+  function scheduleRefresh() {
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null }
+    if (document.hidden) return
+    var view = document.getElementById('view-db-knowledge')
+    if (!view || view.style.display === 'none' || view.classList.contains('hidden')) return
+    refreshTimer = setTimeout(function () {
+      refreshTimer = null
+      populate(true)
+    }, 5 * 60 * 1000)
+  }
+
+  if (!visWired) {
+    visWired = true
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null }
+      } else {
+        scheduleRefresh()
+      }
+    })
+  }
+
+  function wireClicksOnce() {
+    if (clickWired) return
+    var reelsGrid = document.getElementById('knowledge-reels-grid')
+    var imagesCol = document.getElementById('knowledge-images-col')
+    if (reelsGrid) {
+      reelsGrid.addEventListener('click', function (e) {
+        var card = e.target.closest('.card[data-url]')
+        if (card && card.dataset.url && !e.target.closest('iframe')) {
+          window.open(card.dataset.url, '_blank', 'noopener')
+        }
+      })
+    }
+    if (imagesCol) {
+      imagesCol.addEventListener('click', function (e) {
+        var card = e.target.closest('[data-url]')
+        if (card && card.dataset.url) window.open(card.dataset.url, '_blank', 'noopener')
+      })
+    }
+    clickWired = !!(reelsGrid && imagesCol)
   }
 
   function render(view, items, isCached) {
     populated = true
+    wireClicksOnce()
 
     // Split into 3 columns:
     // Left: Instagram images/carousels (non-video)
     // Center: Instagram reels + YouTube videos
     // Right: Articles + Reddit
+    // Use mediaType/isVideo when the API gives them — fall back to a tighter
+    // URL heuristic that won't false-positive on every CDN path containing
+    // the substring "video".
+    function looksLikeVideo(it) {
+      if (it.isVideo === true) return true
+      if (typeof it.mediaType === 'string' && /video|reel/i.test(it.mediaType)) return true
+      var url = (it.videoUrl || it.imageUrl || it.thumbnail || '').toLowerCase()
+      if (/\.mp4(\?|$)/.test(url)) return true
+      if (/\/(reel|reels|shorts)\//.test(url)) return true
+      return false
+    }
     var images = items.filter(function (it) {
       if (it.type !== 'instagram') return false
-      var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
-      return !url.includes('.mp4') && !url.includes('video')
+      return !looksLikeVideo(it)
     })
     var reels = items.filter(function (it) {
       if (it.type === 'youtube' || it.type === 'video') return true
-      if (it.type === 'instagram') {
-        var url = (it.imageUrl || it.thumbnail || '').toLowerCase()
-        return url.includes('.mp4') || url.includes('video')
-      }
+      if (it.type === 'instagram') return looksLikeVideo(it)
       return false
     })
     var articles = items.filter(function (it) { return it.type === 'article' || it.type === 'reddit' || it.type === 'research' || it.type === 'news' })
@@ -101,10 +170,16 @@
           var thumb = item.thumbnail || item.imageUrl || ''
 
           var mediaHtml = ''
-          if (isIG && thumb) {
-            // Instagram reel — play inline with video tag
-            mediaHtml = '<video src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" playsinline muted loop preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>'
+          // Prefer a real video URL when the API provides one; otherwise the
+          // <video src> ends up pointed at a JPEG and silently fails to play.
+          var videoSrc = item.videoUrl || (/\.mp4(\?|$)/i.test(thumb) ? thumb : '')
+          if (isIG && videoSrc) {
+            mediaHtml = '<video src="' + esc(videoSrc) + '" poster="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:10px 10px 0 0" playsinline muted loop preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>'
               + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0.7;transition:opacity .2s" class="play-overlay"><div style="width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff">▶</div></div>'
+          } else if (isIG && thumb) {
+            // No video URL — render the cover image with a Play overlay; click opens IG.
+            mediaHtml = '<img src="' + esc(thumb) + '" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'" />'
+              + '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0.85;transition:opacity .2s"><div style="width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff">▶</div></div>'
           } else if (isIG) {
             mediaHtml = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:var(--s2);font-size:24px;color:var(--t3)">IG</div>'
           } else {
@@ -139,13 +214,6 @@
         }).join('')
       }
 
-      // Click to open in new tab
-      reelsGrid.addEventListener('click', function (e) {
-        var card = e.target.closest('.card[data-url]')
-        if (card && card.dataset.url && !e.target.closest('iframe')) {
-          window.open(card.dataset.url, '_blank', 'noopener')
-        }
-      })
     }
 
     // Render images & carousels column (left)
@@ -168,10 +236,6 @@
             + '</div>'
         }).join('')
 
-        imagesCol.addEventListener('click', function (e) {
-          var card = e.target.closest('[data-url]')
-          if (card && card.dataset.url) window.open(card.dataset.url, '_blank', 'noopener')
-        })
       }
     }
 
@@ -183,7 +247,8 @@
       } else {
         articlesRail.innerHTML = articles.map(function (item) {
           var thumb = item.thumbnail || item.imageUrl || ''
-          var score = item.score || Math.round(50 + Math.random() * 30)
+          // Note: previous version generated a random score per render which
+          // made the displayed value flicker. Use the real score or omit it.
           var sourceType = (item.type || 'article').toLowerCase()
           var typeLabel = sourceType === 'reddit' ? 'REDDIT' : 'ARTICLE'
           var typeColor = sourceType === 'reddit' ? 'var(--tt)' : 'var(--accent)'

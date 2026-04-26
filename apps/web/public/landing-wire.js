@@ -38,7 +38,7 @@
   var morphEl = document.getElementById('morph');
   if(morphEl){
     var slot = morphEl.querySelector('.slot');
-    var words = ['CEO.','editor.','founder.','director.','CEO.'];
+    var words = ['CEO.','editor.','founder.','director.'];
     var wi = 0;
     var meas = document.createElement('span');
     meas.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:inherit;font-style:italic';

@@ -71,16 +71,21 @@ router.get('/', requireAuth, async (req: Request, res: Response, next: NextFunct
     const filters = filterSchema.parse(req.query)
     const archived = filters.archived ? filters.archived === 'true' : false
 
-    const items = await knowledgeService.getKnowledge(companyId, {
+    const queryFilters = {
       type: filters.type as any,
       source: filters.source as any,
       tags: filters.tags ? filters.tags.split(',') : undefined,
       archived,
       limit: filters.limit || 50,
       offset: filters.offset || 0,
-    })
+    }
 
-    res.json({ items, total: items.length })
+    const [items, total] = await Promise.all([
+      knowledgeService.getKnowledge(companyId, queryFilters),
+      knowledgeService.countKnowledge(companyId, queryFilters),
+    ])
+
+    res.json({ items, total })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: 'invalid_filters', issues: err.issues })
@@ -96,7 +101,10 @@ router.get('/', requireAuth, async (req: Request, res: Response, next: NextFunct
 router.post('/', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -121,7 +129,7 @@ router.post('/', requireAuth, async (req: Request, res: Response, next: NextFunc
 router.get('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(userId, req.query.companyId as string | undefined)
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -146,25 +154,27 @@ router.get('/:id', requireAuth, async (req: Request, res: Response, next: NextFu
 router.patch('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
     }
 
-    // Verify ownership
-    const existing = await knowledgeService.getKnowledgeById(req.params.id, companyId)
-    if (!existing) {
-      return res.status(404).json({ error: 'knowledge_not_found' })
-    }
-
     const data = updateKnowledgeSchema.parse(req.body)
+    // updateKnowledge enforces companyId scope at the DB layer; no separate
+    // verification round-trip needed.
     const updated = await knowledgeService.updateKnowledge(req.params.id, companyId, data)
 
     res.json({ knowledge: updated })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: 'invalid_input', issues: err.issues })
+    }
+    if (err instanceof Error && err.message === 'Knowledge item not found') {
+      return res.status(404).json({ error: 'knowledge_not_found' })
     }
     next(err)
   }
@@ -177,7 +187,7 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response, next: Next
 router.delete('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(userId, req.query.companyId as string | undefined)
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -200,7 +210,10 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response, next: Nex
 router.post('/search', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.json({ results: [] })
@@ -225,7 +238,10 @@ router.post('/search', requireAuth, async (req: Request, res: Response, next: Ne
 router.post('/:id/related/:relatedId', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -249,7 +265,10 @@ router.post('/:id/related/:relatedId', requireAuth, async (req: Request, res: Re
 router.post('/extract/feed', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -270,7 +289,10 @@ router.post('/extract/feed', requireAuth, async (req: Request, res: Response, ne
 router.post('/extract/memory', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })
@@ -290,7 +312,10 @@ router.post('/extract/memory', requireAuth, async (req: Request, res: Response, 
 router.post('/archive-old', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const companyId = await resolveCompanyId(userId)
+    const companyId = await resolveCompanyId(
+      userId,
+      (req.body?.companyId as string | undefined) ?? (req.query.companyId as string | undefined)
+    )
 
     if (!companyId) {
       return res.status(404).json({ error: 'company_not_found' })

@@ -38,6 +38,26 @@ export interface KnowledgeFilters {
   offset?: number
 }
 
+/**
+ * Extract a usable text summary from a brand_memory content blob without
+ * ever returning the literal "[object Object]" String() yields on objects.
+ */
+function extractMemorySummary(content: Record<string, unknown>): string {
+  const candidates = ['summary', 'text', 'note', 'message', 'content']
+  for (const key of candidates) {
+    const v = content[key]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  // Last resort: a compact JSON of the blob — never the [object Object] toString
+  try {
+    const json = JSON.stringify(content)
+    if (json && json !== '{}') return json.length > 500 ? json.slice(0, 500) : json
+  } catch {
+    // ignore
+  }
+  return ''
+}
+
 export class KnowledgeService {
   constructor(private prisma: PrismaClient) {}
 
@@ -55,7 +75,10 @@ export class KnowledgeService {
         details: input.details || {},
         tags: input.tags || [],
         sourceUrl: input.sourceUrl,
-        relevanceScore: input.relevanceScore ?? 0.5,
+        relevanceScore:
+          input.relevanceScore !== undefined
+            ? Math.max(0, Math.min(1, input.relevanceScore))
+            : 0.5,
       },
     })
     return knowledge
@@ -70,8 +93,10 @@ export class KnowledgeService {
     if (filters?.type) where.type = filters.type
     if (filters?.source) where.source = filters.source
     if (filters?.archived !== undefined) where.isArchived = filters.archived
+    if (filters?.tags && filters.tags.length > 0) {
+      where.tags = { hasSome: filters.tags }
+    }
 
-    // For tags filtering, we'd need a more complex query
     const items = await this.prisma.knowledge.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -79,14 +104,22 @@ export class KnowledgeService {
       skip: filters?.offset || 0,
     })
 
-    // Filter by tags if specified
-    if (filters?.tags && filters.tags.length > 0) {
-      return items.filter((item) =>
-        filters.tags!.some((tag) => item.tags.includes(tag))
-      )
-    }
-
     return items
+  }
+
+  /**
+   * Count knowledge items matching the same filters as getKnowledge.
+   * Used by routes to return an accurate total alongside a page of items.
+   */
+  async countKnowledge(companyId: string, filters?: KnowledgeFilters): Promise<number> {
+    const where: Record<string, unknown> = { companyId }
+    if (filters?.type) where.type = filters.type
+    if (filters?.source) where.source = filters.source
+    if (filters?.archived !== undefined) where.isArchived = filters.archived
+    if (filters?.tags && filters.tags.length > 0) {
+      where.tags = { hasSome: filters.tags }
+    }
+    return this.prisma.knowledge.count({ where })
   }
 
   /**
@@ -107,19 +140,26 @@ export class KnowledgeService {
     companyId: string,
     updates: Partial<CreateKnowledgeInput> & { isArchived?: boolean }
   ): Promise<KnowledgeItem> {
-    const knowledge = await this.prisma.knowledge.update({
-      where: { id },
+    // Use updateMany so the companyId scope is enforced atomically at the DB
+    // layer (Prisma's `update` does not support multi-field where without a
+    // composite unique key). updateMany returns a count; if 0, throw.
+    const res = await this.prisma.knowledge.updateMany({
+      where: { id, companyId },
       data: {
-        ...(updates.title && { title: updates.title }),
-        ...(updates.summary && { summary: updates.summary }),
+        ...(updates.title !== undefined && { title: updates.title }),
+        ...(updates.summary !== undefined && { summary: updates.summary }),
         ...(updates.details !== undefined && { details: updates.details }),
-        ...(updates.tags && { tags: updates.tags }),
+        ...(updates.tags !== undefined && { tags: updates.tags }),
         ...(updates.sourceUrl !== undefined && { sourceUrl: updates.sourceUrl }),
-        ...(updates.relevanceScore !== undefined && { relevanceScore: updates.relevanceScore }),
+        ...(updates.relevanceScore !== undefined && {
+          relevanceScore: Math.max(0, Math.min(1, updates.relevanceScore)),
+        }),
         ...(updates.isArchived !== undefined && { isArchived: updates.isArchived }),
       },
     })
-    return knowledge
+    if (res.count === 0) throw new Error('Knowledge item not found')
+    const updated = await this.prisma.knowledge.findFirst({ where: { id, companyId } })
+    return updated as KnowledgeItem
   }
 
   /**
@@ -136,26 +176,63 @@ export class KnowledgeService {
       throw new Error('One or both knowledge items not found')
     }
 
-    // Add relationship (avoid duplicates)
-    const updated = await this.prisma.knowledge.update({
-      where: { id },
-      data: {
-        relatedItemIds: Array.from(new Set([...item.relatedItemIds, relatedId])),
-      },
-    })
+    // Add relationship in both directions (avoid duplicates)
+    await this.prisma.$transaction([
+      this.prisma.knowledge.update({
+        where: { id },
+        data: {
+          relatedItemIds: Array.from(new Set([...item.relatedItemIds, relatedId])),
+        },
+      }),
+      this.prisma.knowledge.update({
+        where: { id: relatedId },
+        data: {
+          relatedItemIds: Array.from(new Set([...relatedItem.relatedItemIds, id])),
+        },
+      }),
+    ])
   }
 
   /**
-   * Delete a knowledge item
+   * Soft-delete a knowledge item by archiving it.
+   * (The DELETE route is documented as a soft delete via archive; preserve
+   * data so related-item references are not silently orphaned.)
    */
   async deleteKnowledge(id: string, companyId: string): Promise<void> {
+    const res = await this.prisma.knowledge.updateMany({
+      where: { id, companyId },
+      data: { isArchived: true },
+    })
+    if (res.count === 0) {
+      throw new Error('Knowledge item not found')
+    }
+  }
+
+  /**
+   * Permanently delete a knowledge item and clean up references to it
+   * from other items' relatedItemIds. Use with care.
+   */
+  async hardDeleteKnowledge(id: string, companyId: string): Promise<void> {
     const knowledge = await this.prisma.knowledge.findFirst({
       where: { id, companyId },
     })
     if (!knowledge) {
       throw new Error('Knowledge item not found')
     }
-    await this.prisma.knowledge.delete({ where: { id } })
+    // Strip references from any other item in the same company
+    const referencing = await this.prisma.knowledge.findMany({
+      where: { companyId, relatedItemIds: { has: id } },
+      select: { id: true, relatedItemIds: true },
+    })
+    await this.prisma.$transaction([
+      ...referencing.map((r) =>
+        this.prisma.knowledge.update({
+          where: { id: r.id },
+          data: { relatedItemIds: r.relatedItemIds.filter((x) => x !== id) },
+        })
+      ),
+      this.prisma.knowledge.delete({ where: { id } }),
+    ])
   }
 
   /**
@@ -174,21 +251,24 @@ export class KnowledgeService {
       score?: number
     }>
   ): Promise<KnowledgeItem[]> {
+    const eligible = feedItems.filter((item) => !(item.score && item.score < 75))
+    if (eligible.length === 0) return []
+
+    // Single round-trip dedup: pull all candidate prefixes that already exist
+    // in this company so we don't issue one findFirst per feed item.
+    const prefixes = eligible.map((i) => i.title.substring(0, 30).toLowerCase())
+    const existing = await this.prisma.knowledge.findMany({
+      where: { companyId },
+      select: { title: true },
+    })
+    const existingLower = new Set(existing.map((e) => e.title.toLowerCase()))
+
     const createdItems: KnowledgeItem[] = []
-
-    for (const item of feedItems) {
-      // Only create knowledge for high-signal items (score > 75)
-      if (item.score && item.score < 75) continue
-
-      // Skip if similar knowledge already exists (title similarity check)
-      const existing = await this.prisma.knowledge.findFirst({
-        where: {
-          companyId,
-          title: { contains: item.title.substring(0, 30), mode: 'insensitive' },
-        },
-      })
-
-      if (existing) continue
+    for (let idx = 0; idx < eligible.length; idx++) {
+      const item = eligible[idx]
+      const prefix = prefixes[idx]
+      const dup = [...existingLower].some((t) => t.includes(prefix))
+      if (dup) continue
 
       const knowledge = await this.createKnowledge(companyId, {
         type: 'trend_summary',
@@ -203,10 +283,11 @@ export class KnowledgeService {
         },
         tags: [item.type, item.source.toLowerCase()],
         sourceUrl: undefined,
-        relevanceScore: Math.min(1, (item.score || 75) / 100),
+        relevanceScore: Math.max(0, Math.min(1, (item.score || 75) / 100)),
       })
 
       createdItems.push(knowledge)
+      existingLower.add(item.title.toLowerCase())
     }
 
     return createdItems
@@ -225,33 +306,39 @@ export class KnowledgeService {
       take: 20,
     })
 
-    for (const memory of memories) {
-      const content = memory.content as Record<string, unknown>
-      const summary = String(content.summary || content)
+    // Pre-fetch existing titles once for cheap dedup
+    const existing = await this.prisma.knowledge.findMany({
+      where: { companyId, source: 'brand_memory' },
+      select: { title: true },
+    })
+    const existingLower = new Set(existing.map((e) => e.title.toLowerCase()))
 
+    for (const memory of memories) {
       // Only create knowledge from feedback and performance memories
       if (!['feedback', 'performance'].includes(memory.memoryType)) continue
 
-      const existing = await this.prisma.knowledge.findFirst({
-        where: {
-          companyId,
-          title: { contains: summary.substring(0, 30), mode: 'insensitive' },
-        },
-      })
+      const content = (memory.content ?? {}) as Record<string, unknown>
+      // Pull a usable text payload — never let an object stringify to "[object Object]"
+      const summary = extractMemorySummary(content)
+      if (!summary) continue
 
-      if (existing) continue
+      const candidateTitle = `Learned: ${summary.substring(0, 60)}`
+      if ([...existingLower].some((t) => t.includes(candidateTitle.substring(0, 30).toLowerCase()))) {
+        continue
+      }
 
       const knowledge = await this.createKnowledge(companyId, {
         type: memory.memoryType === 'feedback' ? 'learning' : 'pattern',
         source: 'brand_memory',
-        title: `Learned: ${summary.substring(0, 60)}`,
-        summary: summary as string,
+        title: candidateTitle,
+        summary,
         details: { ...content, memoryWeight: memory.weight },
         tags: [memory.memoryType],
-        relevanceScore: Math.min(1, memory.weight),
+        relevanceScore: Math.max(0, Math.min(1, memory.weight)),
       })
 
       createdItems.push(knowledge)
+      existingLower.add(candidateTitle.toLowerCase())
     }
 
     return createdItems

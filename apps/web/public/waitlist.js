@@ -4,7 +4,9 @@
  * Uses vexa-landing.css classes directly.
  */
 ;(function () {
-  if (document.cookie.indexOf('vx_session') !== -1) return
+  // vx_session is httpOnly so JS can't read it via document.cookie — use the
+  // localStorage flag the auth flow + layout vx-session-gate already maintain.
+  try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
   // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
   var host = window.location.hostname
   if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
