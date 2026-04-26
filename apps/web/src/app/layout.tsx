@@ -45,11 +45,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                mobile   → mobile.css (phone Safari / Chrome on the web)
                app      → app.css    (Capacitor wrapper at apps/sovexa-mobile)
 
-             Detection priority (first match wins, never auto-flips):
-               1. ?vxapp=1 in URL  → "app"   (Capacitor injects this on launch)
-               2. localStorage.vx-device-app === '1' → "app" (sticky once detected)
-               3. matchMedia('(max-width: 640px)') → "mobile"
-               4. otherwise → "desktop"
+             Detection priority (first match wins):
+               1. NEXT_PUBLIC_VX_FORCE_DEVICE env var (build-time inline)
+                  → forces a single surface for the dev port. See npm
+                  scripts dev:desktop / dev:mobile / dev:app — each sets
+                  this so you can keep three browser tabs open and see
+                  every surface live without resizing.
+               2. ?vxapp=1 in URL  → "app"   (Capacitor injects this on launch)
+               3. localStorage.vx-device-app === '1' → "app" (sticky once detected)
+               4. matchMedia('(max-width: 640px)') → "mobile"
+               5. otherwise → "desktop"
 
              "app" is sticky so a navigation inside the wrapped WebView keeps
              the app surface even after the URL param is dropped. Clear it via
@@ -62,20 +67,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="vx-device-class" strategy="beforeInteractive">{`
           try{
             var html=document.documentElement;
-            var sp=new URLSearchParams(location.search);
-            var isApp=sp.get('vxapp')==='1';
-            try{
-              if(isApp)localStorage.setItem('vx-device-app','1');
-              else if(localStorage.getItem('vx-device-app')==='1')isApp=true;
-            }catch(_e){}
-            if(isApp){
-              html.dataset.vxDevice='app';
+            var forced=${JSON.stringify(process.env.NEXT_PUBLIC_VX_FORCE_DEVICE || '')};
+            if(forced==='desktop'||forced==='mobile'||forced==='app'){
+              html.dataset.vxDevice=forced;
             } else {
-              var mql=window.matchMedia('(max-width: 640px)');
-              var apply=function(){ html.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop' };
-              apply();
-              if(mql.addEventListener)mql.addEventListener('change',apply);
-              else if(mql.addListener)mql.addListener(apply);
+              var sp=new URLSearchParams(location.search);
+              var isApp=sp.get('vxapp')==='1';
+              try{
+                if(isApp)localStorage.setItem('vx-device-app','1');
+                else if(localStorage.getItem('vx-device-app')==='1')isApp=true;
+              }catch(_e){}
+              if(isApp){
+                html.dataset.vxDevice='app';
+              } else {
+                var mql=window.matchMedia('(max-width: 640px)');
+                var apply=function(){ html.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop' };
+                apply();
+                if(mql.addEventListener)mql.addEventListener('change',apply);
+                else if(mql.addListener)mql.addListener(apply);
+              }
             }
           }catch(_e){}
         `}</Script>
