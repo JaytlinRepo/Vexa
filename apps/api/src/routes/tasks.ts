@@ -260,7 +260,10 @@ router.get('/', requireAuth, async (req, res, next) => {
     const tasks = await prisma.task.findMany({
       where: { companyId: company.id, ...(status ? { status } : {}) },
       orderBy: { createdAt: 'desc' },
-      include: { employee: true, outputs: true },
+      include: {
+        employee: true,
+        outputs: { orderBy: { version: 'desc' } },
+      },
       take: 50,
     })
     res.json({ tasks, companyId: company.id })

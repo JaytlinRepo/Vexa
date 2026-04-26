@@ -27,6 +27,16 @@
   var allThoughts = []
   var activeFilter = 'all' // 'all' or a role key
   var selectedDate = null
+  var companyId = null
+  var employeesByRole = {} // role → employee object (with id)
+
+  // Sensible default task type per role so a Maya pick doesn't ship 'caption'
+  var DEFAULT_TYPE_BY_ROLE = {
+    analyst: 'trend_report',
+    strategist: 'content_plan',
+    copywriter: 'hooks',
+    creative_director: 'shot_list',
+  }
 
   function today() { return new Date() }
 
@@ -226,25 +236,20 @@
     var sidebar = document.getElementById('team-calendar-sidebar')
     if (!sidebar) return
 
-    // Show spinner while loading
     var d = new Date(dateStr + 'T00:00:00')
     var dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 
-    sidebar.innerHTML = '<div class="sidebar-header"><div class="sidebar-date">' + dayLabel + '</div></div>'
-      + '<div class="sidebar-content" style="align-items:center;justify-content:center"><div class="vx-spin"></div></div>'
-
-    // Fetch thoughts for this day
-    get('/api/thoughts?date=' + dateStr).then(function (data) {
-      var thoughts = (data && data.thoughts) || []
-
-      // Also get tasks for this day
-      var filtered = filterTasks(allTasks)
-      var dayTasks = filtered.filter(function (t) {
-        return fmtDate(new Date(t.completedAt || t.createdAt)) === dateStr
-      })
-
-      renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts)
+    // Filter from cached arrays — avoids server-side TZ filter bug and keeps
+    // grid + sidebar consistent (both use local-day grouping via fmtDate).
+    var thoughts = allThoughts.filter(function (th) {
+      return th && th.createdAt && fmtDate(new Date(th.createdAt)) === dateStr
     })
+    var filtered = filterTasks(allTasks)
+    var dayTasks = filtered.filter(function (t) {
+      return fmtDate(new Date(t.completedAt || t.createdAt)) === dateStr
+    })
+
+    renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts)
   }
 
   function renderOutputContent(content, taskType, ag) {
@@ -362,7 +367,7 @@
           detailHtml += '<div class="sb-detail-desc">' + escHtml(t.description) + '</div>'
         }
         if (t.outputs && t.outputs.length > 0) {
-          var out = t.outputs[t.outputs.length - 1] // latest output
+          var out = t.outputs[0] // latest output
           var content = out.content
           if (content) {
             detailHtml += renderOutputContent(content, t.type, ag)
@@ -500,14 +505,18 @@
       })
     })
 
-    // Wire agent pick
+    // Wire agent pick — also reset the type dropdown to that role's default
     var selectedRole = null
     var agentBtns = sidebar.querySelectorAll('.sb-agent-pick')
+    var typeSelectEl = document.getElementById('task-type-select')
     agentBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
         agentBtns.forEach(function (b) { b.classList.remove('on') })
         btn.classList.add('on')
         selectedRole = btn.dataset.role
+        if (typeSelectEl && DEFAULT_TYPE_BY_ROLE[selectedRole]) {
+          typeSelectEl.value = DEFAULT_TYPE_BY_ROLE[selectedRole]
+        }
       })
     })
 
@@ -524,10 +533,14 @@
     if (taskBtn) taskBtn.addEventListener('click', function () {
       var desc = document.getElementById('new-task-desc')
       var typeSelect = document.getElementById('task-type-select')
-      if (!selectedRole) { agentBtns[0].classList.add('flash'); setTimeout(function () { agentBtns[0].classList.remove('flash') }, 600); return }
+      if (!selectedRole) {
+        agentBtns.forEach(function (b) { b.classList.add('flash') })
+        setTimeout(function () { agentBtns.forEach(function (b) { b.classList.remove('flash') }) }, 600)
+        return
+      }
       if (!desc || !desc.value.trim()) return
 
-      var taskType = typeSelect ? typeSelect.value : 'hooks'
+      var taskType = typeSelect ? typeSelect.value : (DEFAULT_TYPE_BY_ROLE[selectedRole] || 'hooks')
       submitTask(dateStr, selectedRole, taskType, desc.value.trim())
     })
   }
@@ -550,7 +563,7 @@
       detailHtml += '<div class="tm-desc">' + escHtml(task.description) + '</div>'
     }
     if (task.outputs && task.outputs.length > 0) {
-      var out = task.outputs[task.outputs.length - 1]
+      var out = task.outputs[0]
       if (out.content) detailHtml += renderOutputContent(out.content, task.type, ag)
     }
     if (!detailHtml) {
@@ -581,34 +594,76 @@
 
     document.body.appendChild(overlay)
 
-    overlay.querySelector('.tm-backdrop').addEventListener('click', function () { overlay.remove() })
-    overlay.querySelector('.tm-close').addEventListener('click', function () { overlay.remove() })
-    document.addEventListener('keydown', function onEsc(e) {
-      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) }
-    })
+    function onEsc(e) {
+      if (e.key === 'Escape') closeModal()
+    }
+    function closeModal() {
+      document.removeEventListener('keydown', onEsc)
+      if (overlay.parentNode) overlay.remove()
+    }
+    overlay.querySelector('.tm-backdrop').addEventListener('click', closeModal)
+    overlay.querySelector('.tm-close').addEventListener('click', closeModal)
+    document.addEventListener('keydown', onEsc)
   }
 
   function submitTask(dateStr, role, type, description) {
     var btn = document.getElementById('submit-task-btn')
-    var desc = document.getElementById('new-task-desc')
     if (btn) btn.disabled = true
 
-    fetch('/api/tasks', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: role, type: type, description: description }),
-    }).then(function (r) {
-      if (r.ok) {
-        return r.json().then(function (data) {
-          // Add to local tasks array and re-render
-          if (data.task) allTasks.unshift(data.task)
-          // server cache handles freshness
-          render()
-          selectDay(dateStr)
+    var employee = employeesByRole[role]
+    if (!companyId || !employee) {
+      // Auth/identity not yet loaded — try to load it once, then bail with
+      // a visible error so the user can retry instead of a silent no-op.
+      if (btn) {
+        btn.disabled = false
+        btn.textContent = 'Team not ready — retry'
+        setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 1800)
+      }
+      loadIdentity()
+      return
+    }
+
+    var payload = {
+      companyId: companyId,
+      employeeId: employee.id,
+      title: description.slice(0, 80),
+      description: description,
+      type: type,
+    }
+
+    var send = window.vxAssignTask
+      ? window.vxAssignTask(payload)
+      : fetch('/api/tasks', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(function (r) {
+          if (!r.ok) return { ok: false }
+          return r.json().then(function (data) { return { ok: true, task: data.task } })
         })
+
+    Promise.resolve(send).then(function (result) {
+      if (result && result.ok) {
+        if (result.task) allTasks.unshift(result.task)
+        // New tasks land on today's cell (createdAt = now). Jump there so the
+        // user sees the task they just assigned.
+        var todayStr = fmtDate(today())
+        var now = today()
+        if (viewYear !== now.getFullYear() || viewMonth !== now.getMonth()) {
+          viewYear = now.getFullYear()
+          viewMonth = now.getMonth()
+        }
+        render()
+        selectDay(todayStr)
       } else {
-        if (btn) btn.disabled = false
+        if (btn) {
+          btn.disabled = false
+          if (result && result.error) {
+            btn.textContent = String(result.error).slice(0, 40)
+            setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 2200)
+          }
+        }
       }
     }).catch(function () {
       if (btn) btn.disabled = false
@@ -630,8 +685,20 @@
       body: JSON.stringify({ content: content }),
     }).then(function (r) {
       if (r.ok) {
-        // Reload the sidebar
-        selectDay(dateStr)
+        return r.json().then(function (data) {
+          // POST returns the thought directly (see thoughts.ts:112). Some old
+          // shapes wrap it; tolerate either.
+          var thought = (data && data.thought) ? data.thought : data
+          if (thought && thought.id) {
+            // Ensure the new thought has a thoughtResponses array so the
+            // sidebar renders "Team reviewing" instead of crashing.
+            if (!thought.thoughtResponses) thought.thoughtResponses = []
+            allThoughts.unshift(thought)
+          }
+          // Re-render BOTH grid (for thought-count badge) and sidebar.
+          render()
+          selectDay(dateStr)
+        })
       } else {
         input.disabled = false
         input.value = content
@@ -644,6 +711,30 @@
 
   // Server-side caching handles fast responses — no localStorage needed
 
+  // ── Identity load (companyId + employees) ──
+  // Cached for the page lifetime; re-runs only on explicit retry from submitTask.
+  function loadIdentity() {
+    return get('/api/auth/me').then(function (me) {
+      var company = me && me.companies && me.companies[0]
+      if (!company) return null
+      companyId = company.id
+      employeesByRole = {}
+      var emps = company.employees || []
+      for (var i = 0; i < emps.length; i++) {
+        if (emps[i] && emps[i].role) employeesByRole[emps[i].role] = emps[i]
+      }
+      return company
+    })
+  }
+
+  // ── Refresh tasks/thoughts from server (used by event listener + init) ──
+  function refreshData() {
+    return Promise.all([get('/api/tasks'), get('/api/thoughts')]).then(function (results) {
+      allTasks = (results[0] && results[0].tasks) || []
+      allThoughts = (results[1] && results[1].thoughts) || []
+    })
+  }
+
   // ── Init ──
   async function init() {
     var now = today()
@@ -654,29 +745,42 @@
     var container = document.getElementById('team-calendar')
     if (container) container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div>'
 
-    // Fetch fresh data in background
-    var results = await Promise.all([
-      get('/api/tasks'),
-      get('/api/thoughts'),
-    ])
-
-    allTasks = (results[0] && results[0].tasks) || []
-    allThoughts = (results[1] && results[1].thoughts) || []
-    // server cache handles freshness
+    // Identity + data in parallel.
+    await Promise.all([loadIdentity(), refreshData()])
 
     render()
     selectDay(selectedDate)
   }
 
-  // Hook into navigation
+  // Hook into navigation — refresh data on every visit so cross-wire changes
+  // (e.g. an agent delivering an output, a meeting creating a task) reflect
+  // when the user comes back to the Team tab.
   var calendarLoaded = false
   var origNav = window.navigate
   window.navigate = function (id) {
     var r = typeof origNav === 'function' ? origNav(id) : undefined
-    if (id === 'db-team' && !calendarLoaded) {
-      calendarLoaded = true
-      setTimeout(init, 150)
+    if (id === 'db-team') {
+      if (!calendarLoaded) {
+        calendarLoaded = true
+        setTimeout(init, 150)
+      } else {
+        // Re-fetch tasks/thoughts and re-render. Identity is stable.
+        refreshData().then(function () {
+          render()
+          if (selectedDate) selectDay(selectedDate)
+        })
+      }
     }
     return r
   }
+
+  // Listen for cross-wire task changes so the calendar updates when, e.g.,
+  // a meeting or the agent drawer creates/approves a task elsewhere.
+  window.addEventListener('vx-task-changed', function () {
+    if (!calendarLoaded) return
+    refreshData().then(function () {
+      render()
+      if (selectedDate) selectDay(selectedDate)
+    })
+  })
 })()
