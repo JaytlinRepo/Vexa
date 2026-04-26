@@ -40,11 +40,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
              listener keeps it in sync with resize / DevTools responsive
              mode. Used by mobile.css (every selector is prefixed with
              html[data-vx-device="mobile"]) and by .vx-mobile-only /
-             .vx-desktop-only utility classes. Threshold: 820px to match
-             the existing layout breakpoints.                              */}
+             .vx-desktop-only utility classes.
+             Threshold: 640px (true phone). Tablets in portrait (e.g. iPad
+             ≥744px) keep desktop UI. Bump to 820px if you want phone UI on
+             small tablets too.                                            */}
         <Script id="vx-device-class" strategy="beforeInteractive">{`
           try{
-            var mql=window.matchMedia('(max-width: 820px)');
+            var mql=window.matchMedia('(max-width: 640px)');
             var apply=function(){
               document.documentElement.dataset.vxDevice = mql.matches ? 'mobile' : 'desktop';
             };

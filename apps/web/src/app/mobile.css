@@ -9,16 +9,18 @@
 
    How `data-vx-device` is set:
      • Inline script in layout.tsx (beforeInteractive — runs before any
-       render, no flash) reads matchMedia('(max-width: 820px)') and sets
+       render, no flash) reads matchMedia('(max-width: 640px)') and sets
        html[data-vx-device="mobile"] or "desktop".
      • A matchMedia listener flips the attribute on resize so DevTools
        responsive mode + window-drag both work without a reload.
 
    ── Rules for editing this file ───────────────────────────────────────
    1. Every selector MUST start with  html[data-vx-device="mobile"]
-      so the protection actually applies. A grep test:
-        grep -E "^[^/* ]" mobile.css | grep -v 'html\[data-vx-device="mobile"\]'
-      should return nothing (other than @keyframes / @media wrappers).
+      so the protection actually applies. The audit (also excludes the
+      desktop-side utility rule + the .vx-* utility class definitions):
+        grep -E "^[^/* @}]" apps/web/src/app/mobile.css \
+          | grep -v 'html\[data-vx-device="mobile"\]\|html\[data-vx-device="desktop"\]\|^\.vx-mobile-only\|^\.vx-desktop-only'
+      should return NOTHING. If a line shows up, it's a leak risk.
    2. Don't add desktop overrides here. Put those in the relevant shared
       file (prototype.css, vexa-shared.css, etc.).
    3. Avoid !important unless you're overriding an inline style. The
@@ -42,5 +44,303 @@ html[data-vx-device="mobile"] .vx-mobile-only{display:revert!important}
 html[data-vx-device="desktop"] .vx-desktop-only{display:revert!important}
 
 /* ══════════════════════════════════════════════════════════════════════
-   Add new mobile rules below. Stick to the prefix.
+   PHONE LAYOUT  (data-vx-device="mobile" → viewport ≤ 640px)
    ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Viewport: stop any horizontal scroll ──────────────────────────── */
+html[data-vx-device="mobile"] body,
+html[data-vx-device="mobile"] #app,
+html[data-vx-device="mobile"] #main{
+  overflow-x:hidden!important;max-width:100%!important;min-width:0!important;
+}
+html[data-vx-device="mobile"] .view{overflow-x:hidden!important;min-width:0!important;max-width:100%!important}
+
+/* ── Topbar: marketing = floating island, authed = full-bleed bar ───── */
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topbar-right{grid-column:3}
+html[data-vx-device="mobile"]:not([data-vx-authed]) #topbar{
+  --vx-island-p:1!important;
+  grid-template-columns:auto 1fr auto!important;
+}
+html[data-vx-device="mobile"][data-vx-authed] #topbar{
+  --vx-island-p:0!important;
+  --vx-island-max:calc(100% - 0px)!important;
+  grid-template-columns:auto 1fr auto!important;
+  padding:10px 16px!important;
+  gap:8px!important;
+  top:0!important;width:100%!important;left:0!important;
+  border-radius:0!important;
+}
+html[data-vx-device="mobile"] .topbar-section{display:none!important}
+html[data-vx-device="mobile"]:not([data-vx-authed]) #topbar-cta.btn-primary{
+  white-space:nowrap;font-size:10px!important;padding:6px 10px!important;gap:4px;border-radius:5px;
+}
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav,
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav-link,
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav-group{display:none!important}
+
+/* ── View padding ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .view{
+  padding-top:68px!important;padding-bottom:0!important;overflow-x:hidden!important;
+}
+html[data-vx-device="mobile"] .view-inner{padding:20px 16px 40px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .mkt-view{padding:20px 16px!important;max-width:100%!important}
+
+/* ── Landing hero ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .hero{min-height:auto!important;padding:24px 20px 40px!important}
+html[data-vx-device="mobile"] .hero-right{display:none!important}
+html[data-vx-device="mobile"] .hero-content{padding:0 20px!important}
+html[data-vx-device="mobile"] .hero-ctas{flex-direction:column!important;align-items:center!important}
+html[data-vx-device="mobile"] .hero-meta{flex-wrap:wrap!important;justify-content:center!important;gap:10px 14px!important;font-size:11px!important}
+html[data-vx-device="mobile"] #landing-atmo{overflow:hidden!important}
+html[data-vx-device="mobile"] .hero-light{width:100%!important;max-width:100%!important}
+
+/* ── Landing sections ──────────────────────────────────────────────── */
+html[data-vx-device="mobile"] section.blk{padding:48px 20px!important}
+html[data-vx-device="mobile"] .how-stage{display:none!important}
+
+/* ── Compare (Before / After) ──────────────────────────────────────── */
+html[data-vx-device="mobile"] section#compare{padding:32px 16px!important}
+html[data-vx-device="mobile"] section#compare .sec-head{margin-bottom:12px!important}
+html[data-vx-device="mobile"] section#compare .sec-head h2{font-size:clamp(28px,8vw,40px)!important}
+html[data-vx-device="mobile"] .compare{border-radius:12px!important}
+html[data-vx-device="mobile"] .compare .col{min-height:auto!important;padding:14px 12px 16px!important}
+html[data-vx-device="mobile"] .compare .col .lab{font-size:8px!important;letter-spacing:.12em!important;line-height:1.35!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .compare .col h3{font-size:22px!important;line-height:1.1!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .compare ul li{padding:7px 0!important;gap:8px!important;font-size:12px!important;line-height:1.3!important;grid-template-columns:16px 1fr!important}
+html[data-vx-device="mobile"] .compare ul li .i{font-size:10px!important}
+html[data-vx-device="mobile"] .compare .col.after ul li em{font-size:13px!important}
+
+/* ── Disable scroll-reveal animations (no IntersectionObserver lag) ── */
+html[data-vx-device="mobile"] .reveal{opacity:1!important;transform:none!important;transition:none!important}
+
+/* ── Dashboard: stack feed strip out of the way ────────────────────── */
+html[data-vx-device="mobile"] .db-layout{display:block!important;height:auto!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .db-main-col{padding:20px 16px 32px!important;border-right:none!important;height:auto!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .db-feed-strip{display:none!important}
+
+/* ── Masthead ──────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .masthead{grid-template-columns:1fr!important;gap:16px!important;padding:20px 16px!important}
+html[data-vx-device="mobile"] .masthead h1{font-size:clamp(22px,6vw,30px)!important;margin-top:6px!important}
+html[data-vx-device="mobile"] .masthead .sub{font-size:12px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .masthead .stat-grid{min-width:0!important;grid-template-columns:repeat(3,1fr)!important;gap:10px!important;padding:12px 0!important}
+html[data-vx-device="mobile"] .masthead .stat .v{font-size:20px!important}
+
+/* ── Pipeline (4-col → 2×2) ────────────────────────────────────────── */
+html[data-vx-device="mobile"] .pipe{grid-template-columns:repeat(2,1fr)!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .pipe .arrow{display:none!important}
+html[data-vx-device="mobile"] .pipe::before{display:none!important}
+html[data-vx-device="mobile"] .node{border-right:1px solid var(--b1)!important;padding:14px 12px 16px!important}
+html[data-vx-device="mobile"] .node:nth-child(even){border-right:none!important}
+html[data-vx-device="mobile"] .node:nth-child(n+3){border-top:1px solid var(--b1)}
+html[data-vx-device="mobile"] .node-name{font-size:15px!important}
+html[data-vx-device="mobile"] .node-port{width:36px!important;height:36px!important;font-size:18px!important}
+html[data-vx-device="mobile"] .pipe-wrap{padding:16px 16px 8px!important}
+html[data-vx-device="mobile"] .pipe-head{flex-wrap:wrap!important;gap:8px!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .pipe-title h2{font-size:18px!important}
+html[data-vx-device="mobile"] .pipe-meta{flex-wrap:wrap!important;gap:8px!important}
+
+/* ── Dash main + side: 2-col → stacked ─────────────────────────────── */
+html[data-vx-device="mobile"] .dash{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .dash-main{padding:20px 16px 32px!important;border-right:none!important}
+html[data-vx-device="mobile"] .dash-side{border-left:none!important;border-top:1px solid var(--b1);padding:16px!important}
+
+/* ── Posts page ────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] #view-db-posts .posts-mast{padding:10px 12px 6px!important}
+html[data-vx-device="mobile"] #view-db-posts .filters{padding:6px 10px 7px!important;gap:5px 8px!important}
+html[data-vx-device="mobile"] #view-db-posts .filters .search{min-width:0!important;max-width:none!important;flex:1 1 100%!important;margin-left:0!important}
+html[data-vx-device="mobile"] #view-db-posts .filters .search .kbd{display:none!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col{padding:10px 8px 16px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .th{aspect-ratio:1/1!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .th .qt{display:none!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .body{padding:4px 5px 5px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .m .cell .l{font-size:6px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .m .cell .n{font-size:9px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .post-cap-sum{font-size:6px!important;padding:2px 5px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .list-head{margin-bottom:6px!important;flex-wrap:wrap!important}
+html[data-vx-device="mobile"] #view-db-posts .list-head h2{font-size:16px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-head .c{font-size:8px!important}
+
+/* ── KPI / charts / briefing / employees grids → 1-col or denser ──── */
+html[data-vx-device="mobile"] .kpi-row{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .charts-row,
+html[data-vx-device="mobile"] .charts-row.triple{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .briefing-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .emp-cards{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .plat-row{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .trend-row{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .output-grid{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .signals,
+html[data-vx-device="mobile"] .drafts,
+html[data-vx-device="mobile"] .out-ticker{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .feed-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .aud-grid,
+html[data-vx-device="mobile"] .posts-grid{grid-template-columns:1fr!important}
+
+/* ── Settings: sidebar nav wraps into a pill row ───────────────────── */
+html[data-vx-device="mobile"] .settings-grid{grid-template-columns:1fr!important;gap:16px!important}
+html[data-vx-device="mobile"] .settings-nav{
+  flex-direction:row!important;flex-wrap:wrap!important;gap:4px!important;
+  padding-bottom:8px!important;border-bottom:1px solid var(--b1);
+  margin-bottom:4px;overflow:visible!important;
+}
+html[data-vx-device="mobile"] .settings-nav-item{white-space:normal!important;flex-shrink:1!important}
+
+/* ── Landing team cards: compact horizontal rows ───────────────────── */
+html[data-vx-device="mobile"] .team-wrap{grid-template-columns:1fr!important;gap:10px!important}
+html[data-vx-device="mobile"] .t-card{
+  display:flex!important;flex-direction:row!important;align-items:center!important;
+  gap:14px!important;padding:14px 16px!important;
+}
+html[data-vx-device="mobile"] .t-card .av{width:44px!important;height:44px!important;font-size:15px!important;flex-shrink:0!important;margin-bottom:0!important}
+html[data-vx-device="mobile"] .t-card .nm{font-size:22px!important;margin-bottom:1px!important}
+html[data-vx-device="mobile"] .t-card .rl{margin-bottom:0!important;font-size:9px!important}
+html[data-vx-device="mobile"] .t-card .bio,
+html[data-vx-device="mobile"] .t-card .skills{display:none!important}
+html[data-vx-device="mobile"] .t-card:hover{transform:none!important}
+
+/* ── Team rows ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .team-row{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .team-row-num{display:none!important}
+html[data-vx-device="mobile"] .team-row-main{padding:20px 20px 12px!important}
+html[data-vx-device="mobile"] .team-row-meta{
+  flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;
+  gap:20px!important;padding:12px 20px 20px!important;
+  border-left:none!important;border-top:1px solid var(--b1)!important;
+}
+
+/* ── Marketing pipeline (§ 02) ─────────────────────────────────────── */
+html[data-vx-device="mobile"] section#how .sec-head{margin-bottom:16px!important}
+html[data-vx-device="mobile"] section#how .sec-head .eyebrow{margin-bottom:6px!important}
+html[data-vx-device="mobile"] section#how .sec-head .lede{margin-top:10px!important}
+html[data-vx-device="mobile"] #view-how .how-grid,
+html[data-vx-device="mobile"] section#how .how-grid{grid-template-columns:1fr!important;gap:12px!important}
+html[data-vx-device="mobile"] section#how .how-steps{
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;
+  flex-direction:unset!important;overflow:visible!important;
+}
+html[data-vx-device="mobile"] section#how .how-step{
+  width:auto!important;min-width:0!important;border-left:none!important;
+  padding:10px 10px 12px!important;border:1px solid var(--b1)!important;border-radius:12px!important;
+  background:linear-gradient(180deg,var(--s1),var(--bg))!important;
+}
+html[data-vx-device="mobile"] section#how .how-step::before{display:none!important}
+html[data-vx-device="mobile"] section#how .how-step.on{
+  border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent-soft)!important;
+}
+html[data-vx-device="mobile"] section#how .how-step .n{font-size:8px!important;letter-spacing:.1em!important;margin-bottom:4px!important;line-height:1.2!important}
+html[data-vx-device="mobile"] section#how .how-step h4{font-size:15px!important;line-height:1.15!important}
+
+/* ── Pricing ──────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .pricing-grid,
+html[data-vx-device="mobile"] .prices{grid-template-columns:1fr!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
+html[data-vx-device="mobile"] .prices{border-radius:10px!important}
+html[data-vx-device="mobile"] section#pricing{padding:32px 16px!important}
+html[data-vx-device="mobile"] section#pricing .sec-head{margin-bottom:16px!important}
+html[data-vx-device="mobile"] section#pricing .sec-head .lede{margin-top:10px!important}
+html[data-vx-device="mobile"] .plan{padding:16px 14px 18px!important}
+html[data-vx-device="mobile"] .plan .ph{margin-bottom:10px!important}
+html[data-vx-device="mobile"] .plan .ph .n{font-size:20px!important}
+html[data-vx-device="mobile"] .plan .px{font-size:34px!important;margin-bottom:4px!important}
+html[data-vx-device="mobile"] .plan .px em{font-size:16px!important}
+html[data-vx-device="mobile"] .plan .pd{font-size:11px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .plan ul{margin-bottom:12px!important}
+html[data-vx-device="mobile"] .plan ul li{padding:6px 0!important;font-size:12px!important;gap:8px!important}
+html[data-vx-device="mobile"] .plan ul li .c{font-size:10px!important}
+html[data-vx-device="mobile"] .plan .btn{padding:10px 14px!important;font-size:12px!important}
+
+/* ── FAQ ───────────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .faq-cols{grid-template-columns:1fr!important}
+
+/* ── Trial row ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .trial-row,
+html[data-vx-device="mobile"] .trial-checks{grid-template-columns:1fr!important}
+
+/* ── Task list ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .task-row{grid-template-columns:28px 1fr auto!important;gap:10px!important}
+html[data-vx-device="mobile"] .task-btn{font-size:9px!important;padding:5px 10px!important;white-space:normal!important}
+
+/* ── Calendar (week grid hidden on phone) ──────────────────────────── */
+html[data-vx-device="mobile"] .cal-week-grid{overflow:hidden!important;display:none!important}
+html[data-vx-device="mobile"] .cal-toolbar,
+html[data-vx-device="mobile"] .cal-legend{flex-wrap:wrap!important;gap:8px!important}
+html[data-vx-device="mobile"] .cal-view-toggle{display:none!important}
+html[data-vx-device="mobile"] .team-calendar-wrapper{grid-template-columns:1fr!important}
+
+/* ── Contact ───────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .contact-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .contact-aside{padding:24px 0 0!important;border-left:none!important;border-top:1px solid var(--b1)!important}
+
+/* ── Footers ───────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] footer{padding:20px 14px 18px!important;margin-top:28px!important;gap:14px!important}
+html[data-vx-device="mobile"] footer .lg{margin-bottom:6px!important;font-size:13px!important;gap:8px!important}
+html[data-vx-device="mobile"] footer .lg .dot{width:5px!important;height:5px!important}
+html[data-vx-device="mobile"] footer .brand{font-size:15px!important;line-height:1.25!important}
+html[data-vx-device="mobile"] footer .cols{grid-template-columns:1fr 1fr 1fr!important;gap:8px 10px!important}
+html[data-vx-device="mobile"] footer .cols h5{margin-bottom:6px!important;font-size:9px!important;letter-spacing:.16em!important}
+html[data-vx-device="mobile"] footer .cols a{font-size:12px!important;padding:2px 0!important}
+html[data-vx-device="mobile"] footer .copy{font-size:9px!important;line-height:1.45!important;margin-top:4px!important}
+html[data-vx-device="mobile"] .vx-footer{padding:40px 16px 24px!important;margin-top:60px!important}
+html[data-vx-device="mobile"] .vx-footer-grid{grid-template-columns:1fr!important;gap:24px!important}
+html[data-vx-device="mobile"] .vx-footer-bottom{flex-direction:column!important;gap:6px!important;text-align:center!important}
+
+/* ── Meeting room ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .mr-top{padding:14px 16px!important}
+html[data-vx-device="mobile"] .mr-msgs{padding:16px!important;max-width:100%!important;overflow-x:hidden!important}
+html[data-vx-device="mobile"] .mr-foot{padding:12px 16px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .mr-bubble{max-width:90%!important;word-break:break-word!important}
+
+/* ── Onboarding ────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .ob-wrap{padding:24px 18px!important;max-width:100%!important}
+
+/* ── KPI / section heads / mini-cards (vexa-shared elements) ───────── */
+html[data-vx-device="mobile"] .kpi-head .l .v{font-size:28px!important}
+html[data-vx-device="mobile"] .kpi-head{flex-wrap:wrap!important;gap:8px!important}
+html[data-vx-device="mobile"] .kpi-head .r{flex-wrap:wrap!important}
+html[data-vx-device="mobile"] .kpi-card{padding:14px 16px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .section-head h3{font-size:17px!important}
+html[data-vx-device="mobile"] .section-head{flex-wrap:wrap!important;gap:8px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .section-head .tabs button{font-size:9px!important;padding:5px 9px!important}
+html[data-vx-device="mobile"] .plat .big{font-size:22px!important}
+html[data-vx-device="mobile"] .plat{padding:14px!important}
+html[data-vx-device="mobile"] .mini-card .v{font-size:22px!important}
+html[data-vx-device="mobile"] .mini-card{padding:14px 16px!important}
+html[data-vx-device="mobile"] .two-up{gap:10px!important;margin-bottom:14px!important}
+
+/* ── Posts table — contained horizontal scroll, not viewport ───────── */
+html[data-vx-device="mobile"] .posts-card{max-height:none!important}
+html[data-vx-device="mobile"] .posts-card .posts-tbl-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+html[data-vx-device="mobile"] .posts-tbl th,
+html[data-vx-device="mobile"] .posts-tbl td{padding:10px 12px!important;font-size:11px!important}
+html[data-vx-device="mobile"] .posts-card .ph{padding:12px 14px!important}
+html[data-vx-device="mobile"] .posts-card .ph h4{font-size:15px!important}
+
+/* ── Audience cards, app cards ─────────────────────────────────────── */
+html[data-vx-device="mobile"] .aud-card,
+html[data-vx-device="mobile"] .app-card{padding:14px!important}
+
+/* ── Topbar padding (authed full bar) + logo ───────────────────────── */
+html[data-vx-device="mobile"][data-vx-authed] #topbar{padding:10px 16px!important}
+html[data-vx-device="mobile"] .logo{font-size:11px!important}
+
+/* ── Chart wrap: a touch more breathing room on narrow screens ─────── */
+html[data-vx-device="mobile"] .chart-wrap{height:140px!important}
+
+/* ── Catch-all: prevent media overflow ─────────────────────────────── */
+html[data-vx-device="mobile"] img,
+html[data-vx-device="mobile"] video,
+html[data-vx-device="mobile"] iframe,
+html[data-vx-device="mobile"] table{max-width:100%!important}
+html[data-vx-device="mobile"] svg{max-width:100%!important;height:auto}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SMALL PHONE  (≤ 480px) — nested @media for tighter tweaks
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width:480px){
+  html[data-vx-device="mobile"] .output-grid{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .ob-grid{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .task-btn{display:none!important}
+  html[data-vx-device="mobile"] .task-row{grid-template-columns:28px 1fr!important}
+  html[data-vx-device="mobile"] .plat-row{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .hero-h1{font-size:clamp(44px,12vw,64px)!important}
+  html[data-vx-device="mobile"] .masthead .stat-grid{grid-template-columns:1fr 1fr!important}
+}
