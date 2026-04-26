@@ -35,9 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script id="vx-session-gate" strategy="beforeInteractive">{`
           try{if(localStorage.getItem('vx-authed')==='1'){
             document.documentElement.dataset.vxAuthed='1';
+            // Honor #hash for refresh-restore: alphanumeric + hyphens only (CSS-injection safe).
+            var h=(location.hash||'').replace(/^#/,'');
+            var v=/^[a-z0-9-]+$/.test(h)?h:'db-dashboard';
             var s=document.createElement('style');
             s.id='vx-auth-gate';
-            s.textContent='.view{visibility:hidden!important;pointer-events:none!important}#view-db-dashboard{visibility:visible!important;pointer-events:auto!important;z-index:1!important}#nav-marketing{display:none!important}#topbar-login{display:none!important}#topbar-cta{display:none!important}#nav-app{display:flex!important}';
+            s.textContent='.view{visibility:hidden!important;pointer-events:none!important}#view-'+v+'{visibility:visible!important;pointer-events:auto!important;z-index:1!important}#nav-marketing{display:none!important}#topbar-login{display:none!important}#topbar-cta{display:none!important}#nav-app{display:flex!important}';
             document.head.appendChild(s);
           }}catch(e){}
           document.documentElement.setAttribute('data-vx-ready','1');

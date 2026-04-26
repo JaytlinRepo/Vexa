@@ -31,9 +31,14 @@ if(__vxPrototypeBoot){
 }
 
 /* ── STATE ──────────────────────────────────────────── */
-// If the auth gate is active, the dashboard is already visible — sync currentView
+// Default view; auth gate + URL hash (set in layout.tsx) override below.
 var currentView='home'
-try{if(localStorage.getItem('vx-authed')==='1')currentView='db-dashboard'}catch(e){}
+try{
+  if(localStorage.getItem('vx-authed')==='1')currentView='db-dashboard'
+  // Honor #hash so refresh restores the last view (must match the gate's parser)
+  var __vxHash=(location.hash||'').replace(/^#/,'')
+  if(/^[a-z0-9-]+$/.test(__vxHash))currentView=__vxHash
+}catch(e){}
 var isLoggedIn=false
 var selectedNiche=''
 var companyName=''
@@ -65,6 +70,7 @@ function navigate(id){
     document.querySelectorAll('.nav-item,.topnav-link').forEach(function(el){el.classList.remove('active')})
     var gateNav=document.getElementById('nav-db-dashboard')
     if(gateNav)gateNav.classList.add('active')
+    syncHash('db-dashboard')
     return
   }
 
@@ -86,6 +92,7 @@ function navigate(id){
     next.classList.add('active')
     if(topbar)topbar.textContent=sectionNames[id]||id
     currentView=id
+    syncHash(id)
     if(pt){
       pt.classList.remove('in')
       pt.classList.add('out')
@@ -102,6 +109,25 @@ function navigate(id){
   pt.classList.add('in')
   setTimeout(doSwap,280)
 }
+
+// Update the URL hash so refresh + back/forward restore the view.
+// Skipped when navigate() was triggered by hashchange itself (avoids loops).
+function syncHash(id){
+  if(window.__vxNavFromHash)return
+  try{
+    var want='#'+id
+    if(location.hash!==want)history.pushState(null,'',want)
+  }catch(e){}
+}
+
+window.addEventListener('hashchange',function(){
+  var h=(location.hash||'').replace(/^#/,'')
+  if(!h||h===currentView)return
+  if(!/^[a-z0-9-]+$/.test(h))return
+  if(!document.getElementById('view-'+h))return
+  window.__vxNavFromHash=true
+  try{navigate(h)}finally{window.__vxNavFromHash=false}
+})
 
 /* ── NAV COLLAPSE ───────────────────────────────────── */
 function toggleNav(){
@@ -227,7 +253,9 @@ function enterDashboard(){
   document.getElementById('nav-avatar').textContent=
     (companyName||'M')[0].toUpperCase()
 
-  navigate('db-dashboard')
+  // On refresh-restore, dashboard-wire sets this flag so we don't snap to HQ.
+  // On login, the flag is unset and we navigate as usual.
+  if (!window.__vxSuppressEnterNavigate) navigate('db-dashboard')
   setTimeout(initInsights, 420)
 }
 

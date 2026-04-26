@@ -285,10 +285,14 @@
     }
     const company = me.companies?.[0]
     if (!company) return
-    // Skip marketing — jump straight to the dashboard via navigate()
-    safeOriginalEnter()
+    // Refresh-restore path. Suppress enterDashboard's hardcoded navigate('db-dashboard')
+    // so HQ doesn't flash before we route to the user's intended view.
+    var intended = (location.hash || '').replace(/^#/, '')
+    window.__vxSuppressEnterNavigate = true
+    try { safeOriginalEnter() } finally { window.__vxSuppressEnterNavigate = false }
     if (typeof window.navigate === 'function') {
-      window.navigate('db-dashboard')
+      var target = (/^[a-z0-9-]+$/.test(intended) && document.getElementById('view-' + intended)) ? intended : 'db-dashboard'
+      window.navigate(target)
     }
     await refreshDashboardFor(me.user, company)
     fireDashboardReady(me.user, company)
