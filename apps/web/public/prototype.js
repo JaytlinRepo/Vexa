@@ -31,13 +31,26 @@ if(__vxPrototypeBoot){
 }
 
 /* ── STATE ──────────────────────────────────────────── */
-// Default view; auth gate + URL hash (set in layout.tsx) override below.
+// currentView MUST match what's visibly active in the DOM right now,
+// otherwise navigate()'s `if(currentView===id)return` early-return silently
+// no-ops and the user sees a stale view (e.g. on login, enterDashboard calls
+// navigate('db-dashboard') — if currentView was already 'db-dashboard' from
+// localStorage but view-home still has .active, the swap never happens).
+//
+// Source of truth (priority):
+//   1. URL hash if it names a real view (refresh-restore + auth-gate target)
+//   2. The .view.active element in the DOM (default = view-home)
 var currentView='home'
 try{
-  if(localStorage.getItem('vx-authed')==='1')currentView='db-dashboard'
-  // Honor #hash so refresh restores the last view (must match the gate's parser)
   var __vxHash=(location.hash||'').replace(/^#/,'')
-  if(/^[a-z0-9-]+$/.test(__vxHash))currentView=__vxHash
+  if(/^[a-z0-9-]+$/.test(__vxHash) && document.getElementById('view-'+__vxHash)){
+    currentView=__vxHash
+  } else {
+    var __vxActive=document.querySelector('.view.active')
+    if(__vxActive && __vxActive.id && __vxActive.id.indexOf('view-')===0){
+      currentView=__vxActive.id.slice(5)
+    }
+  }
 }catch(e){}
 var isLoggedIn=false
 var selectedNiche=''
@@ -74,7 +87,12 @@ function navigate(id){
     return
   }
 
-  if(currentView===id)return
+  // Only short-circuit if BOTH the JS state AND the DOM agree this view is
+  // already showing. JS state can lag (something reset .active behind our
+  // back, or a prior race set currentView without toggling .active) — in
+  // those cases we MUST still run the swap, otherwise the user is stuck on
+  // a stale view (the symptom: URL says #db-dashboard but view-home shows).
+  if(currentView===id && document.getElementById('view-'+id)?.classList.contains('active'))return
   const prev=document.getElementById('view-'+currentView)
   const next=document.getElementById('view-'+id)
   if(!next)return
