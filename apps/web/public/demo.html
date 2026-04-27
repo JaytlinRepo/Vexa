@@ -1437,6 +1437,15 @@ function start(){
 }
 
 function goToLanding(){
+  // When this runs inside the intro overlay iframe (intro-wire.js loads
+  // /demo.html#autoclose), `Enter →` should close the overlay rather than
+  // navigate the iframe. Post the same message the auto-finish path uses.
+  var inIframe = window.parent !== window;
+  var autoclose = (location.hash || '').indexOf('autoclose') !== -1;
+  if (inIframe && autoclose) {
+    window.parent.postMessage('vx-intro-done', '*');
+    return;
+  }
   window.location.href = LANDING_URL;
 }
 

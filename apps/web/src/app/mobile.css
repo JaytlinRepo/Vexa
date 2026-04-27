@@ -1,0 +1,372 @@
+/* ============================================================
+   mobile.css — phone Safari / Chrome surface for the production
+   landing + waitlist UI. Every selector is prefixed with
+   html[data-vx-device="mobile"] so a rule in here cannot leak
+   to desktop or to the Capacitor app surface.
+
+   Audit grep (must return zero unprefixed top-level rules):
+     grep -nE '^(\s*)[.#a-zA-Z\[]' apps/web/src/app/mobile.css \
+       | grep -v 'data-vx-device="mobile"' | grep -v '^[[:space:]]*\(/\*\|\*\|@\)'
+
+   Surfaces this file styles:
+     - Marketing landing (#view-home)        — vexa-landing.css base
+     - Waitlist overlay (#vx-waitlist)        — built by waitlist.js
+     - Topbar (#topbar)                       — global header
+     - Intro overlay (#vx-intro)              — built by intro-wire.js
+
+   Build pattern: leave desktop markup untouched. All mobile
+   adjustments are CSS-only — collapse multi-column layouts to
+   single column, scale type down, increase tap targets.
+============================================================ */
+
+/* Block desktop-only chrome on mobile. Reciprocal `.vx-mobile-only`
+   utility hides the mobile drawer / hamburger from desktop. */
+html[data-vx-device="mobile"] .vx-desktop-only { display: none !important; }
+html:not([data-vx-device="mobile"]) .vx-mobile-only { display: none !important; }
+
+/* ───────── Topbar ─────────────────────────────────────────── */
+html[data-vx-device="mobile"] #topbar {
+  padding: 12px 16px !important;
+}
+html[data-vx-device="mobile"] #topbar .topbar-nav,
+html[data-vx-device="mobile"] #topbar #nav-marketing,
+html[data-vx-device="mobile"] #topbar #nav-app {
+  display: none !important;
+}
+html[data-vx-device="mobile"] #topbar .topbar-right {
+  gap: 8px !important;
+}
+html[data-vx-device="mobile"] #topbar .topbar-btn {
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+}
+html[data-vx-device="mobile"] #topbar #topbar-login { display: none !important; }
+
+/* ───────── Marketing hero (#view-home) ────────────────────── */
+html[data-vx-device="mobile"] #view-home .hero {
+  min-height: auto !important;
+  padding: 80px 20px 56px !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-h1 {
+  font-size: clamp(38px, 11vw, 56px) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.02em !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-sub {
+  font-size: 16px !important;
+  line-height: 1.55 !important;
+  margin-top: 20px !important;
+  max-width: 100% !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-ctas {
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin-top: 28px !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-ctas > * {
+  width: 100% !important;
+  justify-content: center !important;
+  padding: 14px 18px !important;
+  font-size: 15px !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-meta {
+  flex-wrap: wrap !important;
+  gap: 8px 12px !important;
+  font-size: 12px !important;
+  margin-top: 24px !important;
+}
+html[data-vx-device="mobile"] #view-home .hero-meta-div {
+  display: none !important;
+}
+
+/* Section spacing — landing rhythm collapses on phones */
+html[data-vx-device="mobile"] #view-home section,
+html[data-vx-device="mobile"] #view-home .section {
+  padding: 56px 20px !important;
+}
+html[data-vx-device="mobile"] #view-home h2,
+html[data-vx-device="mobile"] #view-home .section-h2 {
+  font-size: clamp(28px, 7.5vw, 40px) !important;
+  line-height: 1.1 !important;
+}
+
+/* Multi-column grids → single column */
+html[data-vx-device="mobile"] #view-home .grid-3,
+html[data-vx-device="mobile"] #view-home .grid-2,
+html[data-vx-device="mobile"] #view-home .team-grid,
+html[data-vx-device="mobile"] #view-home .pricing-grid,
+html[data-vx-device="mobile"] #view-home .faq-grid {
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+}
+
+/* ───────── Waitlist overlay (#vx-waitlist) ────────────────── */
+html[data-vx-device="mobile"] #vx-waitlist .top {
+  padding: 14px 18px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .top nav,
+html[data-vx-device="mobile"] #vx-waitlist .top .links {
+  display: none !important;
+}
+
+/* Hero — keep the desktop 2-col grid (form on the left, LIVE PIPELINE on
+   the right) for any viewport ≥ 700px so the mobile-forced server still
+   reads "side-by-side like desktop" when opened in a wide browser. Only
+   collapse to a single column on actual phone viewports (< 700px) where
+   there isn't room. The narrow-viewport overrides live further below in
+   the @media block. */
+html[data-vx-device="mobile"] #vx-waitlist .hero {
+  min-height: auto !important;
+  padding: 88px 32px 48px !important;
+}
+/* Pipeline column visible — desktop's 2-col grid is preserved for wide
+   viewports of the mobile-forced server. Narrow-phone collapse rules sit
+   in the @media block at the bottom of this file. */
+html[data-vx-device="mobile"] #vx-waitlist .hero-right {
+  display: block !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero-right .agent-stack {
+  width: 100% !important;
+}
+/* Stat strip — "This week / Reach / CEO hours" — keep it as 3 cells in a
+   row on phone (the values are short), just shrink the type. */
+html[data-vx-device="mobile"] #vx-waitlist .hero-right .m {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero-right .m .l {
+  font-size: 9.5px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero-right .m .v {
+  font-size: 14px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero-content {
+  padding: 56px 20px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist section {
+  padding: 56px 20px !important;
+}
+
+/* Headline — clamp narrowest case so "team" fits a 390px iPhone */
+html[data-vx-device="mobile"] #vx-waitlist .hero-h1,
+html[data-vx-device="mobile"] #vx-waitlist .hero h1 {
+  font-size: clamp(30px, 8.4vw, 44px) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.02em !important;
+  margin-bottom: 20px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero h1 .line {
+  overflow: visible !important;  /* let descenders + italics breathe */
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero-sub,
+html[data-vx-device="mobile"] #vx-waitlist .hero .sub,
+html[data-vx-device="mobile"] #vx-waitlist .sub {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .hero .eyebrow-row {
+  margin-bottom: 20px !important;
+}
+
+/* Form is the conversion — fields tap-friendly, but never wider than a
+   readable column. On a real phone the parent's 20px padding caps it
+   below 360px; on a wide browser viewing the mobile server it stays at
+   the same 360px the desktop layout uses. */
+html[data-vx-device="mobile"] #vx-wl-form {
+  max-width: 360px !important;
+  width: 100% !important;
+  margin-top: 24px !important;
+}
+html[data-vx-device="mobile"] #vx-wl-form input {
+  padding: 15px 16px !important;
+  font-size: 16px !important;  /* 16px prevents iOS zoom-on-focus */
+}
+html[data-vx-device="mobile"] #vx-wl-form button[type="submit"] {
+  padding: 16px 18px !important;
+  font-size: 15px !important;
+  width: 100% !important;
+}
+
+/* Section headers — large desktop sizes blow past 390px on phone. */
+html[data-vx-device="mobile"] #vx-waitlist .blk {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .sec-head {
+  margin-bottom: 40px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .sec-head h2 {
+  font-size: clamp(28px, 8vw, 40px) !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.02em !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .sec-head .lede {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+  margin-top: 16px !important;
+}
+
+/* Every multi-column grid in the waitlist body collapses to a single
+   column on phones. The list mirrors vexa-landing.css's grid usage. */
+html[data-vx-device="mobile"] #vx-waitlist .team-wrap,
+html[data-vx-device="mobile"] #vx-waitlist .how-grid,
+html[data-vx-device="mobile"] #vx-waitlist .signals,
+html[data-vx-device="mobile"] #vx-waitlist .drafts,
+html[data-vx-device="mobile"] #vx-waitlist .compare,
+html[data-vx-device="mobile"] #vx-waitlist .stats,
+html[data-vx-device="mobile"] #vx-waitlist .prices,
+html[data-vx-device="mobile"] #vx-waitlist .agent-stack,
+html[data-vx-device="mobile"] #vx-waitlist .grid,
+html[data-vx-device="mobile"] #vx-waitlist .grid-2,
+html[data-vx-device="mobile"] #vx-waitlist .grid-3,
+html[data-vx-device="mobile"] #vx-waitlist .team-grid {
+  grid-template-columns: 1fr !important;
+  gap: 16px !important;
+  max-width: 100% !important;
+}
+
+/* Stats border lines look broken when a 4-col strip wraps to 1-col;
+   give each cell its own divider instead. */
+html[data-vx-device="mobile"] #vx-waitlist .stats > * {
+  border-bottom: 1px solid var(--b1) !important;
+  padding: 20px 0 !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .stats > *:last-child {
+  border-bottom: none !important;
+}
+
+/* Pricing cards lose their vertical dividers when stacked — use horizontal. */
+html[data-vx-device="mobile"] #vx-waitlist .prices > * {
+  border-right: none !important;
+  border-bottom: 1px solid var(--b1) !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .prices > *:last-child {
+  border-bottom: none !important;
+}
+
+/* Pipeline / agent cards stack */
+html[data-vx-device="mobile"] #vx-waitlist .pipeline,
+html[data-vx-device="mobile"] #vx-waitlist .pipe {
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+html[data-vx-device="mobile"] #vx-waitlist .pipe-arrow {
+  transform: rotate(90deg) !important;
+}
+
+/* Counter / metric strip wraps */
+html[data-vx-device="mobile"] #vx-waitlist .m,
+html[data-vx-device="mobile"] #vx-waitlist .metric-row {
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+
+/* Marquee tape is decorative — keep it but trim the height on phones. */
+html[data-vx-device="mobile"] #vx-waitlist .tape {
+  font-size: 14px !important;
+  padding: 14px 0 !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Hidden on mobile — sections that don't render cleanly yet.
+   These will come back once each block has a proper mobile layout.
+   ────────────────────────────────────────────────────────────── */
+
+/* Marquee scroller — the desktop ribbon overflows awkwardly on phones */
+html[data-vx-device="mobile"] #vx-waitlist .marquee {
+  display: none !important;
+}
+
+/* The pipeline section — its inline 4-col grid (set via style="") can't
+   be overridden by class selectors and crushes the cards on phone. Hide
+   the whole section until we rebuild it with a stacked layout. */
+html[data-vx-device="mobile"] #vx-waitlist #vx-wl-process {
+  display: none !important;
+}
+
+/* Footer — desktop builds it from two <table>s (brand + links, then
+   © + tagline), each 2-col with the right cell text-align:right. The
+   block-stack rebuild lives in the narrow-viewport @media block at the
+   bottom of this file so the desktop 2-col footer is preserved when the
+   mobile-forced server is opened in a wide browser. */
+
+/* ───────── Intro overlay (#vx-intro) ─────────────────────── */
+html[data-vx-device="mobile"] #vx-intro .scene-h1,
+html[data-vx-device="mobile"] #vx-intro h1 {
+  font-size: clamp(36px, 11vw, 64px) !important;
+  line-height: 1.05 !important;
+  padding: 0 24px !important;
+}
+html[data-vx-device="mobile"] #vx-intro .scene-sub {
+  font-size: 16px !important;
+  padding: 0 24px !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Narrow-viewport collapse — kicks in below 1100px to match the
+   point where vexa-landing.css already drops the hero from 2-col
+   to 1-col. Below that breakpoint we own the layout: pipeline
+   above the headline, smaller type, narrow form, stacked footer.
+   At ≥ 1100px the desktop 2-col hero is preserved so the
+   mobile-forced server still reads "side-by-side like desktop"
+   when opened in a wide browser.
+   ────────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  html[data-vx-device="mobile"] #vx-waitlist .hero {
+    grid-template-columns: 1fr !important;
+    grid-auto-flow: row !important;
+    gap: 32px !important;
+    padding: 32px 20px 48px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist .hero-right {
+    order: -1 !important;
+    width: 100% !important;
+    max-width: 420px !important;
+    margin: 0 auto 8px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist .hero-left {
+    order: 0 !important;
+  }
+
+  /* Footer collapses to a stacked, centered, single-column block — only
+     at true phone widths. At wide viewports the desktop <table> 2-col
+     layout (brand left, Company links right) is preserved. */
+  html[data-vx-device="mobile"] #vx-waitlist footer {
+    padding: 48px 20px 28px !important;
+    max-width: 440px !important;
+    margin: 0 auto !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer table,
+  html[data-vx-device="mobile"] #vx-waitlist footer thead,
+  html[data-vx-device="mobile"] #vx-waitlist footer tbody,
+  html[data-vx-device="mobile"] #vx-waitlist footer tfoot,
+  html[data-vx-device="mobile"] #vx-waitlist footer tr,
+  html[data-vx-device="mobile"] #vx-waitlist footer td,
+  html[data-vx-device="mobile"] #vx-waitlist footer th {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: left !important;
+    white-space: normal !important;
+    padding: 0 !important;
+    border: none !important;
+    border-collapse: separate !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer > table:first-of-type td:first-child {
+    margin-bottom: 28px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer > table:first-of-type td:last-child {
+    margin-bottom: 32px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type {
+    border-top: 1px solid var(--b1) !important;
+    padding-top: 16px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type td {
+    margin-bottom: 6px !important;
+  }
+  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type td:last-child {
+    margin-bottom: 0 !important;
+  }
+}

@@ -6,8 +6,12 @@
 ;(function () {
   if (document.cookie.indexOf('vx_session') !== -1) return
   // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
+  // and Amplify preview environments. ?waitlist=1 forces the overlay so
+  // the mobile-prod preview server can mirror the production look without
+  // changing this gate.
   var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  var forcePreview = new URLSearchParams(location.search).get('waitlist') === '1'
+  if (!forcePreview && (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com'))) return
 
   // Waitlist visitors aren't users yet — clear any cached theme preference and lock to light.
   try { localStorage.removeItem('vx-t') } catch (_) {}

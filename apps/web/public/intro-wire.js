@@ -7,6 +7,8 @@
 ;(function () {
   // Don't show for logged-in users
   if (document.cookie.indexOf('vx_session') !== -1) return
+  // ?nointro=1 — skip the cinematic intro (used for screenshotting / preview)
+  if (new URLSearchParams(location.search).get('nointro') === '1') return
   // Temporarily showing on localhost for preview
   // var host = window.location.hostname
   // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
