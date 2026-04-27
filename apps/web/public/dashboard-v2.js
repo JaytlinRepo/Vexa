@@ -1990,9 +1990,10 @@
   async function render() {
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
-    // If the new Vexa-2 HQ layout is present, skip the old JS-generated dashboard.
-    // The new layout is static HTML styled by vexa-shared.css.
-    if (view.querySelector('.masthead') || view.querySelector('.pipe-wrap')) {
+    // If the new Vexa-2 HQ layout OR the v3 warm-ivory redesign is present,
+    // skip the old JS-generated dashboard. v3 is static HTML in body.html
+    // styled by hq-v3.css; the .hq-v3 class on view-db-dashboard is the marker.
+    if (view.classList.contains('hq-v3') || view.querySelector('.masthead') || view.querySelector('.pipe-wrap')) {
       // If we have cached state, populate HQ immediately while fresh API data loads
       if (window.__vxDashState && window.__vxDashState.me) {
         window.dispatchEvent(new CustomEvent('vx-dash-ready'))

@@ -986,231 +986,409 @@
 
     <!-- ══ DASHBOARD VIEWS ══════════════════════════════ -->
 
-    <!-- DASHBOARD HOME (HQ) -->
-    <div class="view" id="view-db-dashboard">
+    <!-- DASHBOARD HOME (HQ) — v3 warm-ivory redesign.
+         The hq-v3 class scopes the new CSS in apps/web/src/app/hq-v3.css
+         and tells dashboard-v2.js to skip its render. -->
+    <div class="view hq-v3" id="view-db-dashboard">
 
-<!-- Loading overlay — hidden once data populates -->
-<div id="hq-loader" style="display:flex;align-items:center;justify-content:center;padding:120px 0">
-  <div class="vx-spin"></div>
-</div>
+<div class="hq">
 
-<!-- ══ PIPELINE HERO ═══════════ -->
-<section class="pipe-wrap hq-content" style="display:none">
-  <div class="pipe-head">
-    <div class="pipe-title"><span class="n">§ 01</span><h2>The <em>pipeline</em>, live.</h2></div>
-    <div class="pipe-meta"><span class="live"><span class="dd"></span>LIVE · 09:42:18</span><span>AUTO-HANDOFF · ON</span><span>CYCLE · 087</span></div>
-  </div>
-  <div class="pipe" id="pipe">
-    <div class="arrow a1 done">→</div>
-    <div class="arrow a2 done">→</div>
-    <div class="arrow a3">→</div>
-
-    <div class="node done" data-node="maya">
-      <div class="node-top"><div class="node-port">M</div><div><div class="node-name serif-i">Maya</div><div class="node-role">Trend & Insights Analyst</div></div></div>
-      <div class="node-status"><span class="dt"></span></div>
-      <div class="node-task"></div>
-      <div class="node-prog"><span style="width:0%"></span></div>
-      <div class="node-eta"></div>
-    </div>
-    <div class="node done" data-node="jordan">
-      <div class="node-top"><div class="node-port">J</div><div><div class="node-name serif-i">Jordan</div><div class="node-role">Content Strategist</div></div></div>
-      <div class="node-status"><span class="dt"></span></div>
-      <div class="node-task"></div>
-      <div class="node-prog"><span style="width:0%"></span></div>
-      <div class="node-eta"></div>
-    </div>
-    <div class="node working" data-node="alex">
-      <div class="node-top"><div class="node-port">A</div><div><div class="node-name serif-i">Alex</div><div class="node-role">Copywriter & Script Writer</div></div></div>
-      <div class="node-status"><span class="dt"></span></div>
-      <div class="node-task"></div>
-      <div class="node-prog"><span style="width:0%" id="alex-prog"></span></div>
-      <div class="node-eta"><span id="alex-eta"></span></div>
-    </div>
-    <div class="node queued" data-node="riley">
-      <div class="node-top"><div class="node-port">R</div><div><div class="node-name serif-i">Riley</div><div class="node-role">Creative Director</div></div></div>
-      <div class="node-status"><span class="dt"></span></div>
-      <div class="node-task"></div>
-      <div class="node-prog"><span style="width:0%"></span></div>
-      <div class="node-eta"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ══ DASHBOARD GRID ══════════ -->
-<section class="dash hq-content" style="display:none">
-
-<!-- ── MAIN ── -->
-<div class="dash-main">
-
-  <!-- Follower growth chart -->
-  <div class="section-head">
-    <h3>Audience <em>growth</em></h3>
-    <div class="tabs"><button data-tip="Last 24 hours">24H</button><button data-tip="Last 7 days">7D</button><button class="on" data-tip="Last 30 days">30D</button><button data-tip="Last 90 days">90D</button></div>
+  <!-- Eyebrow -->
+  <div class="eyebrow-strip">
+    <span class="eyebrow"><span class="rule"></span>Monday · April 20 · Issue 087</span>
+    <span class="live"><span class="dd"></span>LIVE · <span id="hq3-clock">09:42:18</span> · Cycle 087</span>
   </div>
 
-  <div class="kpi-card">
-    <div class="kpi-head">
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <h1>Good morning, Jaytlin.<br/>Your team <em>shipped</em><br/>4 posts overnight.</h1>
+      <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, Alex is on Reel 3 of 3, and Riley has a shot list staged for tomorrow.</p>
+    </div>
+    <div class="hero-mini">
+      <div class="row">
+        <span class="lbl">Reach · 7d</span>
+        <div style="text-align:right">
+          <div class="v"><em>1.4</em>M</div>
+          <div class="d"><span class="u">▲ 38%</span> vs prev</div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Followers · all</span>
+        <div style="text-align:right">
+          <div class="v">313.8K</div>
+          <div class="d"><span class="u">▲ 2,104</span> this wk</div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Bedrock quota</span>
+        <div style="text-align:right">
+          <div class="v">342<span style="color:var(--t3);font-size:18px;font-family:'Inter',sans-serif">/500</span></div>
+          <div class="d">68% · Pro</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Forecast -->
+  <section class="sect">
+    <div class="sect-head">
       <div class="l">
-        <div class="lbl" data-tip="Your combined follower count across all connected platforms. Growing steadily means your content is attracting the right audience. Improve by posting consistently and engaging with comments within the first hour.">Total followers · all platforms</div>
-        <div class="v"><em>&nbsp;</em></div>
-        <div class="d">&nbsp;</div>
+        <span class="n">§ 01 / Forecast</span>
+        <h2>Where you're <em>headed</em>.</h2>
       </div>
-      <div class="r">
-        <button class="on" data-tip="People who follow your accounts. Steady growth means your content attracts and retains the right audience.">Followers</button>
-        <button data-tip="How many unique people see your posts. Higher reach means the algorithm is pushing your content beyond your followers.">Reach</button>
-        <button data-tip="The percentage of viewers who interact with your content. A rising trend means your content quality is improving.">Engagement</button>
+      <div class="right">
+        <div class="pill-tabs" data-hq3-tabs>
+          <button data-tip="Last 7 days">7D</button>
+          <button class="on" data-tip="Last 30 days">30D</button>
+          <button data-tip="Last 90 days">90D</button>
+          <button data-tip="Last 12 months">1Y</button>
+        </div>
       </div>
     </div>
-    <div class="chart-wrap">
-      <svg viewBox="0 0 600 180" preserveAspectRatio="none" id="chart">
-        <defs>
-          <linearGradient id="gIG" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="var(--ig)" stop-opacity=".3"/>
-            <stop offset="100%" stop-color="var(--ig)" stop-opacity="0"/>
-          </linearGradient>
-          <linearGradient id="gTT" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="var(--tt)" stop-opacity=".3"/>
-            <stop offset="100%" stop-color="var(--tt)" stop-opacity="0"/>
-          </linearGradient>
-          <linearGradient id="gYT" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="var(--yt)" stop-opacity=".3"/>
-            <stop offset="100%" stop-color="var(--yt)" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <!-- grid -->
-        <g stroke="var(--b1)" stroke-dasharray="2 3">
-          <line x1="0" y1="30"  x2="600" y2="30"/>
-          <line x1="0" y1="70"  x2="600" y2="70"/>
-          <line x1="0" y1="110" x2="600" y2="110"/>
-          <line x1="0" y1="150" x2="600" y2="150"/>
-        </g>
-        <!-- TikTok (biggest) -->
-        <path d="M0,60 L25,58 L50,55 L75,52 L100,48 L125,45 L150,48 L175,40 L200,38 L225,34 L250,30 L275,28 L300,26 L325,22 L350,20 L375,22 L400,18 L425,15 L450,12 L475,14 L500,10 L525,8 L550,10 L575,6 L600,4 L600,180 L0,180 Z" fill="url(#gTT)"/>
-        <path d="M0,60 L25,58 L50,55 L75,52 L100,48 L125,45 L150,48 L175,40 L200,38 L225,34 L250,30 L275,28 L300,26 L325,22 L350,20 L375,22 L400,18 L425,15 L450,12 L475,14 L500,10 L525,8 L550,10 L575,6 L600,4" fill="none" stroke="var(--tt)" stroke-width="1.8"/>
-        <!-- IG (middle) -->
-        <path d="M0,110 L25,108 L50,105 L75,104 L100,100 L125,96 L150,98 L175,92 L200,88 L225,86 L250,82 L275,80 L300,76 L325,72 L350,70 L375,72 L400,66 L425,62 L450,60 L475,58 L500,54 L525,52 L550,50 L575,48 L600,46 L600,180 L0,180 Z" fill="url(#gIG)"/>
-        <path d="M0,110 L25,108 L50,105 L75,104 L100,100 L125,96 L150,98 L175,92 L200,88 L225,86 L250,82 L275,80 L300,76 L325,72 L350,70 L375,72 L400,66 L425,62 L450,60 L475,58 L500,54 L525,52 L550,50 L575,48 L600,46" fill="none" stroke="var(--ig)" stroke-width="1.8"/>
-        <!-- YT (smallest) -->
-        <path d="M0,148 L25,147 L50,146 L75,146 L100,144 L125,143 L150,143 L175,142 L200,141 L225,140 L250,139 L275,138 L300,137 L325,137 L350,136 L375,135 L400,134 L425,134 L450,133 L475,132 L500,132 L525,131 L550,130 L575,130 L600,129" fill="none" stroke="var(--yt)" stroke-width="1.5"/>
-        <!-- hover line -->
-        <line x1="450" y1="0" x2="450" y2="180" stroke="var(--b2)" stroke-dasharray="2 3"/>
-        <circle cx="450" cy="12" r="3" fill="var(--tt)"/>
-        <circle cx="450" cy="60" r="3" fill="var(--ig)"/>
-        <circle cx="450" cy="133" r="3" fill="var(--yt)"/>
-      </svg>
-    </div>
-    <div class="chart-legend">
-      <div class="li"><span class="sw tt"></span>TikTok · 211.2k · ▲ 5,104</div>
-      <div class="li"><span class="sw ig"></span>Instagram · 84.3k · ▲ 2,806</div>
-      <div class="li"><span class="sw yt"></span>YouTube · 18.2k · ▲ 502</div>
-    </div>
-  </div>
 
-  <!-- Engagement + retention -->
-  <div class="two-up">
-    <div class="mini-card">
-      <div class="lbl" data-tip="Total likes + comments + saves + shares divided by total reach across all your posts. To improve: get more saves (share tips worth bookmarking), more comments (ask a question or share a hot take), and more shares (create content people want to send to a friend).">Engagement</div>
-      <div class="v"><em>—</em></div>
-      <div class="d"></div>
-      <div class="bars" id="bars">
-        <div class="bar" style="height:40%"></div>
-        <div class="bar" style="height:55%"></div>
-        <div class="bar" style="height:48%"></div>
-        <div class="bar" style="height:62%"></div>
-        <div class="bar" style="height:70%"></div>
-        <div class="bar" style="height:65%"></div>
-        <div class="bar" style="height:78%"></div>
-        <div class="bar" style="height:72%"></div>
-        <div class="bar" style="height:85%"></div>
-        <div class="bar" style="height:80%"></div>
-        <div class="bar" style="height:92%"></div>
-        <div class="bar" style="height:96%;opacity:1"></div>
+    <div class="fc-wrap">
+      <div class="fc-head">
+        <div>
+          <div class="fc-num">313.8<span class="unit">K</span></div>
+          <div class="fc-cap">Total followers · all platforms</div>
+        </div>
+        <div class="fc-side">
+          <div class="stat"><span class="k">30d pace</span><span class="v">+2,804/day</span></div>
+          <div class="stat"><span class="k">→ 350K</span><span class="v"><em>23</em> days</span></div>
+          <div class="stat"><span class="k">→ 400K</span><span class="v"><em>51</em> days</span></div>
+          <div class="stat"><span class="k">Confidence</span><span class="v">0.87</span></div>
+        </div>
       </div>
-    </div>
-    <div class="mini-card">
-      <div class="lbl" data-tip="How long people watch your Reels on average before scrolling. Longer watch time means the algorithm shows your content to more people. Improve by front-loading the hook — don't save the payoff for the end.">Avg. watch time · Reels</div>
-      <div class="v"><em>—</em></div>
-      <div class="d"></div>
-      <div class="ring">
-        <svg viewBox="0 0 60 60">
-          <circle cx="30" cy="30" r="22" fill="none" stroke="var(--b1)" stroke-width="5"/>
-          <circle cx="30" cy="30" r="22" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="138.2" stroke-dashoffset="63.6" stroke-linecap="round" transform="rotate(-90 30 30)"/>
-          <text x="30" y="34" text-anchor="middle" fill="var(--t1)" font-family="Cormorant Garamond" font-style="italic" font-size="16">54%</text>
+
+      <div class="fc-chart" id="hq3-fc-chart">
+        <svg viewBox="0 0 800 280" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="gFC" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%"   stop-color="#1a1a1a" stop-opacity=".10"/>
+              <stop offset="100%" stop-color="#1a1a1a" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g class="grid">
+            <line x1="0" y1="40"  x2="800" y2="40"/>
+            <line x1="0" y1="120" x2="800" y2="120"/>
+            <line x1="0" y1="200" x2="800" y2="200"/>
+          </g>
+          <text x="0" y="36" class="axis">400K</text>
+          <text x="0" y="116" class="axis">350K</text>
+          <text x="0" y="196" class="axis">300K</text>
+          <text x="0" y="260" class="axis">250K</text>
+          <path class="past-fill" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162 L420,260 L0,260 Z"/>
+          <path class="past-line" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162"/>
+          <line class="now-line" x1="420" y1="20" x2="420" y2="260"/>
+          <text x="424" y="30" class="axis">NOW</text>
+          <path class="future-band" d="M420,162 L500,148 L580,128 L660,102 L740,72 L800,52 L800,90 L740,110 L660,140 L580,168 L500,180 L420,180 Z"/>
+          <path class="future-line" d="M420,162 L500,140 L580,116 L660,86 L740,52 L800,30"/>
+          <line x1="420" y1="120" x2="588" y2="120" stroke="#c08a3e" stroke-width=".8" stroke-dasharray="2 3" opacity=".6"/>
+          <circle cx="588" cy="120" r="4" class="milestone-dot"/>
+          <text x="600" y="116" class="milestone-label"><tspan class="serif">350K</tspan> · <tspan>23d</tspan></text>
+          <circle cx="780" cy="40" r="4" class="milestone-dot"/>
+          <text x="660" y="36" class="milestone-label">400K · 51d</text>
+          <text x="0"   y="278" class="axis">JAN</text>
+          <text x="140" y="278" class="axis">FEB</text>
+          <text x="280" y="278" class="axis">MAR</text>
+          <text x="420" y="278" class="axis">APR</text>
+          <text x="580" y="278" class="axis">+30d</text>
+          <text x="740" y="278" class="axis">+60d</text>
         </svg>
-        <div id="watch-ring-label" style="font-size:11px;color:var(--t2);font-family:'JetBrains Mono',monospace;letter-spacing:.04em;line-height:1.55"></div>
+
+        <svg class="fc-cross" id="hq3-fc-cross" viewBox="0 0 800 280" preserveAspectRatio="none">
+          <line class="vline" x1="450" y1="0" x2="450" y2="280"/>
+          <circle class="dot" cx="450" cy="120" r="5"/>
+        </svg>
+        <div class="fc-tooltip" id="hq3-fc-tip" style="left:56%;top:42%"><strong>340K</strong>Apr 27 · projected</div>
+      </div>
+
+      <div class="fc-legend">
+        <span class="li on"><span class="sw"></span>All platforms · 313.8K · ▲ 8,412 (30d)</span>
+        <span class="li tt"><span class="sw"></span>TikTok · 211.2k</span>
+        <span class="li ig"><span class="sw"></span>Instagram · 84.3k</span>
+        <span class="li yt"><span class="sw"></span>YouTube · 18.2k</span>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Forecast chart (full width) -->
-  <div class="mini-card" style="margin-bottom:22px">
-    <div class="lbl" data-tip="Where your follower count is headed based on your current daily growth rate. The dotted line shows the projected trajectory. Post consistently to keep the curve climbing.">Follower <em>forecast</em></div>
-    <div id="forecast-chart" style="height:260px;position:relative;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
-    <div id="forecast-milestones" style="margin-top:8px"></div>
-  </div>
+  <!-- Pipeline -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="l">
+        <span class="n">§ 02 / Assembly line</span>
+        <h2>The <em>pipeline</em>, live.</h2>
+      </div>
+      <div class="right">
+        <span class="meta">AUTO-HANDOFF · ON</span>
+      </div>
+    </div>
 
-  <!-- Likes forecast chart -->
-  <div class="mini-card" style="margin-bottom:22px">
-    <div class="lbl" data-tip="Projects your total likes trajectory based on how quickly your posts accumulate likes. Uses exponential smoothing to weight recent trends more heavily than older patterns.">Likes <em>forecast</em></div>
-    <div id="likes-forecast-chart" style="height:220px;position:relative;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
-    <div id="likes-forecast-insight" style="margin-top:8px"></div>
-  </div>
+    <div class="pipe" id="hq3-pipe">
+      <div class="pipe-arrow a1 done">→</div>
+      <div class="pipe-arrow a2 done">→</div>
+      <div class="pipe-arrow a3 live">→</div>
 
-  <!-- Maya's playbook -->
-  <details class="maya-take" style="margin-bottom:22px;border:1px solid var(--b1);border-radius:10px;padding:14px;background:var(--s1)">
-    <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;user-select:none">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--s3);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:var(--t1);flex-shrink:0">M</div>
+      <div class="node done" data-node="maya">
+        <div class="node-top">
+          <div class="node-port"><span class="ltr">M</span></div>
+          <div>
+            <div class="node-name">Maya</div>
+            <div class="node-role">Trend &amp; Insights</div>
+          </div>
+        </div>
+        <div class="node-status"><span class="dt"></span>weekly pulse · landed</div>
+        <div class="node-task">Pulse wk 17 — <em>retention up</em></div>
+        <div class="node-prog"><span style="width:100%"></span></div>
+        <div class="node-eta"><span>100%</span><span>· 08:12</span></div>
+      </div>
+
+      <div class="node done" data-node="jordan">
+        <div class="node-top">
+          <div class="node-port"><span class="ltr">J</span></div>
+          <div>
+            <div class="node-name">Jordan</div>
+            <div class="node-role">Content Strategy</div>
+          </div>
+        </div>
+        <div class="node-status"><span class="dt"></span>brief · approved</div>
+        <div class="node-task">Brief #213 — <em>"Sunday reset"</em></div>
+        <div class="node-prog"><span style="width:100%"></span></div>
+        <div class="node-eta"><span>100%</span><span>· 08:47</span></div>
+      </div>
+
+      <div class="node working" data-node="alex">
+        <div class="node-top">
+          <div class="node-port"><span class="ltr">A</span></div>
+          <div>
+            <div class="node-name">Alex</div>
+            <div class="node-role">Copy &amp; Script</div>
+          </div>
+        </div>
+        <div class="node-status"><span class="dt"></span>writing · in flight</div>
+        <div class="node-task">Reel 3 — <em>"boundary, not to-do"</em></div>
+        <div class="node-prog"><span style="width:72%" id="hq3-alex-prog"></span></div>
+        <div class="node-eta"><span id="hq3-alex-ts">72% · writing</span><span>ETA 11:18</span></div>
+      </div>
+
+      <div class="node queued" data-node="riley">
+        <div class="node-top">
+          <div class="node-port"><span class="ltr">R</span></div>
+          <div>
+            <div class="node-name">Riley</div>
+            <div class="node-role">Creative Direction</div>
+          </div>
+        </div>
+        <div class="node-status"><span class="dt"></span>queued · awaiting Alex</div>
+        <div class="node-task">Publish Reel 3 — <em>IG · 11:42</em></div>
+        <div class="node-prog"><span style="width:0%"></span></div>
+        <div class="node-eta"><span>queued</span><span>· 11:42</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main grid -->
+  <section class="sect" style="border-bottom:0">
+    <div class="grid-2">
+
+      <!-- LEFT: charts + insights -->
       <div>
-        <div style="font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--t1)">Maya's daily playbook</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3);letter-spacing:.04em">TREND &amp; INSIGHTS ANALYST</div>
+
+        <div class="tile">
+          <div class="tile-head">
+            <h3>Audience <em>signals</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">last 30d</span>
+          </div>
+
+          <div class="kv-row">
+            <div class="kv" data-tip="Total likes + comments + saves + shares ÷ reach. To improve: ask questions in captions, create save-worthy lists, post share-worthy moments.">
+              <span class="k">Engagement</span>
+              <span class="v"><em>11.4</em>%</span>
+              <svg class="kv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                <path class="area" d="M0,28 L10,26 L20,22 L30,24 L40,18 L50,16 L60,14 L70,10 L80,8 L90,6 L100,4 L100,32 L0,32 Z"/>
+                <path d="M0,28 L10,26 L20,22 L30,24 L40,18 L50,16 L60,14 L70,10 L80,8 L90,6 L100,4"/>
+                <circle class="end-dot" cx="100" cy="4" r="2"/>
+              </svg>
+              <span class="d"><span class="u">▲ 2.1pt</span> · 30d trend</span>
+            </div>
+
+            <div class="kv" data-tip="How long viewers watch your Reels before scrolling. Longer = the algorithm pushes harder.">
+              <span class="k">Watch time · Reels</span>
+              <span class="v"><em>54</em>%</span>
+              <svg class="kv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                <path class="area" d="M0,24 L10,22 L20,24 L30,20 L40,18 L50,16 L60,14 L70,12 L80,10 L90,9 L100,8 L100,32 L0,32 Z"/>
+                <path d="M0,24 L10,22 L20,24 L30,20 L40,18 L50,16 L60,14 L70,12 L80,10 L90,9 L100,8"/>
+                <circle class="end-dot" cx="100" cy="8" r="2"/>
+              </svg>
+              <span class="d"><span class="u">▲ 6pt</span> · 1pt to goal</span>
+            </div>
+
+            <div class="kv" data-tip="Daily new follower velocity, smoothed.">
+              <span class="k">Daily growth</span>
+              <span class="v"><em>2.8</em>K<span style="font-family:Inter,sans-serif;font-size:18px;color:var(--t3);font-style:normal">/day</span></span>
+              <svg class="kv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+                <path class="area" d="M0,22 L10,20 L20,18 L30,20 L40,16 L50,14 L60,16 L70,10 L80,12 L90,8 L100,6 L100,32 L0,32 Z"/>
+                <path d="M0,22 L10,20 L20,18 L30,20 L40,16 L50,14 L60,16 L70,10 L80,12 L90,8 L100,6"/>
+                <circle class="end-dot" cx="100" cy="6" r="2"/>
+              </svg>
+              <span class="d"><span class="u">▲ 18%</span> · accelerating</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-head">
+            <h3>Best time to <em>post</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">90d analysis</span>
+          </div>
+          <div class="hm-wrap">
+            <div></div>
+            <div class="day">M</div><div class="day">T</div><div class="day">W</div><div class="day">T</div><div class="day">F</div><div class="day">S</div><div class="day">S</div>
+
+            <div class="lab">06</div>
+            <div class="hm-cell" style="opacity:.10" data-pct="2"></div><div class="hm-cell" style="opacity:.12" data-pct="3"></div><div class="hm-cell" style="opacity:.10" data-pct="2"></div><div class="hm-cell" style="opacity:.14" data-pct="4"></div><div class="hm-cell" style="opacity:.18" data-pct="5"></div><div class="hm-cell" style="opacity:.22" data-pct="6"></div><div class="hm-cell" style="opacity:.20" data-pct="5"></div>
+
+            <div class="lab">09</div>
+            <div class="hm-cell" style="opacity:.32" data-pct="9"></div><div class="hm-cell" style="opacity:.40" data-pct="11"></div><div class="hm-cell" style="opacity:.42" data-pct="12"></div><div class="hm-cell" style="opacity:.38" data-pct="10"></div><div class="hm-cell" style="opacity:.45" data-pct="13"></div><div class="hm-cell" style="opacity:.30" data-pct="8"></div><div class="hm-cell" style="opacity:.28" data-pct="7"></div>
+
+            <div class="lab">12</div>
+            <div class="hm-cell" style="opacity:.62" data-pct="18"></div><div class="hm-cell" style="opacity:.78" data-pct="22"></div><div class="hm-cell peak" style="opacity:1" data-pct="28"></div><div class="hm-cell" style="opacity:.85" data-pct="24"></div><div class="hm-cell" style="opacity:.72" data-pct="20"></div><div class="hm-cell" style="opacity:.50" data-pct="14"></div><div class="hm-cell" style="opacity:.45" data-pct="13"></div>
+
+            <div class="lab">15</div>
+            <div class="hm-cell" style="opacity:.55" data-pct="15"></div><div class="hm-cell" style="opacity:.65" data-pct="18"></div><div class="hm-cell" style="opacity:.70" data-pct="20"></div><div class="hm-cell" style="opacity:.68" data-pct="19"></div><div class="hm-cell" style="opacity:.60" data-pct="17"></div><div class="hm-cell" style="opacity:.42" data-pct="12"></div><div class="hm-cell" style="opacity:.38" data-pct="10"></div>
+
+            <div class="lab">18</div>
+            <div class="hm-cell" style="opacity:.72" data-pct="20"></div><div class="hm-cell" style="opacity:.85" data-pct="24"></div><div class="hm-cell" style="opacity:.88" data-pct="25"></div><div class="hm-cell" style="opacity:.82" data-pct="23"></div><div class="hm-cell" style="opacity:.78" data-pct="22"></div><div class="hm-cell" style="opacity:.62" data-pct="18"></div><div class="hm-cell" style="opacity:.58" data-pct="16"></div>
+
+            <div class="lab">21</div>
+            <div class="hm-cell" style="opacity:.45" data-pct="13"></div><div class="hm-cell" style="opacity:.52" data-pct="15"></div><div class="hm-cell" style="opacity:.55" data-pct="15"></div><div class="hm-cell" style="opacity:.50" data-pct="14"></div><div class="hm-cell" style="opacity:.48" data-pct="13"></div><div class="hm-cell" style="opacity:.38" data-pct="10"></div><div class="hm-cell" style="opacity:.32" data-pct="9"></div>
+          </div>
+          <div class="hm-foot">
+            <span>peak · <em>Wed 12:00</em> · 28% engagement</span>
+            <div class="hm-scale">
+              <span>low</span>
+              <span class="step" style="opacity:.18"></span>
+              <span class="step" style="opacity:.45"></span>
+              <span class="step" style="opacity:.72"></span>
+              <span class="step" style="opacity:1"></span>
+              <span>high</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="tile-head">
+            <h3>What drives your <em>likes</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">correlation · n=312</span>
+          </div>
+          <div class="corr">
+            <div class="corr-row"><span class="name">Hook length <em>&lt; 3s</em></span><span class="bar"><span class="axis"></span><span style="width:42%"></span></span><span class="v">+0.84</span></div>
+            <div class="corr-row"><span class="name">POV-mirror format</span><span class="bar"><span class="axis"></span><span style="width:38%"></span></span><span class="v">+0.76</span></div>
+            <div class="corr-row"><span class="name">Posted <em>11–13 PT</em></span><span class="bar"><span class="axis"></span><span style="width:32%"></span></span><span class="v">+0.64</span></div>
+            <div class="corr-row"><span class="name">Caption asks question</span><span class="bar"><span class="axis"></span><span style="width:24%"></span></span><span class="v">+0.48</span></div>
+            <div class="corr-row"><span class="name">Length <em>&gt; 60s</em></span><span class="bar"><span class="axis"></span><span class="neg" style="width:18%"></span></span><span class="v">−0.36</span></div>
+            <div class="corr-row"><span class="name">Trending sound</span><span class="bar"><span class="axis"></span><span class="neg" style="width:9%"></span></span><span class="v">−0.18</span></div>
+          </div>
+        </div>
+
+        <div class="playbook">
+          <div class="head">
+            <div class="av">M</div>
+            <div>
+              <div class="who">Maya's daily playbook</div>
+              <div class="role">Trend &amp; insights analyst</div>
+            </div>
+          </div>
+          <ul>
+            <li>Post your <em>strongest hook</em> between 11:00–13:00 PT. TikTok engagement peaks <em>2.3×</em> over baseline there.</li>
+            <li>POV-mirror Reels are still your highest-leverage format — outperforming carousels <em>3.1×</em> on saves. Lean in this week.</li>
+            <li>Don't ship the "30-day reset" follow-up before <em>Wednesday</em>. Last time it broke 900%; we want them hungry, not saturated.</li>
+            <li>Drop YouTube long-form to <em>1×/wk</em>. Retention's at 38% — below the 50% threshold where the algorithm pushes.</li>
+          </ul>
+        </div>
+
       </div>
-    </summary>
-    <div id="maya-playbook" style="margin-top:10px;padding-left:38px;font-family:'Inter',sans-serif;font-size:12px;color:var(--t2);line-height:1.55"></div>
-  </details>
 
-</div><!-- /dash-main -->
+      <!-- RIGHT: posts -->
+      <aside class="posts">
+        <div class="tile-head" style="margin-bottom:6px">
+          <h3>Recent <em>posts</em></h3>
+        </div>
+        <div class="post-filters" data-hq3-filters>
+          <span class="on">All</span><span>Instagram</span><span>TikTok</span><span>YouTube</span><span>Top views</span><span>Top engagement</span>
+        </div>
 
-<!-- ── SIDE: Recent Posts ── -->
-<aside class="dash-side">
-  <div class="posts-card" style="max-height:calc(100vh - 120px);display:flex;flex-direction:column">
-    <div class="ph" style="flex-direction:column;align-items:flex-start;gap:10px">
-      <h4>Recent <em>posts</em></h4>
-      <div class="f" style="flex-wrap:wrap;gap:6px"><span class="on">Recent Posts</span><span>Instagram</span><span>TikTok</span><span>Top Views</span><span>Top Engagement</span></div>
+        <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">The mistake <em>97%</em> make on day one</div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>2h</span></div></div><div class="nums"><span class="n"><em>142</em>K</span><span class="e up">▲ 14.2%</span></div></div>
+        <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">Why "hacks" don't work — <em>form check</em></div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>2d</span></div></div><div class="nums"><span class="n"><em>94</em>K</span><span class="e up">▲ 11.4%</span></div></div>
+        <div class="post-row"><div class="thumb">◫</div><div class="body"><div class="t"><em>30-day reset</em> · the honest recap</div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Carousel</span><span>1d</span></div></div><div class="nums"><span class="n"><em>58</em>K</span><span class="e up">▲ 9.1%</span></div></div>
+        <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">Three things I <em>stopped</em> doing</div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>5d</span></div></div><div class="nums"><span class="n">76K</span><span class="e up">▲ 11.1%</span></div></div>
+        <div class="post-row"><div class="thumb">⬜</div><div class="body"><div class="t">Mobility series · <em>Ep. 04</em> — hips</div><div class="m"><span class="pf yt"><span class="dot"></span>YouTube · Long</span><span>3d</span></div></div><div class="nums"><span class="n">22K</span><span class="e down">▼ 4.1%</span></div></div>
+        <div class="post-row"><div class="thumb">◫</div><div class="body"><div class="t">Beginner mods — <em>full carousel</em></div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Carousel</span><span>6d</span></div></div><div class="nums"><span class="n">42K</span><span class="e up">▲ 9.3%</span></div></div>
+        <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">Hot take — <em>cardio is overrated</em></div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>7d</span></div></div><div class="nums"><span class="n">128K</span><span class="e up">▲ 11.9%</span></div></div>
+        <div class="post-row"><div class="thumb">◯</div><div class="body"><div class="t">Monday pulse — <em>retention</em> wins</div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Story</span><span>4d</span></div></div><div class="nums"><span class="n">11K</span><span class="e up">▲ 6.2%</span></div></div>
+
+      </aside>
+
     </div>
-    <div class="posts-tbl-wrap" style="flex:1;overflow-y:auto;min-height:0">
-    <table class="posts-tbl">
-      <thead>
-        <tr><th>POST</th><th class="r sort" data-sort="views" data-tip="Total number of people who saw this post. For Reels this is video plays. For photos and carousels this is reach. More views = your content is being pushed by the algorithm.">VIEWS</th><th class="r sort" data-sort="likes" data-tip="Number of likes on this post. Likes signal to the algorithm that your content is worth showing to more people. Improve by creating relatable or surprising moments.">LIKES</th><th class="r sort" data-sort="eng" data-tip="This post's (likes + comments + saves + shares) ÷ reach. To improve: write captions that ask a question, create 'save-worthy' tips or lists, and make content people want to share with friends.">ENG</th></tr>
-      </thead>
-      <tbody><tr><td colspan="4" style="text-align:center;padding:40px 0"><div class="vx-spin" style="margin:0 auto"></div></td></tr></tbody>
-    </table>
-    </div>
+  </section>
+
+  <div class="foot">
+    <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
+    <em>Your content. Run by a team.</em>
+    <span>API 200 · BEDROCK OK · NEON OK</span>
   </div>
 
-  <!-- Heatmap below posts -->
-  <div class="mini-card" style="margin-top:16px">
-    <div class="lbl" data-tip="Shows which day and hour your posts get the highest engagement. Darker cells = better performance. Schedule your posts during the darkest slots for maximum reach.">Best time to <em>post</em></div>
-    <div id="heatmap-chart" style="min-height:180px;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
-  </div>
+</div><!-- /hq -->
 
-  <!-- Correlation analysis below heatmap -->
-  <div class="mini-card" style="margin-top:16px">
-    <div class="lbl" data-tip="Shows which factors have the strongest relationship with your likes and views. Longer bars = stronger influence. Based on correlation analysis across all your posts.">What drives your <em>likes</em></div>
-    <div id="correlation-chart" style="min-height:200px;display:flex;align-items:center;justify-content:center"><div class="vx-spin"></div></div>
-    <div id="correlation-insight" style="margin-top:8px"></div>
-  </div>
+<!-- HQ v3 micro-interactions: clock, alex progress, pill toggle, post filters, forecast crosshair, pipeline node click -->
+<script>
+;(function(){
+  var view=document.getElementById('view-db-dashboard');
+  if(!view||!view.classList.contains('hq-v3'))return;
+  if(view.dataset.hq3Wired==='1')return; view.dataset.hq3Wired='1';
 
+  // Clock
+  function tick(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};var el=document.getElementById('hq3-clock');if(el)el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
+  tick();setInterval(tick,1000);
 
-</aside>
+  // Alex progress (visual only, hardcoded mockup behavior)
+  var pct=72;setInterval(function(){if(pct<99){pct+=0.25;var ts=document.getElementById('hq3-alex-ts');if(ts)ts.textContent=Math.round(pct)+'% · writing'}},800);
 
-</section>
+  // Pill tabs
+  view.querySelectorAll('[data-hq3-tabs]').forEach(function(grp){grp.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){grp.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})})});
 
-<!-- ══ FOOT ═══════════════════ -->
-<div class="foot-row">
-  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
-  <span class="brand">Your content. Run by a team.</span>
-  <span>API 200 · BEDROCK OK · NEON OK</span>
-</div>
+  // Post filters
+  view.querySelectorAll('[data-hq3-filters] span').forEach(function(s){s.addEventListener('click',function(){view.querySelectorAll('[data-hq3-filters] span').forEach(function(x){x.classList.remove('on')});s.classList.add('on')})});
+
+  // Forecast hover crosshair
+  var fcChart=document.getElementById('hq3-fc-chart'),fcCross=document.getElementById('hq3-fc-cross'),fcTip=document.getElementById('hq3-fc-tip');
+  if(fcChart&&fcCross&&fcTip){
+    var vline=fcCross.querySelector('.vline'),cdot=fcCross.querySelector('.dot');
+    var FC_PTS=[
+      {x:0,y:230,v:'258K',t:'Jan 1'},{x:60,y:225,v:'266K',t:'Jan 15'},{x:120,y:218,v:'274K',t:'Jan 31'},
+      {x:180,y:210,v:'282K',t:'Feb 14'},{x:240,y:200,v:'290K',t:'Feb 28'},{x:300,y:188,v:'298K',t:'Mar 14'},
+      {x:360,y:176,v:'306K',t:'Mar 28'},{x:420,y:162,v:'313.8K',t:'Today · Apr 20',now:true},
+      {x:500,y:140,v:'325K',t:'Apr 30 · proj'},{x:580,y:120,v:'350K',t:'May 13 · 350K!'},
+      {x:660,y:88,v:'372K',t:'May 27 · proj'},{x:740,y:55,v:'395K',t:'Jun 10 · proj'},
+      {x:800,y:30,v:'400K+',t:'Jun 16 · proj'}
+    ];
+    fcChart.addEventListener('mousemove',function(e){
+      var rect=fcChart.getBoundingClientRect();var xR=(e.clientX-rect.left)/rect.width;var xSv=xR*800;
+      var best=FC_PTS[0],bestD=Infinity;
+      for(var i=0;i<FC_PTS.length;i++){var d=Math.abs(FC_PTS[i].x-xSv);if(d<bestD){bestD=d;best=FC_PTS[i]}}
+      vline.setAttribute('x1',best.x);vline.setAttribute('x2',best.x);
+      cdot.setAttribute('cx',best.x);cdot.setAttribute('cy',best.y);
+      var px=(best.x/800)*rect.width,py=(best.y/280)*rect.height;
+      fcTip.style.left=px+'px';fcTip.style.top=(py-6)+'px';
+      fcTip.querySelector('strong').textContent=best.v;fcTip.lastChild.nodeValue=best.t;
+    });
+  }
+
+  // Pipeline node click → focus
+  view.querySelectorAll('#hq3-pipe .node').forEach(function(n){n.addEventListener('click',function(){var was=n.classList.contains('active');view.querySelectorAll('#hq3-pipe .node').forEach(function(x){x.classList.remove('active')});if(!was)n.classList.add('active')})});
+})();
+</script>
 
     </div>
 

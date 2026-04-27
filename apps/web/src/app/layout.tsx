@@ -7,6 +7,7 @@ import './globals.css'
 // platform cannot leak to another. Safe to extend each in isolation.
 import './mobile.css'  // phone Safari / Chrome
 import './app.css'     // Capacitor wrapper (apps/sovexa-mobile)
+import './hq-v3.css'   // warm-ivory HQ redesign — scoped to #view-db-dashboard.hq-v3
 
 export const metadata: Metadata = {
   title: 'Sovexa — Your AI Content Team',
