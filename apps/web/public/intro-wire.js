@@ -9,6 +9,12 @@
   if (document.cookie.indexOf('vx_session') !== -1) return
   // ?nointro=1 — skip the cinematic intro (used for screenshotting / preview)
   if (new URLSearchParams(location.search).get('nointro') === '1') return
+  // Phone-narrow viewports get sent straight to the landing page — the demo
+  // is a fixed 1440x810 stage that scales down to a ~390x219 letterbox on a
+  // portrait phone, and iOS "Reduce Motion" trips the auto-skip path inside
+  // demo.html so the overlay flashes for a fraction of a second and closes.
+  // Skip the intro entirely under 768px so the user lands on the real page.
+  try { if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return } catch (_) {}
   // Temporarily showing on localhost for preview
   // var host = window.location.hostname
   // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
