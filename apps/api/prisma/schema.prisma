@@ -23,6 +23,7 @@ enum SubscriptionStatus {
 }
 
 enum Plan {
+  free
   starter
   pro
   agency

@@ -16,6 +16,9 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# project-local scratch (Riley test renders, ad-hoc downloads, etc.)
+tmp/
+
 # env
 .env
 .env.local

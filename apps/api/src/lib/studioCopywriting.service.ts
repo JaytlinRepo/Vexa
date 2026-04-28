@@ -123,7 +123,12 @@ Rules:
 - MATCH THE CREATOR'S VOICE — if they write short and minimal, you write short and minimal
 - Include hashtags that fit the content category and match the creator's hashtag style
 - The caption should feel like the CREATOR wrote it, not a copywriter
-- NEVER add prose outside the JSON`
+
+CRITICAL JSON RULES:
+- Output VALID JSON only. No prose before or after.
+- INSIDE string values, never use raw newlines. Use spaces instead.
+- "rationale" fields must be SHORT — under 100 characters.
+- If you must include emphasized words inside a string value, escape them with backslash like \\"frame by frame\\" OR avoid quoting entirely — write "the frame-by-frame feel" without quotes. NEVER place an unescaped " inside a string value.`
 
       const raw = await invokeAgent({
         systemPrompt,

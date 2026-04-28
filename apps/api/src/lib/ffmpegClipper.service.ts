@@ -22,6 +22,25 @@ import { buildSegmentVF, buildSegmentAF, buildTransitionFilter, describeFilters 
 
 const execFileAsync = promisify(execFile)
 
+/**
+ * Pick a hardware encoder if available, else fall back to libx264.
+ * h264_videotoolbox is macOS-only; production runs on Linux (App Runner) and
+ * silently fails every encode if we use videotoolbox there.
+ *
+ * Override via VEXA_VIDEO_CODEC env var (e.g. "h264_nvenc" on a GPU host).
+ */
+function pickVideoCodec(): string {
+  const override = process.env.VEXA_VIDEO_CODEC
+  if (override) return override
+  return process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264'
+}
+
+const VIDEO_CODEC = pickVideoCodec()
+// libx264 takes a -preset; videotoolbox/nvenc don't.
+const VIDEO_CODEC_EXTRA: string[] = VIDEO_CODEC === 'libx264'
+  ? ['-preset', 'veryfast', '-crf', '23']
+  : ['-b:v', '8M']
+
 export interface ClipResult {
   s3Key: string
   duration: number
@@ -92,7 +111,7 @@ export async function buildReel(params: {
         '-ss', String(seg.startTime),
         '-i', inputPath,
         '-t', String(duration),
-        '-c:v', 'h264_videotoolbox', '-b:v', '8M',
+        '-c:v', VIDEO_CODEC, ...VIDEO_CODEC_EXTRA,
         '-c:a', 'aac', '-b:a', '128k',
         '-vf', vfStr,
         ...(afStr ? ['-af', afStr] : []),
@@ -141,7 +160,7 @@ export async function buildReel(params: {
         ...inputs,
         '-filter_complex', transitionFilter,
         '-map', '[outv]',
-        '-c:v', 'h264_videotoolbox', '-b:v', '8M',
+        '-c:v', VIDEO_CODEC, ...VIDEO_CODEC_EXTRA,
         '-movflags', '+faststart',
         outputPath,
       ], { timeout: 120000 })

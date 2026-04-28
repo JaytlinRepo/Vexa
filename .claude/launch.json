@@ -8,6 +8,20 @@
       "cwd": "apps/web",
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "marketing-mockups",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765"],
+      "cwd": "marketing/visuals/mockups",
+      "port": 8765
+    },
+    {
+      "name": "maya-set",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8766"],
+      "cwd": "marketing/posts/maya-set",
+      "port": 8766
     }
   ]
 }

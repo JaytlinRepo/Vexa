@@ -9,9 +9,10 @@
   // vx_session is httpOnly so JS can't read it via document.cookie — use the
   // localStorage flag the auth flow + layout vx-session-gate already maintain.
   try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
-  // Only show on production (sovexa.ai) — skip on dev/localhost so testing isn't blocked
+  // Only show on production (sovexa.ai) — skip on dev/localhost so testing isn't
+  // blocked, and on the named /etc/hosts dev aliases (sovexa-dev-*).
   var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0) return
   // Once shown this session, don't replay
   if (sessionStorage.getItem('vx-intro-done') === '1') return
 

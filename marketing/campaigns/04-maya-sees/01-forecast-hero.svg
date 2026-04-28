@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; }
+      .card { fill: #fbfaf6; }
+      .ink { fill: #1a1a1a; }
+      .ink2 { fill: #5a5856; }
+      .ink3 { fill: #8a8682; }
+      .accent { fill: #c08a3e; }
+      .accentStroke { stroke: #c08a3e; }
+      .inkStroke { stroke: #1a1a1a; }
+      .hair { stroke: rgba(20,16,10,0.08); stroke-width: 1; }
+      .hair2 { stroke: rgba(20,16,10,0.08); stroke-width: 1; stroke-dasharray: 1 4; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+      .sans { font-family: 'Inter', 'Helvetica', sans-serif; }
+    </style>
+    <linearGradient id="forecastFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c08a3e" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#c08a3e" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="32"/>
+      <feOffset dy="40"/>
+      <feColorMatrix values="0 0 0 0 0.078  0 0 0 0 0.063  0 0 0 0 0.039  0 0 0 0.20 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect class="bg" width="1080" height="1080"/>
+
+  <!-- Floating forecast card -->
+  <g filter="url(#softShadow)">
+    <rect class="card" x="100" y="200" width="880" height="540" rx="18" ry="18"/>
+
+    <!-- Eyebrow strip -->
+    <text class="mono ink3" x="140" y="252" font-size="16" letter-spacing="4">FORECAST · 14 DAYS · LIVE</text>
+    <g transform="translate(870, 246)">
+      <circle cx="0" cy="0" r="4" fill="#c08a3e"/>
+      <text class="mono accent" x="14" y="4" font-size="13" letter-spacing="3">NOW</text>
+    </g>
+    <line class="hair" x1="140" y1="270" x2="940" y2="270"/>
+
+    <!-- Massive stat -->
+    <text class="serif ink" x="140" y="400" font-size="124" font-style="italic" font-weight="400" letter-spacing="-3">+340<tspan class="accent">%</tspan></text>
+    <text class="mono ink3" x="140" y="436" font-size="14" letter-spacing="3">PROJECTED REACH · 7-DAY LOOK-AHEAD</text>
+
+    <!-- Editorial chart, locked-off -->
+    <g transform="translate(140, 480)">
+      <!-- Grid -->
+      <line class="hair2" x1="0" y1="0" x2="800" y2="0"/>
+      <line class="hair2" x1="0" y1="55" x2="800" y2="55"/>
+      <line class="hair2" x1="0" y1="110" x2="800" y2="110"/>
+      <line class="hair2" x1="0" y1="165" x2="800" y2="165"/>
+      <line class="hair2" x1="0" y1="220" x2="800" y2="220"/>
+
+      <!-- Past area fill -->
+      <path d="M0,180 L60,175 L120,178 L180,170 L240,172 L300,165 L360,168 L420,158 L420,220 L0,220 Z" fill="url(#forecastFill)" opacity="0.45"/>
+      <!-- Past line -->
+      <polyline class="inkStroke" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="0,180 60,175 120,178 180,170 240,172 300,165 360,168 420,158"/>
+      <!-- Future curve -->
+      <polyline class="accentStroke" fill="none" stroke-width="2.5" stroke-dasharray="6 4" stroke-linecap="round" points="420,158 480,124 540,80 600,48 660,28 720,16 800,8"/>
+      <!-- Confidence band -->
+      <path d="M420,158 L480,134 L540,90 L600,58 L660,38 L720,26 L800,18 L800,-2 L720,6 L660,18 L600,38 L540,70 L480,114 L420,148 Z" fill="#c08a3e" opacity="0.10"/>
+
+      <!-- Now line -->
+      <line stroke="#8a8682" stroke-width="1" stroke-dasharray="2 3" x1="420" y1="-10" x2="420" y2="220"/>
+
+      <!-- Milestone dot at peak projection -->
+      <circle cx="800" cy="8" r="6" fill="#fbfaf6" stroke="#c08a3e" stroke-width="2"/>
+      <text class="mono accent" x="784" y="-8" font-size="13" letter-spacing="3" text-anchor="end">PEAK · DAY 14</text>
+
+      <!-- X-axis labels -->
+      <text class="mono ink3" x="0" y="244" font-size="11" letter-spacing="2">−7D</text>
+      <text class="mono ink3" x="420" y="244" font-size="11" letter-spacing="2" text-anchor="middle">TODAY</text>
+      <text class="mono ink3" x="800" y="244" font-size="11" letter-spacing="2" text-anchor="end">+7D</text>
+    </g>
+  </g>
+
+  <!-- Caption -->
+  <text class="serif ink" x="540" y="900" font-size="56" font-style="italic" font-weight="400" letter-spacing="-1.5" text-anchor="middle">
+    Maya sees it <tspan class="accent">first.</tspan>
+  </text>
+
+  <!-- Footer -->
+  <text class="mono ink3" x="540" y="1010" font-size="22" letter-spacing="6" text-anchor="middle">SOVEXA.AI</text>
+</svg>

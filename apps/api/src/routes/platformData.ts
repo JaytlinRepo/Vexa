@@ -7,6 +7,37 @@ const router = Router()
 // ─── Timeseries cache: avoid repeated DB queries for the same user ───────────
 const tsCache = new Map<string, { data: unknown; ts: number }>()
 const TS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const TS_CACHE_MAX = 500
+
+function setTsCache(key: string, data: unknown) {
+  if (tsCache.size >= TS_CACHE_MAX) {
+    const oldest = tsCache.keys().next().value
+    if (oldest) tsCache.delete(oldest)
+  }
+  tsCache.set(key, { data, ts: Date.now() })
+}
+
+/**
+ * Normalize engagementRate to a 0–1 fraction.
+ *
+ * Different sync paths write engagementRate at different scales:
+ *   - metaMapper.ts (IG snapshot): writes percent (e.g. 25.78)
+ *   - tiktokRefreshSync.ts (TT snapshot): writes fraction (e.g. 0.103)
+ *   - instagramSync.ts / derivedMetrics.ts (post): fraction
+ *   - instagramStub.ts: percent
+ *
+ * Rolling-avg fields (engagementRate7d/28d) inherit whichever scale the
+ * underlying snapshots used. The dashboard plots IG and TT side by side, so
+ * mixed scales would make IG look ~100× higher than TT.
+ *
+ * Heuristic: anything > 1 must be percent; anything ≤ 1 is already fraction.
+ * (Real engagement rates above 100% are not physically meaningful.)
+ */
+const toFraction = (r: number | null | undefined): number => {
+  const n = r ?? 0
+  return n > 1 ? n / 100 : n
+}
+const ENG_FIELDS = ['engagementRate', 'engagementRate7d', 'engagementRate28d'] as const
 
 router.get('/timeseries', requireAuth, async (req, res, next) => {
   try {
@@ -34,7 +65,7 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
     }
     const accountIds = accounts.map(a => a.id)
 
-    const [snapshots, posts, audiences] = await Promise.all([
+    const [snapshotsRaw, postsRaw, audiences] = await Promise.all([
       prisma.platformSnapshot.findMany({
         where: { accountId: { in: accountIds } },
         orderBy: { capturedAt: 'asc' },
@@ -52,8 +83,37 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       }),
     ])
 
-    const result = { account: accounts[0], accounts, snapshots, posts, audiences }
-    tsCache.set(company.id, { data: result, ts: Date.now() })
+    // Normalize engagement rates so IG (percent) and TT (fraction) plot on
+    // the same scale. See toFraction() comment for the source of the mismatch.
+    const snapshots = snapshotsRaw.map((s) => {
+      const out: Record<string, unknown> = { ...s }
+      for (const k of ENG_FIELDS) out[k] = toFraction((s as unknown as Record<string, number>)[k])
+      return out
+    })
+    /**
+     * Bad-reach posts (engagementRate ≥ 1.0 after normalization) come from
+     * the IG Graph API returning likes-only as "engagement" with reach equal
+     * to likes — we identified 12 of these in the live data. Including them
+     * inflates every aggregate (snapshot rolling avgs, headline engagement
+     * KPI, correlation noise) by ~10–20%. Strip them at the source so every
+     * downstream consumer (HQ tiles, Maya's playbook, Posts tab, etc.) sees
+     * a cleaner ground truth. Likes / reach / view counts are still real;
+     * only the derived engagementRate is unreliable for these rows, so we
+     * also zero it out instead of dropping the post entirely.
+     */
+    const posts = postsRaw.map((p) => {
+      const rate = toFraction(p.engagementRate)
+      const tainted = rate >= 1
+      return { ...p, engagementRate: tainted ? 0 : rate, badReach: tainted || undefined }
+    })
+
+    // Explicit accountId → platform map: lets the client label posts/snapshots
+    // without falling back to follower-count heuristics.
+    const accountPlatforms: Record<string, string> = {}
+    for (const a of accounts) accountPlatforms[a.id] = a.platform
+
+    const result = { account: accounts[0], accounts, accountPlatforms, snapshots, posts, audiences }
+    setTsCache(company.id, result)
     res.json(result)
   } catch (err) {
     next(err)

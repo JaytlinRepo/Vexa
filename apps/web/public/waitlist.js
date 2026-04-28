@@ -7,9 +7,10 @@
   // vx_session is httpOnly so JS can't read it via document.cookie — use the
   // localStorage flag the auth flow + layout vx-session-gate already maintain.
   try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
-  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
+  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost,
+  // Amplify previews, and the named /etc/hosts dev aliases (sovexa-dev-*).
   var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0) return
 
   // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; }
+      .ink { fill: #1a1a1a; }
+      .ink2 { fill: #5a5856; }
+      .ink3 { fill: #8a8682; }
+      .accent { fill: #c08a3e; }
+      .hair { stroke: rgba(20,16,10,0.08); stroke-width: 1; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+    </style>
+  </defs>
+  <rect class="bg" width="1080" height="1080"/>
+
+  <!-- Eyebrow -->
+  <text class="mono ink3" x="540" y="160" font-size="22" letter-spacing="6" text-anchor="middle">DIRECTED BY — SEVEN DIMENSIONS</text>
+
+  <!-- Editorial table of analysis steps -->
+  <g transform="translate(180, 260)">
+    <line class="hair" x1="0" y1="0" x2="720" y2="0"/>
+
+    <text class="mono ink3" x="0" y="48" font-size="14" letter-spacing="3">01</text>
+    <text class="serif ink" x="80" y="60" font-size="40" font-style="italic" font-weight="400">Beat detection</text>
+
+    <line class="hair" x1="0" y1="86" x2="720" y2="86"/>
+
+    <text class="mono ink3" x="0" y="134" font-size="14" letter-spacing="3">02</text>
+    <text class="serif ink" x="80" y="146" font-size="40" font-style="italic" font-weight="400">Audio energy</text>
+
+    <line class="hair" x1="0" y1="172" x2="720" y2="172"/>
+
+    <text class="mono ink3" x="0" y="220" font-size="14" letter-spacing="3">03</text>
+    <text class="serif ink" x="80" y="232" font-size="40" font-style="italic" font-weight="400">Motion curve</text>
+
+    <line class="hair" x1="0" y1="258" x2="720" y2="258"/>
+
+    <text class="mono ink3" x="0" y="306" font-size="14" letter-spacing="3">04</text>
+    <text class="serif ink" x="80" y="318" font-size="40" font-style="italic" font-weight="400">Quality curve</text>
+
+    <line class="hair" x1="0" y1="344" x2="720" y2="344"/>
+
+    <text class="mono ink3" x="0" y="392" font-size="14" letter-spacing="3">05</text>
+    <text class="serif ink" x="80" y="404" font-size="40" font-style="italic" font-weight="400">Speech spans</text>
+
+    <line class="hair" x1="0" y1="430" x2="720" y2="430"/>
+
+    <text class="mono ink3" x="0" y="478" font-size="14" letter-spacing="3">06</text>
+    <text class="serif ink" x="80" y="490" font-size="40" font-style="italic" font-weight="400">Subject classification</text>
+
+    <line class="hair" x1="0" y1="516" x2="720" y2="516"/>
+
+    <text class="mono ink3" x="0" y="564" font-size="14" letter-spacing="3">07</text>
+    <text class="serif ink" x="80" y="576" font-size="40" font-style="italic" font-weight="400">Scene detection</text>
+
+    <line class="hair" x1="0" y1="600" x2="720" y2="600" stroke-width="2"/>
+  </g>
+
+  <!-- Caption -->
+  <text class="serif ink" x="540" y="950" font-size="56" font-style="italic" font-weight="400" letter-spacing="-1.5" text-anchor="middle">
+    Seven dimensions. <tspan class="accent">One cut.</tspan>
+  </text>
+
+  <!-- Footer -->
+  <text class="mono ink3" x="540" y="1020" font-size="22" letter-spacing="6" text-anchor="middle">RILEY — SOVEXA.AI</text>
+</svg>

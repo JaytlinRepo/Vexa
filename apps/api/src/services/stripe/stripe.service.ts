@@ -192,23 +192,17 @@ function getPlanFromPriceId(priceId?: string): 'starter' | 'pro' | 'agency' | nu
 }
 
 /**
- * Starter: 2 employees (Maya + Alex)
- * Pro/Agency: All 4 employees
+ * Quality parity across all tiers: every plan (free / starter / pro / agency) gets
+ * all 4 employees active. Differentiation is volume + features, not employee access.
+ * Volume caps live in plans.ts (tasksPerMonth, bedrockCallsPerMonth, etc.).
  */
-async function unlockEmployeesForPlan(userId: string, plan: string): Promise<void> {
+async function unlockEmployeesForPlan(userId: string, _plan: string): Promise<void> {
   const companies = await prisma.company.findMany({ where: { userId } })
 
   for (const company of companies) {
-    if (plan === 'starter') {
-      await prisma.employee.updateMany({
-        where: { companyId: company.id, role: { in: ['strategist', 'creative_director'] } },
-        data: { isActive: false },
-      })
-    } else {
-      await prisma.employee.updateMany({
-        where: { companyId: company.id },
-        data: { isActive: true },
-      })
-    }
+    await prisma.employee.updateMany({
+      where: { companyId: company.id },
+      data: { isActive: true },
+    })
   }
 }

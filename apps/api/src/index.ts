@@ -66,12 +66,14 @@ app.use(
       // Same-origin / curl / server-to-server requests have no Origin header
       if (!origin) return cb(null, true)
       if (allowedOrigins.includes(origin)) return cb(null, true)
-      // Allow Amplify previews, sovexa.ai subdomains, and localhost
+      // Allow Amplify previews, sovexa.ai subdomains, localhost, and the
+      // named /etc/hosts dev aliases (sovexa-dev-*, sovexa-prod-*).
       try {
         const host = new URL(origin).hostname
         if (host.endsWith('.amplifyapp.com')) return cb(null, true)
         if (host.endsWith('.sovexa.ai') || host === 'sovexa.ai') return cb(null, true)
         if (host === 'localhost' || host === '127.0.0.1') return cb(null, true)
+        if (host.startsWith('sovexa-dev-') || host.startsWith('sovexa-prod-')) return cb(null, true)
       } catch { /* fallthrough */ }
       cb(new Error(`Origin ${origin} not allowed by CORS`))
     },

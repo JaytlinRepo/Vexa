@@ -312,7 +312,7 @@ function filterFeed(gridSel,attr,type){
 
 /* ── PRICING TOGGLE ─────────────────────────────────── */
 var annual=false
-var pp={starter:[14.99,11],pro:[49.99,37],agency:[99.99,74]}
+var pp={starter:[19,15],pro:[59,47],agency:[149,119]}
 function togglePrice(){
   annual=!annual
   document.getElementById('priceToggle').classList.toggle('on',annual)

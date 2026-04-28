@@ -2,6 +2,7 @@ import SwiftUI
 import WebKit
 
 // MARK: - WebView Wrapper
+#if os(iOS)
 struct WebView: UIViewRepresentable {
     let url: URL
     
@@ -15,6 +16,21 @@ struct WebView: UIViewRepresentable {
         // Update if needed
     }
 }
+#elseif os(macOS)
+struct WebView: NSViewRepresentable {
+    let url: URL
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.load(URLRequest(url: url))
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // Update if needed
+    }
+}
+#endif
 
 // MARK: - Content View
 struct ContentView: View {

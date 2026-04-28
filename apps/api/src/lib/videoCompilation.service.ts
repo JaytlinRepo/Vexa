@@ -88,12 +88,19 @@ export async function processCompilation(
 
     // Re-encode during concat to ensure consistent codecs across all videos
     // (different .mov files may have different audio formats or no audio)
+    // Pick a codec available on this platform (macOS: videotoolbox, Linux/prod: libx264)
+    const codec = process.env.VEXA_VIDEO_CODEC
+      || (process.platform === 'darwin' ? 'h264_videotoolbox' : 'libx264')
+    const codecExtra = codec === 'libx264'
+      ? ['-preset', 'veryfast', '-crf', '23']
+      : ['-b:v', '8M']
+
     await execFileAsync('ffmpeg', [
       '-y',
       '-f', 'concat',
       '-safe', '0',
       '-i', concatPath,
-      '-c:v', 'h264_videotoolbox', '-b:v', '8M',
+      '-c:v', codec, ...codecExtra,
       '-c:a', 'aac', '-b:a', '128k',
       '-movflags', '+faststart',
       combinedPath,

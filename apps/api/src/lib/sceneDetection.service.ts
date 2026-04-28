@@ -32,6 +32,8 @@ export interface SceneAnalysis {
   totalScenes: number
   avgSceneDuration: number
   highMotionSegments: number
+  /** Raw scene-cut timestamps (in seconds). Used as forced rest points by beat-detector. */
+  cutTimestamps: number[]
 }
 
 /**
@@ -113,6 +115,7 @@ export async function detectScenes(videoUrl: string, videoDuration: number): Pro
       totalScenes: scenes.length,
       avgSceneDuration: scenes.reduce((sum, s) => sum + s.duration, 0) / scenes.length,
       highMotionSegments: highMotion,
+      cutTimestamps: sceneTimestamps,
     }
   } finally {
     try { fs.unlinkSync(inputPath) } catch {}
@@ -125,9 +128,18 @@ export async function detectScenes(videoUrl: string, videoDuration: number): Pro
  */
 async function getSceneTimestamps(inputPath: string): Promise<number[]> {
   try {
+    // Threshold tuned over iter 12-15:
+    //   0.30 (original) — missed clip boundaries in studio-similar lighting
+    //   0.18 — caught most clip splices but missed close-up→wide transitions
+    //          where color/composition stays similar (e.g. green-outfit arm
+    //          close-up cutting to green-outfit wide shot)
+    //   0.10 — picks up subtle framing changes at the cost of more false
+    //          positives. False positives are cheap downstream because we
+    //          only USE scene cuts to split long action spans (≥4s); short
+    //          actions ignore them.
     const { stderr } = await execFileAsync('ffmpeg', [
       '-i', inputPath,
-      '-vf', 'select=gt(scene\\,0.3),showinfo',
+      '-vf', 'select=gt(scene\\,0.10),showinfo',
       '-vsync', 'vfr',
       '-f', 'null',
       '-',
@@ -274,5 +286,6 @@ function segmentByMotion(motionScores: Array<{ time: number; score: number }>, v
     totalScenes: scenes.length,
     avgSceneDuration: scenes.reduce((sum, s) => sum + s.duration, 0) / scenes.length,
     highMotionSegments: scenes.filter(s => s.motionScore > 0.4).length,
+    cutTimestamps: [],   // motion-segmented fallback has no real scene cuts
   }
 }

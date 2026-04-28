@@ -363,7 +363,12 @@ Recent posts (${posts.length}):
 ${posts.slice(0, 10).map(p => `  ${p.mediaType} — ${p.likeCount} likes, ${p.commentCount} comments, ${p.saveCount} saves, ${p.reachCount} reach, eng=${(p.engagementRate * 100).toFixed(1)}%${p.avgWatchTimeMs ? ', watch=' + (p.avgWatchTimeMs/1000).toFixed(1) + 's' : ''}`).join('\n')}
 `.trim()
 
-  const systemPrompt = `You are Maya, a data analyst for a social media creator. Analyze their account data and write a 2-3 sentence growth forecast. Be specific with numbers. Mention what's driving growth or holding it back. End with one actionable recommendation. No fluff, no generic advice — reference their actual data. Write in first person as Maya speaking to the CEO.`
+  const systemPrompt = `You are Maya, a data analyst for a social media creator. Analyze their account data and write a 2-3 sentence growth forecast. Be specific with numbers. Mention what's driving growth or holding it back. End with one actionable recommendation. No fluff, no generic advice — reference their actual data. Write in first person as Maya speaking to the CEO.
+
+Plain-English rules (creators are not data scientists):
+- Avoid statistical jargon: never use "baseline", "n=", "standard deviation", "z-score", "Pearson", "correlation", "lift", "variance", or "median"
+- Convert percentages into multipliers when it's clearer ("2.4× engagement" not "+140% lift")
+- Say "your typical post" or "your usual" instead of "your baseline"`
 
   try {
     const { invokeAgent } = await import('../services/bedrock/bedrock.service')
@@ -618,28 +623,115 @@ Total likes: ${posts.reduce((s, p) => s + p.likeCount, 0).toLocaleString()}
 Total reach: ${posts.reduce((s, p) => s + (p.reachCount || p.viewCount || 0), 0).toLocaleString()}
 `.trim()
 
-  const systemPrompt = `You are Maya, a data analyst who works for a social media creator. You report directly to the CEO (the creator). Write a 3-4 sentence message to the CEO summarizing what you've found in their data and what you and the team are going to do about it.
+  const systemPrompt = `You are Maya, a data analyst who works for a social media creator. You report directly to the CEO. Your job is to find patterns in the creator's data and brief Jordan (strategist) and Alex (copywriter) on what to do about it. You do NOT brief Riley (creative director) — Riley executes Alex's writing brief, so anything Riley needs flows through Alex.
 
-Rules:
-- Speak as an employee reporting to your boss, not as a coach giving advice
-- Say what YOU and the team (Jordan the strategist, Alex the copywriter, Riley the creative director) are going to do with this information
-- Reference specific numbers from the data
+Return ONLY valid JSON matching this exact schema. No prose outside the JSON.
+
+{
+  "narrative": "<3-4 sentence message to the CEO, plain English, no jargon>",
+  "directives": [
+    {
+      "to": "jordan" | "alex",
+      "title": "<concise task title, like 'Increase carousel share to 50% next week'>",
+      "reason": "<one short sentence: why this directive, grounded in the data>"
+    }
+  ]
+}
+
+Narrative rules:
+- Speak as an employee reporting to the CEO
+- Say what YOU and Jordan/Alex are doing with the data
+- Reference specific numbers — but say what they MEAN
 - Don't tell the CEO what to do — tell them what you're handling
-- Be confident and direct, not apologetic
-- No bullet points, just flowing sentences
-- Don't start with "Hi" or "Hey" — get straight to the point`
+- Confident and direct, not apologetic, no bullet points
+- Don't start with "Hi" or "Hey"
+
+Directive rules:
+- Up to 3 directives. Only include directives the data clearly supports
+- "to" must be exactly "jordan" or "alex" (lowercase). Never Riley
+  • Jordan owns: format mix, posting cadence, weekly content plan, topic focus
+  • Alex owns: hooks, captions, scripts, copy tone, message structure
+- "title" reads like a task name a creator would approve — concrete and verb-first
+- "reason" cites the data point that justified it, plainly
+
+Plain-English rules (creators aren't data scientists):
+- NEVER use "baseline", "n=", "standard deviation", "z-score", "Pearson", "correlation", "lift", "variance", or "median"
+- Convert percentages into multipliers when clearer ("2.4× engagement" not "+140% lift")
+- Say "your typical post" or "your usual" instead of "your baseline"
+- Say "above/below average" instead of "above/below the mean"
+- For benchmarks, say "typical for [niche] creators" not "industry median"`
 
   try {
     const { invokeAgent } = await import('../services/bedrock/bedrock.service')
     const response = await invokeAgent({
       systemPrompt,
       messages: [{ role: 'user', content: dataBlock }],
-      maxTokens: 250,
+      maxTokens: 600,
     })
 
-    const message = response.trim()
+    // Parse the structured response. Bedrock occasionally wraps JSON in
+    // prose or backticks despite the prompt — strip and retry.
+    let parsed: { narrative?: string; directives?: Array<{ to?: string; title?: string; reason?: string }> } = {}
+    const trimmed = response.trim()
+    try {
+      parsed = JSON.parse(trimmed)
+    } catch {
+      // Try to extract a JSON object from the body
+      const match = trimmed.match(/\{[\s\S]*\}/)
+      if (match) {
+        try { parsed = JSON.parse(match[0]) } catch { /* fall through */ }
+      }
+    }
+    const message = (parsed.narrative || trimmed).trim()
+    // Filter to Jordan/Alex only — Riley directives are dropped silently.
+    const directives = Array.isArray(parsed.directives)
+      ? parsed.directives.filter((d) => d && (d.to === 'jordan' || d.to === 'alex') && typeof d.title === 'string' && d.title.length > 5).slice(0, 3)
+      : []
 
-    // Store in brand memory
+    // Compliance tracking foundation: snapshot the format mix at playbook
+    // generation time. Next run can compare current mix vs this snapshot to
+    // see whether the team executed against Maya's directives.
+    const formatSnapshot: Record<string, number> = {}
+    for (const p of posts) {
+      const f = p.mediaType || 'unknown'
+      formatSnapshot[f] = (formatSnapshot[f] || 0) + 1
+    }
+    // Read prior playbook to compute compliance delta against PREVIOUS snapshot
+    let compliance: { previousSnapshot?: Record<string, number>; delta?: Record<string, number>; daysSincePrior?: number } | null = null
+    try {
+      const prior = await prisma.brandMemory.findFirst({
+        where: {
+          companyId,
+          content: { path: ['tags'], array_contains: 'maya_playbook' },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (prior) {
+        const priorContent = prior.content as { details?: { formatSnapshot?: Record<string, number> } }
+        const priorSnapshot = priorContent.details && priorContent.details.formatSnapshot
+        if (priorSnapshot) {
+          const delta: Record<string, number> = {}
+          const allFormats = new Set([...Object.keys(formatSnapshot), ...Object.keys(priorSnapshot)])
+          allFormats.forEach((f) => {
+            delta[f] = (formatSnapshot[f] || 0) - (priorSnapshot[f] || 0)
+          })
+          const daysSincePrior = Math.max(0, Math.round((Date.now() - prior.createdAt.getTime()) / 86400000))
+          compliance = {
+            previousSnapshot: priorSnapshot,
+            delta,
+            daysSincePrior,
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[maya-playbook] compliance read failed:', (err as Error).message?.slice(0, 100))
+    }
+
+    // Store narrative + structured payload in brand memory.
+    // - `summary` is what the dashboard renders.
+    // - `details` is the schema-typed escape hatch for structured data.
+    //   Agents read `details.directives` for prioritization; future runs
+    //   read `details.formatSnapshot` to compute compliance deltas.
     const { writeMemory } = await import('./brandMemory')
     await writeMemory(prisma, {
       companyId,
@@ -649,12 +741,90 @@ Rules:
         source: 'performance_tracking',
         summary: message,
         tags: ['maya_playbook', 'daily'],
+        details: {
+          directives, // Jordan/Alex action items
+          formatSnapshot, // post counts by mediaType when this playbook ran
+          compliance, // delta vs previous playbook (null on first run)
+        },
       },
     })
+
+    // Auto-create suggested tasks for Jordan + Alex from directives.
+    // Tasks land as status='pending' with a "Maya · auto-suggested" marker so
+    // the CEO sees them in the queue and approves before they execute.
+    if (directives.length > 0) {
+      try {
+        await createTasksFromDirectives(prisma, companyId, directives)
+      } catch (err) {
+        console.warn('[maya-playbook] auto-task creation failed:', (err as Error).message?.slice(0, 100))
+      }
+    }
 
     return message
   } catch (err) {
     console.warn('[maya-playbook] Bedrock failed:', (err as Error).message?.slice(0, 100))
     return ''
+  }
+}
+
+/**
+ * Convert Maya's structured directives into pending Jordan/Alex tasks.
+ *
+ * Tasks created here:
+ *   • status: 'pending' — they don't auto-execute. The CEO has to approve
+ *     to spend a task quota slot.
+ *   • description starts with "Maya · auto-suggested:" — easy to spot in
+ *     the UI; downstream filters can opt out if needed.
+ *   • duplicate-suppression: skip if an identical title was created in the
+ *     last 24h (avoids the daily cron flooding the queue with reruns).
+ *
+ * Riley directives are intentionally NOT supported — Maya talks to Alex,
+ * Alex talks to Riley.
+ */
+async function createTasksFromDirectives(
+  prisma: PrismaClient,
+  companyId: string,
+  directives: Array<{ to?: string; title?: string; reason?: string }>,
+): Promise<void> {
+  const ROLE_BY_KEY: Record<string, string> = { jordan: 'strategist', alex: 'copywriter' }
+  const TYPE_BY_KEY: Record<string, string> = { jordan: 'plan_adjustment', alex: 'caption_writing' }
+
+  const employees = await prisma.employee.findMany({
+    where: { companyId, role: { in: ['strategist', 'copywriter'] } },
+    select: { id: true, role: true },
+  })
+  const employeeByRole: Record<string, string> = {}
+  employees.forEach(e => { employeeByRole[e.role] = e.id })
+
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+  for (const d of directives) {
+    if (!d.to || !d.title) continue
+    const role = ROLE_BY_KEY[d.to]
+    const employeeId = employeeByRole[role]
+    if (!employeeId) continue
+
+    // Duplicate-suppression: same title within 24h → skip
+    const dup = await prisma.task.findFirst({
+      where: {
+        companyId,
+        employeeId,
+        title: d.title,
+        createdAt: { gte: dayAgo },
+      },
+      select: { id: true },
+    })
+    if (dup) continue
+
+    await prisma.task.create({
+      data: {
+        companyId,
+        employeeId,
+        title: d.title,
+        description: 'Maya · auto-suggested: ' + (d.reason || 'Follows from this week\'s data review.'),
+        type: TYPE_BY_KEY[d.to] || 'general',
+        status: 'pending',
+      },
+    })
   }
 }

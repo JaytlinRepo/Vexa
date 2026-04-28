@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; }
+      .ink { fill: #1a1a1a; }
+      .ink2 { fill: #5a5856; }
+      .ink3 { fill: #8a8682; }
+      .accent { fill: #c08a3e; }
+      .accentSoft { fill: #f3e7d2; }
+      .panel { fill: #f4f1ea; }
+      .hair { stroke: rgba(20,16,10,0.08); stroke-width: 1; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+    </style>
+  </defs>
+  <rect class="bg" width="1080" height="1080"/>
+
+  <!-- BEFORE: raw waveform with beat markers -->
+  <text class="mono ink3" x="100" y="160" font-size="16" letter-spacing="4">RAW · 1:32 · YOUR PHONE</text>
+  <line class="hair" x1="100" y1="178" x2="980" y2="178"/>
+
+  <!-- Long messy waveform -->
+  <g transform="translate(100, 220)" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round">
+    <line x1="0" y1="50" x2="0" y2="50"/>
+    <line x1="12" y1="44" x2="12" y2="56"/>
+    <line x1="24" y1="36" x2="24" y2="64"/>
+    <line x1="36" y1="40" x2="36" y2="60"/>
+    <line x1="48" y1="30" x2="48" y2="70"/>
+    <line x1="60" y1="42" x2="60" y2="58"/>
+    <line x1="72" y1="34" x2="72" y2="66"/>
+    <line x1="84" y1="46" x2="84" y2="54"/>
+    <line x1="96" y1="28" x2="96" y2="72"/>
+    <line x1="108" y1="38" x2="108" y2="62"/>
+    <line x1="120" y1="44" x2="120" y2="56"/>
+    <line x1="132" y1="32" x2="132" y2="68"/>
+    <line x1="144" y1="40" x2="144" y2="60"/>
+    <line x1="156" y1="46" x2="156" y2="54"/>
+    <line x1="168" y1="36" x2="168" y2="64"/>
+    <line x1="180" y1="42" x2="180" y2="58"/>
+    <line x1="192" y1="30" x2="192" y2="70"/>
+    <line x1="204" y1="44" x2="204" y2="56"/>
+    <line x1="216" y1="38" x2="216" y2="62"/>
+    <line x1="228" y1="46" x2="228" y2="54"/>
+    <line x1="240" y1="32" x2="240" y2="68"/>
+    <line x1="252" y1="40" x2="252" y2="60"/>
+    <line x1="264" y1="36" x2="264" y2="64"/>
+    <line x1="276" y1="44" x2="276" y2="56"/>
+    <line x1="288" y1="30" x2="288" y2="70"/>
+    <line x1="300" y1="42" x2="300" y2="58"/>
+    <line x1="312" y1="46" x2="312" y2="54"/>
+    <line x1="324" y1="38" x2="324" y2="62"/>
+    <line x1="336" y1="44" x2="336" y2="56"/>
+    <line x1="348" y1="34" x2="348" y2="66"/>
+    <line x1="360" y1="40" x2="360" y2="60"/>
+    <line x1="372" y1="32" x2="372" y2="68"/>
+    <line x1="384" y1="46" x2="384" y2="54"/>
+    <line x1="396" y1="38" x2="396" y2="62"/>
+    <line x1="408" y1="42" x2="408" y2="58"/>
+    <line x1="420" y1="36" x2="420" y2="64"/>
+    <line x1="432" y1="44" x2="432" y2="56"/>
+    <line x1="444" y1="30" x2="444" y2="70"/>
+    <line x1="456" y1="40" x2="456" y2="60"/>
+    <line x1="468" y1="46" x2="468" y2="54"/>
+    <line x1="480" y1="38" x2="480" y2="62"/>
+    <line x1="492" y1="44" x2="492" y2="56"/>
+    <line x1="504" y1="34" x2="504" y2="66"/>
+    <line x1="516" y1="42" x2="516" y2="58"/>
+    <line x1="528" y1="32" x2="528" y2="68"/>
+    <line x1="540" y1="46" x2="540" y2="54"/>
+    <line x1="552" y1="38" x2="552" y2="62"/>
+    <line x1="564" y1="44" x2="564" y2="56"/>
+    <line x1="576" y1="36" x2="576" y2="64"/>
+    <line x1="588" y1="40" x2="588" y2="60"/>
+    <line x1="600" y1="32" x2="600" y2="68"/>
+    <line x1="612" y1="46" x2="612" y2="54"/>
+    <line x1="624" y1="38" x2="624" y2="62"/>
+    <line x1="636" y1="42" x2="636" y2="58"/>
+    <line x1="648" y1="34" x2="648" y2="66"/>
+    <line x1="660" y1="44" x2="660" y2="56"/>
+    <line x1="672" y1="40" x2="672" y2="60"/>
+    <line x1="684" y1="32" x2="684" y2="68"/>
+    <line x1="696" y1="46" x2="696" y2="54"/>
+    <line x1="708" y1="38" x2="708" y2="62"/>
+    <line x1="720" y1="42" x2="720" y2="58"/>
+    <line x1="732" y1="36" x2="732" y2="64"/>
+    <line x1="744" y1="44" x2="744" y2="56"/>
+    <line x1="756" y1="30" x2="756" y2="70"/>
+    <line x1="768" y1="40" x2="768" y2="60"/>
+    <line x1="780" y1="46" x2="780" y2="54"/>
+    <line x1="792" y1="38" x2="792" y2="62"/>
+    <line x1="804" y1="44" x2="804" y2="56"/>
+    <line x1="816" y1="34" x2="816" y2="66"/>
+    <line x1="828" y1="42" x2="828" y2="58"/>
+    <line x1="840" y1="32" x2="840" y2="68"/>
+    <line x1="852" y1="46" x2="852" y2="54"/>
+    <line x1="864" y1="38" x2="864" y2="62"/>
+    <line x1="876" y1="44" x2="876" y2="56"/>
+  </g>
+
+  <!-- Beat markers above waveform (amber dots) -->
+  <g transform="translate(100, 200)">
+    <circle cx="60" cy="0" r="4" fill="#c08a3e"/>
+    <circle cx="240" cy="0" r="4" fill="#c08a3e"/>
+    <circle cx="380" cy="0" r="4" fill="#c08a3e"/>
+    <circle cx="540" cy="0" r="4" fill="#c08a3e"/>
+    <circle cx="660" cy="0" r="4" fill="#c08a3e"/>
+    <circle cx="780" cy="0" r="4" fill="#c08a3e"/>
+    <text class="mono accent" x="0" y="-8" font-size="11" letter-spacing="3">BEATS DETECTED · 6</text>
+  </g>
+
+  <!-- Hairline divider between before and after -->
+  <line class="hair" x1="100" y1="430" x2="980" y2="430" stroke-width="2"/>
+
+  <!-- Down-arrow indicator -->
+  <text class="mono accent" x="540" y="490" font-size="14" letter-spacing="6" text-anchor="middle">CUT BY RILEY</text>
+
+  <!-- AFTER: tight 0:30 polished output -->
+  <text class="mono ink3" x="100" y="560" font-size="16" letter-spacing="4">DELIVERED · 0:30 · READY TO POST</text>
+  <line class="hair" x1="100" y1="578" x2="980" y2="578"/>
+
+  <!-- Polished waveform: tight, even, segmented -->
+  <g transform="translate(100, 620)">
+    <!-- Five clean segments, separated by amber rules -->
+    <rect x="0" y="20" width="160" height="60" fill="#f3e7d2"/>
+    <rect x="170" y="20" width="160" height="60" fill="#f3e7d2"/>
+    <rect x="340" y="20" width="160" height="60" fill="#f3e7d2"/>
+    <rect x="510" y="20" width="160" height="60" fill="#f3e7d2"/>
+    <rect x="680" y="20" width="200" height="60" fill="#c08a3e"/>
+
+    <!-- Section labels -->
+    <text class="mono ink3" x="80" y="110" font-size="11" letter-spacing="2" text-anchor="middle">OPEN</text>
+    <text class="mono ink3" x="250" y="110" font-size="11" letter-spacing="2" text-anchor="middle">CONTEXT</text>
+    <text class="mono ink3" x="420" y="110" font-size="11" letter-spacing="2" text-anchor="middle">TURN</text>
+    <text class="mono ink3" x="590" y="110" font-size="11" letter-spacing="2" text-anchor="middle">BEAT</text>
+    <text class="mono ink3" x="780" y="110" font-size="11" letter-spacing="2" text-anchor="middle">CLOSE</text>
+
+    <!-- Time markers -->
+    <text class="mono ink3" x="0" y="-4" font-size="11" letter-spacing="2">0:00</text>
+    <text class="mono ink3" x="880" y="-4" font-size="11" letter-spacing="2" text-anchor="end">0:30</text>
+  </g>
+
+  <!-- Caption -->
+  <text class="serif ink" x="540" y="900" font-size="60" font-style="italic" font-weight="400" letter-spacing="-1.5" text-anchor="middle">
+    You record. <tspan class="accent">He directs.</tspan>
+  </text>
+
+  <!-- Footer -->
+  <text class="mono ink3" x="540" y="1010" font-size="22" letter-spacing="6" text-anchor="middle">RILEY — SOVEXA.AI</text>
+</svg>

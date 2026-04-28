@@ -90,3 +90,64 @@ export async function extractKeyframes(
     try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
   }
 }
+
+/**
+ * Extract frames at specific timestamps (used for beat-targeted extraction).
+ * Faster than running ffmpeg N times — uses one pass with a select filter.
+ */
+export async function extractFramesAt(
+  videoPath: string,
+  timestamps: number[],
+): Promise<ExtractedFrame[]> {
+  if (timestamps.length === 0) return []
+  const sorted = [...new Set(timestamps.map((t) => Math.round(t * 100) / 100))].sort((a, b) => a - b)
+  const workDir = path.join(os.tmpdir(), `sovexa-beats-${Date.now()}`)
+
+  try {
+    fs.mkdirSync(workDir, { recursive: true })
+
+    // Use ffmpeg's select filter with eq(t,...)|eq(t,...)|... — one pass, N frames.
+    // Build expression in chunks of 30 to avoid huge command lines.
+    const out: ExtractedFrame[] = []
+    const CHUNK = 30
+    for (let chunkStart = 0; chunkStart < sorted.length; chunkStart += CHUNK) {
+      const chunk = sorted.slice(chunkStart, chunkStart + CHUNK)
+      // gte(t,X)*lte(t,X+0.05) — select first frame at-or-after each timestamp
+      const expr = chunk.map((t) => `between(t,${t.toFixed(2)},${(t + 0.08).toFixed(2)})`).join('+')
+      const outPattern = path.join(workDir, `beat-${chunkStart.toString().padStart(4, '0')}-%03d.jpg`)
+      try {
+        await execFileAsync('ffmpeg', [
+          '-y',
+          '-i', videoPath,
+          '-vf', `select='${expr}',format=yuv420p,scale=480:-1`,
+          '-vsync', 'vfr',
+          '-q:v', '5',
+          outPattern,
+        ], { timeout: 120000 })
+      } catch (err: any) {
+        // ffmpeg returns non-zero on benign warnings sometimes
+        if (!fs.readdirSync(workDir).some((f) => f.startsWith(`beat-${chunkStart.toString().padStart(4, '0')}-`))) {
+          throw err
+        }
+      }
+
+      const files = fs.readdirSync(workDir)
+        .filter((f) => f.startsWith(`beat-${chunkStart.toString().padStart(4, '0')}-`) && f.endsWith('.jpg'))
+        .sort()
+
+      for (let i = 0; i < files.length && i < chunk.length; i++) {
+        const buf = fs.readFileSync(path.join(workDir, files[i]))
+        out.push({
+          timestamp: chunk[i],
+          base64: buf.toString('base64'),
+          index: out.length,
+        })
+      }
+    }
+
+    console.log(`[keyframes] Beat-targeted extraction: ${out.length} of ${sorted.length} requested timestamps`)
+    return out
+  } finally {
+    try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
+  }
+}

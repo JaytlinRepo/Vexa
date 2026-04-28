@@ -128,6 +128,44 @@ export async function invokeAgentStream(options: StreamOptions): Promise<void> {
 // ─── STRUCTURED OUTPUT PARSER ─────────────────────────────────────────────────
 
 /**
+ * Escape inner double-quotes inside JSON string values. Walks the input
+ * tracking whether we're inside a string; any `"` we encounter while
+ * already inside a string AND not followed by a JSON-delimiter token is
+ * treated as an unescaped inner quote and replaced with `\"`.
+ */
+function escapeInnerQuotes(input: string): string {
+  let out = ''
+  let inString = false
+  let prev = ''
+  for (let i = 0; i < input.length; i++) {
+    const c = input[i]
+    if (c === '"' && prev !== '\\') {
+      if (!inString) {
+        inString = true
+        out += c
+      } else {
+        // Look ahead for what comes after, ignoring whitespace
+        let j = i + 1
+        while (j < input.length && /\s/.test(input[j])) j++
+        const next = input[j] || ''
+        if (next === ',' || next === '}' || next === ']' || next === ':' || j >= input.length) {
+          // Closing quote of the string
+          inString = false
+          out += c
+        } else {
+          // Inner quote — escape it
+          out += '\\"'
+        }
+      }
+    } else {
+      out += c
+    }
+    prev = c
+  }
+  return out
+}
+
+/**
  * Parse and validate agent JSON output.
  * Strips any accidental markdown code fences before parsing.
  */
@@ -152,8 +190,12 @@ export function parseAgentOutput<T>(rawOutput: string): T {
     [cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']'), 'trailing-comma'],
     // Fix unescaped newlines inside string values
     [cleaned.replace(/(?<=":[\s]*"[^"]*)\n/g, '\\n'), 'newlines'],
-    // Fix single quotes used as string delimiters
-    [cleaned.replace(/'/g, '"'), 'single-quotes'],
+    // Escape unescaped inner double-quotes inside string values.
+    [escapeInnerQuotes(cleaned), 'inner-quotes'],
+    // ONLY if the model used single quotes as the string delimiters (not
+    // just inside string values). We detect this by looking for `: '` or
+    // `[ '` patterns. Otherwise replacing all `'` corrupts apostrophes.
+    [/[\[:][\s]*'/.test(cleaned) ? cleaned.replace(/'/g, '"') : cleaned, 'single-quotes'],
     // Nuclear: strip all control chars inside strings
     [cleaned.replace(/[\x00-\x1f]/g, ' ').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']'), 'control-chars'],
   ]

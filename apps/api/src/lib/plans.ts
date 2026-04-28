@@ -19,28 +19,44 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  starter: {
-    tasksPerMonth: 30,
+  free: {
+    // Audition tier — full team quality, hard wall on volume.
+    tasksPerMonth: 5,
     videosPerMonth: 0,
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
-    bedrockCallsPerMonth: 60,
+    bedrockCallsPerMonth: 25,
+    briefCooldownMin: 60,           // 1-hour cooldown — slow drip
+    proactiveAnalysis: false,       // no auto-pulses on Free
+    weeklyPulse: false,
+    nicheDetection: true,
+    syncOnLogin: false,             // no platform sync until paid
+    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    revisionsPerOutput: 0,          // one-shot per task on Free
+  },
+  starter: {
+    tasksPerMonth: 50,
+    videosPerMonth: 0,
+    workspaces: 1,
+    meetingFeature: false,
+    brandMemory: false,
+    bedrockCallsPerMonth: 200,
     briefCooldownMin: 5,
-    proactiveAnalysis: true,       // agents need data at every tier
-    weeklyPulse: false,            // weekly pulse is a pro perk
-    nicheDetection: true,          // core — agents need the right niche
-    syncOnLogin: true,             // core — agents need fresh data
-    employees: ['analyst', 'copywriter'],
+    proactiveAnalysis: true,
+    weeklyPulse: false,
+    nicheDetection: true,
+    syncOnLogin: true,
+    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
     revisionsPerOutput: 2,
   },
   pro: {
-    tasksPerMonth: 9999,
-    videosPerMonth: 10,
+    tasksPerMonth: 200,
+    videosPerMonth: 15,
     workspaces: 1,
     meetingFeature: true,
     brandMemory: true,
-    bedrockCallsPerMonth: 500,
+    bedrockCallsPerMonth: 1200,
     briefCooldownMin: 5,
     proactiveAnalysis: true,
     weeklyPulse: true,
@@ -50,12 +66,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     revisionsPerOutput: 10,
   },
   agency: {
-    tasksPerMonth: 99999,
-    videosPerMonth: 50,
+    tasksPerMonth: 1000,
+    videosPerMonth: 75,
     workspaces: 5,
     meetingFeature: true,
     brandMemory: true,
-    bedrockCallsPerMonth: 2000,
+    bedrockCallsPerMonth: 5500,
     briefCooldownMin: 2,
     proactiveAnalysis: true,
     weeklyPulse: true,

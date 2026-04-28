@@ -80,9 +80,12 @@ All platform data normalizes into `PlatformAccount` / `PlatformSnapshot` / `Plat
 
 | Plan | Monthly | Includes |
 |---|---|---|
-| **Starter** | $14.99/mo | Maya + Alex, 60 Bedrock calls/mo, proactive analysis, niche detection |
-| **Pro** | $49.99/mo | Full team (4 agents), 500 calls/mo, meetings, weekly pulse |
-| **Agency** | $89.99/mo | 5 workspaces, 2000 calls/mo, 2-min cooldown, all features |
+| **Free** | $0 | All 4 agents, 5 tasks/mo, 25 calls/mo. No meetings, video, or memory. Audition tier. |
+| **Solo** | $19/mo | All 4 agents, 50 tasks/mo, 200 Bedrock calls/mo, basic voice. No meetings or video. |
+| **Pro** | $59/mo | All 4 agents, 200 tasks/mo, 1,200 calls/mo, 15 videos, meetings, brand memory, weekly pulse |
+| **Agency** | $149/mo | 5 workspaces, 1,000 tasks/mo, 5,500 calls/mo, 75 videos, 2-min cooldown, all features |
+
+**Pricing model:** Same team quality at every tier (Claude-style). Differentiation is volume + features, not access to more agents. Free is the acquisition funnel; upgrade = more runway.
 
 All plans: 7-day free trial, no credit card required.
 

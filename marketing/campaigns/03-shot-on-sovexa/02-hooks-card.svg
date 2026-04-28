@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; }
+      .card { fill: #fbfaf6; }
+      .panel { fill: #f4f1ea; }
+      .ink { fill: #1a1a1a; }
+      .ink2 { fill: #5a5856; }
+      .ink3 { fill: #8a8682; }
+      .accent { fill: #c08a3e; }
+      .accentSoft { fill: #f3e7d2; }
+      .hair { stroke: rgba(20,16,10,0.08); stroke-width: 1; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+      .sans { font-family: 'Inter', 'Helvetica', sans-serif; }
+    </style>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="32"/>
+      <feOffset dy="40"/>
+      <feColorMatrix values="0 0 0 0 0.078  0 0 0 0 0.063  0 0 0 0 0.039  0 0 0 0.18 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect class="bg" width="1080" height="1080"/>
+
+  <!-- Product card -->
+  <g filter="url(#softShadow)">
+    <rect class="card" x="140" y="220" width="800" height="540" rx="16" ry="16"/>
+
+    <!-- Header -->
+    <text class="mono ink3" x="180" y="274" font-size="18" letter-spacing="4">HOOKS · WEDNESDAY REEL</text>
+    <line class="hair" x1="180" y1="294" x2="900" y2="294"/>
+
+    <!-- Hook 1 -->
+    <text class="mono ink3" x="180" y="354" font-size="14" letter-spacing="3">01</text>
+    <text class="serif ink" x="220" y="358" font-size="32" font-style="italic" font-weight="400">"Three habits that fixed my mornings."</text>
+    <line class="hair" x1="180" y1="380" x2="900" y2="380"/>
+
+    <!-- Hook 2 — highlighted -->
+    <rect class="accentSoft" x="160" y="396" width="760" height="86"/>
+    <text class="mono accent" x="180" y="430" font-size="14" letter-spacing="3">02 · ALEX'S PICK</text>
+    <text class="serif ink" x="220" y="466" font-size="32" font-style="italic" font-weight="400">"I haven't checked my phone in 90 days."</text>
+
+    <!-- Hook 3 -->
+    <text class="mono ink3" x="180" y="540" font-size="14" letter-spacing="3">03</text>
+    <text class="serif ink" x="220" y="544" font-size="32" font-style="italic" font-weight="400">"What rich people do at 5 a.m."</text>
+    <line class="hair" x1="180" y1="566" x2="900" y2="566"/>
+
+    <!-- Footer note -->
+    <text class="mono ink3" x="180" y="630" font-size="13" letter-spacing="3">FLAGGED 0:14 AGO · ALEX — COPYWRITER</text>
+    <text class="sans ink2" x="180" y="680" font-size="20" font-style="italic">"#2 is the one. The others are safe."</text>
+  </g>
+
+  <!-- Caption -->
+  <text class="serif ink" x="540" y="880" font-size="44" font-style="italic" font-weight="400" letter-spacing="-1" text-anchor="middle">
+    Alex picked the <tspan class="accent">one.</tspan>
+  </text>
+
+  <!-- Footer -->
+  <text class="mono ink3" x="540" y="1010" font-size="22" letter-spacing="6" text-anchor="middle">SOVEXA.AI</text>
+</svg>

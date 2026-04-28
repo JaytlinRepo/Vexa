@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sovexa — Hire. (animated reel)</title>
+<style>
+  /* ───────────── Reset / canvas ───────────── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1080px; height: 1920px;
+    background: #fbfaf6;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+  body {
+    position: relative;
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  }
+
+  /* ───────────── Each frame is a layer ───────────── */
+  .frame {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+  }
+
+  .word {
+    font-style: italic;
+    font-weight: 400;
+    color: #c08a3e;
+    font-size: 540px;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    text-align: center;
+  }
+
+  .credit {
+    margin-top: 80px;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 26px;
+    letter-spacing: 0.30em;
+    color: #8a8682;
+    text-transform: uppercase;
+  }
+
+  .closing {
+    color: #1a1a1a;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 260px;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    text-align: center;
+  }
+  .closing em { font-style: italic; color: #c08a3e; }
+
+  .signoff {
+    position: absolute;
+    bottom: 80px;
+    left: 0; right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    letter-spacing: 0.40em;
+    color: #8a8682;
+  }
+
+  /* ───────────── Master 22-second timeline ─────────────
+     Each frame fades in and out at its slot.
+     The body uses an animation-timing-function that simulates a
+     proper film fade (subtle ease, no bounce).
+  ─────────────────────────────────────────── */
+  @keyframes fadeIn {
+    0%   { opacity: 0; transform: translateY(12px); }
+    20%  { opacity: 1; transform: translateY(0); }
+    80%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-12px); }
+  }
+
+  /* Total runtime = 22s. animation-delay defines the slot. */
+  .frame { animation: fadeIn 3s ease-in-out forwards; }
+
+  /* SOVEXA opening ident */
+  .frame.opening   { animation-delay: 0s;  animation-duration: 2.5s; }
+
+  .frame.hire      { animation-delay: 2.5s; }
+  .frame.plan      { animation-delay: 5.5s; }
+  .frame.write     { animation-delay: 8.5s; }
+  .frame.direct    { animation-delay: 11.5s; }
+  .frame.approve   { animation-delay: 14.5s; }
+
+  /* Closing line holds longer */
+  .frame.closing   { animation-delay: 17.5s; animation-duration: 4s; }
+
+  /* Loop the whole thing so screen-recording catches a clean cycle */
+  body {
+    animation: loop 22s linear infinite;
+  }
+  @keyframes loop { 0%, 100% {} }
+
+  /* The opening ident is small mono only */
+  .frame.opening .ident {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    letter-spacing: 0.40em;
+    color: #8a8682;
+  }
+
+  /* Scale the entire stage to fit the user's screen — but record at native 1080×1920.
+     Comment this block out before screen-recording at native size. */
+  @media (max-width: 1080px), (max-height: 1920px) {
+    html { transform-origin: top left; }
+    /* user can comment this back in to preview at scale */
+  }
+</style>
+</head>
+<body>
+
+  <!-- 0:00 — 0:02 · brand ident -->
+  <div class="frame opening">
+    <div class="ident">SOVEXA</div>
+  </div>
+
+  <!-- 0:02 — 0:05 · Hire. -->
+  <div class="frame hire">
+    <div class="word">Hire.</div>
+    <div class="credit">SOVEXA.AI</div>
+  </div>
+
+  <!-- 0:05 — 0:08 · Plan. — Jordan -->
+  <div class="frame plan">
+    <div class="word">Plan.</div>
+    <div class="credit">JORDAN — STRATEGIST</div>
+  </div>
+
+  <!-- 0:08 — 0:11 · Write. — Alex -->
+  <div class="frame write">
+    <div class="word">Write.</div>
+    <div class="credit">ALEX — COPYWRITER</div>
+  </div>
+
+  <!-- 0:11 — 0:14 · Direct. — Riley -->
+  <div class="frame direct">
+    <div class="word" style="font-size:480px;">Direct.</div>
+    <div class="credit">RILEY — CREATIVE DIRECTOR</div>
+  </div>
+
+  <!-- 0:14 — 0:17 · Approve. — You -->
+  <div class="frame approve">
+    <div class="word" style="font-size:440px;">Approve.</div>
+    <div class="credit">YOU — CEO</div>
+  </div>
+
+  <!-- 0:17 — 0:21 · closing line -->
+  <div class="frame closing">
+    <div class="closing">A company.<br>For <em>one</em>.</div>
+  </div>
+
+  <!-- Always-on signoff at the very end (visible only during closing) -->
+  <div class="signoff" style="opacity:0; animation: fadeIn 4s ease-in-out 18s forwards;">SOVEXA.AI</div>
+
+</body>
+</html>

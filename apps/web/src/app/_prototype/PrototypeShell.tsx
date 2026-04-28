@@ -5,7 +5,7 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260426-10'
+const VERSION = '20260426-11'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
@@ -24,6 +24,7 @@ export default function PrototypeShell({ html }: { html: string }) {
           beforeInteractive scripts to live in the root layout — page-level
           components silently downgrade. afterInteractive is the correct
           strategy here: the script just attaches a fullscreen overlay. */}
+      <Script src={v('/dev-host-title.js')} strategy="afterInteractive" />
       <Script src={v('/mobile-shell-wire.js')} strategy="afterInteractive" />
       <Script src={v('/intro-wire.js')} strategy="afterInteractive" />
       <Script src={v('/waitlist.js')} strategy="afterInteractive" />
@@ -31,7 +32,11 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />
       <Script src={v('/auth-ui.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-wire.js')} strategy="afterInteractive" />
-      <Script src={v('/tutorial-wire.js')} strategy="afterInteractive" />
+      {/* tutorial-wire.js — legacy modal walkthrough, superseded by the
+          spotlight tour (tour-engine.js + tour-steps.js). Kept on disk so
+          we can revive a step if needed; not loaded so it doesn't double-
+          fire alongside the spotlight tour. */}
+      {/* <Script src={v('/tutorial-wire.js')} strategy="afterInteractive" /> */}
       <Script src={v('/meeting-wire.js')} strategy="afterInteractive" />
       <Script src={v('/tasks-wire.js')} strategy="afterInteractive" />
       <Script src={v('/notifications-wire.js')} strategy="afterInteractive" />
@@ -64,6 +69,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/audience-wire.js')} strategy="afterInteractive" />
       <Script src={v('/team-wire-v2.js')} strategy="afterInteractive" />
       <Script src={v('/hq-data-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/hq-v3-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/posts-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/knowledge-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/team-data-wire.js')} strategy="afterInteractive" />

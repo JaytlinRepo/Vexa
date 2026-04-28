@@ -128,8 +128,16 @@ async function executeAgentTask(task: {
   // Fetch niche context from RAG
   const nicheContext = await retrieveNicheContext(niche, description || task.type)
 
-  // Fetch brand memory
-  const brandMemory = await getBrandMemory(task.id)
+  // Fetch brand memory. For Jordan + Alex, prepend Maya's latest playbook
+  // directives so they read first — that's our soft "priority directive"
+  // pattern. Riley intentionally does NOT see this section: he executes
+  // Alex's brief, so Maya's analytics reach him via Alex's output, not
+  // directly. Other roles get the standard memory blob.
+  let brandMemory = await getBrandMemory(task.id)
+  if (employee.role === 'strategist' || employee.role === 'copywriter') {
+    const directive = await getMayaDirectiveForRole(task.companyId, employee.role)
+    if (directive) brandMemory = directive + '\n\n' + brandMemory
+  }
 
   // Load live platform data so every agent sees real numbers
   const { loadPersonalContext, buildPlatformDataSummary } = await import('../lib/personalContext')
@@ -968,7 +976,7 @@ const PIPELINE_OUTPUT_TYPE: Record<string, PrismaOutputType> = {
 
 /** Result of trying to run the next pipeline step after an approval. */
 export type AgentPipelineChainResult =
-  | { ok: false; reason: 'end_of_pipeline' | 'no_company' | 'quota_exceeded' | 'no_next_employee' | 'bad_config' }
+  | { ok: false; reason: 'end_of_pipeline' | 'no_company' | 'quota_exceeded' | 'no_next_employee' | 'bad_config' | 'duplicate_chain_task' }
   | {
       ok: true
       nextTaskId: string
@@ -1024,6 +1032,32 @@ export async function triggerNextAgentAfterApproval(
   if (!outputType) return { ok: false, reason: 'bad_config' }
 
   const title = getAutoTaskTitle(nextRoleStr)
+
+  // Race-condition guard: if this function gets called concurrently for
+  // the same (companyId, employeeId, title) we'd create duplicate chained
+  // tasks. We saw this in production — 3 Jordan tasks spawned in 30s
+  // because an approval webhook fired 3x. Skip if an identical task was
+  // created in the last 5 minutes; that window covers any realistic
+  // approval-replay / retry pattern without blocking legitimate work
+  // (no creator approves the same predecessor twice in 5 minutes).
+  const RACE_WINDOW_MS = 5 * 60 * 1000
+  const recentDup = await db.task.findFirst({
+    where: {
+      companyId: task.companyId,
+      employeeId: nextEmployee.id,
+      title,
+      createdAt: { gte: new Date(Date.now() - RACE_WINDOW_MS) },
+    },
+    select: { id: true },
+  })
+  if (recentDup) {
+    console.warn('[triggerNextAgentAfterApproval] skipping duplicate chain task', {
+      companyId: task.companyId,
+      role: nextRoleStr,
+      existingTaskId: recentDup.id,
+    })
+    return { ok: false, reason: 'duplicate_chain_task' }
+  }
 
   // Build context from the previous agent's approved output so the next
   // agent builds on their work instead of starting from scratch
@@ -1116,6 +1150,48 @@ export async function triggerNextAgentAfterApproval(
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+/**
+ * Pull Maya's latest playbook directive for a specific agent role.
+ *
+ * Maya writes structured directives in `brandMemory.content.details.directives`
+ * keyed by `to: 'jordan' | 'alex'`. We surface only the directives addressed
+ * to the agent that's about to run, formatted as a high-priority section
+ * the model reads BEFORE the general brand-memory blob. This is what makes
+ * "Jordan, focus on more carousels next week" actually influence Jordan's
+ * next plan rather than getting buried in 10 other memory entries.
+ *
+ * Returns '' when there's no current playbook or no directive for this role.
+ */
+async function getMayaDirectiveForRole(companyId: string, role: string): Promise<string> {
+  const roleKey = role === 'strategist' ? 'jordan' : role === 'copywriter' ? 'alex' : null
+  if (!roleKey) return ''
+
+  const memory = await prisma.brandMemory.findFirst({
+    where: {
+      companyId,
+      content: { path: ['tags'], array_contains: 'maya_playbook' },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!memory) return ''
+
+  const content = memory.content as {
+    summary?: string
+    details?: {
+      directives?: Array<{ to?: string; title?: string; reason?: string }>
+    }
+  }
+  const all = (content.details && content.details.directives) || []
+  const mine = all.filter(d => d && d.to === roleKey && d.title)
+  if (mine.length === 0) return ''
+
+  const lines = mine.map(d => `- ${d.title}${d.reason ? ` — ${d.reason}` : ''}`).join('\n')
+  const ageHrs = Math.round((Date.now() - memory.createdAt.getTime()) / 3600000)
+  const ageLabel = ageHrs < 24 ? `${ageHrs}h ago` : `${Math.round(ageHrs / 24)}d ago`
+  // Mark this clearly so Bedrock weights it above older memory entries.
+  return `## Maya's directive (priority — issued ${ageLabel})\nMaya, your team's data analyst, briefed you with these directives based on the latest performance review. Treat these as the priority signal for this task; they reflect what she's seeing in the numbers right now.\n\n${lines}`
+}
 
 async function getBrandMemory(taskId: string): Promise<string> {
   const task = await prisma.task.findUnique({ where: { id: taskId } })

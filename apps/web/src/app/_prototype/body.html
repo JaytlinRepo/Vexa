@@ -532,12 +532,12 @@
   </div>
   <div class="prices reveal">
     <div class="plan">
-      <div class="ph"><div class="n">Starter</div><div class="bd"></div></div>
-      <div class="px">$14.99<em>/mo</em></div>
-      <div class="pd">For creators finding their voice.</div>
+      <div class="ph"><div class="n">Solo</div><div class="bd"></div></div>
+      <div class="px">$19<em>/mo</em></div>
+      <div class="pd">The full team, on retainer.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Alex</em> · your writer</span></li>
-        <li><span class="c">✓</span><span>1 platform · 5 posts / wk</span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span>50 tasks / month</span></li>
         <li><span class="c">✓</span><span>Voice match · 90% SLA</span></li>
         <li><span class="c">✓</span><span>Weekly review digest</span></li>
       </ul>
@@ -545,21 +545,21 @@
     </div>
     <div class="plan feat">
       <div class="ph"><div class="n"><em>Pro</em></div><div class="bd">Most hired</div></div>
-      <div class="px">$49.99<em>/mo</em></div>
-      <div class="pd">The full team. Four agents.</div>
+      <div class="px">$59<em>/mo</em></div>
+      <div class="pd">Your team, full-time.</div>
       <ul>
         <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
-        <li><span class="c">✓</span><span>3 platforms · <em>unlimited</em> posts</span></li>
+        <li><span class="c">✓</span><span>200 tasks / month</span></li>
+        <li><span class="c">✓</span><span>Meetings · brand memory · weekly pulse</span></li>
+        <li><span class="c">✓</span><span>Video generation · 15 / month</span></li>
         <li><span class="c">✓</span><span>Voice match · 95% SLA</span></li>
         <li><span class="c">✓</span><span>Live pipeline · CEO dashboard</span></li>
-        <li><span class="c">✓</span><span>Permissions · handoff rules</span></li>
-        <li><span class="c">✓</span><span>Hire from roster (+4 available)</span></li>
       </ul>
       <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Hire the team →</a>
     </div>
     <div class="plan">
       <div class="ph"><div class="n">Agency</div><div class="bd"></div></div>
-      <div class="px">$89.99<em>/mo</em></div>
+      <div class="px">$149<em>/mo</em></div>
       <div class="pd">For teams running 5+ creators.</div>
       <ul>
         <li><span class="c">✓</span><span>Everything in Pro</span></li>
@@ -828,50 +828,53 @@
             <span class="tog-lbl">Monthly</span>
             <div class="tog" id="priceToggle" onclick="togglePrice()"></div>
             <span class="tog-lbl">Annual</span>
-            <span class="save-tag">Save 25%</span>
+            <span class="save-tag">Save 20%</span>
           </div>
+          <p class="body" style="margin-top:18px;font-size:14px;opacity:0.7">
+            Or <a href="#" onclick="startOnboarding();return false" style="text-decoration:underline">try Free first</a> &mdash; 5 tasks with the full team, no credit card.
+          </p>
         </div>
         <div class="pricing-grid">
           <div class="pc">
-            <div class="pc-tier">Starter</div>
-            <div class="pc-price" id="ps-starter"><sup>$</sup>14.99<span class="mo">/mo</span></div>
-            <p class="pc-desc">Less than a streaming subscription. Your first two team members ready immediately.</p>
+            <div class="pc-tier">Solo</div>
+            <div class="pc-price" id="ps-starter"><sup>$</sup>19<span class="mo">/mo</span></div>
+            <p class="pc-desc">The full team, on retainer. All four employees ready immediately.</p>
             <ul class="pc-feats">
-              <li class="y">2 AI employees — Maya + Alex</li>
+              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Niche + sub-niche specialization</li>
-              <li class="y">Up to 30 tasks/month</li>
+              <li class="y">Up to 50 tasks/month</li>
               <li class="y">Brand voice settings</li>
               <li class="y">Knowledge feed</li>
-              <li class="y">Outputs library &mdash; 5 revisions</li>
-              <li class="dim">Jordan + Riley</li>
+              <li class="y">Outputs library &mdash; 2 revisions</li>
               <li class="dim">Meeting feature</li>
-              <li class="dim">Brand memory</li>
+              <li class="dim">Brand memory &mdash; learns over time</li>
               <li class="dim">Video generation</li>
+              <li class="dim">Monday trend reports</li>
             </ul>
             <button class="pc-btn ghost" onclick="startOnboarding()">Start free trial</button>
           </div>
           <div class="pc featured">
             <div class="pc-badge">Most popular</div>
             <div class="pc-tier">Pro</div>
-            <div class="pc-price" id="ps-pro"><sup>$</sup>49.99<span class="mo">/mo</span></div>
-            <p class="pc-desc">Your full AI content company. All four employees, unlimited tasks, meetings, memory, and video.</p>
+            <div class="pc-price" id="ps-pro"><sup>$</sup>59<span class="mo">/mo</span></div>
+            <p class="pc-desc">Your team, full-time. Same full team — now with meetings, memory, video, and 4× the runway.</p>
             <ul class="pc-feats">
-              <li class="y">Full team &mdash; all 4 employees</li>
+              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Deep niche specialization</li>
-              <li class="y">Unlimited tasks</li>
+              <li class="y">200 tasks/month</li>
               <li class="y">Advanced brand voice + memory</li>
               <li class="y">Meeting feature</li>
-              <li class="y">Unlimited revisions</li>
+              <li class="y">10 revisions per output</li>
               <li class="y">Feedback loop &mdash; team improves</li>
               <li class="y">Knowledge feed + insights</li>
               <li class="y">Monday trend reports</li>
-              <li class="y">Video generation &mdash; 10/month</li>
+              <li class="y">Video generation &mdash; 15/month</li>
             </ul>
             <button class="pc-btn fill" onclick="startOnboarding()">Start with Pro</button>
           </div>
           <div class="pc">
             <div class="pc-tier">Agency</div>
-            <div class="pc-price" id="ps-agency"><sup>$</sup>99.99<span class="mo">/mo</span></div>
+            <div class="pc-price" id="ps-agency"><sup>$</sup>149<span class="mo">/mo</span></div>
             <p class="pc-desc">For creators managing multiple brands or agency owners running content for clients.</p>
             <ul class="pc-feats">
               <li class="y">Up to 5 brand workspaces</li>
@@ -879,10 +882,10 @@
               <li class="y">Everything in Pro per workspace</li>
               <li class="y">Priority AI processing</li>
               <li class="y">Advanced analytics</li>
-              <li class="y">50 video generations/month</li>
+              <li class="y">75 video generations/month</li>
+              <li class="y">1,000 tasks/month</li>
               <li class="y">White-label exports</li>
               <li class="y">Custom employee personas</li>
-              <li class="y">Dedicated onboarding</li>
               <li class="y">Early access to features</li>
             </ul>
             <button class="pc-btn ghost">Contact us</button>
@@ -993,40 +996,25 @@
 
 <div class="hq">
 
-  <!-- Eyebrow -->
+  <!-- Eyebrow — date is wired from real Date in hq-v3-data-wire.js -->
   <div class="eyebrow-strip">
-    <span class="eyebrow"><span class="rule"></span>Monday · April 20 · Issue 087</span>
-    <span class="live"><span class="dd"></span>LIVE · <span id="hq3-clock">09:42:18</span> · Cycle 087</span>
+    <span class="eyebrow"><span class="rule"></span><span id="hq3-eyebrow-date">—</span></span>
+    <span class="live"><span class="dd"></span>LIVE · <span id="hq3-clock">—</span></span>
   </div>
 
+  <!-- Cockpit action strip — wired by hq-v3-data-wire.js. Hidden until the
+       wire confirms there's something to surface (delivered tasks, anomalies,
+       or a clean "all clear" state). -->
+  <section class="hq3-cockpit" id="hq3-cockpit" hidden>
+    <span class="hq3-cockpit-summary" id="hq3-cockpit-summary">—</span>
+    <div class="hq3-cockpit-chips" id="hq3-cockpit-chips"></div>
+  </section>
+
   <!-- Hero -->
-  <section class="hero">
+  <section class="hq3-hero">
     <div>
       <h1>Good morning, Jaytlin.<br/>Your team <em>shipped</em><br/>4 posts overnight.</h1>
       <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, Alex is on Reel 3 of 3, and Riley has a shot list staged for tomorrow.</p>
-    </div>
-    <div class="hero-mini">
-      <div class="row">
-        <span class="lbl">Reach · 7d</span>
-        <div style="text-align:right">
-          <div class="v"><em>1.4</em>M</div>
-          <div class="d"><span class="u">▲ 38%</span> vs prev</div>
-        </div>
-      </div>
-      <div class="row">
-        <span class="lbl">Followers · all</span>
-        <div style="text-align:right">
-          <div class="v">313.8K</div>
-          <div class="d"><span class="u">▲ 2,104</span> this wk</div>
-        </div>
-      </div>
-      <div class="row">
-        <span class="lbl">Bedrock quota</span>
-        <div style="text-align:right">
-          <div class="v">342<span style="color:var(--t3);font-size:18px;font-family:'Inter',sans-serif">/500</span></div>
-          <div class="d">68% · Pro</div>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -1034,7 +1022,7 @@
   <section class="sect">
     <div class="sect-head">
       <div class="l">
-        <span class="n">§ 01 / Forecast</span>
+        <span class="n">Forecast</span>
         <h2>Where you're <em>headed</em>.</h2>
       </div>
       <div class="right">
@@ -1051,15 +1039,26 @@
       <div class="fc-head">
         <div>
           <div class="fc-num">313.8<span class="unit">K</span></div>
-          <div class="fc-cap">Total followers · all platforms</div>
-        </div>
-        <div class="fc-side">
-          <div class="stat"><span class="k">30d pace</span><span class="v">+2,804/day</span></div>
-          <div class="stat"><span class="k">→ 350K</span><span class="v"><em>23</em> days</span></div>
-          <div class="stat"><span class="k">→ 400K</span><span class="v"><em>51</em> days</span></div>
-          <div class="stat"><span class="k">Confidence</span><span class="v">0.87</span></div>
+          <div class="fc-cap">Total followers · <span id="hq3-platform-cap">all platforms</span></div>
+          <!-- Platform toggle buttons are generated dynamically by
+               wirePlatformToggle() from the connected accounts list. Add
+               a new platform integration → it shows up here automatically. -->
+          <div class="hq3-platform-toggle pill-tabs" id="hq3-platform-toggle" data-hq3-platform-tabs></div>
         </div>
       </div>
+
+      <!-- Goal anchor — wired by hq-v3-data-wire.js. Shows progress toward
+           a user-set target, OR an empty "Set a goal" prompt. -->
+      <div class="hq3-goal" id="hq3-goal" hidden></div>
+      <form class="hq3-goal-form" id="hq3-goal-form" hidden>
+        <label class="lbl">Set a goal</label>
+        <div class="row">
+          <input type="number" name="target" placeholder="Target followers (e.g. 25000)" min="1" step="1" required />
+          <input type="date" name="deadline" required />
+          <button type="submit">Save</button>
+          <button type="button" data-cancel>Cancel</button>
+        </div>
+      </form>
 
       <div class="fc-chart" id="hq3-fc-chart">
         <svg viewBox="0 0 800 280" preserveAspectRatio="none">
@@ -1079,36 +1078,78 @@
           <text x="0" y="196" class="axis">300K</text>
           <text x="0" y="260" class="axis">250K</text>
           <path class="past-fill" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162 L420,260 L0,260 Z"/>
-          <path class="past-line" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162"/>
+          <path class="past-line" d=""/>
           <line class="now-line" x1="420" y1="20" x2="420" y2="260"/>
           <text x="424" y="30" class="axis">NOW</text>
-          <path class="future-band" d="M420,162 L500,148 L580,128 L660,102 L740,72 L800,52 L800,90 L740,110 L660,140 L580,168 L500,180 L420,180 Z"/>
-          <path class="future-line" d="M420,162 L500,140 L580,116 L660,86 L740,52 L800,30"/>
-          <line x1="420" y1="120" x2="588" y2="120" stroke="#c08a3e" stroke-width=".8" stroke-dasharray="2 3" opacity=".6"/>
-          <circle cx="588" cy="120" r="4" class="milestone-dot"/>
-          <text x="600" y="116" class="milestone-label"><tspan class="serif">350K</tspan> · <tspan>23d</tspan></text>
-          <circle cx="780" cy="40" r="4" class="milestone-dot"/>
-          <text x="660" y="36" class="milestone-label">400K · 51d</text>
-          <text x="0"   y="278" class="axis">JAN</text>
-          <text x="140" y="278" class="axis">FEB</text>
-          <text x="280" y="278" class="axis">MAR</text>
-          <text x="420" y="278" class="axis">APR</text>
-          <text x="580" y="278" class="axis">+30d</text>
-          <text x="740" y="278" class="axis">+60d</text>
+          <path class="future-line" d=""/>
+          <g class="hq3-axis-labels"></g>
+          <g class="hq3-milestones"></g>
         </svg>
-
-        <svg class="fc-cross" id="hq3-fc-cross" viewBox="0 0 800 280" preserveAspectRatio="none">
-          <line class="vline" x1="450" y1="0" x2="450" y2="280"/>
-          <circle class="dot" cx="450" cy="120" r="5"/>
-        </svg>
-        <div class="fc-tooltip" id="hq3-fc-tip" style="left:56%;top:42%"><strong>340K</strong>Apr 27 · projected</div>
       </div>
 
-      <div class="fc-legend">
-        <span class="li on"><span class="sw"></span>All platforms · 313.8K · ▲ 8,412 (30d)</span>
-        <span class="li tt"><span class="sw"></span>TikTok · 211.2k</span>
-        <span class="li ig"><span class="sw"></span>Instagram · 84.3k</span>
-        <span class="li yt"><span class="sw"></span>YouTube · 18.2k</span>
+      <div class="fc-legend"></div>
+    </div>
+  </section>
+
+  <!-- Pulse: Maya's playbook + live anomaly callouts. Sits above the
+       fold so the daily morning routine is read-then-act, not scroll-and-
+       hunt. Both wire from hq-v3-data-wire.js → /api/platform/maya-playbook
+       and a client-side z-score pass over recent posts. -->
+  <section class="sect hq3-pulse">
+    <div class="hq3-pulse-grid">
+      <div class="playbook">
+        <div class="head">
+          <div class="av">M</div>
+          <div>
+            <div class="who">Maya's daily playbook</div>
+            <div class="role">Trend &amp; insights analyst</div>
+          </div>
+        </div>
+        <ul><li>—</li></ul>
+      </div>
+      <div class="hq3-side-stack">
+        <div class="hq3-anomalies" id="hq3-anomalies">
+          <div class="head">
+            <span class="lbl">What's popping</span>
+          </div>
+          <div class="hq3-anomaly-list" id="hq3-anomaly-list"></div>
+        </div>
+        <!-- Content calendar tile — deep-links to the team tab calendar. -->
+        <div class="hq3-cal-tile" id="hq3-cal-tile">
+          <div class="head">
+            <span class="lbl">This week's cadence</span>
+            <button type="button" class="hq3-cal-link" data-open-calendar>Open calendar →</button>
+          </div>
+          <div class="hq3-cal-body" id="hq3-cal-body">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Mini-stats strip — moved out of the hero. Lives between §01 and §02.
+       Values are placeholders ('—') until hq-v3-data-wire.js fills them. -->
+  <section class="sect">
+    <div class="hq3-hero-mini">
+      <div class="row">
+        <span class="lbl">Reach · 7d</span>
+        <div style="text-align:right">
+          <div class="v">—</div>
+          <div class="d"></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Followers · all</span>
+        <div style="text-align:right">
+          <div class="v">—</div>
+          <div class="d"></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">Tasks · this month</span>
+        <div style="text-align:right">
+          <div class="v">—</div>
+          <div class="d"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -1117,7 +1158,7 @@
   <section class="sect">
     <div class="sect-head">
       <div class="l">
-        <span class="n">§ 02 / Assembly line</span>
+        <span class="n">Team status</span>
         <h2>The <em>pipeline</em>, live.</h2>
       </div>
       <div class="right">
@@ -1125,65 +1166,65 @@
       </div>
     </div>
 
-    <div class="pipe" id="hq3-pipe">
-      <div class="pipe-arrow a1 done">→</div>
-      <div class="pipe-arrow a2 done">→</div>
-      <div class="pipe-arrow a3 live">→</div>
+    <div class="hq3-pipe" id="hq3-pipe">
+      <div class="hq3-pipe-arrow \1">→</div>
+      <div class="hq3-pipe-arrow \1">→</div>
+      <div class="hq3-pipe-arrow \1">→</div>
 
-      <div class="node done" data-node="maya">
-        <div class="node-top">
-          <div class="node-port"><span class="ltr">M</span></div>
+      <div class="hq3-node \1" data-node="maya">
+        <div class="hq3-node-top">
+          <div class="hq3-node-port"><span class="ltr">M</span></div>
           <div>
-            <div class="node-name">Maya</div>
-            <div class="node-role">Trend &amp; Insights</div>
+            <div class="hq3-node-name">Maya</div>
+            <div class="hq3-node-role">Trend &amp; Insights</div>
           </div>
         </div>
-        <div class="node-status"><span class="dt"></span>weekly pulse · landed</div>
-        <div class="node-task">Pulse wk 17 — <em>retention up</em></div>
-        <div class="node-prog"><span style="width:100%"></span></div>
-        <div class="node-eta"><span>100%</span><span>· 08:12</span></div>
+        <div class="hq3-node-status"><span class="dt"></span>weekly pulse · landed</div>
+        <div class="hq3-node-task">Pulse wk 17 — <em>retention up</em></div>
+        <div class="hq3-node-prog"><span style="width:100%"></span></div>
+        <div class="hq3-node-eta"><span>100%</span><span>· 08:12</span></div>
       </div>
 
-      <div class="node done" data-node="jordan">
-        <div class="node-top">
-          <div class="node-port"><span class="ltr">J</span></div>
+      <div class="hq3-node \1" data-node="jordan">
+        <div class="hq3-node-top">
+          <div class="hq3-node-port"><span class="ltr">J</span></div>
           <div>
-            <div class="node-name">Jordan</div>
-            <div class="node-role">Content Strategy</div>
+            <div class="hq3-node-name">Jordan</div>
+            <div class="hq3-node-role">Content Strategy</div>
           </div>
         </div>
-        <div class="node-status"><span class="dt"></span>brief · approved</div>
-        <div class="node-task">Brief #213 — <em>"Sunday reset"</em></div>
-        <div class="node-prog"><span style="width:100%"></span></div>
-        <div class="node-eta"><span>100%</span><span>· 08:47</span></div>
+        <div class="hq3-node-status"><span class="dt"></span>brief · approved</div>
+        <div class="hq3-node-task">Brief #213 — <em>"Sunday reset"</em></div>
+        <div class="hq3-node-prog"><span style="width:100%"></span></div>
+        <div class="hq3-node-eta"><span>100%</span><span>· 08:47</span></div>
       </div>
 
-      <div class="node working" data-node="alex">
-        <div class="node-top">
-          <div class="node-port"><span class="ltr">A</span></div>
+      <div class="hq3-node \1" data-node="alex">
+        <div class="hq3-node-top">
+          <div class="hq3-node-port"><span class="ltr">A</span></div>
           <div>
-            <div class="node-name">Alex</div>
-            <div class="node-role">Copy &amp; Script</div>
+            <div class="hq3-node-name">Alex</div>
+            <div class="hq3-node-role">Copy &amp; Script</div>
           </div>
         </div>
-        <div class="node-status"><span class="dt"></span>writing · in flight</div>
-        <div class="node-task">Reel 3 — <em>"boundary, not to-do"</em></div>
-        <div class="node-prog"><span style="width:72%" id="hq3-alex-prog"></span></div>
-        <div class="node-eta"><span id="hq3-alex-ts">72% · writing</span><span>ETA 11:18</span></div>
+        <div class="hq3-node-status"><span class="dt"></span>writing · in flight</div>
+        <div class="hq3-node-task">Reel 3 — <em>"boundary, not to-do"</em></div>
+        <div class="hq3-node-prog"><span style="width:72%" id="hq3-alex-prog"></span></div>
+        <div class="hq3-node-eta"><span id="hq3-alex-ts">72% · writing</span><span>ETA 11:18</span></div>
       </div>
 
-      <div class="node queued" data-node="riley">
-        <div class="node-top">
-          <div class="node-port"><span class="ltr">R</span></div>
+      <div class="hq3-node \1" data-node="riley">
+        <div class="hq3-node-top">
+          <div class="hq3-node-port"><span class="ltr">R</span></div>
           <div>
-            <div class="node-name">Riley</div>
-            <div class="node-role">Creative Direction</div>
+            <div class="hq3-node-name">Riley</div>
+            <div class="hq3-node-role">Creative Direction</div>
           </div>
         </div>
-        <div class="node-status"><span class="dt"></span>queued · awaiting Alex</div>
-        <div class="node-task">Publish Reel 3 — <em>IG · 11:42</em></div>
-        <div class="node-prog"><span style="width:0%"></span></div>
-        <div class="node-eta"><span>queued</span><span>· 11:42</span></div>
+        <div class="hq3-node-status"><span class="dt"></span>queued · awaiting Alex</div>
+        <div class="hq3-node-task">Publish Reel 3 — <em>IG · 11:42</em></div>
+        <div class="hq3-node-prog"><span style="width:0%"></span></div>
+        <div class="hq3-node-eta"><span>queued</span><span>· 11:42</span></div>
       </div>
     </div>
   </section>
@@ -1235,6 +1276,15 @@
               <span class="d"><span class="u">▲ 18%</span> · accelerating</span>
             </div>
           </div>
+
+          <details class="hq3-maya-take">
+            <summary>
+              <span class="av">M</span>
+              <span class="lbl">Maya's take</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="body">Engagement climbed <em>+2.1pt</em> over 30 days — biggest jumps came after we shipped the POV-mirror format. Watch time is <em>1pt from goal</em>; one more retention-focused Reel pushes us over.</div>
+          </details>
         </div>
 
         <div class="tile">
@@ -1275,6 +1325,15 @@
               <span>high</span>
             </div>
           </div>
+
+          <details class="hq3-maya-take">
+            <summary>
+              <span class="av">M</span>
+              <span class="lbl">Maya's take</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="body"><em>Wed 12:00</em> is the bullseye — 28% engagement, more than 2× the weekly average. Tue + Thu evenings (18:00) are your second window. Skip mornings before 09:00 entirely; signal-to-effort is low.</div>
+          </details>
         </div>
 
         <div class="tile">
@@ -1290,22 +1349,52 @@
             <div class="corr-row"><span class="name">Length <em>&gt; 60s</em></span><span class="bar"><span class="axis"></span><span class="neg" style="width:18%"></span></span><span class="v">−0.36</span></div>
             <div class="corr-row"><span class="name">Trending sound</span><span class="bar"><span class="axis"></span><span class="neg" style="width:9%"></span></span><span class="v">−0.18</span></div>
           </div>
+
+          <details class="hq3-maya-take">
+            <summary>
+              <span class="av">M</span>
+              <span class="lbl">Maya's take</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="body">The pattern is unmistakable — <em>hooks under 3 seconds</em> + POV-mirror format are the two levers that actually move likes. Trending sounds barely register and long-form (60s+) actively hurts. Lean into short hooks; let go of "trending" sound chasing.</div>
+          </details>
         </div>
 
-        <div class="playbook">
-          <div class="head">
-            <div class="av">M</div>
-            <div>
-              <div class="who">Maya's daily playbook</div>
-              <div class="role">Trend &amp; insights analyst</div>
-            </div>
+        <!-- Reach trend — 30-day reach trajectory. Distinct signal from
+             follower count: reach = how many people the algorithm pushed
+             to. Wired by hq-v3-data-wire.js → ts.snapshots[].reach7d. -->
+        <div class="tile">
+          <div class="tile-head">
+            <h3>Reach <em>trend</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">last 30d</span>
           </div>
-          <ul>
-            <li>Post your <em>strongest hook</em> between 11:00–13:00 PT. TikTok engagement peaks <em>2.3×</em> over baseline there.</li>
-            <li>POV-mirror Reels are still your highest-leverage format — outperforming carousels <em>3.1×</em> on saves. Lean in this week.</li>
-            <li>Don't ship the "30-day reset" follow-up before <em>Wednesday</em>. Last time it broke 900%; we want them hungry, not saturated.</li>
-            <li>Drop YouTube long-form to <em>1×/wk</em>. Retention's at 38% — below the 50% threshold where the algorithm pushes.</li>
-          </ul>
+          <div class="hq3-trend" id="hq3-reach-trend"></div>
+          <details class="hq3-maya-take">
+            <summary>
+              <span class="av">M</span>
+              <span class="lbl">Maya's take</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="body" id="hq3-reach-take">—</div>
+          </details>
+        </div>
+
+        <!-- Engagement velocity — 7d rolling engagement rate trend.
+             Answers "is content quality improving on a per-post basis?" -->
+        <div class="tile">
+          <div class="tile-head">
+            <h3>Engagement <em>velocity</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">7d rolling</span>
+          </div>
+          <div class="hq3-trend" id="hq3-eng-velocity"></div>
+          <details class="hq3-maya-take">
+            <summary>
+              <span class="av">M</span>
+              <span class="lbl">Maya's take</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="body" id="hq3-eng-take">—</div>
+          </details>
         </div>
 
       </div>
@@ -1315,8 +1404,12 @@
         <div class="tile-head" style="margin-bottom:6px">
           <h3>Recent <em>posts</em></h3>
         </div>
+        <!-- Posts filter chips. Platform chips have data-platform; the
+             sort chips are passive labels. The wire hides platform chips
+             when no account for that platform exists, and adds new ones
+             when integrations are connected. -->
         <div class="post-filters" data-hq3-filters>
-          <span class="on">All</span><span>Instagram</span><span>TikTok</span><span>YouTube</span><span>Top views</span><span>Top engagement</span>
+          <span class="on" data-filter-platform="all">All</span><span data-filter-platform="instagram">Instagram</span><span data-filter-platform="tiktok">TikTok</span><span data-filter-platform="youtube">YouTube</span><span data-filter-sort="views">Top views</span><span data-filter-sort="engagement">Top engagement</span>
         </div>
 
         <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">The mistake <em>97%</em> make on day one</div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>2h</span></div></div><div class="nums"><span class="n"><em>142</em>K</span><span class="e up">▲ 14.2%</span></div></div>
@@ -1327,6 +1420,31 @@
         <div class="post-row"><div class="thumb">◫</div><div class="body"><div class="t">Beginner mods — <em>full carousel</em></div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Carousel</span><span>6d</span></div></div><div class="nums"><span class="n">42K</span><span class="e up">▲ 9.3%</span></div></div>
         <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">Hot take — <em>cardio is overrated</em></div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>7d</span></div></div><div class="nums"><span class="n">128K</span><span class="e up">▲ 11.9%</span></div></div>
         <div class="post-row"><div class="thumb">◯</div><div class="body"><div class="t">Monday pulse — <em>retention</em> wins</div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Story</span><span>4d</span></div></div><div class="nums"><span class="n">11K</span><span class="e up">▲ 6.2%</span></div></div>
+
+        <!-- Audience + content tiles wired by hq-v3-data-wire.js -->
+        <div class="tile" style="margin-top:24px">
+          <div class="tile-head">
+            <h3>Audience · <em>location</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">top 5 countries</span>
+          </div>
+          <div class="corr" id="hq3-audience-location"></div>
+        </div>
+
+        <div class="tile" style="margin-top:24px">
+          <div class="tile-head">
+            <h3>Audience · <em>age</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">share by bucket</span>
+          </div>
+          <div class="corr" id="hq3-audience-age"></div>
+        </div>
+
+        <div class="tile" style="margin-top:24px">
+          <div class="tile-head">
+            <h3>Content <em>mix</em></h3>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">format · avg engagement</span>
+          </div>
+          <div class="corr" id="hq3-content-mix"></div>
+        </div>
 
       </aside>
 
@@ -1352,8 +1470,10 @@
   function tick(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};var el=document.getElementById('hq3-clock');if(el)el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
   tick();setInterval(tick,1000);
 
-  // Alex progress (visual only, hardcoded mockup behavior)
-  var pct=72;setInterval(function(){if(pct<99){pct+=0.25;var ts=document.getElementById('hq3-alex-ts');if(ts)ts.textContent=Math.round(pct)+'% · writing'}},800);
+  // Alex progress ticker removed — was a pure visual mockup that animated
+  // Alex's progress bar from 72% upward forever regardless of real status.
+  // The wire's renderPipelineNodes sets all four pipeline progress bars
+  // from real task status, including Alex.
 
   // Pill tabs
   view.querySelectorAll('[data-hq3-tabs]').forEach(function(grp){grp.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){grp.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})})});
@@ -1361,32 +1481,14 @@
   // Post filters
   view.querySelectorAll('[data-hq3-filters] span').forEach(function(s){s.addEventListener('click',function(){view.querySelectorAll('[data-hq3-filters] span').forEach(function(x){x.classList.remove('on')});s.classList.add('on')})});
 
-  // Forecast hover crosshair
-  var fcChart=document.getElementById('hq3-fc-chart'),fcCross=document.getElementById('hq3-fc-cross'),fcTip=document.getElementById('hq3-fc-tip');
-  if(fcChart&&fcCross&&fcTip){
-    var vline=fcCross.querySelector('.vline'),cdot=fcCross.querySelector('.dot');
-    var FC_PTS=[
-      {x:0,y:230,v:'258K',t:'Jan 1'},{x:60,y:225,v:'266K',t:'Jan 15'},{x:120,y:218,v:'274K',t:'Jan 31'},
-      {x:180,y:210,v:'282K',t:'Feb 14'},{x:240,y:200,v:'290K',t:'Feb 28'},{x:300,y:188,v:'298K',t:'Mar 14'},
-      {x:360,y:176,v:'306K',t:'Mar 28'},{x:420,y:162,v:'313.8K',t:'Today · Apr 20',now:true},
-      {x:500,y:140,v:'325K',t:'Apr 30 · proj'},{x:580,y:120,v:'350K',t:'May 13 · 350K!'},
-      {x:660,y:88,v:'372K',t:'May 27 · proj'},{x:740,y:55,v:'395K',t:'Jun 10 · proj'},
-      {x:800,y:30,v:'400K+',t:'Jun 16 · proj'}
-    ];
-    fcChart.addEventListener('mousemove',function(e){
-      var rect=fcChart.getBoundingClientRect();var xR=(e.clientX-rect.left)/rect.width;var xSv=xR*800;
-      var best=FC_PTS[0],bestD=Infinity;
-      for(var i=0;i<FC_PTS.length;i++){var d=Math.abs(FC_PTS[i].x-xSv);if(d<bestD){bestD=d;best=FC_PTS[i]}}
-      vline.setAttribute('x1',best.x);vline.setAttribute('x2',best.x);
-      cdot.setAttribute('cx',best.x);cdot.setAttribute('cy',best.y);
-      var px=(best.x/800)*rect.width,py=(best.y/280)*rect.height;
-      fcTip.style.left=px+'px';fcTip.style.top=(py-6)+'px';
-      fcTip.querySelector('strong').textContent=best.v;fcTip.lastChild.nodeValue=best.t;
-    });
-  }
+  // Forecast hover crosshair removed — the static FC_PTS array was hardcoded
+  // fake values from "Jan 1" through "Jun 16 · proj" pinned to a 313.8K
+  // creator. The crosshair SVG + tooltip DIV were stripped from the markup
+  // when the chart was wired to real data; this block is left as a marker
+  // so a future "real" crosshair can be added against actual sparkline points.
 
   // Pipeline node click → focus
-  view.querySelectorAll('#hq3-pipe .node').forEach(function(n){n.addEventListener('click',function(){var was=n.classList.contains('active');view.querySelectorAll('#hq3-pipe .node').forEach(function(x){x.classList.remove('active')});if(!was)n.classList.add('active')})});
+  view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(n){n.addEventListener('click',function(){var was=n.classList.contains('active');view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(x){x.classList.remove('active')});if(!was)n.classList.add('active')})});
 })();
 </script>
 

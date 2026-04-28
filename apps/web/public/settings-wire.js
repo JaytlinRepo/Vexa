@@ -119,9 +119,10 @@
 
   // ── Billing ──────────────────────────────────────────────
   var PLANS = [
-    { id:'starter', name:'Starter', price:'$14.99', features:['2 employees (Maya + Alex)','30 tasks/month','Basic brand voice','No meetings'] },
-    { id:'pro', name:'Pro', price:'$49.99', features:['All 4 employees','Unlimited tasks','Meetings + brand memory','Weekly reports','Knowledge feed'], popular:true },
-    { id:'agency', name:'Agency', price:'$89.99', features:['Up to 5 workspaces','Everything in Pro','Priority processing','Advanced analytics'] },
+    { id:'free', name:'Free', price:'$0', features:['All 4 employees','5 tasks/month','No meetings, video, or memory','Audition the team'] },
+    { id:'starter', name:'Solo', price:'$19', features:['All 4 employees','50 tasks/month','Basic brand voice','No meetings or video'] },
+    { id:'pro', name:'Pro', price:'$59', features:['All 4 employees','200 tasks/month','Meetings + brand memory','15 videos/month','Weekly trend reports'], popular:true },
+    { id:'agency', name:'Agency', price:'$149', features:['Up to 5 workspaces','1,000 tasks/month','Everything in Pro per workspace','75 videos/month','Priority processing'] },
   ]
 
   async function loadBilling() {

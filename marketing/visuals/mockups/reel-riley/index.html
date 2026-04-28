@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sovexa — Cut by Riley (UI reveal)</title>
+<style>
+  /* ─── tokens ─── */
+  :root {
+    --bg: #fbfaf6;
+    --panel: #f4f1ea;
+    --t1: #1a1a1a;
+    --t2: #5a5856;
+    --t3: #8a8682;
+    --hair: rgba(20,16,10,.10);
+    --hair-strong: rgba(20,16,10,.18);
+    --accent: #c08a3e;
+    --accent-soft: #f3e7d2;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1080px; height: 1920px;
+    background: var(--bg);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+  body { position: relative; }
+
+  .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; letter-spacing: 0.04em; }
+  .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+
+  /* ─── stage padding ─── */
+  .stage { padding: 96px 80px; position: relative; height: 100%; }
+
+  /* ─── eyebrow ─── */
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; letter-spacing: 0.30em;
+    color: var(--t3); text-transform: uppercase;
+    text-align: center;
+    opacity: 0; animation: fadeIn 1s ease 0.2s forwards;
+  }
+
+  /* ─── RAW row ─── */
+  .raw-section {
+    margin-top: 80px;
+    opacity: 0; transform: translateY(16px);
+    animation: fadeIn 0.8s ease 0.4s forwards;
+  }
+  .section-label {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; letter-spacing: 0.28em;
+    color: var(--t3); text-transform: uppercase;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .section-label .label-right { color: var(--accent); }
+
+  /* waveform — bars draw with stagger */
+  .wave-raw {
+    display: flex; align-items: center; gap: 4px;
+    height: 220px; margin-top: 38px;
+    position: relative;
+  }
+  .wave-raw .bar {
+    width: 7px; background: var(--t1); border-radius: 1px;
+    transform: scaleY(0); transform-origin: center;
+    animation: barDraw 1.5s ease forwards;
+  }
+  @keyframes barDraw { to { transform: scaleY(1); } }
+
+  /* beat dots above the waveform */
+  .beats {
+    display: flex; align-items: center;
+    height: 24px; margin-top: 18px; padding: 0 4px;
+    position: relative;
+  }
+  .beats .beat {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    animation: beatPop .4s cubic-bezier(.34,1.56,.64,1) forwards, beatPulse 1.6s ease infinite;
+  }
+  @keyframes beatPop { 0% { opacity: 0; transform: scale(.4); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes beatPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192,138,62,.55); }
+    50%      { box-shadow: 0 0 0 10px rgba(192,138,62,0); }
+  }
+
+  .beat-caption {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; letter-spacing: 0.26em; color: var(--accent);
+    text-transform: uppercase;
+    opacity: 0; animation: fadeIn 0.8s ease 4.2s forwards;
+  }
+
+  /* ─── pivot ─── */
+  .pivot {
+    position: relative;
+    margin: 60px 0 48px;
+    text-align: center;
+    opacity: 0; animation: fadeIn 0.8s ease 5.2s forwards;
+  }
+  .pivot .rule { width: 100%; height: 1px; background: var(--hair-strong); position: absolute; top: 50%; left: 0; }
+  .pivot .label {
+    position: relative;
+    display: inline-block;
+    background: var(--bg); padding: 0 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; letter-spacing: 0.32em; color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  /* ─── DELIVERED row ─── */
+  .delivered-section {
+    opacity: 0; transform: translateY(20px);
+    animation: fadeIn 0.8s ease 5.6s forwards;
+  }
+
+  /* polished segments */
+  .segments {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1.3fr;
+    gap: 12px;
+    height: 110px; margin-top: 38px;
+  }
+  .segments .seg {
+    border-radius: 6px;
+    transform: scaleX(0); transform-origin: left;
+    background: var(--accent-soft);
+    animation: segGrow 0.5s ease forwards;
+    position: relative;
+  }
+  .segments .seg.last { background: var(--accent); }
+  .segments .seg .lbl {
+    position: absolute; bottom: -32px; left: 0; right: 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; letter-spacing: 0.20em;
+    color: var(--t3); text-transform: uppercase;
+    opacity: 0; animation: fadeIn 0.4s ease forwards;
+  }
+  @keyframes segGrow { to { transform: scaleX(1); } }
+
+  /* time markers */
+  .time-row {
+    display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; letter-spacing: 0.18em; color: var(--t3);
+    margin-top: 64px;
+    opacity: 0; animation: fadeIn 0.6s ease 8s forwards;
+  }
+
+  /* receipt */
+  .receipt {
+    margin-top: 70px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+    border-top: 1px solid var(--hair);
+    padding-top: 32px;
+    opacity: 0; animation: fadeIn 0.8s ease 8.6s forwards;
+  }
+  .receipt .item .k { font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.22em; color: var(--t3); text-transform: uppercase; margin-bottom: 8px; }
+  .receipt .item .v { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 56px; color: var(--t1); line-height: 1; }
+  .receipt .item .v em { color: var(--accent); }
+
+  /* signature */
+  .signature {
+    position: absolute; bottom: 96px; left: 0; right: 0;
+    text-align: center;
+    opacity: 0; animation: fadeIn 1s ease 11s forwards;
+  }
+  .signature .line {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-weight: 400;
+    font-size: 110px; line-height: 1;
+    letter-spacing: -0.02em; color: var(--t1);
+  }
+  .signature .line em { color: var(--accent); }
+  .signature .url {
+    margin-top: 26px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; letter-spacing: 0.40em; color: var(--t3);
+    text-transform: uppercase;
+  }
+
+  /* ─── shared fade keyframe ─── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── loop the whole thing for screen-recording ─── */
+  body { animation: loop 14s linear infinite; }
+  @keyframes loop { 0%, 100% {} }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <div class="eyebrow">CUT BY RILEY · SEVEN-DIMENSION ANALYSIS</div>
+
+  <!-- ─── RAW ─── -->
+  <div class="raw-section">
+    <div class="section-label">
+      <span>RAW · 1:32 · YOUR PHONE</span>
+      <span class="label-right">SOURCE</span>
+    </div>
+
+    <div class="wave-raw" id="wave"></div>
+
+    <div class="beats" id="beats"></div>
+    <div class="beat-caption">6 BEATS DETECTED</div>
+  </div>
+
+  <!-- ─── pivot ─── -->
+  <div class="pivot">
+    <div class="rule"></div>
+    <div class="label">CUT BY RILEY</div>
+  </div>
+
+  <!-- ─── DELIVERED ─── -->
+  <div class="delivered-section">
+    <div class="section-label">
+      <span>DELIVERED · 0:30 · READY TO POST</span>
+      <span class="label-right">OUTPUT</span>
+    </div>
+
+    <div class="segments">
+      <div class="seg"           style="animation-delay: 6.0s;"><div class="lbl" style="animation-delay:7.6s;">OPEN</div></div>
+      <div class="seg"           style="animation-delay: 6.4s;"><div class="lbl" style="animation-delay:7.7s;">CONTEXT</div></div>
+      <div class="seg"           style="animation-delay: 6.8s;"><div class="lbl" style="animation-delay:7.8s;">TURN</div></div>
+      <div class="seg"           style="animation-delay: 7.2s;"><div class="lbl" style="animation-delay:7.9s;">BEAT</div></div>
+      <div class="seg last"      style="animation-delay: 7.6s;"><div class="lbl" style="animation-delay:8.0s;">CLOSE</div></div>
+    </div>
+
+    <div class="time-row">
+      <span>0:00</span>
+      <span>0:30</span>
+    </div>
+
+    <div class="receipt">
+      <div class="item"><div class="k">Beats</div><div class="v"><em>6</em></div></div>
+      <div class="item"><div class="k">Cuts</div><div class="v"><em>7</em></div></div>
+      <div class="item"><div class="k">Runtime</div><div class="v">0:30</div></div>
+    </div>
+  </div>
+
+  <!-- ─── signature ─── -->
+  <div class="signature">
+    <div class="line">Cut by <em>Riley</em>.</div>
+    <div class="url">SOVEXA.AI</div>
+  </div>
+
+</div>
+
+<script>
+  // Build the messy raw waveform — 84 bars of varying heights
+  (function(){
+    const wave = document.getElementById('wave');
+    const heights = [
+      62, 78, 88, 70, 96, 64, 90, 58, 100, 72, 64, 92, 70, 58,
+      88, 64, 96, 60, 84, 56, 90, 62, 80, 66, 96, 58, 72, 88,
+      62, 84, 76, 92, 58, 78, 64, 90, 70, 84, 56, 96, 60, 78,
+      66, 88, 70, 94, 58, 76, 64, 90, 72, 84, 56, 92, 60, 80,
+      66, 88, 70, 96, 58, 76, 64, 92, 70, 84, 56, 88, 60, 80,
+      66, 94, 70, 78, 58, 92, 64, 86, 70, 80, 56, 88, 60, 76
+    ];
+    heights.forEach((h, i) => {
+      const b = document.createElement('div');
+      b.className = 'bar';
+      b.style.height = h + '%';
+      b.style.animationDelay = (1.0 + i * 0.022) + 's';
+      wave.appendChild(b);
+    });
+
+    // 6 beat dots positioned across the waveform width
+    const beats = document.getElementById('beats');
+    const positions = [8, 22, 38, 52, 68, 86]; // % across
+    positions.forEach((p, i) => {
+      const d = document.createElement('div');
+      d.className = 'beat';
+      d.style.position = 'absolute';
+      d.style.left = `calc(${p}% - 6px)`;
+      d.style.animationDelay = (3.2 + i * 0.18) + 's, ' + (4.5 + i * 0.18) + 's';
+      beats.appendChild(d);
+    });
+  })();
+</script>
+
+</body>
+</html>

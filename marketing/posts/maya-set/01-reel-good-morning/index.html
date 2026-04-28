@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sovexa — Good morning. (15s reel)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1080px; height: 1920px;
+    background: #fbfaf6; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+  body { position: relative; }
+  .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+  .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; font-weight: 400; }
+
+  .frame {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0;
+  }
+  @keyframes fadeIn {
+    0%   { opacity: 0; transform: translateY(12px); }
+    20%  { opacity: 1; transform: translateY(0); }
+    80%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-12px); }
+  }
+  .frame { animation: fadeIn 3s ease-in-out forwards; }
+
+  /* — opener mono — */
+  .frame.open { animation-delay: 0s; animation-duration: 2.5s; }
+  .frame.open .ident {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; letter-spacing: 0.40em; color: #8a8682; text-transform: uppercase;
+  }
+  .frame.open .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #c08a3e; margin-right: 14px; vertical-align: middle; animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* — greeting line — */
+  .frame.greet { animation-delay: 2.5s; animation-duration: 4s; }
+  .frame.greet .line { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 200px; line-height: 1; color: #1a1a1a; letter-spacing: -.025em; text-align: center; }
+
+  /* — Maya-is-ready hero — */
+  .frame.hero { animation-delay: 6s; animation-duration: 4s; }
+  .frame.hero .name { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 320px; line-height: 1; color: #c08a3e; letter-spacing: -.03em; }
+  .frame.hero .sub { margin-top: 30px; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 100px; line-height: 1; color: #1a1a1a; letter-spacing: -.02em; }
+
+  /* — stats reveal — */
+  .frame.stats { animation-delay: 9.5s; animation-duration: 4s; }
+  .frame.stats .grid { display: flex; flex-direction: column; gap: 0; width: 740px; }
+  .frame.stats .row { display: flex; justify-content: space-between; align-items: baseline; padding: 28px 0; border-top: 1px solid rgba(20,16,10,.16); }
+  .frame.stats .row:last-child { border-bottom: 1px solid rgba(20,16,10,.16); }
+  .frame.stats .lbl { font-family: 'JetBrains Mono', monospace; font-size: 22px; letter-spacing: 0.22em; color: #8a8682; text-transform: uppercase; }
+  .frame.stats .val { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 72px; color: #1a1a1a; letter-spacing: -.02em; }
+
+  /* — closer — */
+  .frame.close { animation-delay: 12.5s; animation-duration: 2.5s; }
+  .frame.close .line { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 110px; color: #1a1a1a; letter-spacing: -.02em; text-align: center; line-height: 1; }
+  .frame.close .line em { color: #c08a3e; font-style: italic; }
+  .frame.close .url { margin-top: 36px; font-family: 'JetBrains Mono', monospace; font-size: 28px; letter-spacing: 0.40em; color: #8a8682; text-transform: uppercase; }
+
+  body { animation: loop 15s linear infinite; }
+  @keyframes loop { 0%,100% {} }
+</style>
+</head>
+<body>
+  <div class="frame open"><div class="ident"><span class="dot"></span>SOVEXA · LIVE</div></div>
+  <div class="frame greet"><div class="line">Good morning.</div></div>
+  <div class="frame hero"><div class="name"><em>Maya</em></div><div class="sub">is ready.</div></div>
+  <div class="frame stats">
+    <div class="grid">
+      <div class="row"><span class="lbl">Sources Watched</span><span class="val">7</span></div>
+      <div class="row"><span class="lbl">Last Sweep</span><span class="val">04:14 AM</span></div>
+      <div class="row"><span class="lbl">Reports Today</span><span class="val">0</span></div>
+    </div>
+  </div>
+  <div class="frame close"><div class="line">Maya sees it <em>first.</em></div><div class="url">SOVEXA.AI</div></div>
+</body>
+</html>

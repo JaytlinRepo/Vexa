@@ -65,6 +65,19 @@ export function initStudioRoutes(_prisma: PrismaClient) {
       const segments = (clip.adjustments as any)?.segments || []
       const segmentLabels = segments.map((s: any) => s.label).filter(Boolean)
       const visualKeywords = extractVisualKeywords(segmentLabels)
+      // Derive action decisions for action-aware learning. We don't have a
+      // perfect mapping from final cuts back to source actions yet (the source
+      // beat analysis isn't persisted on the clip), but we can infer the
+      // duration class of each kept segment as a useful first signal.
+      const actionDecisions = segments.map((s: any) => {
+        const dur = (s.endTime ?? 0) - (s.startTime ?? 0)
+        const durationClass: 'short' | 'medium' | 'long' = dur <= 3 ? 'short' : dur <= 5.5 ? 'medium' : 'long'
+        return {
+          durationClass,
+          decisionType: 'kept_whole' as const, // refine when source beat analysis is persisted
+          label: s.label,
+        }
+      })
 
       if (data.action === 'approve') {
         // Approve visual
@@ -87,6 +100,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
           visualKeywords,
           segmentLabels,
+          actionDecisions,
         })
 
         res.json({ clip: { id: clip.id, visualApprovalStatus: 'approved' } })
@@ -119,6 +133,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
           visualKeywords,
           segmentLabels,
+          actionDecisions,
         })
 
         // Trigger re-edit if feedback provided
