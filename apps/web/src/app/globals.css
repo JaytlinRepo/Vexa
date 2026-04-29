@@ -1392,3 +1392,284 @@
   min-height: 16px;
   text-align: center;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Brief strip — sticky banner above the calendar.
+   Single nudge + weekly stats. The first thing a creator sees.
+   ──────────────────────────────────────────────────────────────────────── */
+.team-brief-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  background: var(--bg);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+}
+.team-brief-strip:empty { display: none; }
+
+.brief-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.brief-msg {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--t1);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+.brief-main.brief-review .brief-msg { color: var(--accent); }
+.brief-main.brief-stale .brief-msg { color: var(--t1); }
+.brief-main.brief-busy  .brief-msg { color: var(--t2); }
+.brief-main.brief-calm  .brief-msg { color: var(--t2); }
+
+.brief-cta {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: filter 0.12s ease;
+}
+.brief-cta:hover { filter: brightness(1.06); }
+
+.brief-stats {
+  display: flex;
+  gap: 32px;
+  flex-shrink: 0;
+}
+.brief-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+.brief-stat-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+}
+.brief-stat-num.urgent { color: var(--accent); }
+.brief-stat-of {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--t3);
+  margin-left: 2px;
+}
+.brief-stat-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  .team-brief-strip { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .brief-main { width: 100%; }
+  .brief-stats { width: 100%; justify-content: flex-start; gap: 24px; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   NOW block proactive nudge (replaces static "Nothing in flight" copy)
+   ──────────────────────────────────────────────────────────────────────── */
+.ops-nudge {
+  padding: 14px;
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ops-nudge-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--t1);
+  line-height: 1.45;
+}
+.ops-nudge-stale .ops-nudge-text,
+.ops-nudge-cadence .ops-nudge-text { color: var(--t1); }
+.ops-nudge-calm .ops-nudge-text,
+.ops-nudge-busy .ops-nudge-text { color: var(--t2); }
+
+.ops-nudge-cta {
+  align-self: flex-start;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+.ops-nudge-cta:hover { background: var(--accent); color: var(--bg); }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Expandable Approved rows — inline content preview
+   ──────────────────────────────────────────────────────────────────────── */
+.ops-approved-row { margin-bottom: 6px; }
+.ops-approved-row:last-child { margin-bottom: 0; }
+.ops-row-toggle { width: 100%; }
+.ops-row-chevron {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  color: var(--t3);
+  transition: transform 0.18s ease, color 0.12s ease;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.ops-approved-row.expanded .ops-row-chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+.ops-approved-detail {
+  display: none;
+  padding: 12px 14px 4px 14px;
+  margin-top: 6px;
+  background: var(--bg);
+  border: 1px solid var(--b1);
+  border-left: 2px solid var(--accent);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+.ops-approved-row.expanded .ops-approved-detail { display: block; }
+.ops-approved-detail .sb-detail-section { margin-bottom: 10px; }
+.ops-approved-detail .sb-detail-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.ops-approved-detail .sb-detail-item {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--b1);
+}
+.ops-approved-detail .sb-detail-item:last-child { border-bottom: 0; }
+.ops-approved-detail .sb-detail-item-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.ops-approved-detail .sb-detail-item-body {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--t2);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.ops-approved-detail .sb-detail-hook {
+  padding: 6px 10px;
+  margin: 4px 0;
+  background: var(--s1);
+  border-radius: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--t1);
+  line-height: 1.4;
+}
+.ops-approved-detail .sb-detail-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+.ops-approved-detail .sb-detail-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Calendar planned-content overlay (future cells)
+   ──────────────────────────────────────────────────────────────────────── */
+.cal-day.has-plan {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--s1) 100%);
+}
+.cal-day-planned {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+.cal-day-plan {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: var(--t2);
+  line-height: 1.3;
+  padding: 2px 6px;
+  border-left: 2px solid var(--accent);
+  background: rgba(0,0,0,0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Journal post-thought toast
+   ──────────────────────────────────────────────────────────────────────── */
+.journal-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translate(-50%, 16px);
+  z-index: 9300;
+  max-width: min(480px, 92vw);
+  padding: 12px 20px;
+  background: var(--t1);
+  color: var(--bg);
+  border-radius: 999px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  pointer-events: none;
+}
+.journal-toast.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

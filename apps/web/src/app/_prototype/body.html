@@ -184,7 +184,7 @@
 
           <a class="topnav-link" id="nav-db-studio" onclick="navigate('db-studio')">Studio</a>
 
-          <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')">Knowledge</a>
+          <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')" style="display:none">Knowledge</a>
           <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')">Team</a>
         </div>
       </nav>
@@ -258,7 +258,7 @@
           <a class="vxm-drawer-link" data-vxm-go="db-dashboard">HQ</a>
           <a class="vxm-drawer-link" data-vxm-go="db-posts">Posts</a>
           <a class="vxm-drawer-link" data-vxm-go="db-studio">Studio</a>
-          <a class="vxm-drawer-link" data-vxm-go="db-knowledge">Knowledge</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-knowledge" style="display:none">Knowledge</a>
           <a class="vxm-drawer-link" data-vxm-go="db-team">Team</a>
           <a class="vxm-drawer-link" data-vxm-go="db-settings">Settings</a>
         </div>
@@ -1997,6 +1997,7 @@
         <p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t2);margin-top:4px;line-height:1.5">Your team's work and daily thoughts. Share ideas — your agents respond with insights.</p>
       </section>
       <div style="padding:0 40px 40px">
+        <div id="team-brief-strip" class="team-brief-strip"></div>
         <div class="team-calendar-wrapper">
           <div id="team-calendar"><div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div></div>
           <div id="team-calendar-sidebar" class="team-calendar-sidebar"></div>
@@ -2179,11 +2180,6 @@
     <h1>Clip, edit, and <em>ship</em>.</h1>
     <p class="sub">Upload raw footage. Riley auto-clips and applies your aesthetic. Then post directly to any platform.</p>
   </div>
-  <div class="stat-grid">
-    <div class="stat"><div class="lbl">Clips this week</div><div class="v"><em>12</em></div><div class="d">8 posted · 4 ready</div></div>
-    <div class="stat"><div class="lbl">Avg. processing</div><div class="v">4m 42s</div><div class="d">Descript → Runway</div></div>
-    <div class="stat"><div class="lbl">Quality score</div><div class="v"><em>0.87</em></div><div class="d"><span class="u">style match</span></div></div>
-  </div>
 </section>
 
 <!-- UPLOAD -->
@@ -2325,19 +2321,6 @@
   </div>
 </section>
 
-<!-- PERFORMANCE METRICS — stat-grid style -->
-<section style="padding:0 40px 40px">
-  <div class="section-head">
-    <h3>Performance · <em>This week</em></h3>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:28px;padding:14px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1)">
-    <div class="stat"><div class="lbl">Style match</div><div class="v" style="color:var(--ok)"><em>0.87</em></div><div class="d">Improving</div></div>
-    <div class="stat"><div class="lbl">Clipping quality</div><div class="v" style="color:var(--ok)"><em>0.84</em></div><div class="d">Stable</div></div>
-    <div class="stat"><div class="lbl">Avg. processing</div><div class="v">4m 42s</div><div class="d">Faster</div></div>
-    <div class="stat"><div class="lbl">Overall</div><div class="v" style="color:var(--ok)"><em>Ready</em></div><div class="d">10 samples</div></div>
-  </div>
-</section>
-
 <!-- SCHEDULE CONFIRM MODAL -->
 <div id="schedule-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:1000">
   <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:28px;max-width:380px;width:90%;box-shadow:0 20px 60px var(--sh)">
@@ -2360,63 +2343,43 @@
 
     </div>
 
-    <!-- KNOWLEDGE -->
+    <!-- KNOWLEDGE — Explore page (IG / Apple-style). Masthead removed
+         per design direction; share-toggle moved into the dedicated
+         "Community sharing" panel below the grid. -->
     <div class="view" id="view-db-knowledge">
 
-<section class="mast">
-  <div>
-    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Knowledge</span></div>
-    <h1>What's <em>trending</em> in your niche.</h1>
-    <p class="sub" id="feed-sub">Content from creators in your space + articles and discussions.</p>
-  </div>
-  <div class="mini-stats">
-    <div class="stat"><div class="lbl">Items today</div><div class="v"><em>0</em></div><div class="d"></div></div>
-    <div class="stat"><div class="lbl">Sources active</div><div class="v">0</div><div class="d">active sources</div></div>
-    <div class="stat"><div class="lbl">Community</div><div class="v" id="community-toggle-wrap" style="font-size:14px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t2);letter-spacing:.04em"><input type="checkbox" id="community-opt-in" style="accent-color:var(--accent);width:14px;height:14px" />Share my content</label></div><div class="d">get discovered by creators</div></div>
+<!-- Compact title strip (no stats banner) -->
+<section style="padding:32px 40px 18px">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">§ Explore</div>
+      <h1 style="font-family:'Cormorant Garamond',serif;font-weight:400;font-size:42px;line-height:1.05;color:var(--t1);margin:0">What's <em style="font-style:italic;color:var(--accent)">trending</em> in your niche.</h1>
+      <p id="feed-sub" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--t2);margin:8px 0 0;max-width:600px;line-height:1.55">Content from creators in your space, plus articles and discussions worth your attention.</p>
+    </div>
+    <div id="explore-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="vx-explore-chip is-active" data-filter="all">All</button>
+      <button class="vx-explore-chip" data-filter="reels">Reels</button>
+      <button class="vx-explore-chip" data-filter="images">Pictures</button>
+      <button class="vx-explore-chip" data-cs-act="refresh-feed" style="margin-left:auto" title="Pull fresh content">Refresh</button>
+    </div>
   </div>
 </section>
 
-<section style="padding:0 40px">
-
-  <!-- 3-column layout: Images/Carousels | Reels/Videos | Articles -->
-  <div style="display:grid;grid-template-columns:280px 1fr 340px;gap:24px">
-
-    <!-- LEFT: Images & Carousels -->
-    <div>
-      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:14px">Instagram</div>
-      <div id="knowledge-images-col">
-        <!-- Populated by knowledge-data-wire.js -->
-      </div>
-    </div>
-
-    <!-- CENTER: Reels & Videos (main) -->
-    <div>
-      <div class="feed-head">
-        <div class="l">
-          <h2>Reels & <em>Videos</em></h2>
-          <span class="sub"></span>
-        </div>
-        <div class="r">
-          <button class="on">Relevance</button>
-          <button>Recency</button>
-        </div>
-      </div>
-      <div id="knowledge-reels-grid" class="grid" style="grid-template-columns:repeat(2,1fr);gap:18px;margin-top:16px">
-        <!-- Populated by knowledge-data-wire.js -->
-      </div>
-    </div>
-
-    <!-- RIGHT: Articles & Discussions -->
-    <div>
-      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:14px">Articles & Discussions</div>
-      <div id="knowledge-articles-rail">
-        <!-- Populated by knowledge-data-wire.js -->
-      </div>
-    </div>
-
-  </div>
-
+<!-- IG/Apple-style explore grid: one continuous flow.
+     The first item renders as a hero (2 cols × 2 rows). #knowledge-featured
+     is kept as a hidden no-op so the wire can still target it; the CSS
+     forces display:none. -->
+<section style="padding:0 40px;margin-top:24px">
+  <div id="knowledge-featured" class="vx-explore-featured" aria-hidden="true"></div>
+  <div id="knowledge-explore-grid" class="vx-explore-grid"></div>
 </section>
+
+<!-- Hidden — kept so legacy wire references don't error -->
+<div id="knowledge-images-col" style="display:none"></div>
+<div id="knowledge-reels-grid" style="display:none"></div>
+<div id="knowledge-articles-rail" style="display:none"></div>
+<div id="knowledge-articles-grid" style="display:none"></div>
+<div id="community-share-panel" style="display:none"></div>
 
 <div class="foot-row">
   <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
@@ -2424,6 +2387,24 @@
   <span>09:42:18 PT · Apr 20</span>
 </div>
 
+    </div>
+
+    <!-- ADMIN: Community moderation queue. Visible only when /api/auth/me
+         returns user.isAdmin === true. Populated by admin-community-wire.js. -->
+    <div class="view" id="view-admin-community" style="display:none">
+      <section class="mast">
+        <div>
+          <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Admin · Moderation</span></div>
+          <h1>Community <em>reports</em>.</h1>
+          <p class="sub">Reported posts are hidden from every community feed until you resolve.</p>
+        </div>
+        <div class="mini-stats">
+          <div class="stat"><div class="lbl">Pending</div><div class="v"><em id="admin-pending-count">0</em></div><div class="d">awaiting review</div></div>
+        </div>
+      </section>
+      <section style="padding:0 40px">
+        <div id="admin-community-reports-list"></div>
+      </section>
     </div>
 
     <!-- SETTINGS -->
@@ -2447,6 +2428,15 @@
                 <div class="settings-field"><span class="settings-label">Email</span><input class="settings-input" value="marcus@marcusfitness.com"></div>
                 <button class="settings-save">Save changes</button>
                 <p style="margin-top:16px;font-size:12px;color:var(--t3);line-height:1.5">Need a refresher on the dashboard? <button type="button" class="vx-replay-tips" onclick="if(typeof window.vxReplayTutorial==='function')window.vxReplayTutorial()" style="background:none;border:none;color:var(--t2);cursor:pointer;text-decoration:underline;padding:0;font:inherit">Replay quick tips</button></p>
+              </div>
+              <div class="settings-section" style="margin-top:32px;border-top:1px solid var(--hair,rgba(20,16,10,.08));padding-top:28px">
+                <h3>Community sharing</h3>
+                <p style="margin-bottom:16px">When on, your <strong>10 most popular videos</strong> can appear in the Knowledge feed of other CEOs in your niche, tagged with your @handle and a link back to your original post. You won't see your own content in your own feed.</p>
+                <label style="display:flex;align-items:center;gap:12px;cursor:pointer;font-size:13px;color:var(--t1)">
+                  <input type="checkbox" id="settings-community-opt-in" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer" />
+                  <span>Allow my top videos to appear in the Knowledge feed</span>
+                </label>
+                <div id="settings-community-status" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)"></div>
               </div>
             </div>
             <div class="settings-panel" id="settings-brand">
