@@ -412,9 +412,16 @@
       + '</header>'
 
     if (inProgress.length === 0 && justLanded.length === 0) {
+      // Softer copy: "Team is idle" sounded alarming when in fact the
+      // user simply has nothing in flight — see the Approved block below
+      // for what they've already committed to.
+      var approvedCount = allTasks.filter(function (t) { return t.status === 'approved' }).length
+      var hint = approvedCount > 0
+        ? 'See <em>Approved</em> below for your locked-in work, or brief a new task.'
+        : 'Brief an agent to get started.'
       html += '<div class="ops-empty">'
-        + '<div class="ops-empty-lbl">Team is idle</div>'
-        + '<div class="ops-empty-hint">Click <em>Assign work</em> to brief an agent.</div>'
+        + '<div class="ops-empty-lbl">Nothing in flight</div>'
+        + '<div class="ops-empty-hint">' + hint + '</div>'
         + '</div></section>'
       return html
     }
