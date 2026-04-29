@@ -25,10 +25,14 @@
   var viewYear, viewMonth
   var allTasks = []
   var allThoughts = []
+  var allMeetings = []  // ended meetings with decisions/summaries
   var activeFilter = 'all' // 'all' or a role key
   var selectedDate = null
   var companyId = null
   var employeesByRole = {} // role → employee object (with id)
+  // Persists which agent the user picked in the Assign modal so the
+  // selection survives re-renders triggered by new task data arriving.
+  var assignSelectedRole = null
 
   // Sensible default task type per role so a Maya pick doesn't ship 'caption'
   var DEFAULT_TYPE_BY_ROLE = {
@@ -224,7 +228,9 @@
     }
   }
 
-  // ── Sidebar ──
+  // ── Day click ──
+  // Sidebar used to render per-day details. Now sidebar is the always-on
+  // Operations panel and day click opens a modal showing that day's items.
   function selectDay(dateStr) {
     selectedDate = dateStr
 
@@ -233,14 +239,10 @@
     var sel = document.querySelector('.cal-day[data-date="' + dateStr + '"]')
     if (sel) sel.classList.add('selected')
 
-    var sidebar = document.getElementById('team-calendar-sidebar')
-    if (!sidebar) return
+    openDayModal(dateStr)
+  }
 
-    var d = new Date(dateStr + 'T00:00:00')
-    var dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-
-    // Filter from cached arrays — avoids server-side TZ filter bug and keeps
-    // grid + sidebar consistent (both use local-day grouping via fmtDate).
+  function getDayItems(dateStr) {
     var thoughts = allThoughts.filter(function (th) {
       return th && th.createdAt && fmtDate(new Date(th.createdAt)) === dateStr
     })
@@ -248,8 +250,7 @@
     var dayTasks = filtered.filter(function (t) {
       return fmtDate(new Date(t.completedAt || t.createdAt)) === dateStr
     })
-
-    renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts)
+    return { thoughts: thoughts, dayTasks: dayTasks }
   }
 
   function renderOutputContent(content, taskType, ag) {
@@ -339,6 +340,304 @@
     return h + ':' + pad(m) + ampm
   }
 
+  // ── Date helpers ──
+  function relativeTime(iso) {
+    if (!iso) return ''
+    var ms = Date.now() - new Date(iso).getTime()
+    var s = Math.round(ms / 1000)
+    if (s < 60) return 'just now'
+    var m = Math.round(s / 60)
+    if (m < 60) return m + 'm ago'
+    var h = Math.round(m / 60)
+    if (h < 24) return h + 'h ago'
+    var d = Math.round(h / 24)
+    if (d < 7) return d + 'd ago'
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  function dayBucketLabel(iso) {
+    var d = new Date(iso)
+    var dStr = fmtDate(d)
+    var todayStr = fmtDate(today())
+    var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+    var yStr = fmtDate(yesterday)
+    if (dStr === todayStr) return 'Today'
+    if (dStr === yStr) return 'Yesterday'
+    var ageMs = Date.now() - d.getTime()
+    if (ageMs < 7 * 86400000) return 'Earlier this week'
+    if (ageMs < 30 * 86400000) return 'Earlier this month'
+    return 'Older'
+  }
+
+  // ── Operations sidebar (always-on; replaces the per-day sidebar) ──
+  // Four blocks, top to bottom:
+  //   NOW       — agents working live + just delivered (last 6h)
+  //   APPROVED  — recent approved tasks; the canonical "plan" record
+  //   DECIDED   — meeting decisions/summaries (the team's memory)
+  //   JOURNAL   — thoughts with inline capture + agent threads
+  function renderOpsSidebar() {
+    var sidebar = document.getElementById('team-calendar-sidebar')
+    if (!sidebar) return
+
+    // Reuse the input value if user was mid-typing — re-renders shouldn't
+    // wipe the textarea. Same for assignSelectedRole (module state above).
+    var draft = ''
+    var existingInput = document.getElementById('new-thought-input')
+    if (existingInput) draft = existingInput.value || ''
+
+    var html = ''
+    html += renderNowBlock()
+    html += renderApprovedBlock()
+    html += renderDecidedBlock()
+    html += renderJournalBlock(draft)
+
+    sidebar.innerHTML = html
+
+    wireOpsSidebar()
+  }
+
+  function renderNowBlock() {
+    var inProgress = allTasks.filter(function (t) { return t.status === 'in_progress' })
+    var deliveredCutoff = Date.now() - 6 * 60 * 60 * 1000
+    var justLanded = allTasks.filter(function (t) {
+      if (t.status !== 'delivered') return false
+      var when = new Date(t.completedAt || t.createdAt).getTime()
+      return when >= deliveredCutoff
+    }).slice(0, 4)
+
+    var html = '<section class="ops-block ops-now">'
+      + '<header class="ops-block-head">'
+      + '<h3>Now</h3>'
+      + '<button class="ops-assign-btn" id="ops-assign-btn">Assign work</button>'
+      + '</header>'
+
+    if (inProgress.length === 0 && justLanded.length === 0) {
+      html += '<div class="ops-empty">'
+        + '<div class="ops-empty-lbl">Team is idle</div>'
+        + '<div class="ops-empty-hint">Click <em>Assign work</em> to brief an agent.</div>'
+        + '</div></section>'
+      return html
+    }
+
+    if (inProgress.length > 0) {
+      html += '<div class="ops-sub">Working now</div>'
+      for (var i = 0; i < Math.min(inProgress.length, 4); i++) {
+        var t = inProgress[i]
+        var roleKey = t.employee ? t.employee.role : 'strategist'
+        var ag = AGENTS[roleKey] || AGENTS.strategist
+        var typeLabel = TYPE_LABEL[t.type] || t.type
+        html += '<button class="ops-row" data-task-id="' + escHtml(t.id) + '">'
+          + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+          + '<div class="ops-row-body">'
+          + '<div class="ops-row-title">' + escHtml(t.title || typeLabel) + '</div>'
+          + '<div class="ops-row-meta">' + ag.label + ' · ' + typeLabel + ' · started ' + relativeTime(t.createdAt) + '</div>'
+          + '</div>'
+          + '<span class="ops-pulse"></span>'
+          + '</button>'
+      }
+      if (inProgress.length > 4) {
+        html += '<div class="ops-more">+' + (inProgress.length - 4) + ' more in progress</div>'
+      }
+    }
+
+    if (justLanded.length > 0) {
+      html += '<div class="ops-sub">Just landed</div>'
+      for (var j = 0; j < justLanded.length; j++) {
+        var jt = justLanded[j]
+        var jrk = jt.employee ? jt.employee.role : 'strategist'
+        var jag = AGENTS[jrk] || AGENTS.strategist
+        var jtl = TYPE_LABEL[jt.type] || jt.type
+        html += '<button class="ops-row landed" data-task-id="' + escHtml(jt.id) + '">'
+          + '<div class="ops-port" style="border-color:' + jag.css + '">' + jag.initial + '</div>'
+          + '<div class="ops-row-body">'
+          + '<div class="ops-row-title">' + escHtml(jt.title || jtl) + '</div>'
+          + '<div class="ops-row-meta">' + jag.label + ' · ' + jtl + ' · ' + relativeTime(jt.completedAt || jt.createdAt) + '</div>'
+          + '</div>'
+          + '<span class="ops-tag">Review</span>'
+          + '</button>'
+      }
+    }
+
+    html += '</section>'
+    return html
+  }
+
+  function renderApprovedBlock() {
+    // Approved tasks are the user's canonical "plan" record — the things
+    // the CEO has explicitly committed to. Show the most recent ones.
+    var approved = allTasks.filter(function (t) { return t.status === 'approved' }).slice(0, 6)
+
+    var html = '<section class="ops-block ops-approved">'
+      + '<header class="ops-block-head"><h3>Approved</h3>'
+      + '<span class="ops-block-hint">Your plan of record</span>'
+      + '</header>'
+
+    if (approved.length === 0) {
+      html += '<div class="ops-empty-thin">Nothing approved yet. Approve delivered work to lock it into your plan.</div>'
+        + '</section>'
+      return html
+    }
+
+    for (var i = 0; i < approved.length; i++) {
+      var t = approved[i]
+      var roleKey = t.employee ? t.employee.role : 'strategist'
+      var ag = AGENTS[roleKey] || AGENTS.strategist
+      var typeLabel = TYPE_LABEL[t.type] || t.type
+      html += '<button class="ops-row" data-task-id="' + escHtml(t.id) + '">'
+        + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+        + '<div class="ops-row-body">'
+        + '<div class="ops-row-title">' + escHtml(t.title || typeLabel) + '</div>'
+        + '<div class="ops-row-meta">' + ag.label + ' · ' + typeLabel + ' · ' + relativeTime(t.completedAt || t.createdAt) + '</div>'
+        + '</div>'
+        + '</button>'
+    }
+
+    html += '</section>'
+    return html
+  }
+
+  function renderDecidedBlock() {
+    var html = '<section class="ops-block ops-decided">'
+      + '<header class="ops-block-head"><h3>Decided</h3>'
+      + '<span class="ops-block-hint">From meetings</span>'
+      + '</header>'
+
+    if (!allMeetings || allMeetings.length === 0) {
+      html += '<div class="ops-empty-thin">No meeting decisions yet. Open a meeting from the Work tab to capture decisions.</div>'
+        + '</section>'
+      return html
+    }
+
+    var shown = 0
+    for (var i = 0; i < allMeetings.length && shown < 5; i++) {
+      var m = allMeetings[i]
+      var decisions = Array.isArray(m.decisions) ? m.decisions : []
+      var roleKey = m.employee ? m.employee.role : 'strategist'
+      var ag = AGENTS[roleKey] || AGENTS.strategist
+
+      // Skip empty meetings (no summary, no decisions)
+      if (!m.summary && decisions.length === 0) continue
+      shown++
+
+      html += '<article class="ops-decision">'
+        + '<div class="ops-decision-head">'
+        + '<div class="ops-port sm" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+        + '<div class="ops-decision-meta">'
+        + '<span class="ops-decision-name">' + ag.label + '</span>'
+        + '<span class="ops-decision-time">' + relativeTime(m.endedAt) + '</span>'
+        + '</div>'
+        + '</div>'
+
+      if (m.summary) {
+        html += '<div class="ops-decision-summary">' + escHtml(String(m.summary).slice(0, 220)) + '</div>'
+      }
+      if (decisions.length > 0) {
+        html += '<ul class="ops-decision-list">'
+        for (var d = 0; d < Math.min(decisions.length, 3); d++) {
+          var dec = decisions[d]
+          var line = typeof dec === 'string' ? dec : (dec && (dec.decision || dec.actionItem || dec.text)) || ''
+          if (line) html += '<li>' + escHtml(String(line).slice(0, 180)) + '</li>'
+        }
+        html += '</ul>'
+      }
+      html += '</article>'
+    }
+
+    if (shown === 0) {
+      html += '<div class="ops-empty-thin">No meeting decisions yet.</div>'
+    }
+    html += '</section>'
+    return html
+  }
+
+  function renderJournalBlock(draft) {
+    var html = '<section class="ops-block ops-journal">'
+      + '<header class="ops-block-head"><h3>Journal</h3>'
+      + '<span class="ops-block-hint">Thoughts \u2192 the team replies</span>'
+      + '</header>'
+
+      + '<div class="ops-thought-input">'
+      + '<textarea id="new-thought-input" placeholder="Share a thought, observation, or constraint." rows="2">' + escHtml(draft) + '</textarea>'
+      + '<button class="ops-thought-send" id="submit-thought-btn">Share</button>'
+      + '</div>'
+
+    if (allThoughts.length === 0) {
+      html += '<div class="ops-empty-thin">Your thoughts and the team\u2019s replies will live here.</div>'
+        + '</section>'
+      return html
+    }
+
+    var lastBucket = ''
+    var shown = 0
+    for (var i = 0; i < allThoughts.length && shown < 12; i++) {
+      var th = allThoughts[i]
+      if (!th || !th.createdAt) continue
+      shown++
+      var bucket = dayBucketLabel(th.createdAt)
+      if (bucket !== lastBucket) {
+        html += '<div class="ops-bucket">' + bucket + '</div>'
+        lastBucket = bucket
+      }
+      html += '<article class="ops-thought">'
+        + '<div class="ops-thought-head">'
+        + '<span class="ops-thought-you">You</span>'
+        + '<span class="ops-thought-time">' + relativeTime(th.createdAt) + '</span>'
+        + '</div>'
+        + '<div class="ops-thought-body">' + escHtml(th.content) + '</div>'
+
+      var responses = Array.isArray(th.thoughtResponses) ? th.thoughtResponses : []
+      if (responses.length > 0) {
+        for (var r = 0; r < responses.length; r++) {
+          var resp = responses[r]
+          var role = resp.employee ? resp.employee.role : 'strategist'
+          var ag = AGENTS[role] || AGENTS.strategist
+          html += '<div class="ops-reply">'
+            + '<div class="ops-reply-head">'
+            + '<div class="ops-port sm" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+            + '<span class="ops-reply-name">' + ag.label + '</span>'
+            + '<span class="ops-reply-time">' + relativeTime(resp.createdAt) + '</span>'
+            + '</div>'
+            + '<div class="ops-reply-body">' + escHtml(resp.content) + '</div>'
+            + '</div>'
+        }
+      } else {
+        html += '<div class="ops-pending"><span class="ops-pending-dot"></span>Team reviewing</div>'
+      }
+      html += '</article>'
+    }
+
+    html += '</section>'
+    return html
+  }
+
+  function wireOpsSidebar() {
+    var sidebar = document.getElementById('team-calendar-sidebar')
+    if (!sidebar) return
+
+    // Click any row that carries data-task-id → open task modal
+    sidebar.querySelectorAll('[data-task-id]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var id = el.dataset.taskId
+        var task = allTasks.find(function (t) { return t.id === id })
+        if (task) openTaskModal(task)
+      })
+    })
+
+    // Thought submit (Enter or button)
+    var thoughtBtn = document.getElementById('submit-thought-btn')
+    if (thoughtBtn) thoughtBtn.addEventListener('click', function () { submitThought(fmtDate(today())) })
+    var thoughtArea = document.getElementById('new-thought-input')
+    if (thoughtArea) thoughtArea.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitThought(fmtDate(today())) }
+    })
+
+    // Assign-work CTA → open modal (no longer date-bound)
+    var assignBtn = document.getElementById('ops-assign-btn')
+    if (assignBtn) assignBtn.addEventListener('click', function () { openAssignModal() })
+  }
+
+  // Legacy renderSidebar — kept as a stub in case anything still calls it.
+  // Old per-day render path is replaced by openDayModal + renderOpsSidebar.
   function renderSidebar(sidebar, dayLabel, dateStr, dayTasks, thoughts) {
     // ── Header ──
     var html = '<div class="sb-head">'
@@ -545,6 +844,249 @@
     })
   }
 
+  // ── Day modal ──
+  // Shows everything that happened (or is queued) on a given date. Replaces
+  // the old "selectDay renders sidebar" pattern.
+  function openDayModal(dateStr) {
+    var existing = document.getElementById('day-modal-overlay')
+    if (existing) existing.remove()
+
+    var d = new Date(dateStr + 'T00:00:00')
+    var dayLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    var items = getDayItems(dateStr)
+    var dayTasks = items.dayTasks
+    var thoughts = items.thoughts
+
+    var bodyHtml = ''
+    if (dayTasks.length === 0 && thoughts.length === 0) {
+      bodyHtml += '<div class="dm-empty">No work or thoughts on this day.</div>'
+    }
+
+    if (dayTasks.length > 0) {
+      bodyHtml += '<div class="dm-section"><div class="dm-section-head">Tasks <em>' + dayTasks.length + '</em></div>'
+      for (var i = 0; i < dayTasks.length; i++) {
+        var t = dayTasks[i]
+        var roleKey = t.employee ? t.employee.role : 'strategist'
+        var ag = AGENTS[roleKey] || AGENTS.strategist
+        var typeLabel = TYPE_LABEL[t.type] || t.type
+        var status = t.status || 'pending'
+        var sc = statusClass(status)
+        bodyHtml += '<button class="dm-task" data-task-id="' + escHtml(t.id) + '">'
+          + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+          + '<div class="dm-task-body">'
+          + '<div class="dm-task-title">' + escHtml(t.title || typeLabel) + '</div>'
+          + '<div class="dm-task-meta">' + ag.label + ' \u00b7 ' + typeLabel + '</div>'
+          + '</div>'
+          + '<span class="sb-status ' + sc + '">' + status + '</span>'
+          + '</button>'
+      }
+      bodyHtml += '</div>'
+    }
+
+    if (thoughts.length > 0) {
+      bodyHtml += '<div class="dm-section"><div class="dm-section-head">Thoughts <em>' + thoughts.length + '</em></div>'
+      for (var j = 0; j < thoughts.length; j++) {
+        var th = thoughts[j]
+        bodyHtml += '<article class="dm-thought">'
+          + '<div class="dm-thought-time">' + timeShort(th.createdAt) + '</div>'
+          + '<div class="dm-thought-body">' + escHtml(th.content) + '</div>'
+        var responses = Array.isArray(th.thoughtResponses) ? th.thoughtResponses : []
+        for (var r = 0; r < responses.length; r++) {
+          var resp = responses[r]
+          var role = resp.employee ? resp.employee.role : 'strategist'
+          var rag = AGENTS[role] || AGENTS.strategist
+          bodyHtml += '<div class="dm-reply">'
+            + '<span class="dm-reply-name" style="color:' + rag.css + '">' + rag.label + '</span>'
+            + ' \u00b7 ' + escHtml(resp.content)
+            + '</div>'
+        }
+        bodyHtml += '</article>'
+      }
+      bodyHtml += '</div>'
+    }
+
+    var overlay = document.createElement('div')
+    overlay.id = 'day-modal-overlay'
+    overlay.className = 'tm-overlay'
+    overlay.innerHTML = '<div class="tm-backdrop"></div>'
+      + '<div class="tm-modal dm-modal">'
+      + '<div class="tm-header">'
+      + '<div class="tm-header-left"><div><div class="tm-title">' + dayLabel + '</div>'
+      + '<div class="tm-meta">' + (dayTasks.length + thoughts.length) + ' item' + (dayTasks.length + thoughts.length === 1 ? '' : 's') + '</div>'
+      + '</div></div>'
+      + '<button class="tm-close">&times;</button>'
+      + '</div>'
+      + '<div class="tm-body">' + bodyHtml + '</div>'
+      + '</div>'
+
+    document.body.appendChild(overlay)
+
+    function onEsc(e) { if (e.key === 'Escape') closeOverlay() }
+    function closeOverlay() {
+      document.removeEventListener('keydown', onEsc)
+      if (overlay.parentNode) overlay.remove()
+    }
+    overlay.querySelector('.tm-backdrop').addEventListener('click', closeOverlay)
+    overlay.querySelector('.tm-close').addEventListener('click', closeOverlay)
+    document.addEventListener('keydown', onEsc)
+
+    overlay.querySelectorAll('[data-task-id]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var id = el.dataset.taskId
+        var task = allTasks.find(function (t) { return t.id === id })
+        if (task) { closeOverlay(); openTaskModal(task) }
+      })
+    })
+  }
+
+  // ── Assign modal ──
+  // Replaces the old per-day "Assign work" panel that lived in the sidebar.
+  // No longer date-bound — tasks are created with createdAt = now regardless,
+  // so coupling assignment to a calendar day was misleading.
+  function openAssignModal() {
+    var existing = document.getElementById('assign-modal-overlay')
+    if (existing) existing.remove()
+
+    var html = '<div class="tm-backdrop"></div>'
+      + '<div class="tm-modal am-modal">'
+      + '<div class="tm-header">'
+      + '<div class="tm-header-left"><div><div class="tm-title">Assign work</div>'
+      + '<div class="tm-meta">Pick an agent and brief them</div>'
+      + '</div></div>'
+      + '<button class="tm-close">&times;</button>'
+      + '</div>'
+      + '<div class="tm-body am-body">'
+      + '<div class="am-label">Who</div>'
+      + '<div class="am-agents">'
+    for (var ai = 0; ai < ROLE_LIST.length; ai++) {
+      var role = ROLE_LIST[ai]
+      var ag = AGENTS[role]
+      var on = (assignSelectedRole === role) ? ' on' : ''
+      html += '<button class="am-agent' + on + '" data-role="' + role + '">'
+        + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+        + '<span class="am-agent-name">' + ag.label + '</span>'
+        + '</button>'
+    }
+    html += '</div>'
+      + '<div class="am-label">What</div>'
+      + '<select id="am-type" class="am-select">'
+      + '<option value="trend_report">Trend report</option>'
+      + '<option value="content_plan">Content plan</option>'
+      + '<option value="hooks">Hooks</option>'
+      + '<option value="caption">Caption</option>'
+      + '<option value="script">Script</option>'
+      + '<option value="shot_list">Shot list</option>'
+      + '</select>'
+      + '<div class="am-label">Brief</div>'
+      + '<textarea id="am-desc" placeholder="What do you need? Be specific \u2014 the more context, the better the output." rows="4"></textarea>'
+      + '<button class="am-submit" id="am-submit">Assign</button>'
+      + '<div class="am-err" id="am-err"></div>'
+      + '</div>'
+      + '</div>'
+
+    var overlay = document.createElement('div')
+    overlay.id = 'assign-modal-overlay'
+    overlay.className = 'tm-overlay'
+    overlay.innerHTML = html
+    document.body.appendChild(overlay)
+
+    function onEsc(e) { if (e.key === 'Escape') closeOverlay() }
+    function closeOverlay() {
+      document.removeEventListener('keydown', onEsc)
+      if (overlay.parentNode) overlay.remove()
+    }
+    overlay.querySelector('.tm-backdrop').addEventListener('click', closeOverlay)
+    overlay.querySelector('.tm-close').addEventListener('click', closeOverlay)
+    document.addEventListener('keydown', onEsc)
+
+    var typeEl = document.getElementById('am-type')
+    if (assignSelectedRole && DEFAULT_TYPE_BY_ROLE[assignSelectedRole]) {
+      typeEl.value = DEFAULT_TYPE_BY_ROLE[assignSelectedRole]
+    }
+    var agentBtns = overlay.querySelectorAll('.am-agent')
+    agentBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        agentBtns.forEach(function (b) { b.classList.remove('on') })
+        btn.classList.add('on')
+        assignSelectedRole = btn.dataset.role
+        if (typeEl && DEFAULT_TYPE_BY_ROLE[assignSelectedRole]) {
+          typeEl.value = DEFAULT_TYPE_BY_ROLE[assignSelectedRole]
+        }
+      })
+    })
+
+    var submit = document.getElementById('am-submit')
+    var err = document.getElementById('am-err')
+    submit.addEventListener('click', function () {
+      err.textContent = ''
+      var desc = document.getElementById('am-desc')
+      if (!assignSelectedRole) {
+        agentBtns.forEach(function (b) { b.classList.add('flash') })
+        setTimeout(function () { agentBtns.forEach(function (b) { b.classList.remove('flash') }) }, 600)
+        err.textContent = 'Pick an agent first.'
+        return
+      }
+      var text = (desc && desc.value || '').trim()
+      if (!text) { err.textContent = 'Add a brief.'; return }
+      var taskType = typeEl ? typeEl.value : (DEFAULT_TYPE_BY_ROLE[assignSelectedRole] || 'hooks')
+      submit.disabled = true
+      submit.textContent = 'Assigning…'
+      submitTaskFromModal(assignSelectedRole, taskType, text, closeOverlay, function (msg) {
+        submit.disabled = false
+        submit.textContent = 'Assign'
+        if (err) err.textContent = msg || 'Could not assign. Try again.'
+      })
+    })
+  }
+
+  // Variant of submitTask that doesn't depend on a sidebar button. Calls
+  // back to the modal on success/failure to update its UI.
+  function submitTaskFromModal(role, type, description, onSuccess, onFailure) {
+    var employee = employeesByRole[role]
+    if (!companyId || !employee) {
+      loadIdentity().then(function () {
+        var emp2 = employeesByRole[role]
+        if (companyId && emp2) {
+          submitTaskFromModal(role, type, description, onSuccess, onFailure)
+        } else {
+          onFailure('Team identity unavailable. Reload and try again.')
+        }
+      })
+      return
+    }
+
+    var payload = {
+      companyId: companyId,
+      employeeId: employee.id,
+      title: description.slice(0, 80),
+      description: description,
+      type: type,
+    }
+
+    var send = window.vxAssignTask
+      ? window.vxAssignTask(payload)
+      : fetch('/api/tasks', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(function (r) {
+          if (!r.ok) return { ok: false }
+          return r.json().then(function (data) { return { ok: true, task: data.task } })
+        })
+
+    Promise.resolve(send).then(function (result) {
+      if (result && result.ok) {
+        if (result.task) allTasks.unshift(result.task)
+        render()
+        renderOpsSidebar()
+        onSuccess()
+      } else {
+        onFailure((result && result.error) ? String(result.error) : 'Could not assign.')
+      }
+    }).catch(function () { onFailure('Network error.') })
+  }
+
   function openTaskModal(task) {
     var existing = document.getElementById('task-modal-overlay')
     if (existing) existing.remove()
@@ -655,16 +1197,15 @@
     Promise.resolve(send).then(function (result) {
       if (result && result.ok) {
         if (result.task) allTasks.unshift(result.task)
-        // New tasks land on today's cell (createdAt = now). Jump there so the
-        // user sees the task they just assigned.
-        var todayStr = fmtDate(today())
+        // New tasks land on today's cell (createdAt = now). Jump the
+        // calendar to today so the user sees the task they just assigned.
         var now = today()
         if (viewYear !== now.getFullYear() || viewMonth !== now.getMonth()) {
           viewYear = now.getFullYear()
           viewMonth = now.getMonth()
         }
         render()
-        selectDay(todayStr)
+        renderOpsSidebar()
       } else {
         if (btn) {
           btn.disabled = false
@@ -704,9 +1245,10 @@
             if (!thought.thoughtResponses) thought.thoughtResponses = []
             allThoughts.unshift(thought)
           }
-          // Re-render BOTH grid (for thought-count badge) and sidebar.
+          // Re-render grid (for thought-count badge) and ops sidebar
+          // (for the journal feed). Day-bound view — if any — is in a modal.
           render()
-          selectDay(dateStr)
+          renderOpsSidebar()
         })
       } else {
         input.disabled = false
@@ -754,11 +1296,16 @@
     return identityLoadingPromise
   }
 
-  // ── Refresh tasks/thoughts from server (used by event listener + init) ──
+  // ── Refresh tasks/thoughts/meetings from server (used by event listener + init) ──
   function refreshData() {
-    return Promise.all([get('/api/tasks'), get('/api/thoughts')]).then(function (results) {
+    return Promise.all([
+      get('/api/tasks'),
+      get('/api/thoughts'),
+      get('/api/meeting'),
+    ]).then(function (results) {
       allTasks = (results[0] && results[0].tasks) || []
       allThoughts = (results[1] && results[1].thoughts) || []
+      allMeetings = (results[2] && results[2].meetings) || []
     })
   }
 
@@ -777,7 +1324,7 @@
     await Promise.all([loadIdentity(), refreshData()])
 
     render()
-    selectDay(selectedDate)
+    renderOpsSidebar()
   }
 
   // Hook into navigation — refresh data on every visit so cross-wire changes
@@ -792,10 +1339,10 @@
         calendarLoaded = true
         setTimeout(init, 150)
       } else {
-        // Re-fetch tasks/thoughts and re-render. Identity is stable.
+        // Re-fetch and re-render. Identity is stable.
         refreshData().then(function () {
           render()
-          if (selectedDate) selectDay(selectedDate)
+          renderOpsSidebar()
         })
       }
     }
@@ -808,7 +1355,7 @@
     if (!calendarLoaded) return
     refreshData().then(function () {
       render()
-      if (selectedDate) selectDay(selectedDate)
+      renderOpsSidebar()
     })
   })
 })()

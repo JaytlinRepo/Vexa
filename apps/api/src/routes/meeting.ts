@@ -479,6 +479,49 @@ The CEO is reading on mobile, fast. Walls of text fail. Every reply must:
   }
 }
 
+// List recent meetings with their decisions/summaries — used by the Team
+// tab's journal to show "decisions made in meetings" alongside thoughts.
+// Returns only meetings that have actually ended (endedAt not null) so we
+// don't surface in-flight conversations.
+router.get('/', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const companyIdParam = (req.query.companyId as string | undefined) ?? undefined
+    const limit = Math.min(Number(req.query.limit) || 30, 100)
+    const sinceDays = Math.min(Number(req.query.sinceDays) || 30, 365)
+
+    const company = companyIdParam
+      ? await prisma.company.findFirst({ where: { id: companyIdParam, userId } })
+      : await prisma.company.findFirst({ where: { userId } })
+    if (!company) {
+      res.json({ meetings: [] })
+      return
+    }
+
+    const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+    const meetings = await prisma.meeting.findMany({
+      where: {
+        companyId: company.id,
+        endedAt: { not: null, gte: cutoff },
+      },
+      orderBy: { endedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        endedAt: true,
+        summary: true,
+        decisions: true,
+        tasksCreated: true,
+        employee: { select: { id: true, role: true, name: true } },
+      },
+    })
+
+    res.json({ meetings })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.post('/reply', requireAuth, async (req, res, next) => {
   try {
     const data = replySchema.parse(req.body)
