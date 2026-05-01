@@ -527,18 +527,11 @@ router.post('/reply', requireAuth, async (req, res, next) => {
     const data = replySchema.parse(req.body)
     const { userId } = (req as AuthedRequest).session
 
-    // Plan gate: starter normally doesn't include the Meeting feature, but
-    // during the 7-day trial every user gets the full feature set so they
-    // can evaluate it before committing.
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { plan: true, subscriptionStatus: true, trialEndsAt: true },
+      select: { plan: true },
     })
-    const inTrial =
-      user?.subscriptionStatus === 'trial' &&
-      user?.trialEndsAt != null &&
-      user.trialEndsAt.getTime() > Date.now()
-    if (user && !inTrial && !PLAN_LIMITS[user.plan].meetingFeature) {
+    if (user && !PLAN_LIMITS[user.plan].meetingFeature) {
       res.status(402).json({ error: 'meeting_not_in_plan', plan: user.plan })
       return
     }

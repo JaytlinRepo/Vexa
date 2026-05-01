@@ -24,7 +24,9 @@ export interface CommunityTags {
   subNiche: string | null
 }
 
-const SYSTEM_PROMPT = `You are a content tagger for social media posts. Analyze the post and return ONLY valid JSON matching this exact schema. No other text.
+// Exported so feedItemTagging.service.ts can reuse the same prompt for
+// on-the-fly tagging of IG-trending items without duplicating the schema.
+export const SYSTEM_PROMPT = `You are a content tagger for social media posts. Analyze the post and return ONLY valid JSON matching this exact schema. No other text.
 
 {
   "topic": ["topic1", "topic2"],
@@ -46,7 +48,7 @@ Rules:
 
 // ── Image download ───────────────────────────────────────────────────────────
 
-async function downloadImageAsBase64(url: string): Promise<string | null> {
+export async function downloadImageAsBase64(url: string): Promise<string | null> {
   try {
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
@@ -192,4 +194,84 @@ export async function tagUntaggedPostsForCompany(
   }
 
   return { tagged, errors }
+}
+
+// ── Tag the top-N most popular VIDEOS for a company on opt-in ────────────────
+//
+// Used by the community-opt-in handler to seed the community feed with the
+// user's best content right away — instead of waiting for the next scheduled
+// content-analysis worker run. Scope is intentionally narrow:
+//   - VIDEO / REEL only (no images / carousels)
+//   - top N by engagementRate × log(reach) (popularity, not just raw views)
+//   - skip already-tagged posts
+//
+// Bedrock-rate-limited (1.2s between calls). Caller should fire-and-forget.
+export async function tagTopVideosForCompany(
+  prisma: PrismaClient,
+  companyId: string,
+  limit: number = 10,
+): Promise<{ tagged: number; errors: number; considered: number }> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { niche: true, detectedNiche: true, detectedSubNiche: true, subNiche: true },
+  })
+  if (!company) return { tagged: 0, errors: 0, considered: 0 }
+
+  const niche = company.detectedNiche || company.niche || 'lifestyle'
+  const subNiche = company.detectedSubNiche || company.subNiche || null
+
+  const accounts = await prisma.platformAccount.findMany({
+    where: { companyId },
+    select: { id: true },
+  })
+  if (accounts.length === 0) return { tagged: 0, errors: 0, considered: 0 }
+
+  // Pull a generous candidate pool ordered by engagementRate, then we score
+  // in JS to factor in reach (a 100% engagement post on 50 reach is less
+  // popular than a 4% engagement post on 50,000 reach).
+  const candidates = await prisma.platformPost.findMany({
+    where: {
+      accountId: { in: accounts.map((a) => a.id) },
+      mediaType: { in: ['REEL', 'VIDEO'] },
+      communityTaggedAt: null,
+      caption: { not: null },
+    },
+    select: {
+      id: true,
+      engagementRate: true,
+      reachCount: true,
+      viewCount: true,
+      saveRate: true,
+    },
+    orderBy: { engagementRate: 'desc' },
+    take: 60,
+  })
+
+  const scored = candidates
+    .map((p) => ({
+      id: p.id,
+      score:
+        (p.engagementRate || 0) * Math.log10(Math.max(p.reachCount || 0, 1) + 1) +
+        (p.saveRate || 0) * 2 +
+        Math.log10(Math.max(p.viewCount || 0, 1)) * 0.05,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+
+  let tagged = 0
+  let errors = 0
+  for (let i = 0; i < scored.length; i++) {
+    try {
+      const result = await tagPost(prisma, scored[i].id, niche, subNiche)
+      if (result) tagged++
+      else errors++
+    } catch {
+      errors++
+    }
+    if (i < scored.length - 1) {
+      await new Promise((r) => setTimeout(r, 1200))
+    }
+  }
+
+  return { tagged, errors, considered: scored.length }
 }

@@ -147,11 +147,11 @@ export async function computeAllPostMetrics(
   })
   const followerCount = latestSnap?.followerCount || 0
 
-  // Process recent posts (last 50 — older posts rarely change)
+  // Process recent posts (last 100 — covers ~2 months for daily posters)
   const posts = await prisma.platformPost.findMany({
     where: { accountId },
     orderBy: { publishedAt: 'desc' },
-    take: 50,
+    take: 100,
     select: { id: true },
   })
 

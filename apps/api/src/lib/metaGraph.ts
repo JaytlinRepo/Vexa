@@ -432,6 +432,9 @@ export interface IGHashtagPost {
   caption: string
   mediaType: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'
   mediaUrl?: string
+  /** For VIDEO posts, IG returns the .mp4 in media_url and a separate
+   * still-frame image in thumbnail_url. Use this as the <video poster>. */
+  thumbnailUrl?: string
   permalink: string
   timestamp: string
   likeCount: number
@@ -461,6 +464,12 @@ export async function searchHashtag(hashtag: string, token: string, igBusinessId
  */
 export async function getHashtagTopPosts(hashtagId: string, token: string, igBusinessId: string, limit = 9): Promise<IGHashtagPost[]> {
   try {
+    // NOTE: `thumbnail_url` is NOT a supported field on the hashtag
+    // recent_media endpoint (Meta returns 400 with #100 when included).
+    // For VIDEO posts the API gives us only media_url (the .mp4) and the
+    // permalink — the still frame must be derived client-side from the
+    // permalink's IG-rendered preview, OR the front-end falls back to a
+    // skeleton + plays the video on hover.
     const res = await graphGet<{
       data: Array<{
         id: string
@@ -472,7 +481,6 @@ export async function getHashtagTopPosts(hashtagId: string, token: string, igBus
         like_count?: number | string
         comments_count?: number | string
       }>
-    // Use recent_media — top_media doesn't return Reels/VIDEO
     }>(`/${hashtagId}/recent_media`, token, {
       fields: 'id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count',
       limit: String(limit),
@@ -484,6 +492,9 @@ export async function getHashtagTopPosts(hashtagId: string, token: string, igBus
       caption: p.caption || '',
       mediaType: ((p.media_type || 'IMAGE').toUpperCase()) as 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM',
       mediaUrl: p.media_url,
+      // hashtag API doesn't expose thumbnail_url — leave undefined and
+      // let the front-end render a skeleton until hover.
+      thumbnailUrl: undefined,
       permalink: p.permalink || '',
       timestamp: p.timestamp || new Date().toISOString(),
       likeCount: typeof p.like_count === 'number' ? p.like_count : parseInt(String(p.like_count)) || 0,

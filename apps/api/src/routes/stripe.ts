@@ -1,5 +1,7 @@
 import { Router, raw } from 'express'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+import prisma from '../lib/prisma'
+import { computeUsage } from '../lib/usage'
 import {
   createCheckoutSession,
   createBillingPortalSession,
@@ -14,12 +16,12 @@ router.post('/checkout', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
     const { plan, billing } = req.body as {
-      plan?: 'starter' | 'pro' | 'agency'
+      plan?: 'pro' | 'agency'
       billing?: 'monthly' | 'annual'
     }
 
-    if (!plan || !['starter', 'pro', 'agency'].includes(plan)) {
-      res.status(400).json({ error: 'Invalid plan. Must be starter, pro, or agency.' })
+    if (!plan || !['pro', 'agency'].includes(plan)) {
+      res.status(400).json({ error: 'Invalid plan. Must be pro or agency.' })
       return
     }
 
@@ -91,7 +93,6 @@ router.post('/webhook', async (req, res, next) => {
 
 router.get('/subscription', requireAuth, async (req, res, next) => {
   try {
-    const prisma = (await import('../lib/prisma')).default
     const { userId } = (req as AuthedRequest).session
 
     const user = await prisma.user.findUnique({
@@ -101,7 +102,6 @@ router.get('/subscription', requireAuth, async (req, res, next) => {
         subscriptionStatus: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
-        trialEndsAt: true,
       },
     })
 
@@ -110,17 +110,35 @@ router.get('/subscription', requireAuth, async (req, res, next) => {
       return
     }
 
-    const trialDaysLeft = user.trialEndsAt
-      ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / 86400000))
-      : null
+    let usage: {
+      tasks: { used: number; limit: number; resetAt: string; resetWindow: 'daily' | 'monthly' }
+      videos: { used: number; limit: number; resetAt: string }
+      workspaces: { used: number; limit: number }
+      meetingFeature: boolean
+      brandMemory: boolean
+      resetWindow: 'daily' | 'monthly'
+    } | null = null
+
+    try {
+      const u = await computeUsage(prisma, userId)
+      usage = {
+        tasks: u.tasks,
+        videos: u.videos,
+        workspaces: u.workspaces,
+        meetingFeature: u.meetingFeature,
+        brandMemory: u.brandMemory,
+        resetWindow: u.tasks.resetWindow,
+      }
+    } catch {
+      usage = null
+    }
 
     res.json({
       plan: user.plan,
       status: user.subscriptionStatus,
       hasStripeCustomer: !!user.stripeCustomerId,
       hasSubscription: !!user.stripeSubscriptionId,
-      trialDaysLeft,
-      trialEndsAt: user.trialEndsAt,
+      usage,
     })
   } catch (err) {
     next(err)

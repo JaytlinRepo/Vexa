@@ -297,6 +297,33 @@ export async function sendPaymentFailedEmail(params: {
   })
 }
 
+// ─── PASSWORD RESET ───────────────────────────────────────────────────────────
+
+export async function sendPasswordResetEmail(params: {
+  to: string
+  firstName: string
+  resetUrl: string
+}): Promise<EmailResult> {
+  const { to, firstName, resetUrl } = params
+
+  const content = `
+    ${h1(`Reset your password`)}
+    ${p(`Hi ${firstName}, we received a request to reset the password for your Sovexa account.`)}
+    ${p(`This link expires in <strong style="color:#f5f5f5">15 minutes</strong>. If you didn't request this, you can safely ignore the email — your password won't change.`)}
+    ${divider()}
+    ${btn('Reset my password →', resetUrl)}
+    ${divider()}
+    ${p(`If the button doesn't work, paste this link into your browser:`, true)}
+    <p style="margin:0;font-size:12px;color:#555;word-break:break-all">${resetUrl}</p>
+  `
+
+  return send({
+    to,
+    subject: 'Reset your Sovexa password',
+    html: baseTemplate(content, 'Your password reset link — expires in 15 minutes.'),
+  })
+}
+
 // ─── CORE SEND ────────────────────────────────────────────────────────────────
 
 async function send(params: {

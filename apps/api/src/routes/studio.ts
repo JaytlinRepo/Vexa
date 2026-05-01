@@ -16,6 +16,7 @@ import { recordEditorialFeedback } from '../lib/brandMemory'
 import StudioVisualEditingService from '../lib/studioVisualEditing.service'
 import StudioCopywritingService from '../lib/studioCopywriting.service'
 import StudioPostingStrategyService from '../lib/studioPostingStrategy.service'
+import { invokeAgent } from '../services/bedrock/bedrock.service'
 
 const router = Router()
 let prisma: PrismaClient
@@ -360,6 +361,128 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         message: err instanceof Error ? err.message : 'Unknown error',
         tip: 'If this continues, try saving as draft and editing manually'
       })
+    }
+  })
+
+  // ── Weekly status — Riley's full pipeline summary for the HQ brief modal ─
+  router.get('/weekly-status', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { companyId } = req.query
+      if (!companyId) return res.status(400).json({ error: 'companyId required' })
+      const company = await prisma.company.findFirst({ where: { id: companyId as string, userId } })
+      if (!company) return res.status(403).json({ error: 'not found' })
+
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+      const [doneThisWeek, needsApproval, readyToPost] = await Promise.all([
+        // Clips fully approved or posted in the last 7 days
+        prisma.videoClip.findMany({
+          where: {
+            companyId: company.id,
+            status: { in: ['ready_to_post', 'posted'] },
+            visualApprovalStatus: 'approved',
+            copyApprovalStatus: 'approved',
+            updatedAt: { gte: since },
+          },
+          select: { id: true, hook: true, caption: true, duration: true, status: true, updatedAt: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 10,
+        }),
+        // Clips still waiting on approval
+        prisma.videoClip.findMany({
+          where: {
+            companyId: company.id,
+            status: { not: 'archived' },
+            OR: [{ visualApprovalStatus: 'pending' }, { copyApprovalStatus: 'pending' }],
+          },
+          select: { id: true, hook: true, caption: true, duration: true, visualApprovalStatus: true, copyApprovalStatus: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        // Clips fully approved and staged to post
+        prisma.videoClip.findMany({
+          where: {
+            companyId: company.id,
+            status: 'ready_to_post',
+            visualApprovalStatus: 'approved',
+            copyApprovalStatus: 'approved',
+          },
+          select: { id: true, hook: true, caption: true, duration: true, updatedAt: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 10,
+        }),
+      ])
+
+      // Generate short visual scene descriptions for all clips so the CEO
+      // knows which video they're looking at without needing to open Studio.
+      const allClips = [...doneThisWeek, ...needsApproval, ...readyToPost]
+      const descMap: Record<string, string> = {}
+      if (allClips.length > 0) {
+        try {
+          const clipList = allClips.map((c, i) =>
+            `${i + 1}. id="${c.id}" hook="${(c.hook || '').substring(0, 120)}" caption="${(c.caption || '').substring(0, 120)}"`
+          ).join('\n')
+          const raw = await invokeAgent({
+            systemPrompt: 'You are a video production assistant. Write a concise 4-8 word visual scene description for each video clip based on its hook and caption. Focus on what the viewer literally sees (e.g. "Woman holding photo of herself", "Chef preparing pasta close-up"). Return ONLY a JSON array: [{"id":"...","description":"..."}]',
+            messages: [{ role: 'user', content: `Generate visual descriptions for these clips:\n${clipList}` }],
+            maxTokens: 512,
+            temperature: 0.3,
+            companyId: company.id,
+          })
+          const parsed = JSON.parse(raw.trim().replace(/^```json\n?|```$/g, ''))
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (item.id && item.description) descMap[item.id] = item.description
+            }
+          }
+        } catch {
+          // descriptions are best-effort — never block the response
+        }
+      }
+
+      const withDesc = <T extends { id: string }>(clips: T[]) =>
+        clips.map(c => ({ ...c, description: descMap[c.id] || null }))
+
+      res.json({
+        doneThisWeek: withDesc(doneThisWeek),
+        needsApproval: withDesc(needsApproval),
+        readyToPost: withDesc(readyToPost),
+      })
+    } catch (err) {
+      res.status(500).json({ error: 'weekly-status failed' })
+    }
+  })
+
+  // ── Queue counts — lightweight for Riley's HQ card ────────────────────
+  router.get('/counts', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { companyId } = req.query
+      if (!companyId) return res.status(400).json({ error: 'companyId required' })
+      const company = await prisma.company.findFirst({ where: { id: companyId as string, userId } })
+      if (!company) return res.status(403).json({ error: 'not found' })
+
+      const [needsApproval, readyToPost] = await Promise.all([
+        prisma.videoClip.count({
+          where: {
+            companyId: company.id,
+            status: { not: 'archived' },
+            OR: [{ visualApprovalStatus: 'pending' }, { copyApprovalStatus: 'pending' }],
+          },
+        }),
+        prisma.videoClip.count({
+          where: {
+            companyId: company.id,
+            status: 'ready_to_post',
+            visualApprovalStatus: 'approved',
+            copyApprovalStatus: 'approved',
+          },
+        }),
+      ])
+      res.json({ needsApproval, readyToPost })
+    } catch (err) {
+      res.status(500).json({ error: 'counts failed' })
     }
   })
 

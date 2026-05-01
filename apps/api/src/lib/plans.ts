@@ -1,42 +1,46 @@
 import { Plan } from '@prisma/client'
 
 export interface PlanLimits {
-  tasksPerMonth: number
+  tasksPerMonth: number        // for daily-reset plans, this is the per-day cap
+  resetWindow: 'daily' | 'monthly'
   videosPerMonth: number
   workspaces: number
   meetingFeature: boolean
   brandMemory: boolean
   // Agent capabilities
-  bedrockCallsPerMonth: number     // LLM invocations (briefs, proactive analysis, etc.)
-  briefCooldownMin: number         // minutes between briefs per agent
-  proactiveAnalysis: boolean       // Maya auto-analyzes on connect + weekly
-  weeklyPulse: boolean             // Monday morning pulse
-  nicheDetection: boolean          // auto-detect niche from content
-  syncOnLogin: boolean             // background TikTok refresh on dashboard load
+  bedrockCallsPerMonth: number
+  briefCooldownMin: number
+  proactiveAnalysis: boolean
+  weeklyPulse: boolean
+  nicheDetection: boolean
+  syncOnLogin: boolean
   // Employee access
   employees: ('analyst' | 'strategist' | 'copywriter' | 'creative_director')[]
-  revisionsPerOutput: number       // how many times user can reconsider/regenerate
+  revisionsPerOutput: number
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
-    // Audition tier — full team quality, hard wall on volume.
-    tasksPerMonth: 5,
+    // 3 tasks per day — reset at midnight UTC
+    tasksPerMonth: 3,
+    resetWindow: 'daily',
     videosPerMonth: 0,
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
     bedrockCallsPerMonth: 25,
-    briefCooldownMin: 60,           // 1-hour cooldown — slow drip
-    proactiveAnalysis: false,       // no auto-pulses on Free
+    briefCooldownMin: 60,
+    proactiveAnalysis: false,
     weeklyPulse: false,
     nicheDetection: true,
-    syncOnLogin: false,             // no platform sync until paid
+    syncOnLogin: false,
     employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
-    revisionsPerOutput: 0,          // one-shot per task on Free
+    revisionsPerOutput: 0,
   },
+  // Deprecated — no new users land here. Kept so existing subscribers still resolve limits.
   starter: {
     tasksPerMonth: 50,
+    resetWindow: 'monthly',
     videosPerMonth: 0,
     workspaces: 1,
     meetingFeature: false,
@@ -52,6 +56,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   pro: {
     tasksPerMonth: 200,
+    resetWindow: 'monthly',
     videosPerMonth: 15,
     workspaces: 1,
     meetingFeature: true,
@@ -67,6 +72,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   },
   agency: {
     tasksPerMonth: 1000,
+    resetWindow: 'monthly',
     videosPerMonth: 75,
     workspaces: 5,
     meetingFeature: true,
@@ -90,10 +96,10 @@ export function startOfNextMonthUTC(d: Date = new Date()): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0))
 }
 
-export const TRIAL_DAYS = 7
+export function startOfDayUTC(d: Date = new Date()): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0))
+}
 
-export function trialEnd(from: Date = new Date()): Date {
-  const d = new Date(from)
-  d.setUTCDate(d.getUTCDate() + TRIAL_DAYS)
-  return d
+export function startOfNextDayUTC(d: Date = new Date()): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0))
 }

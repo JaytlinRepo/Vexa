@@ -10,6 +10,8 @@ export interface InstagramHashtagPost {
   caption: string
   mediaType: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'
   mediaUrl?: string
+  /** Set on VIDEO posts — the IG-hosted still-frame preview image. */
+  thumbnailUrl?: string
   permalink: string
   timestamp: string
   likeCount: number
@@ -70,10 +72,13 @@ export async function fetchInstagramTrendingByHashtag(
   const allPosts: InstagramHashtagPost[] = []
 
   try {
-    // Fetch all hashtags in parallel for speed
-    const perTag = Math.ceil(limit / hashtags.length)
+    // Use up to 6 hashtags (Meta hashtag-search has its own per-app rate
+    // limit; 6 is comfortably under). Per-tag fetch sized so the total
+    // volume hits the requested limit even when some hashtags return short.
+    const tagCount = Math.min(6, hashtags.length)
+    const perTag = Math.max(4, Math.ceil(limit / Math.max(1, tagCount)))
     const results = await Promise.allSettled(
-      hashtags.slice(0, 4).map(async (hashtag) => {
+      hashtags.slice(0, tagCount).map(async (hashtag) => {
         const hashtagId = await meta.searchHashtag(hashtag, token, igBusinessId)
         if (!hashtagId) return []
         return meta.getHashtagTopPosts(hashtagId, token, igBusinessId, perTag)
@@ -118,13 +123,31 @@ export function instagramPostToFeedItem(post: InstagramHashtagPost, niche: strin
   // Estimate views (Instagram doesn't always expose this, so use engagement as proxy)
   const estimatedViews = Math.round((engagementRate / 0.05) * 1.5) // assume 5% engagement rate
 
+  // Surface mediaType + isVideo so the frontend's looksLikeVideo() filter
+  // correctly classifies VIDEO posts as reels (instead of falling back to
+  // URL heuristics, which fail for IG since hashtag API returns .jpg URLs
+  // for images and the permalink alone doesn't identify the format).
+  const isVideo = post.mediaType === 'VIDEO'
+  // For VIDEO posts: media_url is the .mp4, thumbnail_url is the still
+  // frame. For images: media_url is the photo. Pick the right one for
+  // each surface so the front-end gets a real image into <img>/poster
+  // and a real video file into <video src>.
+  const previewImage = isVideo ? post.thumbnailUrl || null : post.mediaUrl || null
   return {
     id: `ig_${post.id}`,
+    // Use the static 'Instagram' source — the IG hashtag API does not
+    // return usernames, so we can't differentiate creators here. Items
+    // from this source are excluded from the dedup-by-creator cap in
+    // feed.ts; the cap is intended for community @handles only.
     source: 'Instagram',
     title: post.caption ? post.caption.split('\n')[0].slice(0, 100) : `${contentType} from ${nicheLabel}`,
     summary: post.caption ? post.caption.slice(0, 240) : `${post.likeCount} likes, ${post.commentsCount} comments`,
     url: post.permalink,
-    imageUrl: post.mediaUrl || null,
+    imageUrl: previewImage,
+    thumbnail: previewImage,
+    videoUrl: isVideo ? post.mediaUrl || null : undefined,
+    mediaType: post.mediaType,
+    isVideo,
     createdAt: post.timestamp,
     type: 'instagram',
     score: Math.min(99, 50 + Math.floor(Math.log10(Math.max(10, estimatedViews)) * 5)),

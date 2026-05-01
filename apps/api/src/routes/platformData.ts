@@ -17,6 +17,17 @@ function setTsCache(key: string, data: unknown) {
   tsCache.set(key, { data, ts: Date.now() })
 }
 
+const ovCache = new Map<string, { data: unknown; ts: number }>()
+const OV_CACHE_TTL = 5 * 60 * 1000
+
+function setOvCache(key: string, data: unknown) {
+  if (ovCache.size >= TS_CACHE_MAX) {
+    const oldest = ovCache.keys().next().value
+    if (oldest) ovCache.delete(oldest)
+  }
+  ovCache.set(key, { data, ts: Date.now() })
+}
+
 /**
  * Normalize engagementRate to a 0–1 fraction.
  *
@@ -74,7 +85,7 @@ router.get('/timeseries', requireAuth, async (req, res, next) => {
       prisma.platformPost.findMany({
         where: { accountId: { in: accountIds } },
         orderBy: { publishedAt: 'desc' },
-        take: 200,
+        take: 500,
       }),
       prisma.platformAudience.findMany({
         where: { accountId: { in: accountIds } },
@@ -191,6 +202,12 @@ router.get('/overview', requireAuth, async (req, res, next) => {
     const company = await prisma.company.findFirst({ where: { userId } })
     if (!company) {
       res.json({ accounts: [], combinedFollowers: 0, combinedFollowersDelta: 0, sparkline: [], topPost: null, audience: null })
+      return
+    }
+
+    const cached = ovCache.get(company.id)
+    if (cached && Date.now() - cached.ts < OV_CACHE_TTL) {
+      res.json(cached.data)
       return
     }
 
@@ -325,7 +342,9 @@ router.get('/overview', requireAuth, async (req, res, next) => {
       }
     }
 
-    res.json({ accounts, combinedFollowers, combinedFollowersDelta, sparkline, topPost, audience })
+    const result = { accounts, combinedFollowers, combinedFollowersDelta, sparkline, topPost, audience }
+    setOvCache(company.id, result)
+    res.json(result)
   } catch (err) {
     next(err)
   }

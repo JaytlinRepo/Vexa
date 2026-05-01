@@ -41,36 +41,49 @@ export class StudioPostingStrategyService {
   }): Promise<PostingStrategy> {
     const { companyId, contentType } = params
 
-    // Get company's recent performance
-    const weeklySummaries = await this.prisma.weeklySummary.findMany({
-      where: {
-        account: { companyId },
-      },
-      orderBy: { weekStart: 'desc' },
-      take: 4, // Last 4 weeks
-    })
+    // Fetch all context in parallel
+    const [weeklySummaries, trendingMemories, mayaPulseTask] = await Promise.all([
+      this.prisma.weeklySummary.findMany({
+        where: { account: { companyId } },
+        orderBy: { weekStart: 'desc' },
+        take: 4,
+      }),
+      this.prisma.brandMemory.findMany({
+        where: { companyId, memoryType: 'performance' },
+        orderBy: { weight: 'desc' },
+        take: 5,
+      }),
+      // Maya's latest weekly pulse — Jordan reads this before deciding
+      this.prisma.task.findFirst({
+        where: { companyId, type: 'weekly_pulse' },
+        orderBy: { createdAt: 'desc' },
+        include: { outputs: { take: 1 } },
+      }),
+    ])
 
-    // Get trending content from brand memory
-    const trendingMemories = await this.prisma.brandMemory.findMany({
-      where: {
-        companyId,
-        memoryType: 'performance',
-      },
-      orderBy: { weight: 'desc' },
-      take: 5,
-    })
+    // Pull Maya's signal out of the pulse output
+    const mayaOutput = (mayaPulseTask?.outputs[0]?.content ?? null) as Record<string, any> | null
+    const mayaSignal = mayaOutput
+      ? [
+          mayaOutput.oneThingToDo,
+          mayaOutput.trajectory?.summary,
+          mayaOutput.winOfTheWeek?.whyItWorked,
+          mayaOutput.missOfTheWeek?.whatToTryNext,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : ''
 
-    // Analyze audience peaks
+    // Combine Maya's signal with brand memory trends so Jordan has the full picture
+    const brandTrends = trendingMemories
+      .map((m) => (m.content as any).summary || '')
+      .join(' ')
+    const trendInsights = [mayaSignal, brandTrends].filter(Boolean).join(' ')
+
     const audiencePeakHour = this.calculateAudiencePeakHour(weeklySummaries)
     const bestDay = this.calculateBestDay(weeklySummaries)
     const formatMomentum = this.calculateFormatMomentum(weeklySummaries, contentType)
 
-    // Extract trend insights
-    const trendInsights = trendingMemories
-      .map((m) => (m.content as any).summary || '')
-      .join(' ')
-
-    // Generate three recommendations
     const recommendations = this.generateTimingRecommendations(
       audiencePeakHour,
       bestDay,
@@ -88,7 +101,8 @@ export class StudioPostingStrategyService {
         trendMomentum: this.getTrendMomentum(trendInsights),
         formatMomentum,
         bestDayOfWeek: bestDay,
-      },
+        mayaSignal: mayaSignal || undefined,
+      } as any,
     }
   }
 

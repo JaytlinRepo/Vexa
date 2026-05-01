@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import compression from 'compression'
 import {
@@ -33,6 +34,7 @@ import uploadsRouter from './routes/uploads'
 import stripeRouter from './routes/stripe'
 import adminRouter from './routes/admin'
 import waitlistRouter from './routes/waitlist'
+import communityReportRouter from './routes/communityReport'
 import { initBriefRoutes } from './routes/briefs'
 import { initWeeklyRoutes } from './routes/weekly'
 import { initVideoRoutes } from './routes/video'
@@ -44,13 +46,35 @@ import { setupQueueDashboard } from './routes/admin-queues'
 import prisma from './lib/prisma'
 import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
 
-if (!process.env.SESSION_SECRET) {
-  console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
-  process.env.SESSION_SECRET = 'dev-only-insecure-secret-change-me'
-}
+// ─── Required env vars — fail fast rather than silently misbehave ─────────────
+;(function validateEnv() {
+  const always = ['SESSION_SECRET', 'DATABASE_URL']
+  const liveOnly = [
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_PRO_MONTHLY_PRICE_ID',
+    'STRIPE_PRO_ANNUAL_PRICE_ID',
+    'STRIPE_AGENCY_MONTHLY_PRICE_ID',
+    'STRIPE_AGENCY_ANNUAL_PRICE_ID',
+  ]
+  const isLive = (process.env.VEXA_MODE || 'live').toLowerCase() !== 'test'
+  const required = isLive ? [...always, ...liveOnly] : always
+  const missing = required.filter((k) => !process.env[k])
+  if (missing.length) {
+    console.error('[api] FATAL: missing required environment variables:')
+    missing.forEach((k) => console.error(`  · ${k}`))
+    console.error('[api] Add them to apps/api/.env and restart.')
+    process.exit(1)
+  }
+})()
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
+
+// Security headers — applied to every response.
+// CSP disabled at the API layer; the Next.js frontend handles its own CSP.
+// crossOriginEmbedderPolicy disabled so the Bull Board admin UI can load assets.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }))
 
 // CORS — accept any origin in CORS_ORIGINS (comma-separated), plus the
 // legacy single-origin NEXT_PUBLIC_APP_URL. Also auto-allows Vercel
@@ -85,8 +109,21 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '2mb' }))
 app.use(cookieParser())
 
-// Enable gzip compression for all responses (reduces payload by 60-70%)
-app.use(compression())
+// Enable gzip compression for all responses (reduces payload by 60-70%).
+// Skip SSE endpoints — gzip buffering breaks Server-Sent Events: the
+// middleware accumulates writes before flushing, which delays event
+// delivery and causes the browser EventSource to error out / disconnect
+// before any events arrive. Skip text/event-stream and the known SSE path.
+app.use(
+  compression({
+    filter: (req, res) => {
+      if (req.path === '/api/video/stream') return false
+      const ct = String(res.getHeader('Content-Type') || '')
+      if (ct.includes('text/event-stream')) return false
+      return compression.filter(req, res)
+    },
+  }),
+)
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
@@ -131,6 +168,7 @@ app.use('/api/stripe', stripeRouter)
 app.use('/api/admin', adminRouter)
 app.use('/admin/queues', setupQueueDashboard())
 app.use('/api/waitlist', waitlistRouter)
+app.use('/api/community', communityReportRouter)
 app.use('/api/briefs', initBriefRoutes(prisma))
 app.use('/api/weekly', initWeeklyRoutes(prisma))
 app.use('/api/video', initVideoRoutes(prisma))
@@ -187,7 +225,7 @@ process.on('uncaughtException', (err) => {
   // Only exit on truly fatal errors (OOM will kill us anyway).
 })
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   const mode = getMode()
   const bedrockOn = !!(process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID)
   const stripeOn = !!process.env.STRIPE_SECRET_KEY
@@ -207,9 +245,26 @@ app.listen(PORT, () => {
     console.error('[api] BullMQ schedule registration failed:', err)
   )
   try {
-    const { broadcastProcessingEvent } = require('./lib/videoProcessing.service')
+    // Bridge Redis Pub/Sub events from workers → SSE clients in this
+    // process. We intentionally use the broadcaster from routes/video
+    // here (not videoProcessing.service): videoProcessing's local
+    // `broadcastProcessingEvent` is not exported, AND going through it
+    // would loop back through its own _broadcastFn indirection (which
+    // SSE clients in THIS process need pointed at routes/video's
+    // sseClients map, not redirected through pubsub again).
+    const { broadcastProcessingEvent } = require('./routes/video')
     initSSEBridge(broadcastProcessingEvent)
   } catch (err) {
     console.warn('[api] SSE bridge init skipped:', (err as Error).message)
   }
 })
+
+// Tune timeouts for large multipart uploads. Defaults are too short for
+// multi-hundred-MB POSTs going through the dev proxy:
+//   requestTimeout = 0    : no per-request timeout (was 5 min)
+//   headersTimeout = 660s : let multipart headers stream over a slow link
+//   keepAliveTimeout = 65s: > Next.js dev's default 60s so the upstream
+//                          half doesn't ECONNRESET before the proxy gives up
+httpServer.requestTimeout = 0
+httpServer.headersTimeout = 660 * 1000
+httpServer.keepAliveTimeout = 65 * 1000

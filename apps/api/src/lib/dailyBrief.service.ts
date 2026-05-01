@@ -57,11 +57,31 @@ export interface AudienceInsight {
   mobileVsDesktop: { mobile: number; desktop: number }
 }
 
+export interface MetricTrend {
+  label: string
+  value: number
+  prior: number | null
+  deltaPct: number | null
+  direction: 'up' | 'down' | 'flat'
+  isPositive: boolean
+  format: 'number' | 'percent' | 'count'
+}
+
+export interface AccountTrends {
+  weekLabel: string
+  metrics: MetricTrend[]
+  bestFormat: string | null
+  bestDay: string | null
+  engagementTrend: string
+  hasData: boolean
+}
+
 export interface MorningBriefData {
   trendingTopics: TrendingTopic[]
   yesterdayPosts: PostPerformance[]
   queuedPosts: QueuedPost[]
   audienceInsights: AudienceInsight
+  accountTrends: AccountTrends
 }
 
 export interface MidayCheckData {
@@ -103,11 +123,12 @@ export async function getMorningBriefData(
   prisma: PrismaClient,
   companyId: string,
 ): Promise<MorningBriefData> {
-  const [trendingTopics, yesterdayPosts, queuedPosts, audienceInsights] = await Promise.all([
+  const [trendingTopics, yesterdayPosts, queuedPosts, audienceInsights, accountTrends] = await Promise.all([
     getTrendingTopics(companyId),
     getYesterdayPerformance(prisma, companyId),
     getQueueStatus(prisma, companyId),
     getAudienceInsights(prisma, companyId),
+    getAccountTrends(prisma, companyId),
   ])
 
   return {
@@ -115,6 +136,7 @@ export async function getMorningBriefData(
     yesterdayPosts,
     queuedPosts,
     audienceInsights,
+    accountTrends,
   }
 }
 
@@ -250,6 +272,135 @@ export async function getEveningRecapData(
 }
 
 // ─── HELPER FUNCTIONS ─────────────────────────────────────────────────────────
+
+function pctDelta(cur: number, prev: number): number | null {
+  if (prev === 0) return null
+  return Math.round((cur - prev) / prev * 100)
+}
+
+function trendDir(cur: number, prev: number): MetricTrend['direction'] {
+  if (prev === 0) return 'flat'
+  const p = (cur - prev) / prev * 100
+  return p > 3 ? 'up' : p < -3 ? 'down' : 'flat'
+}
+
+/**
+ * Pull WoW account performance trends from WeeklySummary, falling back to
+ * DailyEngagement if weekly data isn't available yet.
+ */
+async function getAccountTrends(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<AccountTrends> {
+  try {
+    const summaries = await prisma.weeklySummary.findMany({
+      where: { account: { companyId } },
+      orderBy: { weekStart: 'desc' },
+      take: 20,
+      select: {
+        weekStart: true,
+        followerDelta: true,
+        avgEngagement: true,
+        avgReach: true,
+        postsPublished: true,
+        totalLikes: true,
+        totalSaves: true,
+        bestDay: true,
+        bestFormat: true,
+        engagementTrend: true,
+      },
+    })
+
+    if (summaries.length > 0) {
+      // Group by weekStart, take 2 most recent weeks
+      const byWeek = new Map<string, typeof summaries>()
+      for (const s of summaries) {
+        const key = s.weekStart.toISOString().slice(0, 10)
+        if (!byWeek.has(key)) byWeek.set(key, [])
+        byWeek.get(key)!.push(s)
+      }
+      const weeks = Array.from(byWeek.values())
+      const cur = weeks[0] ?? []
+      const prev = weeks[1] ?? []
+
+      const sumField = (arr: typeof summaries, f: 'followerDelta' | 'postsPublished' | 'totalLikes' | 'totalSaves') =>
+        arr.reduce((acc, s) => acc + s[f], 0)
+      const avgField = (arr: typeof summaries, f: 'avgEngagement' | 'avgReach') =>
+        arr.length ? arr.reduce((acc, s) => acc + s[f], 0) / arr.length : 0
+
+      const cLikes    = sumField(cur, 'totalLikes')
+      const pLikes    = prev.length ? sumField(prev, 'totalLikes') : null
+      const cEng      = avgField(cur, 'avgEngagement')
+      const pEng      = prev.length ? avgField(prev, 'avgEngagement') : null
+      const cReach    = Math.round(avgField(cur, 'avgReach'))
+      const pReach    = prev.length ? Math.round(avgField(prev, 'avgReach')) : null
+      const cPosts    = sumField(cur, 'postsPublished')
+      const pPosts    = prev.length ? sumField(prev, 'postsPublished') : null
+      const cSaves    = sumField(cur, 'totalSaves')
+      const pSaves    = prev.length ? sumField(prev, 'totalSaves') : null
+      const cFollowers = sumField(cur, 'followerDelta')
+      const pFollowers = prev.length ? sumField(prev, 'followerDelta') : null
+
+      const metrics: MetricTrend[] = [
+        { label: 'Likes',          value: cLikes,   prior: pLikes,    deltaPct: pLikes    != null ? pctDelta(cLikes, pLikes)       : null, direction: pLikes    != null ? trendDir(cLikes, pLikes)       : 'flat', isPositive: true, format: 'number' },
+        { label: 'Avg Engagement', value: Math.round(cEng * 10) / 10, prior: pEng != null ? Math.round(pEng * 10) / 10 : null, deltaPct: pEng != null ? pctDelta(cEng, pEng) : null, direction: pEng != null ? trendDir(cEng, pEng) : 'flat', isPositive: true, format: 'percent' },
+        { label: 'Avg Reach',      value: cReach,   prior: pReach,    deltaPct: pReach    != null ? pctDelta(cReach, pReach)       : null, direction: pReach    != null ? trendDir(cReach, pReach)       : 'flat', isPositive: true, format: 'number' },
+        { label: 'Posts',          value: cPosts,   prior: pPosts,    deltaPct: pPosts    != null ? pctDelta(cPosts, pPosts)       : null, direction: pPosts    != null ? trendDir(cPosts, pPosts)       : 'flat', isPositive: true, format: 'count' },
+        { label: 'Saves',          value: cSaves,   prior: pSaves,    deltaPct: pSaves    != null ? pctDelta(cSaves, pSaves)       : null, direction: pSaves    != null ? trendDir(cSaves, pSaves)       : 'flat', isPositive: true, format: 'number' },
+        { label: 'New Followers',  value: cFollowers, prior: pFollowers, deltaPct: pFollowers != null ? pctDelta(cFollowers, pFollowers) : null, direction: pFollowers != null ? trendDir(cFollowers, pFollowers) : 'flat', isPositive: true, format: 'count' },
+      ]
+
+      const weekStart = cur[0]?.weekStart
+      const weekLabel = weekStart
+        ? 'Week of ' + new Date(weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : 'This week'
+      const bestFormat = cur.find(s => s.bestFormat)?.bestFormat ?? null
+      const bestDay = cur.find(s => s.bestDay)?.bestDay ?? null
+      const engagementTrend = cur[0]?.engagementTrend ?? 'stable'
+
+      return { weekLabel, metrics, bestFormat, bestDay, engagementTrend, hasData: true }
+    }
+
+    // Fallback: build from DailyEngagement (last 14 days → two 7-day windows)
+    const rows = await prisma.dailyEngagement.findMany({
+      where: { companyId },
+      orderBy: { date: 'desc' },
+      take: 14,
+      select: { date: true, totalLikes: true, totalSaves: true, totalReach: true, postCount: true, engagementRate: true },
+    })
+
+    if (rows.length < 3) {
+      return { weekLabel: '', metrics: [], bestFormat: null, bestDay: null, engagementTrend: 'stable', hasData: false }
+    }
+
+    const half = Math.min(7, Math.floor(rows.length / 2))
+    const win1 = rows.slice(0, half)
+    const win2 = rows.slice(half, half * 2)
+
+    const s = (arr: typeof rows, f: 'totalLikes' | 'totalSaves' | 'totalReach' | 'postCount') => arr.reduce((a, r) => a + r[f], 0)
+    const a = (arr: typeof rows, f: 'engagementRate') => arr.length ? arr.reduce((acc, r) => acc + r[f], 0) / arr.length : 0
+
+    const metrics: MetricTrend[] = [
+      { label: 'Likes',          value: s(win1, 'totalLikes'), prior: win2.length ? s(win2, 'totalLikes') : null, deltaPct: win2.length ? pctDelta(s(win1, 'totalLikes'), s(win2, 'totalLikes')) : null, direction: win2.length ? trendDir(s(win1, 'totalLikes'), s(win2, 'totalLikes')) : 'flat', isPositive: true, format: 'number' },
+      { label: 'Saves',          value: s(win1, 'totalSaves'), prior: win2.length ? s(win2, 'totalSaves') : null, deltaPct: win2.length ? pctDelta(s(win1, 'totalSaves'), s(win2, 'totalSaves')) : null, direction: win2.length ? trendDir(s(win1, 'totalSaves'), s(win2, 'totalSaves')) : 'flat', isPositive: true, format: 'number' },
+      { label: 'Avg Reach',      value: Math.round(s(win1, 'totalReach') / win1.length), prior: win2.length ? Math.round(s(win2, 'totalReach') / win2.length) : null, deltaPct: win2.length ? pctDelta(s(win1, 'totalReach'), s(win2, 'totalReach')) : null, direction: win2.length ? trendDir(s(win1, 'totalReach'), s(win2, 'totalReach')) : 'flat', isPositive: true, format: 'number' },
+      { label: 'Posts',          value: s(win1, 'postCount'), prior: win2.length ? s(win2, 'postCount') : null, deltaPct: win2.length ? pctDelta(s(win1, 'postCount'), s(win2, 'postCount')) : null, direction: win2.length ? trendDir(s(win1, 'postCount'), s(win2, 'postCount')) : 'flat', isPositive: true, format: 'count' },
+      { label: 'Avg Engagement', value: Math.round(a(win1, 'engagementRate') * 100) / 100, prior: win2.length ? Math.round(a(win2, 'engagementRate') * 100) / 100 : null, deltaPct: win2.length ? pctDelta(a(win1, 'engagementRate'), a(win2, 'engagementRate')) : null, direction: win2.length ? trendDir(a(win1, 'engagementRate'), a(win2, 'engagementRate')) : 'flat', isPositive: true, format: 'percent' },
+    ]
+
+    const engDir = win2.length ? trendDir(a(win1, 'engagementRate'), a(win2, 'engagementRate')) : 'flat'
+    return {
+      weekLabel: 'Last 7 days',
+      metrics,
+      bestFormat: null,
+      bestDay: null,
+      engagementTrend: engDir === 'up' ? 'improving' : engDir === 'down' ? 'declining' : 'stable',
+      hasData: true,
+    }
+  } catch {
+    return { weekLabel: '', metrics: [], bestFormat: null, bestDay: null, engagementTrend: 'stable', hasData: false }
+  }
+}
 
 /**
  * Get trending topics in creator's niche (from cache/API)

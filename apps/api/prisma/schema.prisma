@@ -114,39 +114,67 @@ model User {
   cognitoId            String?            @unique @map("cognito_id")
   phylloUserId         String?            @unique @map("phyllo_user_id")
   fullName             String?            @map("full_name")
-  subscriptionStatus   SubscriptionStatus @default(trial) @map("subscription_status")
-  plan                 Plan               @default(starter)
+  subscriptionStatus   SubscriptionStatus @default(active) @map("subscription_status")
+  plan                 Plan               @default(free)
   trialEndsAt          DateTime?          @map("trial_ends_at")
   stripeCustomerId     String?            @map("stripe_customer_id")
   stripeSubscriptionId String?            @map("stripe_subscription_id")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
-  companies     Company[]
-  notifications Notification[]
+  companies           Company[]
+  notifications       Notification[]
+  communityReports    CommunityReport[]
+  consentLogs         CommunityConsentLog[]
+  feedSignals         FeedSignal[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
 
-model Company {
-  id         String   @id @default(uuid())
-  userId     String   @map("user_id")
-  name       String
-  niche         String
-  subNiche      String?  @map("sub_niche")
-  detectedNiche    String?  @map("detected_niche")
-  detectedSubNiche String?  @map("detected_sub_niche")
-  nicheConfidence  Float?   @map("niche_confidence")
-  platform      Platform @default(instagram)
-  brandVoice    Json     @default("{}") @map("brand_voice")
-  audience      Json     @default("{}")
-  goals         Json     @default("{}")
-  agentTools    Json     @default("{}") @map("agent_tools")
-  communityOptIn   Boolean  @default(false) @map("community_opt_in")
-  communityOptInAt DateTime? @map("community_opt_in_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
-  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model Company {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  name               String
+  niche              String
+  subNiche           String?   @map("sub_niche")
+  detectedNiche      String?   @map("detected_niche")
+  detectedSubNiche   String?   @map("detected_sub_niche")
+  nicheConfidence    Float?    @map("niche_confidence")
+  platform           Platform  @default(instagram)
+  brandVoice         Json      @default("{}") @map("brand_voice")
+  audience           Json      @default("{}")
+  goals              Json      @default("{}")
+  agentTools         Json      @default("{}") @map("agent_tools")
+  communityOptIn     Boolean   @default(false) @map("community_opt_in")
+  communityOptInAt   DateTime? @map("community_opt_in_at")
+  // ISO 2-letter country code derived from PlatformAudience.topCountries.
+  // Null until the first /api/feed call backfills it. Used to boost
+  // community items from creators in the same country as the viewer.
+  country            String?   @db.VarChar(2)
+  // Semantic embedding of the user's content fingerprint (top hashtags,
+  // AI tags, keywords, moods). Refreshed every 7 days OR when the
+  // FeedContentProfile rebuilds. Used by feedRelevance.scoreSemanticSimilarity
+  // to rank candidate items by cosine similarity.
+  profileEmbedding   Json?     @map("profile_embedding")
+  profileEmbeddingAt DateTime? @map("profile_embedding_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   employees        Employee[]
   tasks            Task[]
   outputs          Output[]
@@ -157,11 +185,13 @@ model Company {
   knowledge        Knowledge[]
   instagram        InstagramConnection?
   tiktok           TiktokConnection?
-  platformAccounts  PlatformAccount[]
-  dailyEngagements  DailyEngagement[]
+  platformAccounts PlatformAccount[]
+  dailyEngagements DailyEngagement[]
   videoUploads     VideoUpload[]
   videoClips       VideoClip[]
   metrics          ProcessingMetric[]
+  consentLogs      CommunityConsentLog[]
+  feedSignals      FeedSignal[]
 
   @@map("companies")
 }
@@ -174,11 +204,11 @@ model Employee {
   isActive   Boolean      @default(true) @map("is_active")
   lastActive DateTime?    @map("last_active")
 
-  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  tasks             Task[]
-  outputs           Output[]
-  meetings          Meeting[]
-  thoughtResponses  ThoughtResponse[]
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tasks            Task[]
+  outputs          Output[]
+  meetings         Meeting[]
+  thoughtResponses ThoughtResponse[]
 
   @@unique([companyId, role])
   @@map("employees")
@@ -244,14 +274,14 @@ model Meeting {
 }
 
 model Thought {
-  id                String             @id @default(uuid())
-  companyId         String             @map("company_id")
-  content           String             @db.Text
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  thoughtResponses  ThoughtResponse[]
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  thoughtResponses ThoughtResponse[]
 
   @@index([companyId])
   @@index([createdAt])
@@ -259,16 +289,16 @@ model Thought {
 }
 
 model ThoughtResponse {
-  id          String    @id @default(uuid())
-  thoughtId   String    @map("thought_id")
-  companyId   String    @map("company_id")
-  employeeId  String    @map("employee_id")
-  content     String    @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  thoughtId  String   @map("thought_id")
+  companyId  String   @map("company_id")
+  employeeId String   @map("employee_id")
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  thought   Thought  @relation(fields: [thoughtId], references: [id], onDelete: Cascade)
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  thought  Thought  @relation(fields: [thoughtId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([thoughtId, employeeId])
   @@index([thoughtId])
@@ -291,20 +321,20 @@ model BrandMemory {
 }
 
 model Knowledge {
-  id             String           @id @default(uuid())
-  companyId      String           @map("company_id")
+  id             String          @id @default(uuid())
+  companyId      String          @map("company_id")
   type           KnowledgeType
   source         KnowledgeSource
   title          String
   summary        String
   details        Json? // rich content, recommendations, analysis
-  tags           String[]         @default([]) // searchable tags
+  tags           String[]        @default([]) // searchable tags
   sourceUrl      String? // link to original source
-  relatedItemIds String[]         @default([]) // IDs of related Knowledge items
-  relevanceScore Float            @default(0.5) // 0-1, how relevant to this company
-  isArchived     Boolean          @default(false) @map("is_archived")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
+  relatedItemIds String[]        @default([]) // IDs of related Knowledge items
+  relevanceScore Float           @default(0.5) // 0-1, how relevant to this company
+  isArchived     Boolean         @default(false) @map("is_archived")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -356,8 +386,8 @@ model PlatformAccount {
   lastSyncedAt    DateTime       @default(now()) @map("last_synced_at")
   disconnectedAt  DateTime?      @map("disconnected_at")
 
-  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  snapshots PlatformSnapshot[]
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  snapshots       PlatformSnapshot[]
   posts           PlatformPost[]
   audiences       PlatformAudience[]
   weeklySummaries WeeklySummary[]
@@ -379,21 +409,21 @@ model PlatformSnapshot {
   engagementRate Float    @default(0) @map("engagement_rate")
 
   // ── Derived time-series features (computed after each sync) ─────
-  followerDelta       Int   @default(0) @map("follower_delta")         // change since previous snapshot
-  followerGrowthPct   Float @default(0) @map("follower_growth_pct")    // % change since previous snapshot
-  growthRate7d        Float @default(0) @map("growth_rate_7d")         // avg daily follower change over 7d
-  growthRate28d       Float @default(0) @map("growth_rate_28d")        // avg daily follower change over 28d
-  growthAcceleration  Float @default(0) @map("growth_acceleration")    // change in 7d growth rate vs prior 7d (2nd derivative)
-  engagementRate7d    Float @default(0) @map("engagement_rate_7d")     // 7-day rolling avg engagement rate
-  engagementRate28d   Float @default(0) @map("engagement_rate_28d")    // 28-day rolling avg engagement rate
-  reach7d             Int   @default(0) @map("reach_7d")               // 7-day rolling avg reach
-  reach28d            Int   @default(0) @map("reach_28d")              // 28-day rolling avg reach
-  avgSaveRate         Float @default(0) @map("avg_save_rate")          // rolling avg save rate across recent posts
-  avgViralityScore    Float @default(0) @map("avg_virality_score")     // rolling avg share/reach
-  postingCadence7d    Float @default(0) @map("posting_cadence_7d")     // posts published in last 7 days
-  postingCadence28d   Float @default(0) @map("posting_cadence_28d")    // posts published in last 28 days
-  profileViews        Int   @default(0) @map("profile_views")          // IG account-level: profile visits (28d total)
-  websiteClicks       Int   @default(0) @map("website_clicks")         // IG account-level: bio link clicks (28d total)
+  followerDelta      Int   @default(0) @map("follower_delta") // change since previous snapshot
+  followerGrowthPct  Float @default(0) @map("follower_growth_pct") // % change since previous snapshot
+  growthRate7d       Float @default(0) @map("growth_rate_7d") // avg daily follower change over 7d
+  growthRate28d      Float @default(0) @map("growth_rate_28d") // avg daily follower change over 28d
+  growthAcceleration Float @default(0) @map("growth_acceleration") // change in 7d growth rate vs prior 7d (2nd derivative)
+  engagementRate7d   Float @default(0) @map("engagement_rate_7d") // 7-day rolling avg engagement rate
+  engagementRate28d  Float @default(0) @map("engagement_rate_28d") // 28-day rolling avg engagement rate
+  reach7d            Int   @default(0) @map("reach_7d") // 7-day rolling avg reach
+  reach28d           Int   @default(0) @map("reach_28d") // 28-day rolling avg reach
+  avgSaveRate        Float @default(0) @map("avg_save_rate") // rolling avg save rate across recent posts
+  avgViralityScore   Float @default(0) @map("avg_virality_score") // rolling avg share/reach
+  postingCadence7d   Float @default(0) @map("posting_cadence_7d") // posts published in last 7 days
+  postingCadence28d  Float @default(0) @map("posting_cadence_28d") // posts published in last 28 days
+  profileViews       Int   @default(0) @map("profile_views") // IG account-level: profile visits (28d total)
+  websiteClicks      Int   @default(0) @map("website_clicks") // IG account-level: bio link clicks (28d total)
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -409,7 +439,7 @@ model PlatformPost {
   caption         String?
   url             String?
   thumbnailUrl    String?   @map("thumbnail_url")
-  mediaUrl        String?   @map("media_url")   // direct CDN URL to video/image file
+  mediaUrl        String?   @map("media_url") // direct CDN URL to video/image file
   publishedAt     DateTime? @map("published_at")
   likeCount       Int       @default(0) @map("like_count")
   commentCount    Int       @default(0) @map("comment_count")
@@ -421,44 +451,58 @@ model PlatformPost {
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
 
   // ── Derived metrics (computed after each sync) ──────────────────
-  avgWatchTimeMs       Int    @default(0) @map("avg_watch_time_ms")      // Reel avg watch time in ms (from Meta)
-  retentionRate        Float  @default(0) @map("retention_rate")         // avg watch time / video duration (0-1)
-  engagementRate       Float  @default(0) @map("engagement_rate")        // (likes+comments+saves+shares)/reach
-  saveRate             Float  @default(0) @map("save_rate")              // saves/reach — IG ranking signal
-  viralityScore        Float  @default(0) @map("virality_score")         // shares/reach — algorithmic boost
-  commentToLikeRatio   Float  @default(0) @map("comment_to_like_ratio")  // comments/likes — discussion signal
-  viewToFollowerRatio  Float  @default(0) @map("view_to_follower_ratio") // views/followerCount — breakout indicator
-  captionLength        Int    @default(0) @map("caption_length")         // word count
-  publishHour          Int?   @map("publish_hour")                       // 0-23 UTC hour for best-time analysis
-  publishDayOfWeek     Int?   @map("publish_day_of_week")                // 0=Sun..6=Sat
-  engagementVelocity   Float  @default(0) @map("engagement_velocity")    // engagement gained in first 48h (from snapshots)
-  decayRate            Float  @default(0) @map("decay_rate")             // how fast engagement growth slows (0=dies fast, 1=evergreen)
+  avgWatchTimeMs      Int   @default(0) @map("avg_watch_time_ms") // Reel avg watch time in ms (from Meta)
+  retentionRate       Float @default(0) @map("retention_rate") // avg watch time / video duration (0-1)
+  engagementRate      Float @default(0) @map("engagement_rate") // (likes+comments+saves+shares)/reach
+  saveRate            Float @default(0) @map("save_rate") // saves/reach — IG ranking signal
+  viralityScore       Float @default(0) @map("virality_score") // shares/reach — algorithmic boost
+  commentToLikeRatio  Float @default(0) @map("comment_to_like_ratio") // comments/likes — discussion signal
+  viewToFollowerRatio Float @default(0) @map("view_to_follower_ratio") // views/followerCount — breakout indicator
+  captionLength       Int   @default(0) @map("caption_length") // word count
+  publishHour         Int?  @map("publish_hour") // 0-23 UTC hour for best-time analysis
+  publishDayOfWeek    Int?  @map("publish_day_of_week") // 0=Sun..6=Sat
+  engagementVelocity  Float @default(0) @map("engagement_velocity") // engagement gained in first 48h (from snapshots)
+  decayRate           Float @default(0) @map("decay_rate") // how fast engagement growth slows (0=dies fast, 1=evergreen)
 
   // ── Community feed tags (AI-generated) ─────────────────────────
-  communityTags      Json?      @map("community_tags")       // structured CommunityTags object
-  communityTaggedAt  DateTime?  @map("community_tagged_at")  // null = not yet tagged
+  communityTags     Json?     @map("community_tags") // structured CommunityTags object
+  communityTaggedAt DateTime? @map("community_tagged_at") // null = not yet tagged
 
-  account         PlatformAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  metricSnapshots PostMetricSnapshot[]
+  // ── Community feed visibility controls ─────────────────────────
+  communityExcluded     Boolean   @default(false) @map("community_excluded") // user opted this specific post out
+  communityHiddenAt     DateTime? @map("community_hidden_at") // moderator/auto-hide timestamp
+  communityHiddenReason String?   @map("community_hidden_reason") // e.g. "report:spam", "admin:manual"
+
+  // ── Semantic embedding for relevance ranking ───────────────────
+  // Float vector (Titan Embed v2 = 1024 dims) stored as JSON array.
+  // Computed once when the post is first surfaced; persisted forever.
+  // Cosine similarity against Company.profileEmbedding ranks the feed.
+  topicEmbedding   Json?     @map("topic_embedding")
+  topicEmbeddingAt DateTime? @map("topic_embedding_at")
+
+  account          PlatformAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  metricSnapshots  PostMetricSnapshot[]
+  communityReports CommunityReport[]
 
   @@unique([accountId, platformPostId])
   @@index([accountId, publishedAt])
   @@index([communityTaggedAt])
+  @@index([communityHiddenAt])
   @@map("platform_posts")
 }
 
 // Per-post metric snapshots — stored on every sync so we can compute
 // weekly deltas (e.g. "this post gained 10 likes this week").
 model PostMetricSnapshot {
-  id        String   @id @default(uuid())
-  postId    String   @map("post_id")
-  capturedAt DateTime @default(now()) @map("captured_at")
-  likeCount     Int  @default(0) @map("like_count")
-  commentCount  Int  @default(0) @map("comment_count")
-  shareCount    Int  @default(0) @map("share_count")
-  saveCount     Int  @default(0) @map("save_count")
-  viewCount     Int  @default(0) @map("view_count")
-  reachCount    Int  @default(0) @map("reach_count")
+  id           String   @id @default(uuid())
+  postId       String   @map("post_id")
+  capturedAt   DateTime @default(now()) @map("captured_at")
+  likeCount    Int      @default(0) @map("like_count")
+  commentCount Int      @default(0) @map("comment_count")
+  shareCount   Int      @default(0) @map("share_count")
+  saveCount    Int      @default(0) @map("save_count")
+  viewCount    Int      @default(0) @map("view_count")
+  reachCount   Int      @default(0) @map("reach_count")
 
   post PlatformPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -469,20 +513,20 @@ model PostMetricSnapshot {
 // Weekly summary per account — pre-computed after each sync.
 // Agents read this instead of computing from raw snapshots.
 model WeeklySummary {
-  id           String   @id @default(uuid())
-  accountId    String   @map("account_id")
-  weekStart    DateTime @map("week_start") // Monday 00:00 UTC
-  weekEnd      DateTime @map("week_end")   // Sunday 23:59 UTC
+  id        String   @id @default(uuid())
+  accountId String   @map("account_id")
+  weekStart DateTime @map("week_start") // Monday 00:00 UTC
+  weekEnd   DateTime @map("week_end") // Sunday 23:59 UTC
 
   // Account-level deltas
   followerStart     Int   @default(0) @map("follower_start")
   followerEnd       Int   @default(0) @map("follower_end")
   followerDelta     Int   @default(0) @map("follower_delta")
-  followerGrowthPct Float @default(0) @map("follower_growth_pct")  // % growth this week
+  followerGrowthPct Float @default(0) @map("follower_growth_pct") // % growth this week
 
   // Engagement
-  avgEngagement  Float @default(0) @map("avg_engagement")
-  avgReach       Int   @default(0) @map("avg_reach")
+  avgEngagement Float @default(0) @map("avg_engagement")
+  avgReach      Int   @default(0) @map("avg_reach")
 
   // Post activity
   postsPublished Int @default(0) @map("posts_published")
@@ -498,17 +542,17 @@ model WeeklySummary {
   topPostCaption String? @map("top_post_caption")
 
   // Computed insights
-  bestDay        String? @map("best_day")      // "Monday", "Tuesday", etc.
-  bestHour       Int?    @map("best_hour")      // 0-23 UTC — best hour by avg engagement
-  bestFormat     String? @map("best_format")    // "REEL", "CAROUSEL", "IMAGE"
+  bestDay    String? @map("best_day") // "Monday", "Tuesday", etc.
+  bestHour   Int?    @map("best_hour") // 0-23 UTC — best hour by avg engagement
+  bestFormat String? @map("best_format") // "REEL", "CAROUSEL", "IMAGE"
 
   // Derived weekly metrics
-  avgSaveRate         Float  @default(0) @map("avg_save_rate")           // avg saves/reach across posts this week
-  avgViralityScore    Float  @default(0) @map("avg_virality_score")      // avg shares/reach this week
-  avgCaptionLength    Float  @default(0) @map("avg_caption_length")      // avg word count
-  consistencyScore    Float  @default(0) @map("consistency_score")       // 0-1: posting regularity (1=perfectly even)
-  engagementTrend     String @default("stable") @map("engagement_trend") // 'improving' | 'declining' | 'stable'
-  formatMomentum      Json   @default("[]") @map("format_momentum")      // [{format, avgEng, delta, trend}]
+  avgSaveRate      Float  @default(0) @map("avg_save_rate") // avg saves/reach across posts this week
+  avgViralityScore Float  @default(0) @map("avg_virality_score") // avg shares/reach this week
+  avgCaptionLength Float  @default(0) @map("avg_caption_length") // avg word count
+  consistencyScore Float  @default(0) @map("consistency_score") // 0-1: posting regularity (1=perfectly even)
+  engagementTrend  String @default("stable") @map("engagement_trend") // 'improving' | 'declining' | 'stable'
+  formatMomentum   Json   @default("[]") @map("format_momentum") // [{format, avgEng, delta, trend}]
 
   account PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -560,41 +604,41 @@ model PlatformAudience {
 }
 
 model InstagramConnection {
-  id              String    @id @default(uuid())
-  companyId       String    @unique @map("company_id")
-  handle          String
-  profileUrl      String?   @map("profile_url")
-  accountType     String    @default("CREATOR") @map("account_type")
-  bio             String?
-  followerCount   Int       @default(0) @map("follower_count")
-  followingCount  Int       @default(0) @map("following_count")
-  postCount       Int       @default(0) @map("post_count")
-  engagementRate  Float     @default(0) @map("engagement_rate")
-  avgReach        Int       @default(0) @map("avg_reach")
-  avgImpressions  Int       @default(0) @map("avg_impressions")
-  profileViews    Int       @default(0) @map("profile_views")
-  websiteClicks   Int       @default(0) @map("website_clicks")
-  dailyProfileViews  Json   @default("[]") @map("daily_profile_views")
-  dailyWebsiteClicks Json   @default("[]") @map("daily_website_clicks")
-  topPosts        Json      @default("[]") @map("top_posts")
-  recentMedia     Json      @default("[]") @map("recent_media")
-  stories         Json      @default("[]")
-  followerSeries  Json      @default("[]") @map("follower_series")
-  audienceAge     Json      @default("{}") @map("audience_age")
-  audienceGender  Json      @default("{}") @map("audience_gender")
-  audienceTop     Json      @default("[]") @map("audience_top_countries")
-  audienceCities  Json      @default("[]") @map("audience_top_cities")
-  accessToken     String?   @map("access_token")
-  refreshToken    String?   @map("refresh_token")
-  tokenExpiresAt  DateTime? @map("token_expires_at")
-  igUserId        String?   @map("ig_user_id")
-  igBusinessId    String?   @map("ig_business_id")
-  pageId          String?   @map("page_id")
-  phylloAccountId String?   @unique @map("phyllo_account_id")
-  platform        String    @default("instagram")
-  source          String    @default("stub") // 'stub' | 'phyllo' | 'meta'
-  connectedAt     DateTime  @default(now()) @map("connected_at")
-  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
+  id                 String    @id @default(uuid())
+  companyId          String    @unique @map("company_id")
+  handle             String
+  profileUrl         String?   @map("profile_url")
+  accountType        String    @default("CREATOR") @map("account_type")
+  bio                String?
+  followerCount      Int       @default(0) @map("follower_count")
+  followingCount     Int       @default(0) @map("following_count")
+  postCount          Int       @default(0) @map("post_count")
+  engagementRate     Float     @default(0) @map("engagement_rate")
+  avgReach           Int       @default(0) @map("avg_reach")
+  avgImpressions     Int       @default(0) @map("avg_impressions")
+  profileViews       Int       @default(0) @map("profile_views")
+  websiteClicks      Int       @default(0) @map("website_clicks")
+  dailyProfileViews  Json      @default("[]") @map("daily_profile_views")
+  dailyWebsiteClicks Json      @default("[]") @map("daily_website_clicks")
+  topPosts           Json      @default("[]") @map("top_posts")
+  recentMedia        Json      @default("[]") @map("recent_media")
+  stories            Json      @default("[]")
+  followerSeries     Json      @default("[]") @map("follower_series")
+  audienceAge        Json      @default("{}") @map("audience_age")
+  audienceGender     Json      @default("{}") @map("audience_gender")
+  audienceTop        Json      @default("[]") @map("audience_top_countries")
+  audienceCities     Json      @default("[]") @map("audience_top_cities")
+  accessToken        String?   @map("access_token")
+  refreshToken       String?   @map("refresh_token")
+  tokenExpiresAt     DateTime? @map("token_expires_at")
+  igUserId           String?   @map("ig_user_id")
+  igBusinessId       String?   @map("ig_business_id")
+  pageId             String?   @map("page_id")
+  phylloAccountId    String?   @unique @map("phyllo_account_id")
+  platform           String    @default("instagram")
+  source             String    @default("stub") // 'stub' | 'phyllo' | 'meta'
+  connectedAt        DateTime  @default(now()) @map("connected_at")
+  lastSyncedAt       DateTime  @default(now()) @map("last_synced_at")
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -716,17 +760,17 @@ model WaitlistEntry {
 // ── VIDEO PROCESSING ──────────────────────────────────────────────────────────
 
 model VideoUpload {
-  id               String   @id @default(cuid())
-  companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  sourceVideoUrl   String   // Original uploaded video
-  fileName         String?
-  duration         Int?     // Seconds (extracted from video)
+  sourceVideoUrl String // Original uploaded video
+  fileName       String?
+  duration       Int? // Seconds (extracted from video)
 
-  clips            VideoClip[]
+  clips VideoClip[]
 
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([companyId])
   @@index([createdAt])
@@ -734,33 +778,33 @@ model VideoUpload {
 }
 
 model VideoClip {
-  id               String   @id @default(cuid())
-  uploadId         String
-  upload           VideoUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  id       String      @id @default(cuid())
+  uploadId String
+  upload   VideoUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
 
-  companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  clippedUrl       String   // Final edited video URL
-  duration         Int      // Seconds
-  hook             String?  // Auto-generated or user-provided
-  caption          String?  // User-approved caption
-  captionOptions   Json?    // [{id, text, type, rationale}] — Alex's suggestions
-  selectedCaptionId String?  // Which caption was approved
+  clippedUrl        String // Final edited video URL
+  duration          Int // Seconds
+  hook              String? // Auto-generated or user-provided
+  caption           String? // User-approved caption
+  captionOptions    Json? // [{id, text, type, rationale}] — Alex's suggestions
+  selectedCaptionId String? // Which caption was approved
 
-  status           String   @default("ready_to_post") // ready_to_post, posted, archived, draft
+  status               String @default("ready_to_post") // ready_to_post, posted, archived, draft
   visualApprovalStatus String @default("pending") @map("visual_approval_status") // pending, approved, rejected
-  copyApprovalStatus String @default("pending") @map("copy_approval_status") // pending, approved, rejected
+  copyApprovalStatus   String @default("pending") @map("copy_approval_status") // pending, approved, rejected
 
-  processedWith    String   @default("descript_magic_shortform")
-  descriptVideoId  String?  // For re-processing if needed
+  processedWith   String  @default("descript_magic_shortform")
+  descriptVideoId String? // For re-processing if needed
 
-  adjustments      Json?    // {colorTemp: -10, saturation: +5, version: 1}
-  styleMetrics     Json?    // {styleReplication: 0.87, colorAccuracy: 0.92, ...}
-  editorialFeedback Json?   // [{type: 'visual'|'copy', reason, timestamp, version}]
+  adjustments       Json? // {colorTemp: -10, saturation: +5, version: 1}
+  styleMetrics      Json? // {styleReplication: 0.87, colorAccuracy: 0.92, ...}
+  editorialFeedback Json? // [{type: 'visual'|'copy', reason, timestamp, version}]
 
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([companyId])
   @@index([uploadId])
@@ -771,15 +815,15 @@ model VideoClip {
 }
 
 model ProcessingMetric {
-  id               String   @id @default(cuid())
-  companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  metricType       String   // "style_replication" | "clipping_quality" | "processing_time"
-  value            Float    // The numeric score/time in ms
-  details          Json     // Full measurement details
+  metricType String // "style_replication" | "clipping_quality" | "processing_time"
+  value      Float // The numeric score/time in ms
+  details    Json // Full measurement details
 
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([companyId])
   @@index([metricType])
@@ -790,13 +834,13 @@ model ProcessingMetric {
 // ── Content Timeline (weekly calendar generated from agent outputs) ──────────
 
 model ContentTimeline {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  weekOf      String   @map("week_of")       // ISO date of the Monday
-  slots       Json                            // TimelineSlot[]
-  strategy    String?                         // Jordan's one-line strategy
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  weekOf        String   @map("week_of") // ISO date of the Monday
+  slots         Json // TimelineSlot[]
+  strategy      String? // Jordan's one-line strategy
   sourceTaskIds String[] @default([]) @map("source_task_ids")
-  generatedAt DateTime @default(now()) @map("generated_at")
+  generatedAt   DateTime @default(now()) @map("generated_at")
 
   @@unique([companyId, weekOf])
   @@index([companyId])
@@ -809,13 +853,78 @@ model VideoCompilation {
   id             String   @id @default(cuid())
   companyId      String   @map("company_id")
   uploadIds      String[] @map("upload_ids")
-  strategy       String   @default("montage")  // montage | sequential | intercut
-  targetDuration Int      @default(60)          @map("target_duration")
-  status         String   @default("pending")   // pending | processing | complete | failed
-  clipId         String?  @map("clip_id")       // resulting VideoClip ID
+  strategy       String   @default("montage") // montage | sequential | intercut
+  targetDuration Int      @default(60) @map("target_duration")
+  status         String   @default("pending") // pending | processing | complete | failed
+  clipId         String?  @map("clip_id") // resulting VideoClip ID
   error          String?
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([companyId])
   @@map("video_compilations")
+}
+
+// ── Community feed trust + moderation ──────────────────────────────────────
+
+// Tracks every consent action (opt_in / opt_out) on the community feed,
+// including which agreement version the user accepted. Append-only audit log.
+model CommunityConsentLog {
+  id               String   @id @default(uuid())
+  companyId        String   @map("company_id")
+  userId           String   @map("user_id")
+  action           String // 'opted_in' | 'opted_out'
+  agreementVersion String   @default("v1") @map("agreement_version")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@map("community_consent_log")
+}
+
+// Append-only behavioral signal log for the Knowledge feed. Captures the
+// user's reveal-clicks, opens, dismissals, and Not-interested actions so
+// the next /api/feed call can boost / dampen accordingly. No PII beyond
+// the userId/companyId; targetId is a post ID, an @handle, or a topic.
+model FeedSignal {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  companyId  String   @map("company_id")
+  kind       String // 'reveal' | 'open' | 'dismiss' | 'not_interested' | 'report'
+  targetType String   @map("target_type") // 'post' | 'creator' | 'topic'
+  targetId   String   @map("target_id") // post.id, '@handle', or topic string
+  weight     Float    @default(1)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, kind, createdAt])
+  @@index([companyId, targetType, targetId])
+  @@map("feed_signals")
+}
+
+// A report filed against a community-contributed post. First report
+// (per-post) immediately hides the post; subsequent reports are merged.
+// Admins resolve via /api/admin/community/reports/:id/resolve.
+model CommunityReport {
+  id                String    @id @default(uuid())
+  postId            String    @map("post_id")
+  reporterUserId    String    @map("reporter_user_id")
+  reporterCompanyId String?   @map("reporter_company_id")
+  reason            String // 'spam' | 'offensive' | 'misleading' | 'copyright' | 'other'
+  notes             String?   @db.Text
+  status            String    @default("pending") // 'pending' | 'confirmed' | 'dismissed'
+  createdAt         DateTime  @default(now()) @map("created_at")
+  resolvedAt        DateTime? @map("resolved_at")
+  resolvedByEmail   String?   @map("resolved_by_email")
+  resolutionNotes   String?   @map("resolution_notes") @db.Text
+
+  post     PlatformPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter User         @relation(fields: [reporterUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([postId])
+  @@map("community_reports")
 }

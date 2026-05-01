@@ -218,9 +218,14 @@ export async function checkRateLimit(
 // ─── PLAN-BASED RATE LIMITS ───────────────────────────────────────────────────
 
 export const RATE_LIMITS = {
+  free: {
+    tasksPerHour:    1,
+    meetingsPerDay:  0,
+    apiCallsPerMin:  5,
+  },
   starter: {
     tasksPerHour:    5,
-    meetingsPerDay:  0,   // not on starter
+    meetingsPerDay:  0,   // deprecated plan, kept for existing subscribers
     apiCallsPerMin:  10,
   },
   pro: {

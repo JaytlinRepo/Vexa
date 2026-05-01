@@ -20,6 +20,9 @@ import { detectSpeechSpans, findSpeechSpanAt, SpeechSpan } from './speechSpans'
 import { filterDirectNarration } from './directNarrationFilter'
 import type { AudioPoint } from './audioEnergy.service'
 import { lengthPolicyFor } from './subjectClassifier.service'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+const execFileAsync = promisify(execFile)
 
 export interface ReelSegment {
   startTime: number
@@ -246,6 +249,23 @@ export async function analyzeAndPickClip(
   beatAnalysis?: BeatAnalysis,
   badWindows?: BadWindow[],
   audioCurve?: AudioPoint[],
+  // Optional: when the source is a stitched compilation of multiple
+  // user-uploaded clips, these boundaries describe each clip's range
+  // on the combined timeline. Used to tell Riley about the source
+  // structure AND to enforce a per-source segment cap so a single
+  // source can't dominate the reel.
+  sourceBoundaries?: { start: number; end: number; fileName: string }[],
+  // Optional: local file path for the source video. When provided,
+  // enables a frame-similarity dedup pass that detects "fake cuts"
+  // (adjacent segments whose midpoint frames are visually identical —
+  // common when the user uploads multiple takes of the same shot).
+  localVideoPath?: string,
+  // Optional: motion intensity curve from motionCurve.service. Used as
+  // the strongest signal for the front-trim pass — if motion stays low
+  // at a segment's start, that's stale time before the action begins,
+  // even if audio is loud (e.g. ambient cafe noise) or there's no
+  // beatAnalysis action span aligned to it.
+  motionCurve?: { time: number; motion: number }[],
 ): Promise<ClipDecision> {
   // Very short video — use the whole thing
   if (videoDuration <= 10) {
@@ -519,12 +539,37 @@ HOW MUCH TO KEEP PER ACTION:
     }
   }
 
+  // Build the source-structure section: if this is a stitched compilation,
+  // tell Riley about each clip's boundaries AND demand per-source diversity.
+  // Cap = ceil(targetSegments / sources) + 1 (so 5 sources × 6 target =
+  // max 2 per source). Hard cap of 4 per source for very short content.
+  let sourceStructureSection = ''
+  let perSourceCap = Number.POSITIVE_INFINITY
+  if (sourceBoundaries && sourceBoundaries.length > 1) {
+    const expectedSegments = Math.max(3, Math.round(videoDuration / Math.max(2.5, /* avgCutSpeed below */ 3.5)))
+    perSourceCap = Math.max(2, Math.min(4, Math.ceil(expectedSegments / sourceBoundaries.length) + 1))
+    const lines = sourceBoundaries
+      .map((b, i) => `  Clip ${i + 1}: [${b.start.toFixed(1)}s – ${b.end.toFixed(1)}s] "${b.fileName}" (${(b.end - b.start).toFixed(1)}s)`)
+      .join('\n')
+    sourceStructureSection = `
+SOURCE STRUCTURE — this video is a stitched compilation of ${sourceBoundaries.length} separate clips:
+${lines}
+
+CRITICAL DIVERSITY RULE:
+- The user uploaded ${sourceBoundaries.length} different clips and wants them ALL represented in the reel.
+- Pick AT LEAST 1 segment from EACH clip. Aim for roughly equal coverage — NOT all from one clip.
+- HARD MAXIMUM: ≤${perSourceCap} segments from any single source clip. If one clip is the longest, that's fine — but cap it at ${perSourceCap}.
+- If one clip is dead/boring throughout, you can take fewer segments from it, but DON'T fill the slots with extras from another clip.
+- Each segment's "label" must describe THAT specific moment — never reuse the same label across multiple segments unless they truly show the same action.
+`
+  }
+
   const systemPrompt = `You are Riley, a Creative Director who replicates a creator's editing style. You can SEE the actual video frames.
 
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
 Your job: edit this ${videoDuration.toFixed(0)}s video the way THIS creator would edit it.
-${creatorInstructions}${retentionInsightsSection}
+${creatorInstructions}${retentionInsightsSection}${sourceStructureSection}
 PACING MATH:
 - This creator averages ~${avgCutSpeed.toFixed(1)}s per segment.
 - Source video is ${videoDuration.toFixed(0)}s long.
@@ -575,6 +620,23 @@ CRITICAL — WHERE TO CUT:
 - Clean cuts feel professional. Mid-action cuts feel choppy.
 - A reel of cuts that all land at the natural end of motion reads as smooth even when the cut count is high.
 
+AVOID THE RECORDING-START WOBBLE:
+- The first 0.5–0.8s of any source clip almost always shows the recording starting: the camera is being placed, a hand is pulling away, focus is settling. THIS LOOKS UNCLEAN.
+- DO NOT start a segment at exactly 0.0s of a source clip unless that frame is already stable. Push your startTime forward to where the shot is settled.
+- For stitched compilations: each source clip's first 0.5–0.8s on the combined timeline (the SOURCE STRUCTURE clip-start) is suspect. Begin segments after the wobble has passed.
+
+START EACH SEGMENT WHERE THE ACTION BEGINS:
+- A segment that opens with 1-2s of dead time (subject not yet moving, before-the-pour stillness, framed-up but waiting) reads as boring and unedited.
+- Look at the action data — if there's an action span at 35.4s, do NOT start your segment at 35.0s with 0.4s of stillness before it. Start at 35.2s (small breath) or 35.4s (right on the action).
+- "Begin on motion" applies BOTH to people (someone reaches, walks, turns, sips) AND to objects (drink starts pouring, food being cut, hand entering frame).
+- Tiny 0.2s breath before the action is fine — it gives the viewer a beat to register the scene. But anything more is dead time. Cut it.
+
+DO NOT PICK STALE WINDOWS — a special warning:
+- If you see footage of someone HOLDING something but not yet doing the action (e.g. holding a carafe before pouring, holding food before eating, holding a phone before showing the screen), DO NOT pick that as a segment unless the action happens INSIDE the same 2-4s window.
+- Specifically: a 3s window where seconds 0-2 are "person resting their hand on object" and second 3 is "object starts moving" is WORSE than a 3s window of just the moving action.
+- If the action extends BEYOND the natural window length, START the segment AT the action and go forward — don't include the lead-up. Example: if the pour begins at 28s and lasts 5s, pick [28-32] not [25-28].
+- Watch for these specific dead-time patterns: pre-pour resting, pre-bite holding, pre-sip looking-down. The action is what the viewer wants — frame the segment around IT.
+
 RULES:
 - Min 2.0s per segment HARD FLOOR. Anything shorter is unwatchable. Real-person poses need 2.5s+. Aim for 2.5-3.5s on most cuts so each moment LANDS.
 - For B-roll of SCREENS / photos / monitors / displays (camera pointed at a screen, not at the actual scene): use SHORTER segments (2.0-3.0s) and MULTIPLE of them — viewers read screen content fast; long dwell drags. Treat a panning shot across screens as a montage of 2-3s cuts, not one long segment.
@@ -585,17 +647,35 @@ RULES:
 - Cover beginning, middle, AND end of the video
 - Start with action, end with a payoff or conclusion
 
+REFERENCE-REEL PATTERNS (lifestyle/day-in-life vlogs we measured):
+- Pacing: 1.0–3.3s per cut for fast vlogs; 2.0–3.5s for narrative reels.
+- HOOK options (pick what the footage supports):
+   * Wide establishing shot of the location with subject mid-action (most common). Viewer reads the setting before the face.
+   * Face-first close-up holding/showing a product, item, or expression.
+   * Detail shot (hands, doorway, screen) that hints at what's about to happen.
+- SHOT VARIETY — alternate framings across consecutive cuts. NEVER stack two same-framing shots back-to-back. Pattern that works: wide → medium → detail → wide → medium. If consecutive segments would both be medium-shots of the same subject doing the same thing, drop one.
+- Transitions: hard-cut only. No fades, no dissolves. The pacing IS the transition — viewers feel the rhythm.
+- End on payoff: a final shot that lands (subject framed, action complete, looking at camera) — not on movement mid-flight.
+
 ${editingRules}
 
 Respond in valid JSON only:
 {
   "lengthTier": "quick|standard|story|instructional",
   "segments": [
-    { "startTime": number, "endTime": number, "label": "string (what's visually happening)", "energy": "hook|high|medium" }
+    { "startTime": number, "endTime": number, "label": "string", "energy": "hook|high|medium" }
   ],
   "hook": "string (describe the opening visual — what grabs attention first)",
   "rationale": "string (why you chose this tier and these cuts — reference what you SAW in the frames)"
-}`
+}
+
+LABEL RULES (read carefully — your previous outputs failed on this):
+- Each segment's "label" must describe what is SPECIFICALLY happening at THAT timestamp, based on the frame YOU SAW.
+- Look at the frame closest to each segment's startTime. If it shows a coffee being poured, label it "coffee being poured" — NOT a generic label that applies to other segments.
+- DO NOT reuse the same label across multiple segments unless the frames are visually identical.
+- Bad labels: "person drinking from cup" repeated 8 times across visually different shots. That means you defaulted to one label and applied it everywhere — DON'T DO THAT.
+- Good labels: "woman sips boba at street market", "man pours espresso over ice cream", "close-up of finished dessert", "person walking down stairs" — each grounded in what's actually in that specific frame.
+- Keep each label under 8 words.`
 
   // Build the message content with interleaved frames and text
   const content: Array<{ type: 'text'; text: string } | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }> = []
@@ -1413,6 +1493,536 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
       return fallbackClip(videoDuration, targetDuration, sceneData, creatorProfile)
     }
 
+    // ── DEAD-TIME FRONT-TRIM ─────────────────────────────────────────
+    // Cut "stale" time at the start of segments where motion hasn't begun.
+    // Two passes:
+    //   (a) Action-span trim — if an action span starts >0.6s into the
+    //       segment, snap startTime forward to action.startTime - 0.2s.
+    //   (b) Audio/motion fallback — for segments WITHOUT a detected
+    //       action span, sample the audio energy curve over the first
+    //       1.5s of the segment. If energy stays at "dead" levels for
+    //       >0.6s, advance startTime past the dead window.
+    // Both passes preserve the segment's endTime and never shorten
+    // below the 2.0s floor.
+    const frontTrimmedSegments = new Set<ReelSegment>()
+    if (beatAnalysis && beatAnalysis.actions.length > 0) {
+      const DEAD_TIME_THRESHOLD = 0.6
+      const ACTION_LEAD_IN = 0.2
+      let trimCount = 0
+      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+        const s = segments[segIdx]
+        const insideActions = beatAnalysis.actions
+          .filter((a) => a.startTime >= s.startTime - 0.3 && a.startTime < s.endTime - 1.0)
+          .sort((a, b) => a.startTime - b.startTime)
+        if (insideActions.length === 0) continue
+        const firstAction = insideActions[0]
+        const deadTime = firstAction.startTime - s.startTime
+        if (deadTime <= DEAD_TIME_THRESHOLD) continue
+        const newStart = Math.max(s.startTime, firstAction.startTime - ACTION_LEAD_IN)
+        const trimmedAmount = newStart - s.startTime
+        let newEnd = s.endTime
+        const newLen = s.endTime - newStart
+        // If trimming would drop below the 2.0s floor, push the end
+        // forward to preserve length (action.endTime is a natural cap).
+        if (newLen < 2.0) {
+          let extendCap = Math.max(s.endTime + trimmedAmount, firstAction.endTime + 0.3)
+          const next = segments[segIdx + 1]
+          if (next) extendCap = Math.min(extendCap, next.startTime - 0.05)
+          if (sourceBoundaries) {
+            const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
+            if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
+          }
+          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          if (desiredEnd <= extendCap) newEnd = desiredEnd
+          else if (extendCap - newStart >= 2.0) newEnd = extendCap
+          else continue
+        }
+        const oldStart = s.startTime
+        const oldEnd = s.endTime
+        s.startTime = newStart
+        s.endTime = newEnd
+        frontTrimmedSegments.add(s)
+        trimCount++
+        const stretched = newEnd > oldEnd ? ` (extended end ${oldEnd.toFixed(2)}→${newEnd.toFixed(2)}s)` : ''
+        console.log(
+          `[clip-analyzer] front-trim (action): segment [${oldStart.toFixed(2)}s] had ${deadTime.toFixed(2)}s of dead time before action @ ${firstAction.startTime.toFixed(2)}s (${firstAction.subjectKind ?? 'unknown'}) — advanced to [${newStart.toFixed(2)}s]${stretched}`,
+        )
+      }
+      if (trimCount > 0) {
+        console.log(`[clip-analyzer] front-trim (action): tightened ${trimCount} segment(s) to skip stale time`)
+      }
+    }
+
+    // (b) Audio-curve fallback for segments without an action span. Use
+    // audio energy as a proxy for "something is happening" — pour sounds,
+    // footsteps, talking, etc. Pure stillness shows up as a low-energy run.
+    if (audioCurve && audioCurve.length > 1) {
+      // Find the typical "dead" energy level: 35th percentile of all curve points.
+      const sortedEnergies = audioCurve.map((p) => p.energy).sort((a, b) => a - b)
+      const deadLevel = sortedEnergies[Math.floor(sortedEnergies.length * 0.35)]
+      const liveThreshold = deadLevel * 1.6 // anything notably above dead = live
+      let trimCount = 0
+      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+        const s = segments[segIdx]
+        // Skip if the action-span pass already trimmed this segment
+        if (frontTrimmedSegments.has(s)) continue
+        // Sample the first 1.5s of the segment in 0.1s steps
+        const samples: { t: number; e: number }[] = []
+        for (let t = s.startTime; t < Math.min(s.startTime + 1.5, s.endTime - 0.5); t += 0.1) {
+          const point = audioCurve.reduce((best, p) =>
+            Math.abs(p.time - t) < Math.abs(best.time - t) ? p : best,
+          )
+          samples.push({ t, e: point.energy })
+        }
+        if (samples.length < 4) continue
+        const firstLiveIdx = samples.findIndex((s) => s.e > liveThreshold)
+        if (firstLiveIdx <= 0) continue
+        const firstLiveTime = samples[firstLiveIdx].t
+        const deadTime = firstLiveTime - s.startTime
+        if (deadTime < 0.4) continue
+        const newStart = Math.max(s.startTime, firstLiveTime - 0.2)
+        const trimmedAmount = newStart - s.startTime
+        let newEnd = s.endTime
+        const newLen = s.endTime - newStart
+
+        // If we'd drop below the 2.0s floor, push the end forward by the
+        // trim amount — preserves segment length AND captures more action.
+        // But: don't push past the next segment's start (avoid overlap)
+        // and don't push past the source-clip boundary if we know it.
+        if (newLen < 2.0) {
+          let extendCap = s.endTime + trimmedAmount + 0.5 // small buffer for trim+stretch combos
+          // Cap at next segment's start
+          const next = segments[segIdx + 1]
+          if (next) extendCap = Math.min(extendCap, next.startTime - 0.05)
+          // Cap at source-clip boundary if known
+          if (sourceBoundaries) {
+            const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
+            if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
+          }
+          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          if (desiredEnd <= extendCap) {
+            newEnd = desiredEnd
+          } else if (extendCap - newStart >= 2.0) {
+            newEnd = extendCap
+          } else {
+            continue // can't make it work — leave segment alone
+          }
+        }
+
+        const oldStart = s.startTime
+        const oldEnd = s.endTime
+        s.startTime = newStart
+        s.endTime = newEnd
+        trimCount++
+        const stretched = newEnd > oldEnd ? ` (extended end ${oldEnd.toFixed(2)}→${newEnd.toFixed(2)}s to preserve length)` : ''
+        console.log(
+          `[clip-analyzer] front-trim (audio): segment [${oldStart.toFixed(2)}s] had ${deadTime.toFixed(2)}s of low-energy dead time — advanced to [${newStart.toFixed(2)}s]${stretched}`,
+        )
+      }
+      if (trimCount > 0) {
+        console.log(`[clip-analyzer] front-trim (audio): tightened ${trimCount} segment(s) to skip silent stale time`)
+      }
+    }
+
+    // (c) Motion-curve fallback. Audio energy can stay above the dead
+    // line during near-silent prep (cafe ambience, AC hum). Visual
+    // motion is the more direct signal for "the visual hasn't started
+    // moving yet." Scan the first 2s of each not-yet-trimmed segment;
+    // if motion stays below a clear "still" threshold for >0.6s, snap
+    // startTime to where motion picks up. Use the same trim+extend
+    // length-preservation logic as the other passes.
+    if (motionCurve && motionCurve.length > 1) {
+      // The motion field is already 0..1 normalized. "Still" needs to be
+      // relative to the segment's own peak, not absolute — handheld
+      // iPhone footage has a baseline ~0.08-0.15 of camera-shake "motion"
+      // even when the subject isn't moving. We treat the segment's first
+      // 2s as stale if motion stays at <40% of the segment's later peak.
+      const STILL_RATIO = 0.40
+      const PICKUP_RATIO = 0.65
+      let trimCount = 0
+      for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+        const s = segments[segIdx]
+        if (frontTrimmedSegments.has(s)) continue
+        // Sample the segment's full duration in 0.1s steps so we have a
+        // reference "peak" to compare the first-2s window against.
+        const allSamples: { t: number; m: number }[] = []
+        for (let t = s.startTime; t < s.endTime; t += 0.1) {
+          const point = motionCurve.reduce((best, p) =>
+            Math.abs(p.time - t) < Math.abs(best.time - t) ? p : best,
+          )
+          allSamples.push({ t, m: point.motion })
+        }
+        if (allSamples.length < 8) continue
+        // Use the segment's own median motion as a reference — handles
+        // both shaky-handheld baselines and locked-tripod baselines.
+        const sortedM = [...allSamples].map((p) => p.m).sort((a, b) => a - b)
+        const segMedian = sortedM[Math.floor(sortedM.length * 0.5)]
+        let segPeak = sortedM[sortedM.length - 1]
+        // If the segment is mostly still (peak < 0.15), look forward past
+        // the segment for a motion peak and SHIFT the segment there. This
+        // catches "Riley picked a 2s window that's all dead time, with
+        // the actual action just after." Common pattern: pour-prep slot.
+        // "Back-loaded dead" detection: segment isn't fully dead (peak >= 0.15)
+        // but the FIRST half is much quieter than the SECOND half — common
+        // pattern when Riley starts a segment at "carafe resting" and the
+        // pour begins late in the window. Treat these as motion-shift
+        // candidates so we move to a punchier window.
+        //
+        // Use MEDIAN of the first half (not max) so a single wobble frame
+        // doesn't disqualify an otherwise-static window. iPhone footage
+        // routinely has 1-2 frame wobbles even on a tripod-resting shot.
+        const firstHalfSamples = allSamples
+          .filter((p) => p.t < s.startTime + (s.endTime - s.startTime) * 0.5)
+          .map((p) => p.m)
+          .sort((a, b) => a - b)
+        const firstHalfMedian = firstHalfSamples[Math.floor(firstHalfSamples.length * 0.5)] ?? 0
+        const secondHalfMax = allSamples
+          .filter((p) => p.t >= s.startTime + (s.endTime - s.startTime) * 0.5)
+          .reduce((m, p) => Math.max(m, p.m), 0)
+        const isBackLoadedDead = firstHalfMedian < 0.12 && secondHalfMax >= 0.18
+
+        // Use median (not peak) to judge "is the segment overall dead?"
+        // A single wobble frame can push peak above 0.15 even when 90%+
+        // of the segment is static. Median is robust to those spikes.
+        // 0.14 catches cafe-baseline wobble; "real" subject motion is
+        // typically median ~0.18+ (continuous gesture / walking / pouring).
+        const isMostlyDead = segMedian < 0.14 && segPeak < 0.40
+        // (debug log removed — kept the eval lean for production)
+        if (isMostlyDead || isBackLoadedDead) {
+          // Look forward up to 12s for a clear motion peak. Cap by source
+          // boundary so we don't shift across a hidden source-cut.
+          let lookaheadEnd = s.endTime + 12.0
+          if (sourceBoundaries) {
+            const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
+            if (idx >= 0) lookaheadEnd = Math.min(lookaheadEnd, sourceBoundaries[idx].end - 0.1)
+          }
+          const lookahead = motionCurve.filter((p) => p.time > s.endTime && p.time < lookaheadEnd)
+          const futurePeak = lookahead.reduce((max, p) => Math.max(max, p.motion), 0)
+          if (futurePeak < 0.20) continue
+          // Find when the forward motion first picks up — use a lower
+          // ratio (0.5) so we catch the START of the motion rise, not
+          // the peak itself.
+          const pickupAt = lookahead.find((p) => p.motion >= Math.max(0.15, futurePeak * 0.5))?.time
+          if (!pickupAt) continue
+          // Shift the segment: start = pickup - 0.2s breath, length preserved
+          const segLen = s.endTime - s.startTime
+          let newStart = pickupAt - 0.2
+          // Cap by source boundary if we have one
+          if (sourceBoundaries) {
+            const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
+            if (idx >= 0) {
+              const boundEnd = sourceBoundaries[idx].end
+              if (newStart + segLen > boundEnd - 0.1) newStart = boundEnd - segLen - 0.1
+              if (newStart < s.startTime + 0.5) continue // not actually moving — skip
+            }
+          }
+          // Cap by next segment
+          const next = segments[segIdx + 1]
+          if (next && newStart + segLen > next.startTime - 0.05) {
+            newStart = next.startTime - segLen - 0.05
+            if (newStart < s.startTime + 0.5) continue
+          }
+          if (newStart <= s.startTime) continue
+          const oldStart = s.startTime
+          const oldEnd = s.endTime
+          s.startTime = newStart
+          s.endTime = newStart + segLen
+          frontTrimmedSegments.add(s)
+          trimCount++
+          const reason = isBackLoadedDead && segPeak >= 0.15 ? 'back-loaded dead' : 'all dead time'
+          console.log(
+            `[clip-analyzer] front-trim (motion shift): segment was ${reason} [${oldStart.toFixed(2)}-${oldEnd.toFixed(2)}s], shifted forward to [${s.startTime.toFixed(2)}-${s.endTime.toFixed(2)}s] where motion picks up`,
+          )
+          continue
+        }
+        // STILL: anything below this is "static enough to trim".
+        //   - segPeak * 0.40 catches segments with strong action where
+        //     handheld baseline is comparable to subject motion.
+        //   - Cap at 0.18 so genuinely-still frames (handheld pointed at
+        //     a resting subject) always register as still, even when the
+        //     segment also contains a high-motion peak that would
+        //     otherwise pull the threshold up too far.
+        const STILL = Math.min(0.18, Math.max(0.06, segPeak * STILL_RATIO))
+        const PICKUP = Math.min(0.30, Math.max(0.12, segPeak * PICKUP_RATIO))
+        // Search the FULL segment for a still→moving ramp. If motion
+        // picks up at second 2.5 of a 3.4s segment with the first 2.5s
+        // of carafe-resting before it, we want to advance startTime
+        // there even though the still period spans most of the segment.
+        // We'll then pull the endTime forward by the same amount so the
+        // segment maintains its length using post-end footage (capped by
+        // source boundary and next segment).
+        const window = allSamples
+        const firstLiveIdx = window.findIndex((p) => p.m >= PICKUP)
+        if (firstLiveIdx <= 0) continue
+        const stillCount = window.slice(0, firstLiveIdx).filter((p) => p.m < STILL).length
+        if (stillCount < firstLiveIdx * 0.5) continue
+        const firstLiveTime = window[firstLiveIdx].t
+        const deadTime = firstLiveTime - s.startTime
+        if (deadTime < 0.4) continue
+        void segMedian // not used currently but useful for debugging
+        const newStart = Math.max(s.startTime, firstLiveTime - 0.2)
+        const trimmedAmount = newStart - s.startTime
+        let newEnd = s.endTime
+        const newLen = s.endTime - newStart
+        if (newLen < 2.0) {
+          let extendCap = s.endTime + trimmedAmount + 0.5
+          const next = segments[segIdx + 1]
+          if (next) extendCap = Math.min(extendCap, next.startTime - 0.05)
+          if (sourceBoundaries) {
+            const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
+            if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
+          }
+          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          if (desiredEnd <= extendCap) newEnd = desiredEnd
+          else if (extendCap - newStart >= 2.0) newEnd = extendCap
+          else continue
+        }
+        const oldStart = s.startTime
+        const oldEnd = s.endTime
+        s.startTime = newStart
+        s.endTime = newEnd
+        frontTrimmedSegments.add(s)
+        trimCount++
+        const stretched = newEnd > oldEnd ? ` (extended end ${oldEnd.toFixed(2)}→${newEnd.toFixed(2)}s)` : ''
+        console.log(
+          `[clip-analyzer] front-trim (motion): segment [${oldStart.toFixed(2)}s] had ${deadTime.toFixed(2)}s of low-motion stale time — advanced to [${newStart.toFixed(2)}s]${stretched}`,
+        )
+      }
+      if (trimCount > 0) {
+        console.log(`[clip-analyzer] front-trim (motion): tightened ${trimCount} segment(s) to skip visually-still stale time`)
+      }
+    }
+
+    // ── PER-SOURCE DIVERSITY ENFORCEMENT ─────────────────────────────
+    // Three guarantees:
+    //   1. NO BOUNDARY-CROSSING: trim segments that span two source clips
+    //      to the source they START in. Crossing a hidden source-cut is
+    //      jarring and breaks the reel's storytelling.
+    //   2. PER-SOURCE CAP: max N segments from any single source (LLM
+    //      already aimed for this; we enforce as a hard guarantee).
+    //   3. PER-SOURCE FLOOR: at least 1 segment from each source. If the
+    //      LLM left a clip with zero coverage, we synthesize a segment
+    //      at the highest-motion window inside that source.
+    if (sourceBoundaries && sourceBoundaries.length > 1) {
+      const energyRank: Record<string, number> = { hook: 3, high: 2, medium: 1 }
+      const which = (t: number) =>
+        sourceBoundaries.findIndex((b) => t >= b.start && t < b.end)
+
+      // Step 1a: skip the "press record" lead-in. The first ~0.6s of a
+      // source clip is almost always settling-into-the-shot — phone moving
+      // into position, hand pulling away, focus catching up. Any segment
+      // that starts inside that window gets pushed forward so the cut
+      // begins on stable footage instead of the wobble.
+      const LEAD_IN_SKIP = 0.6
+      for (const s of segments) {
+        const startIdx = which(s.startTime)
+        if (startIdx < 0) continue
+        const srcStart = sourceBoundaries[startIdx].start
+        if (s.startTime < srcStart + LEAD_IN_SKIP) {
+          const oldStart = s.startTime
+          const newStart = srcStart + LEAD_IN_SKIP
+          // Try to preserve segment length by pushing endTime forward too,
+          // but only if there's room before the source ends.
+          const desiredLen = s.endTime - s.startTime
+          const sourceEnd = sourceBoundaries[startIdx].end
+          const newEnd = Math.min(newStart + desiredLen, sourceEnd - 0.1)
+          if (newEnd - newStart >= 2.0) {
+            s.startTime = newStart
+            s.endTime = newEnd
+            console.log(`[clip-analyzer] lead-in skip: pushed segment from [${oldStart.toFixed(2)}s] to [${newStart.toFixed(2)}s] to skip recording-start wobble in "${sourceBoundaries[startIdx].fileName}"`)
+          }
+          // else: leave alone — better to keep original than make it too short
+        }
+      }
+
+      // Step 1b: trim boundary-crossers. A segment that starts in clip A
+      // and ends in clip B gets clamped to clip A's boundary; if the
+      // resulting length drops below 2.0s we drop it (the no-overlap
+      // guard would have killed it anyway).
+      const trimmed: ReelSegment[] = []
+      for (const s of segments) {
+        const startIdx = which(s.startTime)
+        if (startIdx < 0) { trimmed.push(s); continue }
+        const sourceEnd = sourceBoundaries[startIdx].end
+        if (s.endTime > sourceEnd + 0.05) {
+          const newEnd = sourceEnd
+          const newLen = newEnd - s.startTime
+          if (newLen >= 2.0) {
+            console.log(`[clip-analyzer] boundary-trim: segment [${s.startTime.toFixed(1)}-${s.endTime.toFixed(1)}s] crossed into "${sourceBoundaries[startIdx + 1]?.fileName ?? 'next'}", trimmed to [${s.startTime.toFixed(1)}-${newEnd.toFixed(1)}s]`)
+            trimmed.push({ ...s, endTime: newEnd })
+          } else {
+            console.log(`[clip-analyzer] boundary-drop: segment [${s.startTime.toFixed(1)}-${s.endTime.toFixed(1)}s] would be ${newLen.toFixed(2)}s after trim — dropped`)
+          }
+        } else {
+          trimmed.push(s)
+        }
+      }
+      segments = trimmed
+
+      // Step 2: bucket by source
+      const buckets = new Map<number, ReelSegment[]>()
+      for (const s of segments) {
+        const idx = which(s.startTime)
+        if (idx < 0) continue
+        if (!buckets.has(idx)) buckets.set(idx, [])
+        buckets.get(idx)!.push(s)
+      }
+
+      // Step 3: cap per source
+      if (Number.isFinite(perSourceCap)) {
+        const kept: ReelSegment[] = []
+        for (const [idx, segs] of buckets) {
+          if (segs.length <= perSourceCap) {
+            kept.push(...segs)
+            continue
+          }
+          const sorted = [...segs].sort((a, b) => {
+            const er = (energyRank[b.energy] ?? 0) - (energyRank[a.energy] ?? 0)
+            if (er !== 0) return er
+            return (b.endTime - b.startTime) - (a.endTime - a.startTime)
+          })
+          kept.push(...sorted.slice(0, perSourceCap))
+          const fileName = sourceBoundaries[idx]?.fileName || `clip-${idx + 1}`
+          console.log(`[clip-analyzer] per-source cap: kept ${perSourceCap} of ${segs.length} from "${fileName}"`)
+        }
+        if (kept.length !== segments.length) {
+          // Rebuild buckets after capping
+          buckets.clear()
+          for (const s of kept) {
+            const idx = which(s.startTime)
+            if (idx < 0) continue
+            if (!buckets.has(idx)) buckets.set(idx, [])
+            buckets.get(idx)!.push(s)
+          }
+          segments = kept
+        }
+      }
+
+      // Step 4: floor — every source must contribute at least one segment.
+      // For each empty source, synthesize a segment from its highest-motion
+      // window (or beat) inside that range.
+      for (let i = 0; i < sourceBoundaries.length; i++) {
+        if (buckets.has(i)) continue
+        const src = sourceBoundaries[i]
+        const srcDur = src.end - src.start
+        // Length to fill: 2.5–4.0s, scaled to source length but never longer
+        // than the source itself (minus a small safety margin).
+        const fillLen = Math.min(Math.max(2.5, Math.min(srcDur - 0.3, 3.5)), srcDur - 0.3)
+        if (fillLen < 2.0) {
+          console.log(`[clip-analyzer] floor: skipping "${src.fileName}" — too short (${srcDur.toFixed(1)}s) for a 2s segment`)
+          continue
+        }
+        // Prefer the action with peak motion inside this source range, else
+        // pick a window 30% into the source. Always start at LEAST 0.6s
+        // into the source to skip the recording-start wobble (camera
+        // settling, hand pulling away).
+        const LEAD_IN_SKIP = 0.6
+        let pickStart: number | null = null
+        let label = `clip from "${src.fileName}"`
+        let energy: ReelSegment['energy'] = 'medium'
+        if (beatAnalysis) {
+          const inRange = beatAnalysis.actions.filter(
+            (a) => a.startTime >= src.start && a.endTime <= src.end,
+          )
+          if (inRange.length > 0) {
+            const best = inRange.sort((a, b) => b.peakMotion - a.peakMotion)[0]
+            const center = (best.startTime + best.endTime) / 2
+            pickStart = Math.max(src.start + LEAD_IN_SKIP, center - fillLen / 2)
+            // Keep within source
+            if (pickStart + fillLen > src.end - 0.2) pickStart = src.end - fillLen - 0.2
+            label = `featured: ${best.subjectKind ?? 'moment'} from "${src.fileName}"`
+            energy = best.peakMotion > 0.4 ? 'high' : 'medium'
+          }
+        }
+        if (pickStart === null) {
+          pickStart = src.start + Math.max(LEAD_IN_SKIP, srcDur * 0.3)
+          if (pickStart + fillLen > src.end - 0.2) pickStart = src.end - fillLen - 0.2
+        }
+        const newSeg: ReelSegment = {
+          startTime: pickStart,
+          endTime: pickStart + fillLen,
+          label,
+          energy,
+        }
+        segments.push(newSeg)
+        console.log(`[clip-analyzer] floor: added segment [${newSeg.startTime.toFixed(1)}-${newSeg.endTime.toFixed(1)}s] from empty source "${src.fileName}"`)
+      }
+
+      // Restore chronological order
+      segments.sort((a, b) => a.startTime - b.startTime)
+    }
+
+    // ── VISUAL-SIMILARITY DEDUP ─────────────────────────────────────────
+    // When the user uploads multiple takes of the same shot, the
+    // per-source diversity rule picks a segment from each — but they
+    // LOOK identical, so cuts read as a glitchy repeat. Two-signal
+    // detection: (a) frame difference YAVG between segment midpoints,
+    // (b) detected scene membership. A segment is a "fake cut" if its
+    // midpoint frame's pixel-difference vs the previous segment's is
+    // below threshold AND no scene boundary lies between them.
+    //
+    // YAVG calibration on real iPhone footage:
+    //   <12  : essentially the same shot (move only by a sip / tiny shift)
+    //   12-32: same composition, action progressed (genuine jump cut)
+    //   32-50: scene-similar but different shot (different angle/zoom)
+    //   >50  : visibly different scene
+    // Threshold of 28 lets through real jump cuts but catches duplicate-
+    // looking takes from different source clips.
+    if (localVideoPath && segments.length >= 3) {
+      try {
+        const sceneCuts = sceneData?.cutTimestamps || []
+        const hasSceneBoundaryBetween = (t1: number, t2: number) =>
+          sceneCuts.some((t) => t > Math.min(t1, t2) + 0.05 && t < Math.max(t1, t2) - 0.05)
+
+        const dropIdx = new Set<number>()
+        for (let i = 1; i < segments.length; i++) {
+          if (dropIdx.has(i - 1)) continue
+          const a = segments[i - 1]
+          const b = segments[i]
+          const ta = (a.startTime + a.endTime) / 2
+          const tb = (b.startTime + b.endTime) / 2
+          // Skip the check if there's a real scene boundary between them
+          // — they're visually distinct by definition.
+          if (hasSceneBoundaryBetween(ta, tb)) continue
+          const yavg = await frameDifference(localVideoPath, ta, tb)
+          if (yavg < 28) {
+            const dropTarget = b.energy === 'hook' ? i - 1 : i
+            dropIdx.add(dropTarget)
+            console.log(
+              `[clip-analyzer] dedup: YAVG ${yavg.toFixed(1)} between [${ta.toFixed(1)}s] "${a.label}" and [${tb.toFixed(1)}s] "${b.label}" — dropping #${dropTarget + 1}`,
+            )
+          }
+        }
+        if (dropIdx.size > 0) {
+          const before = segments.length
+          segments = segments.filter((_, i) => !dropIdx.has(i))
+          console.log(`[clip-analyzer] dedup: removed ${dropIdx.size} duplicate-looking segment(s); ${before} → ${segments.length}`)
+        } else {
+          console.log(`[clip-analyzer] dedup: no near-duplicate adjacent segments found`)
+        }
+      } catch (e: any) {
+        console.warn(`[clip-analyzer] dedup pass failed (continuing without it): ${e?.message?.slice(0, 200)}`)
+      }
+    }
+
+    // ── LABEL DIVERSITY CHECK ───────────────────────────────────────────
+    // Surface (don't fix) cases where the LLM defaulted to one label
+    // across visually-distinct frames. Logged so we can iterate the
+    // prompt later without silently masking the issue.
+    if (segments.length >= 4) {
+      const labelCounts = new Map<string, number>()
+      for (const s of segments) {
+        const key = s.label.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+        labelCounts.set(key, (labelCounts.get(key) || 0) + 1)
+      }
+      let maxCount = 0
+      let maxLabel = ''
+      for (const [k, v] of labelCounts) if (v > maxCount) { maxCount = v; maxLabel = k }
+      if (maxCount / segments.length > 0.6) {
+        console.warn(`[clip-analyzer] WARNING: label "${maxLabel}" repeated ${maxCount}/${segments.length} times — Riley may be defaulting on labels`)
+      }
+    }
+
     const totalDuration = segments.reduce((sum, s) => sum + (s.endTime - s.startTime), 0)
 
     // Build combined transcript from selected segments
@@ -1512,4 +2122,60 @@ function fmt(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+/**
+ * Compare two frames from the same video by mean absolute pixel
+ * difference (MAD) on a downscaled grayscale version. Returns the YAVG
+ * of the difference frame (0–255). Lower = more similar.
+ *
+ * Why not SSIM: SSIM was tested at 64×64 and 128×128 grayscale and
+ * produced near-zero scores for visually similar frames due to
+ * sub-pixel shifts in iPhone footage. YAVG is more robust to micro-
+ * shifts because it integrates absolute differences across the whole
+ * frame.
+ *
+ * Calibration data (iPhone reels, 128×128 gray):
+ *   1.88 — frames 0.2s apart in same shot
+ *   38   — same shot 5s apart
+ *   45   — same content, cross-source cut
+ *   46   — different scene
+ *   73   — totally different scene
+ * Threshold of ~28 catches duplicate-looking takes while letting
+ * through genuine jump cuts within a shot.
+ */
+async function frameDifference(videoPath: string, t1: number, t2: number): Promise<number> {
+  const { stderr } = await execFileAsync(
+    'ffmpeg',
+    [
+      '-nostats',
+      '-ss', String(t1), '-i', videoPath, '-frames:v', '1',
+      '-vf', 'scale=128:128,format=gray',
+      '-f', 'rawvideo', '-y', '/tmp/_dedup_a.gray',
+    ],
+    { timeout: 8000, maxBuffer: 1024 * 1024 * 2 },
+  ).catch(() => ({ stderr: '' }))
+  await execFileAsync(
+    'ffmpeg',
+    [
+      '-nostats',
+      '-ss', String(t2), '-i', videoPath, '-frames:v', '1',
+      '-vf', 'scale=128:128,format=gray',
+      '-f', 'rawvideo', '-y', '/tmp/_dedup_b.gray',
+    ],
+    { timeout: 8000, maxBuffer: 1024 * 1024 * 2 },
+  ).catch(() => ({ stderr: '' }))
+  // Compute MAD between the two raw 128*128 = 16384-byte buffers
+  const fs = await import('fs')
+  try {
+    const a = fs.readFileSync('/tmp/_dedup_a.gray')
+    const b = fs.readFileSync('/tmp/_dedup_b.gray')
+    if (a.length === 0 || b.length === 0) return 50 // unknown — assume different
+    const len = Math.min(a.length, b.length)
+    let sum = 0
+    for (let i = 0; i < len; i++) sum += Math.abs(a[i] - b[i])
+    return sum / len
+  } catch {
+    return 50
+  }
 }

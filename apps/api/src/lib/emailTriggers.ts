@@ -108,54 +108,7 @@ export function triggerPaymentFailedEmail(userId: string): void {
   })
 }
 
-// ─── Trial ending check — run daily from scheduler ──────────────────────────
-
+// Trial ending emails removed — freemium replaced the trial model.
 export async function checkTrialEndingEmails(): Promise<{ sent: number }> {
-  const now = Date.now()
-  const threeDays = new Date(now + 3 * 24 * 60 * 60 * 1000)
-  const oneDay = new Date(now + 1 * 24 * 60 * 60 * 1000)
-
-  // Find users with trials ending in ~3 days or ~1 day
-  const users = await prisma.user.findMany({
-    where: {
-      subscriptionStatus: 'trial',
-      trialEndsAt: { not: null },
-      stripeSubscriptionId: null,  // haven't subscribed yet
-    },
-    select: { id: true, email: true, fullName: true, username: true, trialEndsAt: true },
-  })
-
-  let sent = 0
-  for (const user of users) {
-    if (!user.trialEndsAt || !user.email) continue
-    const daysLeft = Math.ceil((user.trialEndsAt.getTime() - now) / 86400000)
-
-    if (daysLeft === 3 || daysLeft === 1) {
-      // Count their activity
-      const tasksCompleted = await prisma.task.count({
-        where: {
-          company: { userId: user.id },
-          status: { in: ['delivered', 'approved'] },
-        },
-      })
-      const outputsApproved = await prisma.output.count({
-        where: {
-          company: { userId: user.id },
-          status: 'approved',
-        },
-      })
-
-      await sendTrialEndingEmail({
-        to: user.email,
-        firstName: user.fullName?.split(' ')[0] || user.username || 'there',
-        daysLeft,
-        tasksCompleted,
-        outputsApproved,
-      })
-      sent++
-      console.log(`[email] trial ending (${daysLeft}d) sent to`, user.email)
-    }
-  }
-
-  return { sent }
+  return { sent: 0 }
 }

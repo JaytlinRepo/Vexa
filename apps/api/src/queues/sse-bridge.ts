@@ -6,6 +6,7 @@
  */
 
 import IORedis from 'ioredis'
+import { attachThrottledErrorHandler } from './connection'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 const CHANNEL = 'sovexa:video-progress'
@@ -21,6 +22,11 @@ export function initSSEBridge(broadcastFn: BroadcastFn): void {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
   })
+
+  // Suppress the ioredis "Unhandled error event" stack-trace flood when
+  // Redis is down — without this listener, ECONNREFUSED is logged on every
+  // reconnect attempt, drowning out everything else.
+  attachThrottledErrorHandler(subscriber)
 
   subscriber.subscribe(CHANNEL, (err) => {
     if (err) {

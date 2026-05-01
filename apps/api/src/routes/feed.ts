@@ -1,6 +1,10 @@
 import { Router } from 'express'
 import axios from 'axios'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
+// Article/video sources kept imported because the /article extraction route
+// + the legacy /refresh route still reference some of them. The main feed
+// no longer pulls from YouTube / Reddit / RSS / NewsAPI / Google Trends —
+// content is now Sovexa community videos + IG hashtag trending only.
 import { fetchNicheRSSFeeds, RSSItem } from '../services/integrations/rss.service'
 import { searchNicheArticles, NewsArticle } from '../services/integrations/newsapi.service'
 import { getRelatedQueries, getKeywordTrend } from '../services/integrations/google-trends.service'
@@ -9,6 +13,18 @@ import { effectiveNiche } from '../lib/nicheDetection'
 import { createContentProfile } from '../services/contentProfile.service'
 import { fetchInstagramTrendingByHashtag, getHashtagsForNiche, instagramPostToFeedItem } from '../services/integrations/instagram-trending.service'
 import { queryCommunityFeed, communityPostToFeedItem } from '../services/communityFeed.service'
+import {
+  getFeedContentProfile,
+  invalidateFeedContentProfile,
+  queryHashtagsForProfile,
+  relevanceOverlap,
+  maybePersistDetectedSubNiche,
+  type FeedContentProfile,
+} from '../services/feedContentProfile.service'
+import { getDampenedTargets } from '../services/feedSignal.service'
+import { tagFeedItemsBulk } from '../services/feedItemTagging.service'
+import { scoreFeedItem, relevanceThreshold } from '../services/feedRelevance.service'
+import { embedItemsBulk, getOrComputeProfileEmbedding } from '../services/feedEmbedding.service'
 
 import prisma from '../lib/prisma'
 const router = Router()
@@ -42,6 +58,17 @@ interface FeedItem {
   type: 'article' | 'research' | 'reddit' | 'trend' | 'video' | 'instagram'
   score: number
   mayaTake: string
+  /** Mood/style/format/hook/audience tags (CommunityTags shape).
+   *  Set on community items by communityPostToFeedItem; set on
+   *  IG-trending items by feedItemTagging.service.ts on the fly. Read
+   *  by feedRelevance.scoreFeedItem(). */
+  tags?: import('../services/communityTagging.service').CommunityTags | null
+  /** Semantic embedding for cosine-similarity ranking. */
+  embedding?: number[] | null
+  /** IG-trending only — used by the lazy mood/style tagger. */
+  thumbnail?: string | null
+  videoUrl?: string | null
+  mediaType?: string
 }
 
 interface TrendItem {
@@ -624,217 +651,352 @@ router.get('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    // Check if user has uploaded content
-    const hasUserContent = await contentProfile.hasContent(company.id)
-    if (!hasUserContent) {
-      // Return message prompting upload instead of empty feed
+    // Backfill Company.country from PlatformAudience top-country when null
+    // so the country boost has something to work with on the very first
+    // /api/feed call. Fire-and-forget; we keep going with whatever the
+    // current profile says.
+    if (!company.country) {
+      ;(async () => {
+        try {
+          const audience = await prisma.platformAudience.findFirst({
+            where: { account: { companyId: company.id } },
+            orderBy: { capturedAt: 'desc' },
+            select: { topCountries: true },
+          })
+          const top = (audience?.topCountries as Array<{ bucket?: string; share?: number }> | null)?.[0]
+          const code = top?.bucket
+          if (code && /^[A-Z]{2}$/i.test(code)) {
+            // updateMany lets us guard with where:{country:null} so two
+            // parallel calls don't race on the same row.
+            await prisma.company.updateMany({
+              where: { id: company.id, country: null },
+              data: { country: code.toUpperCase() },
+            })
+            invalidateFeedContentProfile(company.id)
+          }
+        } catch {
+          // best-effort; don't block the feed
+        }
+      })()
+    }
+
+    // Build content profile from the user's actual posts. Drives query
+    // seeds, the relevance gate, country boost, and author affinity.
+    const profile = await getFeedContentProfile(prisma, company.id)
+    // Auto-detect + persist sub-niche when confident — fire-and-forget so
+    // the response isn't held up by the Company.update.
+    maybePersistDetectedSubNiche(prisma, profile).catch(() => null)
+
+    // Pull behavioral signal aggregates: which creators/topics has the
+    // user explicitly told us they don't want? Fail-soft if the table is
+    // empty for a brand-new company.
+    const dampened = await getDampenedTargets(prisma, company.id, 60).catch(
+      () => ({ creators: new Set<string>(), topics: new Set<string>(), posts: new Set<string>() }),
+    )
+
+    // Synthesize the viewerProfile shape that queryCommunityFeed expects so
+    // it can score community posts by tag overlap with the user's content.
+    const viewerProfile = {
+      performancePattern: {
+        contentThemes: [
+          ...profile.topAITags.slice(0, 4),
+          ...profile.topHashtags.slice(0, 3),
+        ],
+        bestPerformingFormat: profile.dominantFormats[0] || '',
+      },
+    }
+
+    const niche = profile.niche
+    const detectedSub = profile.detectedSubNiche
+    const requestedLimit = Math.max(1, Math.min(25, Number(req.query.limit) || 25))
+    const requestedOffset = Math.max(0, Number(req.query.offset) || 0)
+    // Build a pool deeper than the requested page so the user can scroll
+    // through several pages without triggering another external API call.
+    // Sized for ~4 pages of 25 = 100 items end-to-end after filtering.
+    const POOL_TARGET = 100
+
+    // Cache key includes profile.strength, sub-niche, country, and a
+    // signal-aware suffix so a Not-interested click immediately produces
+    // a different feed (the cached version doesn't reflect the new
+    // dampening). affinityCount + dampenedSize are cheap proxies for
+    // "behavioral state changed".
+    const signalSig = `a${profile.affinityCreators.length}d${dampened.creators.size + dampened.topics.size}`
+    const cacheKey = `${company.id}:${profile.strength}:${detectedSub || ''}:${profile.country || ''}:${signalSig}`
+    const cached = feedCache.get(cacheKey)
+    if (cached && Date.now() - cached.ts < FEED_CACHE_TTL) {
+      const slice = cached.items.slice(requestedOffset, requestedOffset + requestedLimit)
       res.json({
-        items: [],
+        items: slice,
         trends: [],
-        niche: null,
-        message: 'Upload your first video to unlock personalized content inspiration. The Knowledge Feed will show Reels and articles matched to your style.',
-        requiresContent: true,
+        niche,
+        source: 'cached',
+        cacheAge: Math.round((Date.now() - cached.ts) / 1000),
+        profileStrength: profile.strength,
+        offset: requestedOffset,
+        total: cached.items.length,
+        hasMore: requestedOffset + slice.length < cached.items.length,
+        cacheTtlSeconds: Math.round((FEED_CACHE_TTL - (Date.now() - cached.ts)) / 1000),
       })
       return
     }
 
-    // Build user's content profile for filtering
-    const userProfile = await contentProfile.getProfile(company.id)
-
-    const niche = effectiveNiche(company) || 'lifestyle'
-    const detectedSub = company.detectedSubNiche
-    const extraSubs = subNicheSubs(niche, detectedSub)
-    const baseSubs = SUBREDDITS_BY_NICHE[niche] ?? SUBREDDITS_BY_NICHE.lifestyle!
-    const subs = extraSubs.length > 0 ? [...new Set([...extraSubs, ...baseSubs])] : baseSubs
-
-    // Build YouTube query from user's content profile + bio + audience characteristics
-    const platformAcct = await prisma.platformAccount.findFirst({
-      where: { companyId: company.id },
-      select: { bio: true, handle: true },
-    })
-    const bioKeywords = (platformAcct?.bio || '').replace(/[|·•\n]/g, ' ').split(/\s+/).filter((w: string) => w.length > 3).slice(0, 4).join(' ')
-
-    // Use content profile themes + visual style + audience characteristics for dynamic queries
-    let ytQuery: string | undefined
-    if (userProfile) {
-      const queryParts: string[] = []
-
-      // Add content themes
-      const themes = userProfile.performancePattern?.contentThemes || []
-      queryParts.push(...themes.slice(0, 2))
-
-      // Add audience-specific keywords to narrow results
-      const audioCh = userProfile.audienceCharacteristics || {}
-      if (audioCh.ageRange) {
-        const ageToQuery: Record<string, string> = {
-          'teens': 'teen creator',
-          'young adults 18-25': 'young adult 25',
-          '25-35': 'professional 30s',
-          '35-50': 'parent 40s',
-          '50+': 'over 50',
-          'families with kids': 'parent family kids',
-        }
-        const ageQuery = ageToQuery[audioCh.ageRange]
-        if (ageQuery) queryParts.push(ageQuery)
-      }
-
-      // Add lifestyle for specificity
-      if (audioCh.lifestyle) {
-        const lifestyleToQuery: Record<string, string> = {
-          'minimalist': 'minimalist lifestyle',
-          'luxury': 'luxury lifestyle',
-          'budget-conscious': 'budget friendly diy',
-          'family-focused': 'family focused',
-          'adventurous': 'travel adventure',
-          'health-focused': 'wellness health',
-          'spiritual': 'spiritual mindfulness',
-        }
-        const lifestyleQuery = lifestyleToQuery[audioCh.lifestyle]
-        if (lifestyleQuery) queryParts.push(lifestyleQuery)
-      }
-
-      // Add visual style
-      const style = userProfile.visualStyle?.filters || []
-      queryParts.push(...style.slice(0, 1))
-
-      // Build final query from parts (deduped)
-      const uniqueTerms = [...new Set(queryParts.filter(Boolean))]
-      const profileTerms = uniqueTerms.slice(0, 4).join(' ')
-      if (profileTerms.length > 5) ytQuery = `${profileTerms} creator`
-    }
-    if (!ytQuery && bioKeywords.length > 8) ytQuery = `${bioKeywords} content creator`
-
-    // Feed limits — more reels, articles on the side
-    const requestedLimit = Math.max(1, Math.min(25, Number(req.query.limit) || 25))
-    const maxRedditShare = 8
-
-    // ── Check cache ──────────────────────────────────────────────
-    const cacheKey = `${niche}:${detectedSub || ''}`
-    const cached = feedCache.get(cacheKey)
-    if (cached && Date.now() - cached.ts < FEED_CACHE_TTL) {
-      const items = interleaveByType(cached.items).slice(0, requestedLimit)
-      res.json({ items, trends: cached.trends, videos: cached.videos, niche, source: 'cached', cacheAge: Math.round((Date.now() - cached.ts) / 1000) })
-      return
-    }
-
-    // ── Request deduplication ──
     const inFlightRequest = feedRequests.get(cacheKey)
     if (inFlightRequest) {
-      const { items: allItems, trends } = await inFlightRequest
-      const items = interleaveByType(allItems).slice(0, requestedLimit)
-      res.json({ items, trends, niche, source: 'deduplicated' })
+      const { items: allItems } = await inFlightRequest
+      const slice = allItems.slice(requestedOffset, requestedOffset + requestedLimit)
+      res.json({
+        items: slice,
+        trends: [],
+        niche,
+        source: 'deduplicated',
+        profileStrength: profile.strength,
+        offset: requestedOffset,
+        total: allItems.length,
+        hasMore: requestedOffset + slice.length < allItems.length,
+      })
       return
     }
 
-    // ── Build feed: articles always external, visual content from community first ──
     const COMMUNITY_VIDEO_MIN = 8
 
     const fetchPromise = (async () => {
-      // Articles/discussions ALWAYS come from external APIs (users don't post articles)
-      // Visual content (reels/videos/images) comes from community first, external as fallback
-      // Both run in parallel for speed
+      // ── 1. Sovexa community (other CEOs' opted-in posts) ──
+      // Build a deep pool so subsequent paginated requests can be served
+      // entirely from cache without re-hitting external APIs.
+      const community = await queryCommunityFeed(prisma, company.id, {
+        limit: POOL_TARGET,
+        niche,
+        subNiche: detectedSub,
+        viewerProfile,
+        viewerCountry: profile.country,
+      }).catch(() => ({ posts: [], totalAvailable: 0 }))
 
-      const igHashtags = getHashtagsForNiche(niche, detectedSub)
+      let videoItems: FeedItem[] = community.posts.map(communityPostToFeedItem)
+      let feedSource = videoItems.length > 0 ? 'community' : 'empty'
 
-      const [communityResult, articleResults, trendSignals] = await Promise.all([
-        // Community visual content
-        queryCommunityFeed(prisma, company.id, {
-          limit: requestedLimit,
-          niche,
-          subNiche: detectedSub,
-          viewerProfile: userProfile,
-        }).catch(() => ({ posts: [], totalAvailable: 0 })),
-
-        // Articles + discussions (always external)
-        Promise.all([
-          Promise.all(subs.slice(0, 3).map((s) => fetchRedditTop(s, 4, niche, detectedSub))),
-          fetchNicheRSSFeeds(niche, 6, 5, detectedSub).catch(() => [] as RSSItem[]),
-          searchNicheArticles(niche, detectedSub || undefined, 5).catch(() => [] as NewsArticle[]),
-        ]),
-
-        // Trends (always external)
-        fetchTrendSignals(niche).catch(() => [] as TrendItem[]),
-      ])
-
-      const [redditResults, rssItems, newsItems] = articleResults
-
-      // Articles from external sources
-      const articleItems: FeedItem[] = [
-        ...rssItems.map((r) => rssToFeedItem(r, niche, detectedSub)),
-        ...newsItems.slice(0, 5).map((a) => newsToFeedItem(a, niche, detectedSub)),
-        ...redditResults.flat().slice(0, maxRedditShare),
-      ]
-
-      // Visual content: community first
-      let videoItems: FeedItem[] = communityResult.posts.map(communityPostToFeedItem)
-      let feedSource = videoItems.length > 0 ? 'community' : 'external'
-
-      // If not enough community visual content, supplement with external video APIs
+      // ── 2. Cross-niche community fallback (never empty) ──
       if (videoItems.length < COMMUNITY_VIDEO_MIN) {
+        const crossNiche = await queryCommunityFeed(prisma, company.id, {
+          limit: POOL_TARGET - videoItems.length,
+          viewerProfile,
+          viewerCountry: profile.country,
+        }).catch(() => ({ posts: [], totalAvailable: 0 }))
+        const existingIds = new Set(videoItems.map((i) => i.id))
+        const crossItems = crossNiche.posts
+          .filter((p) => !existingIds.has(`community_${p.id}`))
+          .map(communityPostToFeedItem)
+        videoItems = [...videoItems, ...crossItems]
+        if (crossItems.length > 0) {
+          feedSource = feedSource === 'empty' ? 'community-cross' : 'community+cross'
+        }
+      }
+
+      // ── 3. IG hashtag trending — uses profile.topHashtags when rich,
+      //      otherwise the niche-default fallback list. Pull volume sized
+      //      so the cached pool can serve multiple pages without a fresh
+      //      external call. ──
+      if (videoItems.length < POOL_TARGET) {
         try {
-          // Cross-niche community first
-          if (videoItems.length < COMMUNITY_VIDEO_MIN) {
-            const crossNiche = await queryCommunityFeed(prisma, company.id, {
-              limit: COMMUNITY_VIDEO_MIN - videoItems.length,
-              viewerProfile: userProfile,
-            }).catch(() => ({ posts: [], totalAvailable: 0 }))
-            const existingIds = new Set(videoItems.map((i) => i.id))
-            const crossItems = crossNiche.posts
-              .filter((p) => !existingIds.has(`community_${p.id}`))
-              .map(communityPostToFeedItem)
-            videoItems = [...videoItems, ...crossItems]
-            if (crossItems.length > 0 && feedSource === 'community') feedSource = 'community+cross'
+          const igConn = await prisma.instagramConnection.findFirst({
+            where: { companyId: company.id },
+          })
+          if (igConn?.accessToken && igConn?.igBusinessId) {
+            const fallbackTags = getHashtagsForNiche(niche, detectedSub)
+            const queryTags = queryHashtagsForProfile(profile, fallbackTags)
+            // Over-fetch by ~2× the gap because the relevance gate +
+            // dampening typically drop a non-trivial share, and we want
+            // to land near POOL_TARGET after filtering.
+            const targetIgCount = Math.max(30, (POOL_TARGET - videoItems.length) * 2)
+            const igPosts = await fetchInstagramTrendingByHashtag(
+              igConn.accessToken,
+              igConn.igBusinessId,
+              queryTags.slice(0, 6),
+              targetIgCount,
+            )
+            const igItems: FeedItem[] = igPosts.map((p) =>
+              instagramPostToFeedItem(p, niche, detectedSub),
+            )
+            const seenIds = new Set(videoItems.map((i) => i.id))
+            const newIg = igItems.filter((i) => !seenIds.has(i.id))
+            videoItems = [...videoItems, ...newIg]
+            if (newIg.length > 0) {
+              feedSource = feedSource === 'empty' ? 'ig-trending' : feedSource + '+ig-trending'
+            }
           }
-
-          // Still not enough? Add external video sources
-          if (videoItems.length < COMMUNITY_VIDEO_MIN) {
-            const [ytVideos, igPosts] = await Promise.all([
-              searchYoutubeWithCache(niche, detectedSub || undefined, 10, ytQuery || undefined),
-              (async () => {
-                const igConn = await prisma.instagramConnection.findFirst({ where: { companyId: company.id } })
-                if (!igConn?.accessToken || !igConn?.igBusinessId) return []
-                return fetchInstagramTrendingByHashtag(igConn.accessToken, igConn.igBusinessId, igHashtags.slice(0, 2), 8)
-              })().catch(() => []),
-            ])
-            const externalVideo: FeedItem[] = [
-              ...ytVideos.slice(0, 6).map((v) => youtubeToFeedItem(v, niche, detectedSub)),
-              ...igPosts.slice(0, 8).map((p) => instagramPostToFeedItem(p, niche, detectedSub)),
-            ]
-            videoItems = [...videoItems, ...boostProfileMatchedReels(externalVideo, userProfile)]
-            feedSource = videoItems.length > 0 ? (feedSource.includes('community') ? feedSource + '+external' : 'external') : 'external'
-          }
-        } catch {}
+        } catch (err) {
+          console.warn('[feed] IG trending fetch failed:', (err as Error).message)
+        }
       }
 
-      // Combine articles + visual content
-      let items: FeedItem[] = [...videoItems, ...articleItems]
-
-      if (items.length === 0) {
-        items = mockFallbackForNiche(niche)
-        feedSource = 'fallback'
+      // ── 4. Dampening — drop creators/topics the user has explicitly
+      //      Not-interested or Dismissed within the last 60 days. ──
+      if (dampened.creators.size > 0 || dampened.topics.size > 0) {
+        const before = videoItems.length
+        videoItems = videoItems.filter((item) => {
+          const handle = (item.source || '').toLowerCase()
+          if (handle && dampened.creators.has(handle)) return false
+          // Topic match: if any dampened topic appears in title/summary
+          for (const topic of dampened.topics) {
+            const t = topic.toLowerCase()
+            if (item.title.toLowerCase().includes(t) || (item.summary || '').toLowerCase().includes(t)) {
+              return false
+            }
+          }
+          return true
+        })
+        if (process.env.NODE_ENV !== 'production' && before !== videoItems.length) {
+          console.log(`[feed] dampening ${company.id.slice(0, 8)}: ${before} -> ${videoItems.length}`)
+        }
       }
 
-      // Deduplicate by title
-      const seen = new Set<string>()
-      items = items.filter((item) => {
+      // ── 5. Mood/style/format tagging + semantic embedding (parallel).
+      //      Both run in parallel — tagging is ~10x slower than embedding,
+      //      so doing them concurrently doesn't extend feed latency. The
+      //      profile embedding is fetched alongside (cached 7 days on DB).
+      //      Skipped entirely for thin/empty profiles to save cost on
+      //      cold-start users. ──
+      let profileEmbedding: number[] | null = null
+      if (profile.strength === 'rich') {
+        const untagged = videoItems.filter((it) => !it.tags && (it.id.startsWith('ig_') || it.type === 'instagram'))
+        const embeddable = videoItems  // every item gets considered for embedding
+
+        const tagPromise = untagged.length > 0
+          ? tagFeedItemsBulk(
+              untagged.map((it) => ({
+                id: it.id,
+                title: it.title,
+                summary: it.summary,
+                imageUrl: it.imageUrl,
+                thumbnail: (it as any).thumbnail,
+                videoUrl: (it as any).videoUrl,
+                mediaType: (it as any).mediaType,
+              })),
+              niche,
+              detectedSub,
+              { maxFresh: 30, concurrency: 3 },
+            ).catch((err) => {
+              console.warn('[feed] IG tagging pass failed:', (err as Error).message)
+              return new Map()
+            })
+          : Promise.resolve(new Map())
+
+        const profileEmbedPromise = getOrComputeProfileEmbedding(prisma, company.id, profile)
+          .catch((err) => {
+            console.warn('[feed] profile embed failed:', (err as Error).message)
+            return null
+          })
+
+        const [taggedMap, profileEmb] = await Promise.all([tagPromise, profileEmbedPromise])
+        profileEmbedding = profileEmb
+
+        // Apply tags before embedding so the embed text can include them.
+        for (const it of videoItems) {
+          if (!it.tags && taggedMap.has(it.id)) {
+            it.tags = taggedMap.get(it.id) ?? null
+          }
+        }
+
+        // Now embed candidate items. Runs after tagging completes so each
+        // item's embedding text can include its tag values, sharpening
+        // semantic match. Persists community vectors to PlatformPost.
+        try {
+          const embedMap = await embedItemsBulk(
+            prisma,
+            embeddable.map((it) => ({
+              id: it.id,
+              title: it.title,
+              summary: it.summary,
+              tags: it.tags ?? null,
+            })),
+            { maxFresh: 100, concurrency: 8, companyId: company.id },
+          )
+          for (const it of videoItems) {
+            if (embedMap.has(it.id)) it.embedding = embedMap.get(it.id) ?? null
+          }
+        } catch (err) {
+          console.warn('[feed] item embedding pass failed:', (err as Error).message)
+        }
+      }
+
+      // ── 6. Relevance gate — three-component similarity score (token
+      //      overlap + mood/style tag match + cosine semantic similarity).
+      //      Items below threshold are dropped. Cold-start users
+      //      (thin/empty profile) never see a gated feed
+      //      (relevanceThreshold returns 0). ──
+      {
+        const threshold = relevanceThreshold(profile)
+        if (threshold > 0) {
+          const before = videoItems.length
+          videoItems = videoItems.filter((item) => scoreFeedItem(item, profile, profileEmbedding) >= threshold)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[feed] relevance gate ${company.id.slice(0, 8)} ${niche}: ${before} -> ${videoItems.length} (threshold=${threshold})`)
+          }
+        }
+      }
+
+      // ── 7. Author affinity — items from creators the user has revealed
+      //      or opened recently move toward the top. Stable sort: items
+      //      retain their internal order within the affinity bucket. ──
+      if (profile.affinityCreators.length > 0) {
+        const affinitySet = new Set(profile.affinityCreators.map((c) => c.toLowerCase()))
+        videoItems.sort((a, b) => {
+          const aHit = affinitySet.has((a.source || '').toLowerCase()) ? 1 : 0
+          const bHit = affinitySet.has((b.source || '').toLowerCase()) ? 1 : 0
+          return bHit - aHit
+        })
+      }
+
+      // ── 8. Dedup by title slug ──
+      const seenTitle = new Set<string>()
+      videoItems = videoItems.filter((item) => {
         const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40)
-        if (seen.has(key)) return false
-        seen.add(key)
+        if (seenTitle.has(key)) return false
+        seenTitle.add(key)
         return true
       })
 
-      // Cache + interleave
-      feedCache.set(cacheKey, { items, trends: trendSignals, videos: [], ts: Date.now() })
-      items = interleaveByType(items)
+      // ── 9. Dedup by creator — cap at 2 tiles per @handle. Only applies
+      //      to community items where the source IS the creator's handle.
+      //      IG-trending items all share `source='Instagram'` (the IG
+      //      hashtag API doesn't expose usernames), so capping that bucket
+      //      collapses the entire IG lane to 2 tiles — exactly what we
+      //      DON'T want. Skip non-handle sources here. ──
+      const creatorCounts = new Map<string, number>()
+      videoItems = videoItems.filter((item) => {
+        const src = (item.source || '').toLowerCase()
+        if (!src.startsWith('@')) return true   // IG-trending, fallback, etc.
+        const count = (creatorCounts.get(src) ?? 0) + 1
+        creatorCounts.set(src, count)
+        return count <= 2
+      })
 
-      return { items: items.slice(0, requestedLimit), trends: trendSignals, feedSource }
+      // ── 10. Last-resort: never empty. Fall back to mock content for the
+      //      declared niche so the page always has something to show. ──
+      if (videoItems.length === 0) {
+        videoItems = mockFallbackForNiche(niche)
+        feedSource = 'fallback'
+      }
+
+      feedCache.set(cacheKey, { items: videoItems, trends: [], videos: [], ts: Date.now() })
+      return { items: videoItems, trends: [] as TrendItem[], feedSource }
     })()
 
     feedRequests.set(cacheKey, fetchPromise as unknown as Promise<{ items: FeedItem[]; trends: TrendItem[] }>)
 
     try {
-      const { items, trends, feedSource } = await fetchPromise
-      res.json({ items, trends, niche, source: feedSource })
+      const { items: poolItems, feedSource } = await fetchPromise
+      const slice = poolItems.slice(requestedOffset, requestedOffset + requestedLimit)
+      res.json({
+        items: slice,
+        trends: [],
+        niche,
+        source: feedSource,
+        profileStrength: profile.strength,
+        offset: requestedOffset,
+        total: poolItems.length,
+        hasMore: requestedOffset + slice.length < poolItems.length,
+        cacheTtlSeconds: Math.round(FEED_CACHE_TTL / 1000),
+      })
     } finally {
       feedRequests.delete(cacheKey)
     }
@@ -849,7 +1011,10 @@ const articleCache = new Map<string, { content: string; ts: number }>()
 const ARTICLE_CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
 // ── Manual cache refresh ────────────────────────────────────────────────────
-// Allow users to force a fresh feed without waiting for TTL to expire
+// Force a fresh feed pool for the calling company. Cache keys are now
+// company-scoped (companyId:strength:sub:country:signalSig) so we delete
+// every entry whose key starts with this company's id rather than
+// guessing the exact key.
 router.post('/refresh', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
@@ -861,15 +1026,17 @@ router.post('/refresh', requireAuth, async (req, res, next) => {
       return res.json({ success: false, message: 'Company not found' })
     }
 
-    const niche = effectiveNiche(company) || 'lifestyle'
-    const detectedSub = company.detectedSubNiche
-    const cacheKey = `${niche}:${detectedSub || ''}`
-    feedCache.delete(cacheKey) // Clear cache for this niche
-    trendCache.delete(niche) // Clear trend cache
-    youtubeCache.clear() // Clear YouTube cache (could be stale)
-    articleCache.clear() // Also clear article cache
+    const prefix = `${company.id}:`
+    let cleared = 0
+    for (const key of feedCache.keys()) {
+      if (key.startsWith(prefix)) {
+        feedCache.delete(key)
+        cleared++
+      }
+    }
+    invalidateFeedContentProfile(company.id)
 
-    res.json({ success: true, message: 'Cache cleared — fetching fresh data...' })
+    res.json({ success: true, cleared })
   } catch (err) {
     next(err)
   }
@@ -957,6 +1124,66 @@ router.get('/article', requireAuth, async (req, res) => {
   } catch (err) {
     console.warn('[feed/article] fetch failed:', (err as Error).message)
     res.json({ content: null, error: 'Failed to fetch article' })
+  }
+})
+
+// ── Behavioral signals ──────────────────────────────────────────────────────
+// Captures user actions on Knowledge tiles (reveal, open, dismiss,
+// not_interested) so the next /api/feed call can boost / dampen accordingly.
+// See feedSignal.service.ts + the Plan: "Closer to the user's content" Slice 1.
+import {
+  recordSignal,
+  isSignalKind,
+  isSignalTargetType,
+} from '../services/feedSignal.service'
+
+router.post('/signal', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const body = (req.body ?? {}) as {
+      kind?: string
+      targetType?: string
+      targetId?: string
+      weight?: number
+    }
+    if (!body.kind || !isSignalKind(body.kind)) {
+      res.status(400).json({ error: 'invalid_kind' })
+      return
+    }
+    if (!body.targetType || !isSignalTargetType(body.targetType)) {
+      res.status(400).json({ error: 'invalid_target_type' })
+      return
+    }
+    if (!body.targetId || typeof body.targetId !== 'string' || body.targetId.length < 1) {
+      res.status(400).json({ error: 'invalid_target_id' })
+      return
+    }
+
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      select: { id: true },
+    })
+    if (!company) {
+      res.status(404).json({ error: 'company_not_found' })
+      return
+    }
+
+    await recordSignal(prisma, {
+      userId,
+      companyId: company.id,
+      kind: body.kind,
+      targetType: body.targetType,
+      targetId: body.targetId,
+      weight: typeof body.weight === 'number' ? body.weight : 1,
+    })
+
+    // Bust the profile cache so the next feed call rebuilds with the new
+    // affinity / dampening state.
+    invalidateFeedContentProfile(company.id)
+
+    res.json({ ok: true })
+  } catch (err) {
+    next(err)
   }
 })
 

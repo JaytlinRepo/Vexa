@@ -33,7 +33,7 @@ export async function createCheckoutSession({
   cancelUrl,
 }: {
   userId: string
-  plan: 'starter' | 'pro' | 'agency'
+  plan: 'pro' | 'agency'
   billing: 'monthly' | 'annual'
   successUrl: string
   cancelUrl: string
@@ -50,7 +50,6 @@ export async function createCheckoutSession({
     cancel_url: cancelUrl,
     metadata: { userId, plan, billing },
     subscription_data: {
-      trial_period_days: 7,
       metadata: { userId, plan },
     },
   }
@@ -120,7 +119,7 @@ export async function handleStripeWebhook(payload: Buffer, signature: string): P
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId
-  const plan = session.metadata?.plan as 'starter' | 'pro' | 'agency'
+  const plan = session.metadata?.plan as 'starter' | 'pro' | 'agency' // starter kept for legacy sessions
   if (!userId || !plan) return
 
   await prisma.user.update({
@@ -181,6 +180,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 // ─── PLAN HELPERS ─────────────────────────────────────────────────────────────
 
+// Returns starter for legacy subscribers whose price ID pre-dates the deprecation.
 function getPlanFromPriceId(priceId?: string): 'starter' | 'pro' | 'agency' | null {
   if (!priceId) return null
   for (const [plan, prices] of Object.entries(PRICE_IDS)) {

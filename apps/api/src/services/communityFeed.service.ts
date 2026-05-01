@@ -44,10 +44,12 @@ function computeRelevanceScore(
     viralityScore: number
     publishedAt: Date | null
     communityTags: CommunityTags | null
+    creatorCountry?: string | null
   },
   viewerNiche: string,
   viewerSubNiche: string | null,
   viewerProfile: ViewerProfile | null,
+  viewerCountry: string | null,
 ): number {
   let score = 0
 
@@ -97,6 +99,16 @@ function computeRelevanceScore(
     if (viewerSubNiche && tags.subNiche === viewerSubNiche) score += 5
   }
 
+  // Country match bonus — same-country creator content is much more
+  // relevant for local context, audience, and timing.
+  if (
+    viewerCountry &&
+    post.creatorCountry &&
+    viewerCountry.toUpperCase() === post.creatorCountry.toUpperCase()
+  ) {
+    score += 5
+  }
+
   return Math.min(100, Math.round(score))
 }
 
@@ -110,9 +122,18 @@ export async function queryCommunityFeed(
     niche?: string
     subNiche?: string | null
     viewerProfile?: ViewerProfile | null
+    /** ISO 2-letter country code of the VIEWER. When set, posts whose
+     *  creator's company has the same country get a relevance boost. */
+    viewerCountry?: string | null
   },
 ): Promise<{ posts: CommunityFeedPost[]; totalAvailable: number }> {
-  const { limit = 20, niche, subNiche = null, viewerProfile = null } = options
+  const {
+    limit = 20,
+    niche,
+    subNiche = null,
+    viewerProfile = null,
+    viewerCountry = null,
+  } = options
 
   // Build niche filter — if niche provided, match; otherwise all niches
   const nicheFilter = niche
@@ -121,10 +142,17 @@ export async function queryCommunityFeed(
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000)
 
-  // Query opted-in posts from other companies
+  // Query opted-in posts from other companies. Two extra filters added by
+  // the trust-foundation slice:
+  //   - communityHiddenAt: null   → never surface a post that's been reported
+  //     or admin-hidden (set by /api/community/report or admin moderation)
+  //   - communityExcluded: false  → respect per-post opt-out (PATCH
+  //     /api/company/me/posts/:id/community-exclude)
   const posts = await prisma.platformPost.findMany({
     where: {
       communityTaggedAt: { not: null },
+      communityHiddenAt: null,
+      communityExcluded: false,
       publishedAt: { gte: ninetyDaysAgo },
       account: {
         company: {
@@ -141,7 +169,7 @@ export async function queryCommunityFeed(
           profileImageUrl: true,
           platform: true,
           company: {
-            select: { niche: true, detectedSubNiche: true },
+            select: { niche: true, detectedSubNiche: true, country: true },
           },
         },
       },
@@ -172,10 +200,15 @@ export async function queryCommunityFeed(
         platform: p.account.platform,
       },
       relevanceScore: computeRelevanceScore(
-        { ...p, communityTags: p.communityTags as unknown as CommunityTags },
+        {
+          ...p,
+          communityTags: p.communityTags as unknown as CommunityTags,
+          creatorCountry: p.account.company?.country ?? null,
+        },
         niche || 'lifestyle',
         subNiche,
         viewerProfile,
+        viewerCountry,
       ),
     }))
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
@@ -203,6 +236,18 @@ export interface FeedItem {
     profileImageUrl: string | null
     platform: string
   }
+  // Raw PlatformPost.id of a community-contributed item — used by the
+  // Knowledge-tab report flag to call POST /api/community/report.
+  communityPostId?: string
+  /** Mood/style/format/hook/audience tags. Set on community items
+   *  directly from the persisted communityTags JSON; set on IG-trending
+   *  items by feedItemTagging.service.ts on the fly. Read by
+   *  feedRelevance.scoreFeedItem() to score multi-dimensional similarity. */
+  tags?: CommunityTags | null
+  /** Semantic embedding (Titan Embed v2 → 1024-dim vector). Persisted on
+   *  PlatformPost.topicEmbedding for community items; cached in-memory
+   *  for IG-trending items. Read by scoreSemanticSimilarity. */
+  embedding?: number[] | null
 }
 
 export function communityPostToFeedItem(post: CommunityFeedPost): FeedItem {
@@ -239,5 +284,9 @@ export function communityPostToFeedItem(post: CommunityFeedPost): FeedItem {
     score: post.relevanceScore,
     mayaTake,
     creator: post.creator,
+    communityPostId: post.id,
+    // Surface the existing tags so feedRelevance can score this item
+    // along the same mood/style/format dimensions as IG-trending items.
+    tags: tags as CommunityTags,
   }
 }

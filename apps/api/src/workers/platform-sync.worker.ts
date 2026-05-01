@@ -93,18 +93,9 @@ export function createPlatformSyncWorker(): Worker {
           break
         }
 
-        case 'trial-emails': {
-          // Check for expiring trials and send emails
-          try {
-            const threeDaysFromNow = new Date(Date.now() + 3 * 86400000)
-            const expiring = await prisma.user.findMany({
-              where: { subscriptionStatus: 'trial', createdAt: { lte: threeDaysFromNow } },
-              select: { email: true, fullName: true },
-            })
-            if (expiring.length > 0) console.log(`[worker:sync] ${expiring.length} trials expiring soon`)
-          } catch {}
+        case 'trial-emails':
+          // No-op: trial model replaced by freemium free plan.
           break
-        }
 
         default:
           console.warn(`[worker:sync] unknown kind: ${(data as PlatformSyncJobData).kind}`)

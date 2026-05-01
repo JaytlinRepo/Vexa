@@ -222,4 +222,97 @@ router.get('/usage', async (req, res, next) => {
   }
 })
 
+// ── Community moderation queue ─────────────────────────────────────────────
+// First-report-hides means every report results in an immediately hidden
+// post. Admins triage here: restore (false alarm), confirm hide (real
+// problem), or dismiss (record stays as evidence; post stays hidden).
+
+router.get('/community/reports', async (req, res, next) => {
+  try {
+    const status = (req.query.status as string) || 'pending'
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200)
+
+    const reports = await prisma.communityReport.findMany({
+      where: status === 'all' ? {} : { status },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        reason: true,
+        notes: true,
+        status: true,
+        createdAt: true,
+        resolvedAt: true,
+        resolvedByEmail: true,
+        post: {
+          select: {
+            id: true,
+            caption: true,
+            thumbnailUrl: true,
+            url: true,
+            communityTaggedAt: true,
+            communityHiddenAt: true,
+            communityHiddenReason: true,
+            account: { select: { handle: true, platform: true, companyId: true } },
+          },
+        },
+        reporter: { select: { id: true, email: true } },
+      },
+    })
+
+    res.json({ reports })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/community/reports/:id/resolve', async (req, res, next) => {
+  try {
+    const session = await readSession(req)
+    if (!session) { res.status(401).json({ error: 'unauthorized' }); return }
+
+    const action = (req.body?.action as string) || ''
+    const notes = typeof req.body?.notes === 'string' ? req.body.notes : null
+    if (!['restore', 'confirm_hide', 'dismiss'].includes(action)) {
+      res.status(400).json({ error: 'invalid_action' })
+      return
+    }
+
+    const report = await prisma.communityReport.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, postId: true, status: true },
+    })
+    if (!report) { res.status(404).json({ error: 'report_not_found' }); return }
+
+    const newStatus = action === 'restore' ? 'dismissed' : action === 'confirm_hide' ? 'confirmed' : 'dismissed'
+
+    const ops = [
+      prisma.communityReport.update({
+        where: { id: report.id },
+        data: {
+          status: newStatus,
+          resolvedAt: new Date(),
+          resolvedByEmail: session.email,
+          resolutionNotes: notes,
+        },
+      }),
+    ]
+
+    if (action === 'restore') {
+      ops.push(
+        prisma.platformPost.update({
+          where: { id: report.postId },
+          data: { communityHiddenAt: null, communityHiddenReason: null },
+        }) as never
+      )
+    }
+
+    await prisma.$transaction(ops)
+
+    res.json({ ok: true, status: newStatus })
+  } catch (err) {
+    next(err)
+  }
+})
+
 export default router

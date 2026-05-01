@@ -13,6 +13,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { transcribeVideo, TranscriptionResult } from './transcribe.service'
 import { analyzeAndPickClip } from './clipAnalyzer.service'
+import { takeSourceBoundariesForUpload } from './sourceBoundaries'
 import { buildReel } from './ffmpegClipper.service'
 import { detectScenes, SceneAnalysis } from './sceneDetection.service'
 import { extractKeyframes, extractFramesAt } from './keyframeExtractor.service'
@@ -29,12 +30,33 @@ import { getPresignedUrl } from '../services/storage/s3.service'
 import { broadcastProcessingEvent as _defaultBroadcast } from '../routes/video'
 
 // Allow workers to override the broadcast function (for Redis Pub/Sub relay)
-let _broadcastFn: (event: string, data: unknown) => void = _defaultBroadcast
-export function setBroadcastFn(fn: (event: string, data: unknown) => void): void {
+let _broadcastFn: (event: string, data: unknown, userId?: string) => void = _defaultBroadcast
+export function setBroadcastFn(fn: (event: string, data: unknown, userId?: string) => void): void {
   _broadcastFn = fn
 }
-function broadcastProcessingEvent(event: string, data: unknown): void {
-  _broadcastFn(event, data)
+// uploadId → userId registry so all broadcast calls inside a processing job
+// reach only the owning user without threading userId through every call site.
+const _uploadUserMap = new Map<string, string>()
+export function registerUploadUser(uploadId: string, userId: string): void {
+  _uploadUserMap.set(uploadId, userId)
+}
+export function unregisterUploadUser(uploadId: string): void {
+  _uploadUserMap.delete(uploadId)
+}
+function broadcastProcessingEvent(event: string, data: unknown & { uploadId?: string }): void {
+  const uid = (data as Record<string, unknown>).uploadId
+    ? _uploadUserMap.get((data as Record<string, unknown>).uploadId as string)
+    : undefined
+  _broadcastFn(event, data, uid)
+}
+// Exported alias so other services (e.g. videoCompilation.service) can share
+// the same indirection — when a worker calls setBroadcastFn() the override
+// applies to events emitted from the compilation pipeline as well.
+export function emitProcessingEvent(event: string, data: unknown): void {
+  const uid = (data as Record<string, unknown>).uploadId
+    ? _uploadUserMap.get((data as Record<string, unknown>).uploadId as string)
+    : undefined
+  _broadcastFn(event, data, uid)
 }
 
 export interface ProcessingStage {
@@ -65,6 +87,7 @@ export class VideoProcessingService extends EventEmitter {
       console.log(`[video] Starting processing for ${uploadId}`)
       this.processingStages = []
       this.currentUploadId = uploadId
+      registerUploadUser(uploadId, userId)
 
       broadcastProcessingEvent('processing_start', { uploadId })
 
@@ -384,6 +407,15 @@ export class VideoProcessingService extends EventEmitter {
       // restore optional-chaining behavior.
       const cf = creatorFilters as import('./ffmpegFilterBuilder').CreatorFilters | null
       const targetDuration = cf?.targetDuration || 60
+      // If this upload came from a multi-video compilation, pull the
+      // per-source boundaries that videoCompilation stashed earlier.
+      // They tell Riley how to distribute segments across the source clips.
+      const sourceBoundaries = takeSourceBoundariesForUpload(uploadId)
+      if (sourceBoundaries) {
+        console.log(`[video] Source boundaries (${sourceBoundaries.length} clips): ${sourceBoundaries.map((b) => `[${b.start.toFixed(1)}-${b.end.toFixed(1)}s ${b.fileName}]`).join(' ')}`)
+      } else {
+        console.log(`[video] No source boundaries for upload ${uploadId.slice(0, 8)} (single-video flow)`)
+      }
       const clipDecision = await this.stage('Analyze clip (Riley)', async () => {
         const decision = await analyzeAndPickClip(
           transcript,
@@ -397,6 +429,9 @@ export class VideoProcessingService extends EventEmitter {
           beatAnalysis || undefined,
           qualityResult?.badWindows,
           audioResult?.curve,
+          sourceBoundaries,
+          localVideoPath,
+          motionResult?.curve,
         )
         console.log(`[video] Riley picked ${decision.segments.length} segments, ${decision.totalDuration.toFixed(1)}s total — hook: "${decision.hook}"`)
         return decision
@@ -501,7 +536,7 @@ export class VideoProcessingService extends EventEmitter {
       })
       throw err
     } finally {
-      // Cleanup temp source file
+      unregisterUploadUser(uploadId)
       try { fs.unlinkSync(localVideoPath) } catch {}
     }
   }

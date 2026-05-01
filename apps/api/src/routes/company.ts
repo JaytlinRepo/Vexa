@@ -382,6 +382,42 @@ router.post('/goal/generate', requireAuth, async (req, res, next) => {
   }
 })
 
+/**
+ * Manual goal override — CEO sets their own target + deadline.
+ * Bypasses Jordan's algorithm; stores with source='manual'.
+ */
+router.patch('/goal', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({ where: { userId } })
+    if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
+
+    const { target, byDate, type = 'followers' } = req.body as { target: number; byDate: string; type?: string }
+    if (!target || !byDate) { res.status(400).json({ error: 'target and byDate are required' }); return }
+
+    const baseline = await currentMetric(prisma, company.id, type as MetricType)
+    const goal: ActiveGoal = {
+      type: type as MetricType,
+      target: Number(target),
+      byDate,
+      startedAt: new Date().toISOString(),
+      baseline: baseline ?? 0,
+      rationale: 'Manually set by you.',
+      metricLabel: METRIC_LABELS[type as MetricType] ?? type,
+      source: 'manual',
+    }
+    const existing = (company.goals as { active?: ActiveGoal } | null) || {}
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { goals: { ...existing, active: goal } as unknown as object },
+    })
+    const pacing = computePacing(goal, new Date(), baseline ?? 0)
+    res.json({ goal, pacing })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── MONTHLY SCORECARD ──────────────────────────────────────────────────────
 // Aggregates three signals that let the CEO see if their team is earning
 // their subscription this month: work shipped, approval rate on that work,
@@ -581,23 +617,173 @@ router.delete('/schedules/:key', requireAuth, async (req, res, next) => {
 })
 
 // ── Community feed opt-in ────────────────────────────────────────────────────
+// Community sharing is gated by an explicit consent flow: every transition
+// (opt-in / opt-out) writes a CommunityConsentLog row inside the same tx as
+// the Company.communityOptIn flip, so we have a permanent audit trail with
+// the agreement version the user accepted.
+const optInBodySchema = z.object({
+  optIn: z.boolean(),
+  agreementVersion: z.string().max(20).optional(),
+})
+
 router.patch('/me/community-opt-in', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
-    const { optIn } = req.body as { optIn: boolean }
+    const parsed = optInBodySchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_input', issues: parsed.error.issues })
+      return
+    }
+    const { optIn } = parsed.data
+    const agreementVersion = parsed.data.agreementVersion ?? 'v1'
 
     const company = await prisma.company.findFirst({ where: { userId } })
     if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
 
-    await prisma.company.update({
-      where: { id: company.id },
-      data: {
-        communityOptIn: !!optIn,
-        communityOptInAt: optIn ? new Date() : null,
+    // No-op when state matches (idempotent), but still record the event so
+    // double-clicks from the UI don't pollute the log.
+    if (company.communityOptIn === optIn) {
+      res.json({ ok: true, communityOptIn: optIn, unchanged: true })
+      return
+    }
+
+    await prisma.$transaction([
+      prisma.company.update({
+        where: { id: company.id },
+        data: {
+          communityOptIn: optIn,
+          communityOptInAt: optIn ? new Date() : null,
+        },
+      }),
+      prisma.communityConsentLog.create({
+        data: {
+          companyId: company.id,
+          userId,
+          action: optIn ? 'opted_in' : 'opted_out',
+          agreementVersion,
+        },
+      }),
+    ])
+
+    // On opt-in, fire-and-forget tag the user's top-10 most popular videos so
+    // they qualify for OTHER CEOs' Knowledge feeds within minutes (instead of
+    // waiting for the next scheduled content-analysis worker run). Errors are
+    // swallowed — the response shouldn't block on Bedrock latency.
+    if (optIn) {
+      ;(async () => {
+        try {
+          const { tagTopVideosForCompany } = await import('../services/communityTagging.service')
+          await tagTopVideosForCompany(prisma, company.id, 10)
+        } catch (err) {
+          console.warn('[community-opt-in] background tagging failed:', (err as Error).message)
+        }
+      })()
+    }
+
+    res.json({ ok: true, communityOptIn: optIn })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ── Community sharing transparency ───────────────────────────────────────────
+// Read-only endpoints powering the Knowledge-tab "Community sharing" panel.
+
+router.get('/me/community/shared-posts', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    if (!company) { res.json({ posts: [], total: 0 }); return }
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100)
+    const offset = Math.max(Number(req.query.offset) || 0, 0)
+
+    const where = {
+      communityTaggedAt: { not: null },
+      account: { companyId: company.id },
+    } as const
+
+    const [posts, total] = await Promise.all([
+      prisma.platformPost.findMany({
+        where,
+        orderBy: { communityTaggedAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          caption: true,
+          thumbnailUrl: true,
+          url: true,
+          mediaType: true,
+          publishedAt: true,
+          communityTaggedAt: true,
+          communityExcluded: true,
+          communityHiddenAt: true,
+        },
+      }),
+      prisma.platformPost.count({ where }),
+    ])
+
+    res.json({ posts, total })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/me/community/consent-log', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    if (!company) { res.json({ entries: [] }); return }
+
+    const entries = await prisma.communityConsentLog.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        action: true,
+        agreementVersion: true,
+        createdAt: true,
       },
     })
 
-    res.json({ ok: true, communityOptIn: !!optIn })
+    res.json({ entries })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// PATCH /api/company/me/posts/:id/community-exclude — set/unset per-post exclusion
+const excludeBodySchema = z.object({ excluded: z.boolean() })
+router.patch('/me/posts/:id/community-exclude', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const parsed = excludeBodySchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: 'invalid_input', issues: parsed.error.issues })
+      return
+    }
+
+    const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
+
+    // Verify ownership: the post must belong to one of the caller's accounts.
+    const post = await prisma.platformPost.findFirst({
+      where: {
+        id: req.params.id,
+        account: { companyId: company.id },
+      },
+      select: { id: true },
+    })
+    if (!post) { res.status(404).json({ error: 'post_not_found' }); return }
+
+    await prisma.platformPost.update({
+      where: { id: post.id },
+      data: { communityExcluded: parsed.data.excluded },
+    })
+
+    res.json({ ok: true, excluded: parsed.data.excluded })
   } catch (err) {
     next(err)
   }

@@ -28,6 +28,17 @@ export function createVideoProcessingWorker(): Worker {
       try {
         const isCompilation = job.name === 'compilation'
 
+        // Both branches need the Redis-pubsub broadcaster: events emitted
+        // inside the worker process must be relayed to the SSE bridge in
+        // the API process. The broadcaster carries the resolved id with
+        // each event so the frontend can match it.
+        const { setBroadcastFn } = await import('../lib/videoProcessing.service')
+        setBroadcastFn((event: string, data: unknown) => {
+          pubClient.publish('sovexa:video-progress', JSON.stringify({ event, data, uploadId }))
+          const progress = (data as { progress?: number })?.progress
+          if (progress != null) job.updateProgress(progress)
+        })
+
         if (isCompilation) {
           console.log(`[worker:video] compilation ${uploadId} — joining videos then editing`)
           const { processCompilation } = await import('../lib/videoCompilation.service')
@@ -36,14 +47,6 @@ export function createVideoProcessingWorker(): Worker {
         } else {
           console.log(`[worker:video] single video ${uploadId}`)
           const VideoProcessingService = (await import('../lib/videoProcessing.service')).default
-          const { setBroadcastFn } = await import('../lib/videoProcessing.service')
-
-          setBroadcastFn((event: string, data: unknown) => {
-            pubClient.publish('sovexa:video-progress', JSON.stringify({ event, data, uploadId }))
-            const progress = (data as { progress?: number })?.progress
-            if (progress != null) job.updateProgress(progress)
-          })
-
           const svc = new VideoProcessingService(prisma)
           await svc.processVideo(uploadId, videoUrl, userId)
           console.log(`[worker:video] done ${uploadId} in ${((Date.now() - job.timestamp) / 1000).toFixed(1)}s`)

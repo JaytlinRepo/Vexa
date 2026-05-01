@@ -14,19 +14,21 @@ const s3 = new S3Client({ region: REGION })
 // ─── UPLOAD ──────────────────────────────────────────────────────────────────
 
 /**
- * Upload a file buffer to S3.
+ * Upload a file to S3. `body` accepts either a Buffer (in-memory) or a
+ * Readable stream (e.g. fs.createReadStream for files on disk). Streaming
+ * avoids loading large videos fully into RAM during multi-video uploads.
  * Returns the S3 key for later retrieval.
  */
 export async function uploadFile(opts: {
   key: string
-  body: Buffer
+  body: Buffer | NodeJS.ReadableStream
   contentType: string
 }): Promise<{ key: string; bucket: string }> {
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: opts.key,
-      Body: opts.body,
+      Body: opts.body as PutObjectCommand['input']['Body'],
       ContentType: opts.contentType,
     }),
   )
