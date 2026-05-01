@@ -661,9 +661,11 @@
           if (progressEl) progressEl.textContent = '100%'
           showToast('Clip ready for review', 'success')
           evtSource.close()
-          refreshClips()
-          // Hide processing bar after a moment
-          setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 3000)
+          // Await refreshClips() so renderPendingClips() runs before we hide the bar.
+          // Without this the bar hides while the clip card is still blank.
+          refreshClips().then(() => {
+            setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 3000)
+          })
         }
 
         if (data.event === 'processing_error') {

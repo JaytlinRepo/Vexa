@@ -193,10 +193,19 @@ export function initStudioRoutes(_prisma: PrismaClient) {
 
       if (data.action === 'approve') {
         // Approve copy
-        const captionOptions = (clip.captionOptions as any) || []
-        const selectedCaption = data.captionId
-          ? captionOptions.find((c: any) => c.id === data.captionId)
-          : captionOptions[0]
+        const captionOptions = (clip.captionOptions as any[]) || []
+        let selectedCaption: any
+        if (data.captionId) {
+          selectedCaption = captionOptions.find((c: any) => c.id === data.captionId)
+          if (!selectedCaption) {
+            return res.status(400).json({
+              error: 'caption_not_found',
+              message: `Caption '${data.captionId}' not found on this clip. It may have been replaced by a regeneration.`,
+            })
+          }
+        } else {
+          selectedCaption = captionOptions[0]
+        }
 
         await prisma.videoClip.update({
           where: { id: clip.id },
@@ -286,6 +295,18 @@ export function initStudioRoutes(_prisma: PrismaClient) {
 
       if (!clip || clip.company.userId !== userId) {
         return res.status(404).json({ error: 'clip_not_found' })
+      }
+
+      // Only allow regeneration when the relevant approval is in 'rejected' state.
+      // Regenerating an 'approved' clip would silently overwrite the user's approval.
+      const relevantStatus = data.type === 'visual'
+        ? clip.visualApprovalStatus
+        : clip.copyApprovalStatus
+      if (relevantStatus !== 'rejected') {
+        return res.status(409).json({
+          error: 'not_rejected',
+          message: `Cannot regenerate ${data.type}: current status is '${relevantStatus}', must be 'rejected' first`,
+        })
       }
 
       if (data.type === 'visual') {

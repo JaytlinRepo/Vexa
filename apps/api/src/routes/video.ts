@@ -10,7 +10,7 @@ import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import VideoProcessingService from '../lib/videoProcessing.service'
-import { uploadFile, buildUploadKey, getPresignedUrl } from '../services/storage/s3.service'
+import { uploadFile, buildUploadKey, getPresignedUrl, deleteFile } from '../services/storage/s3.service'
 import multer from 'multer'
 
 const router = Router()
@@ -26,8 +26,12 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Upload Video ───────────────────────────────────────────────────────────
 
-  // Accept both 'video' (single) and 'videos' (batch) field names
-  const upload = multer({ storage: multer.memoryStorage() })
+  // Accept both 'video' (single) and 'videos' (batch) field names.
+  // 500MB ceiling keeps the process from OOM-ing on huge files buffered in memory.
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 },
+  })
 
   /**
    * POST /api/video/upload
@@ -56,7 +60,8 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'No video file provided' })
       }
 
-      // Upload to S3
+      // Upload to S3 first, then create the DB record.
+      // If the DB create fails, clean up the orphaned S3 object.
       const s3Key = buildUploadKey(companyId, file.originalname)
       await uploadFile({
         key: s3Key,
@@ -65,14 +70,20 @@ export function initVideoRoutes(_prisma: PrismaClient) {
       })
       const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
 
-      // Create upload record
-      const videoUpload = await prisma.videoUpload.create({
-        data: {
-          companyId,
-          sourceVideoUrl: videoUrl,
-          fileName: file.originalname
-        }
-      })
+      let videoUpload: Awaited<ReturnType<typeof prisma.videoUpload.create>>
+      try {
+        videoUpload = await prisma.videoUpload.create({
+          data: {
+            companyId,
+            sourceVideoUrl: videoUrl,
+            fileName: file.originalname
+          }
+        })
+      } catch (dbErr) {
+        // DB create failed — remove the S3 object so it doesn't become an orphan
+        await deleteFile(s3Key).catch(e => console.error('[video] Failed to clean up orphaned S3 object:', e))
+        throw dbErr
+      }
 
       console.log(`[video] Upload created: ${videoUpload.id}`)
 

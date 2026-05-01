@@ -200,8 +200,11 @@ export async function buildReel(params: {
       segmentCount: segments.length,
     }
   } finally {
-    // Cleanup
-    try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
+    // Remove entire workDir (segments + concat list + output). Errors here are
+    // non-fatal but logged so disk leaks are visible in production logs.
+    try { fs.rmSync(workDir, { recursive: true, force: true }) } catch (e) {
+      console.error(`[ffmpeg] Failed to clean up workDir ${workDir}:`, e)
+    }
   }
 }
 
