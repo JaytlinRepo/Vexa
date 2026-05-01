@@ -300,8 +300,21 @@
     return Math.floor(h / 24) + 'd ago'
   }
 
-  function obMarkOAuthLeavingForOnboarding() {
-    try { sessionStorage.setItem('vx-ob-await-connect', '1') } catch (_) {}
+  function obOpenOAuthPopup(url) {
+    var w = 520, h = 640
+    var left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2))
+    var top = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2))
+    var popup = window.open(url, 'vx_oauth', 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes')
+    if (!popup) {
+      // Popup blocked — fall back to new tab
+      window.open(url, '_blank')
+      return null
+    }
+    // Poll until popup closes, then refresh platform rows
+    var poll = setInterval(function () {
+      try { if (popup.closed) { clearInterval(poll); if (typeof window.__vxObRefreshPlatforms === 'function') window.__vxObRefreshPlatforms() } } catch (_) { clearInterval(poll) }
+    }, 500)
+    return popup
   }
 
   async function obFetchIgConnection(companyId) {
@@ -450,8 +463,10 @@
         const conn = toggleBtn.getAttribute('data-ob-connected') === '1'
         if (!conn) {
           obMarkOAuthLeavingForOnboarding()
-          if (pid === OB_IG_ID) window.location.href = API + `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
-          else window.location.href = API + `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+          var oauthUrl = pid === OB_IG_ID
+            ? API + `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
+            : API + `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+          obOpenOAuthPopup(oauthUrl)
           return
         }
         var st2 = await obPlatformConnectionFlags()

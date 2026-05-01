@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import crypto from 'crypto'
+import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import * as meta from '../lib/metaGraph'
 import type { IGStory, IGStoryInsight } from '../lib/metaGraph'
@@ -306,11 +307,7 @@ router.get('/auth/callback', async (req, res) => {
 
     console.log('[instagram] connection saved', { companyId, handle: stub.username, followers: stub.followerCount, posts: stub.postCount })
 
-    if (companyId) {
-      res.redirect(`${appUrl()}/?instagramConnected=1`)
-    } else {
-      res.type('html').send(`<h1>Instagram connected!</h1><p>@${stub.username} — ${stub.followerCount} followers</p>`)
-    }
+    res.type('html').send(oauthSuccessPage(companyId ? `${appUrl()}/?instagramConnected=1` : null))
   } catch (err) {
     console.error('[instagram] callback error', err)
     res.status(500).type('html').send(`<h1>Connection failed</h1><p>${(err as Error).message}</p>`)

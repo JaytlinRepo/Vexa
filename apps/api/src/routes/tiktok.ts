@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import crypto from 'crypto'
+import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
@@ -299,8 +300,7 @@ router.get('/callback', async (req, res) => {
       )
     }
 
-    const back = `${appUrl()}/?tiktokConnected=1#tiktok`
-    res.redirect(back)
+    res.type('html').send(oauthSuccessPage(`${appUrl()}/?tiktokConnected=1#tiktok`))
     return
   }
 
