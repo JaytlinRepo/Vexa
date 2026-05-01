@@ -83,10 +83,24 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         message: 'Video processing started'
       })
 
-      // Process in background
-      processingService.processVideo(videoUpload.id, videoUrl, userId).catch(err => {
-        console.error(`[video] Background processing failed:`, err)
-      })
+      // Enqueue for background processing with retry support.
+      // Falls back to in-process if Redis/queue is unavailable (dev without Redis).
+      try {
+        const { videoQueue } = await import('../queues')
+        await videoQueue.add('single', {
+          uploadId: videoUpload.id,
+          videoUrl,
+          userId,
+          companyId,
+          s3Key,
+        })
+        console.log(`[video] Enqueued upload ${videoUpload.id} for processing`)
+      } catch (queueErr) {
+        console.warn(`[video] Queue unavailable, processing in-process (no retry): ${queueErr}`)
+        processingService.processVideo(videoUpload.id, videoUrl, userId).catch(err => {
+          console.error(`[video] Background processing failed:`, err)
+        })
+      }
     } catch (err) {
       console.error('[video] Upload failed:', err)
       res.status(500).json({ error: 'Upload failed' })

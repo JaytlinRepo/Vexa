@@ -106,8 +106,22 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
         emoji: '🎬',
         actionUrl: '/work?tab=content',
       })
-    }).catch((err) => {
+    }).catch(async (err) => {
       console.error('[uploads] Riley review failed:', err)
+      // Surface the failure so the user isn't left with a silently-stuck task.
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: 'revision' }, // closest existing status; signals "needs attention"
+      }).catch(() => {})
+      await createNotification({
+        userId,
+        companyId,
+        type: 'output_delivered',
+        title: 'Upload review failed',
+        body: `Riley couldn't complete the review of your ${uploadType}. Please try uploading again.`,
+        emoji: '⚠️',
+        actionUrl: '/work?tab=content',
+      }).catch(() => {})
     })
 
     res.json({

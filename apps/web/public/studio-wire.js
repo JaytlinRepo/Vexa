@@ -693,7 +693,11 @@
     const bar = document.getElementById('processing-bar')
     const progressEl = document.getElementById('processing-progress')
     let attempts = 0
-    const startTime = new Date().toISOString()
+
+    // For single-video uploads, uploadId matches clip.uploadId exactly so we can
+    // correlate precisely. For compilations (compilationId), fall back to the
+    // "any new clip since poll started" heuristic because compilations don't set
+    // uploadId on the resulting clip in the same way.
     const startIds = new Set(pendingClips.map(c => c.id))
 
     const progressSteps = [
@@ -703,16 +707,22 @@
       { at: 8, pct: 65, label: 'Building reel from best moments...', detail: 'Cutting and encoding segments' },
       { at: 15, pct: 80, label: 'Still encoding...', detail: 'Large files take a bit longer' },
       { at: 20, pct: 85, label: 'Alex is writing captions...', detail: 'Captions based on what was actually said' },
-      { at: 25, pct: 90, label: 'Almost done...', detail: 'Uploading to S3' },
+      { at: 30, pct: 90, label: 'Almost done...', detail: 'Uploading to S3' },
     ]
 
     const poll = async () => {
       attempts++
       await refreshClips()
 
-      const hasNewClip = pendingClips.some(c => !startIds.has(c.id))
+      // Prefer exact uploadId match so concurrent uploads in the same company
+      // don't falsely complete each other. Fall back to "new ID appeared" when
+      // uploadId is a compilationId (compilation clips don't carry uploadId).
+      const exactMatch = uploadId && pendingClips.some(c => c.uploadId === uploadId)
+      const hasNewClip = exactMatch || pendingClips.some(c => !startIds.has(c.id))
+
       if (hasNewClip) {
-        // New clip appeared — done!
+        // Clip is already in pendingClips (refreshClips populated it), so
+        // renderPendingClips has already run. Wait a beat then hide the bar.
         if (statusEl) statusEl.textContent = 'Done!'
         if (detailEl) detailEl.textContent = 'Your reel is ready for review'
         if (bar) bar.style.width = '100%'
@@ -731,8 +741,8 @@
         if (progressEl) progressEl.textContent = `${step.pct}%`
       }
 
-      if (attempts < 60) {
-        // Poll every 5s for up to 5 minutes
+      if (attempts < 90) {
+        // Poll every 5s for up to 7.5 minutes (covers large files + Bedrock latency)
         setTimeout(poll, 5000)
       } else {
         if (statusEl) statusEl.textContent = 'Processing is taking longer than expected'
