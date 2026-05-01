@@ -8,9 +8,9 @@
   // localStorage flag the auth flow + layout vx-session-gate already maintain.
   try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
   // Only show waitlist on production (sovexa.ai) — skip on dev/localhost,
-  // Amplify previews, and the named /etc/hosts dev aliases (sovexa-dev-*).
+  // Amplify previews, the named /etc/hosts dev aliases (sovexa-dev-*), and beta.
   var host = window.location.hostname
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0) return
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0 || host === 'beta.sovexa.ai') return
 
   // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')
