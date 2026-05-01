@@ -10,7 +10,7 @@
 import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
-import { getPresignedUrl } from '../services/storage/s3.service'
+import { getPresignedUrl, deleteFile } from '../services/storage/s3.service'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { recordEditorialFeedback } from '../lib/brandMemory'
 import StudioVisualEditingService from '../lib/studioVisualEditing.service'
@@ -357,9 +357,14 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           .filter((f: any) => f.type === 'copy')
           .map((f: any) => f.reason)
 
+        // Derive content type from the clip's processedWith field (video vs image).
+        // All clips produced by the Studio pipeline are video; image uploads go
+        // through the uploads route and don't create VideoClip records here.
+        const contentType = clip.processedWith?.startsWith('image') ? 'image' : 'video'
+
         const copyResult = await copywritingService.generateCopyOptions({
           companyId: clip.companyId,
-          contentType: 'video', // TODO: determine from context
+          contentType,
           feedbackHistory: copyFeedback,
         })
 
@@ -483,6 +488,15 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         where: { id: clipId },
         data: { status: 'archived' },
       })
+
+      // Best-effort: delete the processed reel from S3 to reclaim storage.
+      // Failures are non-fatal — the clip is already archived in the DB.
+      if (clip.clippedUrl?.startsWith('s3://')) {
+        const s3Key = clip.clippedUrl.replace('s3://', '')
+        deleteFile(s3Key).catch(e =>
+          console.error(`[studio] Failed to delete S3 object on discard (${s3Key}):`, e)
+        )
+      }
 
       res.json({ success: true, message: 'Clip discarded' })
     } catch (err) {

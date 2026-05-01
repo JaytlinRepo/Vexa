@@ -308,6 +308,15 @@
 
   // ── DOM Helpers ──────────────────────────────────────────────────
 
+  /** Escape a value for safe use inside an HTML attribute (e.g. src="..."). */
+  function escAttr(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+  }
+
   function setText(id, value) {
     const el = document.getElementById(id)
     if (el && value != null) el.textContent = value
@@ -791,7 +800,8 @@
               const isDescriptLink = clip.clippedUrl && clip.clippedUrl.includes('web.descript.com')
               const videoSrc = (!isDescriptLink && clip.clippedUrl) ? clip.clippedUrl : clip.sourceVideoUrl
               if (videoSrc) {
-                return `<video src="${videoSrc}" style="width:100%;aspect-ratio:9/16;border-radius:8px;object-fit:cover;background:#000;max-height:260px" controls></video>`
+                // escAttr prevents XSS if the URL ever contains quote chars
+                return `<video src="${escAttr(videoSrc)}" style="width:100%;aspect-ratio:9/16;border-radius:8px;object-fit:cover;background:#000;max-height:260px" controls></video>`
               }
               return `<div style="background:#000;aspect-ratio:9/16;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:40px;color:var(--t3);max-height:260px">🎬</div>`
             })()}

@@ -180,9 +180,15 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         console.log(`[video] SSE client disconnected: ${clientId}`)
       })
 
-      // Keep connection alive
+      // Keep connection alive. On write error the client already disconnected;
+      // clear the interval so the timer doesn't accumulate on a stale entry.
       const heartbeat = setInterval(() => {
-        res.write(': heartbeat\n\n')
+        try {
+          res.write(': heartbeat\n\n')
+        } catch {
+          sseClients.delete(clientId)
+          clearInterval(heartbeat)
+        }
       }, 30000)
 
       req.on('close', () => {
