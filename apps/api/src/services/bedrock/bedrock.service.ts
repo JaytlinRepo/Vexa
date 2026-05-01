@@ -66,12 +66,12 @@ export async function invokeAgent(options: InvokeOptions): Promise<string> {
   const response = await client.send(command)
   const responseBody = JSON.parse(new TextDecoder().decode(response.body))
 
-  // Track usage for cost monitoring
+  // Track usage for cost monitoring (fire-and-forget; async internally)
   trackBedrockCall(
     options.companyId,
     responseBody.usage?.input_tokens || 0,
     responseBody.usage?.output_tokens || 0,
-  )
+  ).catch(() => {})
 
   return responseBody.content[0].text
 }
@@ -123,6 +123,67 @@ export async function invokeAgentStream(options: StreamOptions): Promise<void> {
   } catch (error) {
     onError(error instanceof Error ? error : new Error('Bedrock streaming error'))
   }
+}
+
+// ─── TITAN EMBED (semantic vectors for relevance ranking) ────────────────────
+
+const TITAN_EMBED_MODEL_ID = 'amazon.titan-embed-text-v2:0'
+// Titan Embed v2 caps input at ~8k tokens. We slice the input text well
+// under that to stay safe even for unicode-heavy captions.
+const TITAN_EMBED_MAX_CHARS = 8000
+
+/**
+ * Compute a 1024-dim semantic embedding via Bedrock Titan Embed v2.
+ * Returns null on transient failure so callers can fall back to the
+ * existing token+tag scoring without breaking the feed.
+ *
+ * Used by feedEmbedding.service.ts to embed:
+ *   - The user's content profile (top hashtags, AI tags, keywords, moods)
+ *   - Each candidate feed item (title, summary, tag values)
+ *
+ * Cost: ~$0.0001 per 1k input tokens — about 10x cheaper than Haiku.
+ * Latency: ~200ms typical.
+ */
+export async function invokeTitanEmbed(
+  text: string,
+  companyId?: string,
+): Promise<number[] | null> {
+  if (!text || !text.trim()) return null
+  const inputText = text.slice(0, TITAN_EMBED_MAX_CHARS)
+  const body = JSON.stringify({ inputText })
+
+  // One retry on transient errors. Titan is much less throttled than
+  // Haiku but transient 5xx still happens.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const command = new InvokeModelCommand({
+        modelId: TITAN_EMBED_MODEL_ID,
+        body,
+        contentType: 'application/json',
+        accept: 'application/json',
+      })
+      const response = await client.send(command)
+      const parsed = JSON.parse(new TextDecoder().decode(response.body))
+      const embedding = parsed.embedding as number[] | undefined
+      if (!Array.isArray(embedding) || embedding.length === 0) return null
+
+      // Track input tokens under the existing usage bucket. Embed has no
+      // output tokens; the helper still buckets under the same monthly
+      // counter for cost roll-up.
+      trackBedrockCall(companyId, parsed.inputTextTokenCount || 0, 0).catch(() => {})
+      return embedding
+    } catch (err) {
+      const msg = (err as Error).message || ''
+      const isTransient = /throttl|too many|timeout|503|500/i.test(msg)
+      if (isTransient && attempt === 0) {
+        await new Promise((r) => setTimeout(r, 800 + Math.random() * 800))
+        continue
+      }
+      console.warn('[invokeTitanEmbed] failed:', msg.slice(0, 120))
+      return null
+    }
+  }
+  return null
 }
 
 // ─── STRUCTURED OUTPUT PARSER ─────────────────────────────────────────────────

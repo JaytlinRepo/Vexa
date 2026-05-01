@@ -49,7 +49,8 @@ function decodeState(raw: string | undefined): { n: string; c: string; ts: numbe
 
 // ── OAuth start ─────────────────────────────────────────────────────
 
-router.get('/auth/start', (req, res) => {
+router.get('/auth/start', requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).session
   const uri = redirectUri()
   const fbAppId = (process.env.FACEBOOK_APP_ID || '').trim()
   if (!fbAppId || !uri) {
@@ -57,8 +58,15 @@ router.get('/auth/start', (req, res) => {
     return
   }
 
-  const companyId = typeof req.query.companyId === 'string' && /^[0-9a-f-]{10,}$/i.test(req.query.companyId)
-    ? req.query.companyId : ''
+  // Validate companyId ownership — prevents an unauthenticated caller from
+  // injecting another user's companyId into the state and connecting their
+  // own Instagram account to that workspace.
+  const rawId = typeof req.query.companyId === 'string' ? req.query.companyId : ''
+  const company = rawId
+    ? await prisma.company.findFirst({ where: { id: rawId, userId }, select: { id: true } })
+    : await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+  const companyId = company?.id ?? ''
+
   const nonce = crypto.randomBytes(16).toString('hex')
   const state = encodeState({ n: nonce, c: companyId, ts: Date.now() })
 

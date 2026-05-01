@@ -104,7 +104,8 @@ function decodeState(
   }
 }
 
-router.get('/auth/start', (req, res) => {
+router.get('/auth/start', requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).session
   const { clientKey, redirectUri } = readConfig()
   const missing: string[] = []
   if (!clientKey) missing.push('TIKTOK_CLIENT_KEY')
@@ -114,13 +115,14 @@ router.get('/auth/start', (req, res) => {
     return
   }
 
-  // Optional companyId — when present, the callback persists the
-  // TiktokConnection and redirects back to the web app's dashboard.
-  // When absent, the callback falls through to the sandbox debug page.
-  const companyId =
-    typeof req.query.companyId === 'string' && /^[0-9a-f-]{10,}$/i.test(req.query.companyId)
-      ? req.query.companyId
-      : ''
+  // Validate companyId ownership — prevents an unauthenticated caller from
+  // injecting another user's companyId into the state and connecting their
+  // own TikTok account to that workspace.
+  const rawId = typeof req.query.companyId === 'string' ? req.query.companyId : ''
+  const company = rawId
+    ? await prisma.company.findFirst({ where: { id: rawId, userId }, select: { id: true } })
+    : await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+  const companyId = company?.id ?? ''
 
   const nonce = crypto.randomBytes(16).toString('hex')
   const codeVerifier = makeCodeVerifier()
