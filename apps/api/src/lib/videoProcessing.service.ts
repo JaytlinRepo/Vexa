@@ -43,7 +43,7 @@ export function registerUploadUser(uploadId: string, userId: string): void {
 export function unregisterUploadUser(uploadId: string): void {
   _uploadUserMap.delete(uploadId)
 }
-function broadcastProcessingEvent(event: string, data: unknown & { uploadId?: string }): void {
+function broadcastProcessingEvent(event: string, data: Record<string, unknown>): void {
   const uid = (data as Record<string, unknown>).uploadId
     ? _uploadUserMap.get((data as Record<string, unknown>).uploadId as string)
     : undefined
