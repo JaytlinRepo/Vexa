@@ -52,14 +52,7 @@
     .ob-tool-group-title{font-size:12px;color:var(--t2);margin-bottom:10px;display:flex;align-items:center;gap:8px}
     .ob-tool-group-title .chip{display:inline-block;padding:2px 8px;background:var(--s3);border-radius:10px;font-size:10px;color:var(--t1)}
 
-    .ob-ig-card{margin-top:18px;padding:18px;background:linear-gradient(135deg,rgba(225,48,108,.08),rgba(131,58,180,.06));border:1px solid rgba(225,48,108,.3);border-radius:12px}
-    .ob-ig-title{font-size:14px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
-    .ob-ig-bullets{color:var(--t2);font-size:12px;line-height:1.7;margin:8px 0 14px;padding-left:16px}
-    .ob-ig-bullets li{list-style:disc}
-    .ob-ig-result{margin-top:14px;padding:12px;background:var(--s2);border-radius:8px;font-size:12px;color:var(--t1);display:none}
-    .ob-ig-result.show{display:block}
-    .ob-ig-result .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--b1)}
-    .ob-ig-result .row:last-child{border:0}
+    .ob-connect-grid{margin-top:16px;display:flex;flex-direction:column;gap:8px}
   `
   document.head.appendChild(style)
 
@@ -70,7 +63,7 @@
     <div class="vx-card" role="dialog" aria-modal="true">
       <button class="vx-close" onclick="window.closeAuth()" aria-label="Close">×</button>
       <h3 id="vx-auth-title">Create your account</h3>
-      <p class="vx-sub" id="vx-auth-sub">Start your 7-day free trial. No credit card.</p>
+      <p class="vx-sub" id="vx-auth-sub">Free forever. No credit card required.</p>
       <div id="vx-auth-signup">
         <label>Full name</label><input id="vx-signup-name" placeholder="Your name" autocomplete="name" />
         <label>Email</label><input id="vx-signup-email" type="email" placeholder="you@example.com" autocomplete="email" />
@@ -80,6 +73,11 @@
       <div id="vx-auth-login" style="display:none">
         <label>Email or username</label><input id="vx-login-id" placeholder="you@example.com" autocomplete="username" />
         <label>Password</label><div style="position:relative"><input id="vx-login-password" type="password" autocomplete="current-password" style="padding-right:44px" /><button type="button" class="vx-eye" data-target="vx-login-password" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px;padding:4px">Show</button></div>
+        <button type="button" onclick="window.showForgotPassword()" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;padding:8px 0 0;display:block">Forgot password?</button>
+      </div>
+      <div id="vx-auth-forgot" style="display:none">
+        <label>Email address</label><input id="vx-forgot-email" type="email" placeholder="you@example.com" autocomplete="email" />
+        <p style="margin:10px 0 0;font-size:12px;color:var(--t3);line-height:1.5">We'll send a reset link that expires in 15 minutes.</p>
       </div>
       <div class="vx-err" id="vx-auth-err"></div>
       <div class="vx-actions">
@@ -117,7 +115,7 @@
     }
   })
 
-  let authMode = 'signup'  // 'signup' | 'login'
+  let authMode = 'signup'  // 'signup' | 'login' | 'forgot'
 
   window.showLogin = function () {
     authMode = 'login'
@@ -129,27 +127,49 @@
     renderAuthMode()
     authModal.classList.add('active')
   }
+  window.showForgotPassword = function () {
+    authMode = 'forgot'
+    renderAuthMode()
+  }
   window.closeAuth = function () {
     authModal.classList.remove('active')
     document.getElementById('vx-auth-err').textContent = ''
   }
   window.toggleAuthMode = function () {
-    authMode = authMode === 'signup' ? 'login' : 'signup'
+    // Forgot → always go back to login, not signup
+    authMode = authMode === 'forgot' ? 'login' : (authMode === 'signup' ? 'login' : 'signup')
     renderAuthMode()
   }
 
   function renderAuthMode() {
     const isSignup = authMode === 'signup'
-    document.getElementById('vx-auth-title').textContent = isSignup ? 'Create your account' : 'Welcome back'
+    const isForgot = authMode === 'forgot'
+    // Clear all inputs when switching modes to prevent stale credentials
+    if (isSignup) {
+      const n = document.getElementById('vx-signup-name'); if (n) n.value = ''
+      const e = document.getElementById('vx-signup-email'); if (e) e.value = ''
+      const u = document.getElementById('vx-signup-username'); if (u) u.value = ''
+      const p = document.getElementById('vx-signup-password'); if (p) { p.value = ''; p.type = 'password' }
+    } else if (!isForgot) {
+      const i = document.getElementById('vx-login-id'); if (i) i.value = ''
+      const p = document.getElementById('vx-login-password'); if (p) { p.value = ''; p.type = 'password' }
+    } else {
+      const f = document.getElementById('vx-forgot-email'); if (f) f.value = ''
+    }
+    document.getElementById('vx-auth-title').textContent = isSignup ? 'Create your account' : isForgot ? 'Reset your password' : 'Welcome back'
     document.getElementById('vx-auth-sub').textContent = isSignup
-      ? 'Start your 7-day free trial. No credit card.'
+      ? 'Free forever. No credit card required.'
+      : isForgot ? 'Enter your email and we\'ll send you a reset link.'
       : 'Log in to continue where you left off.'
     document.getElementById('vx-auth-signup').style.display = isSignup ? '' : 'none'
-    document.getElementById('vx-auth-login').style.display = isSignup ? 'none' : ''
-    document.getElementById('vx-auth-submit').textContent = isSignup ? 'Create account' : 'Log in'
+    document.getElementById('vx-auth-login').style.display = (!isSignup && !isForgot) ? '' : 'none'
+    document.getElementById('vx-auth-forgot').style.display = isForgot ? '' : 'none'
+    document.getElementById('vx-auth-submit').textContent = isSignup ? 'Create account' : isForgot ? 'Send reset link' : 'Log in'
     document.getElementById('vx-auth-switch').textContent = isSignup
       ? 'Already have an account? Log in'
+      : isForgot ? '← Back to log in'
       : 'Need an account? Sign up'
+    document.getElementById('vx-auth-err').textContent = ''
   }
 
   window.submitAuth = async function () {
@@ -158,6 +178,20 @@
     const btn = document.getElementById('vx-auth-submit')
     btn.disabled = true
     try {
+      if (authMode === 'forgot') {
+        const email = document.getElementById('vx-forgot-email').value.trim()
+        if (!email) { errEl.textContent = 'Please enter your email address.'; btn.disabled = false; return }
+        await fetch(API + '/api/auth/forgot-password', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+        // Always show success — never leak whether email exists
+        errEl.style.color = '#34d27a'
+        errEl.textContent = 'If an account exists for that email, a reset link is on its way.'
+        btn.disabled = false
+        return
+      }
       if (authMode === 'signup') {
         const payload = {
           fullName: document.getElementById('vx-signup-name').value || undefined,
@@ -172,7 +206,8 @@
         })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'signup_failed')
-        authedUser = json.user
+        // User row is not created yet — deferred until onboarding completes.
+        // authedUser will be set by createCompanyForOnboarding below.
         try {
           closeAuthAndStartOnboarding()
         } catch (err) {
@@ -210,6 +245,7 @@
       }
     } catch (e) {
       console.error('[auth] error:', e.message, e)
+      errEl.style.color = '#ff6b6b'
       errEl.textContent = friendlyError(e.message)
     } finally {
       btn.disabled = false
@@ -227,6 +263,7 @@
       case 'signup_failed': return 'Sign up failed. Please try again.'
       case 'unauthorized': return 'Session expired. Please log in again.'
       case 'internal_error': return 'Server error. Please try again in a moment.'
+      case 'invalid_or_expired_token': return 'This reset link has expired or already been used. Request a new one.'
       default:
         if (code && code.length < 100) return code.replace(/_/g, ' ')
         return 'Something went wrong. Please try again.'
@@ -245,6 +282,218 @@
     return res.json()
   }
 
+  const OB_IG_ID = 'instagram'
+  const OB_TT_ID = 'tiktok'
+
+  function obEscapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  function obTimeAgo(iso) {
+    if (!iso) return 'never'
+    const diff = Math.max(0, Date.now() - new Date(iso).getTime())
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return m + ' min ago'
+    const h = Math.floor(m / 60)
+    if (h < 24) return h + ' hr ago'
+    return Math.floor(h / 24) + 'd ago'
+  }
+
+  function obMarkOAuthLeavingForOnboarding() {
+    try { sessionStorage.setItem('vx-ob-await-connect', '1') } catch (_) {}
+  }
+
+  async function obFetchIgConnection(companyId) {
+    try {
+      const res = await fetch(API + `/api/instagram/insights?companyId=${companyId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return (await res.json()).connection
+    } catch {
+      return null
+    }
+  }
+
+  async function obFetchTtConnection(companyId) {
+    try {
+      const res = await fetch(API + `/api/tiktok/insights?companyId=${companyId}`, { credentials: 'include' })
+      if (!res.ok) return null
+      return (await res.json()).connection
+    } catch {
+      return null
+    }
+  }
+
+  async function obFetchAccounts() {
+    try {
+      const res = await fetch(API + '/api/platform/accounts', { credentials: 'include' })
+      if (!res.ok) return []
+      return (await res.json()).accounts || []
+    } catch {
+      return []
+    }
+  }
+
+  async function obPlatformConnectionFlags() {
+    const me = await fetchMe()
+    const companyId = me?.companies?.[0]?.id
+    if (!companyId) return { ig: false, tt: false, any: false, companyId: null }
+    currentCompany = me.companies[0]
+    const [accounts, igConn, ttConn] = await Promise.all([
+      obFetchAccounts(),
+      obFetchIgConnection(companyId),
+      obFetchTtConnection(companyId),
+    ])
+    let igAcct = null
+    let ttAcct = null
+    for (const a of accounts) {
+      if (a.platform === OB_IG_ID && !igAcct) igAcct = a
+      if (a.platform === OB_TT_ID && !ttAcct) ttAcct = a
+    }
+    const ig = !!(igConn || igAcct)
+    const tt = !!ttConn
+    return { ig, tt, any: !!(ig || tt), companyId, igConn, ttConn, igAcct, ttAcct }
+  }
+
+  function obContinueButtonState(enabled) {
+    const btn = document.getElementById('ob-platform-continue')
+    if (!btn) return
+    btn.disabled = !enabled
+    btn.style.opacity = enabled ? '1' : '0.45'
+    btn.style.cursor = enabled ? 'pointer' : 'not-allowed'
+  }
+
+  async function refreshObPlatforms() {
+    const body = document.getElementById('ob-platform-rows')
+    const hint = document.getElementById('ob-connect-hint')
+    if (!body) return
+
+    body.innerHTML = '<div style="padding:14px;color:var(--t3);font-size:12px">Loading connections…</div>'
+    obContinueButtonState(false)
+
+    var st = await obPlatformConnectionFlags()
+    var companyId = st.companyId
+    var igConn = st.igConn
+    var ttConn = st.ttConn
+
+    function rowDetail(isIg, igOk, ttOk) {
+      if (isIg) {
+        if (igOk && igConn) {
+          var p = [`@${obEscapeHtml(igConn.handle || st.igAcct?.handle || '')}`]
+          if (Number(igConn.followerCount) > 0) p.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
+          p.push(`synced ${obEscapeHtml(obTimeAgo(igConn.lastSyncedAt || igConn.connectedAt))}`)
+          return p.join(' · ')
+        }
+        if (st.igAcct) {
+          return '@' + obEscapeHtml(st.igAcct.handle) + ' · synced ' + obEscapeHtml(obTimeAgo(st.igAcct.lastSyncedAt))
+        }
+        return obEscapeHtml('Read-only OAuth — follower & post analytics')
+      }
+      if (!ttOk) return obEscapeHtml('Read-only OAuth — audience & performance data')
+      const parts = [obEscapeHtml(ttConn.handle ? '@' + ttConn.handle : 'Active')]
+      if (Number(ttConn.followerCount) > 0) parts.push(`${Number(ttConn.followerCount).toLocaleString()} followers`)
+      parts.push('synced ' + obEscapeHtml(obTimeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)))
+      return parts.join(' · ')
+    }
+
+    function toggleHtml(pid, connected, canToggleOff) {
+      var knobSide = connected ? 'right:2px' : 'left:2px'
+      var trackBg = connected ? 'background:#22c55e' : 'background:var(--s3);border:1px solid var(--b1)'
+      var knobColor = connected ? 'background:#fff' : 'background:var(--t3)'
+      var diss = connected && !canToggleOff ? 'opacity:.42;cursor:not-allowed;pointer-events:none' : ''
+      return (
+        `<button type="button"`
+        + ` data-obplat="${pid}"`
+        + ` data-ob-connected="${connected ? '1' : '0'}"`
+        + ` aria-label="${pid === OB_IG_ID ? 'Instagram' : 'TikTok'} toggle"`
+        + ` role="switch" aria-checked="${connected ? 'true' : 'false'}"`
+        + ` style="position:relative;width:44px;height:24px;border-radius:8px;${trackBg};border:none;cursor:pointer;transition:background .2s;padding:0;flex-shrink:0;${diss}">`
+        + `<span style="position:absolute;top:2px;${knobSide};width:20px;height:20px;border-radius:50%;${knobColor};transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.35)"></span></button>`
+      )
+    }
+
+    var igOn = st.ig
+    var ttOn = st.tt
+    var canOffIg = !igOn || ttOn
+    var canOffTt = !ttOn || igOn
+
+    const rows = `
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--t1);flex-shrink:0">IG</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap">
+            <div style="color:var(--t1);font-size:13px;font-weight:600">Instagram</div>
+            <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;${igOn ? 'color:#22c55e' : 'color:var(--t3)'}">${igOn ? 'Connected' : 'Not connected'}</div>
+          </div>
+          <div style="color:var(--t2);font-size:11px;line-height:1.45">${rowDetail(true, igOn)}</div>
+        </div>
+        ${toggleHtml(OB_IG_ID, igOn, canOffIg)}
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:10px">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--s3);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--t1);flex-shrink:0">TT</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:2px;flex-wrap:wrap">
+            <div style="color:var(--t1);font-size:13px;font-weight:600">TikTok</div>
+            <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;${ttOn ? 'color:#22c55e' : 'color:var(--t3)'}">${ttOn ? 'Connected' : 'Not connected'}</div>
+          </div>
+          <div style="color:var(--t2);font-size:11px;line-height:1.45">${rowDetail(false, igOn, ttOn)}</div>
+        </div>
+        ${toggleHtml(OB_TT_ID, ttOn, canOffTt)}
+      </div>
+    `
+    body.innerHTML = `<div class="ob-connect-grid">${rows}</div>`
+
+    body.querySelectorAll('[data-obplat]').forEach(function (toggleBtn) {
+      toggleBtn.addEventListener('click', async function () {
+        if (!companyId) return
+        const pid = toggleBtn.getAttribute('data-obplat')
+        const conn = toggleBtn.getAttribute('data-ob-connected') === '1'
+        if (!conn) {
+          obMarkOAuthLeavingForOnboarding()
+          if (pid === OB_IG_ID) window.location.href = API + `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
+          else window.location.href = API + `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+          return
+        }
+        var st2 = await obPlatformConnectionFlags()
+        var onlyIg = st2.ig && !st2.tt
+        var onlyTt = st2.tt && !st2.ig
+        var block = (pid === OB_IG_ID && onlyIg) || (pid === OB_TT_ID && onlyTt)
+        if (block) return
+        if (pid === OB_TT_ID) {
+          if (!confirm('Disconnect TikTok?')) return
+          toggleBtn.disabled = true
+          await fetch(API + `/api/tiktok/connections/${companyId}`, { method: 'DELETE', credentials: 'include' }).catch(() => {})
+          refreshObPlatforms()
+          return
+        }
+        if (pid === OB_IG_ID) {
+          if (!confirm('Disconnect Instagram?')) return
+          toggleBtn.disabled = true
+          await fetch(API + '/api/instagram', { method: 'DELETE', credentials: 'include' }).catch(() => {})
+          refreshObPlatforms()
+        }
+      })
+    })
+
+    obContinueButtonState(st.any)
+
+    if (hint) {
+      hint.textContent = st.any
+        ? 'At least one platform is connected — continue when you are ready.'
+        : 'Choose Instagram and/or TikTok. You must connect at least one to launch.'
+      hint.style.color = st.any ? 'var(--t2)' : 'var(--accent)'
+    }
+  }
+
+  window.__vxObRefreshPlatforms = refreshObPlatforms
+  window.__vxShowObStep = function (which) {
+    document.querySelectorAll('#onboarding .ob-step').forEach((s) => s.classList.remove('active'))
+    const suffix = typeof which === 'number' ? which : parseInt(which, 10)
+    var el = document.getElementById('ob-' + suffix)
+    if (el) el.classList.add('active')
+    if (suffix === 8 && typeof refreshObPlatforms === 'function') void refreshObPlatforms()
+  }
+
   // Sidebar "Sovexa" title: dashboard when session exists, else marketing home.
   window.navigateSovexaLogo = async function () {
     const me = await fetchMe()
@@ -255,56 +504,66 @@
     }
   }
 
+  async function finishToReveal() {
+    const st = await obPlatformConnectionFlags()
+    var hintEl = document.getElementById('ob-connect-hint')
+    if (!st.any) {
+      if (hintEl) {
+        hintEl.textContent = 'Connect at least one platform (Instagram or TikTok), then tap Continue.'
+        hintEl.style.color = 'var(--accent)'
+      }
+      return
+    }
+    try { sessionStorage.removeItem('vx-ob-await-connect') } catch (_) {}
+
+    document.getElementById('ob-8').classList.remove('active')
+    document.getElementById('ob-4').classList.add('active')
+    const pEl = document.getElementById('ob-prog')
+    if (pEl) pEl.style.width = '100%'
+
+    if (typeof window.startTeamReveal === 'function') {
+      try { window.startTeamReveal() } catch (_) {}
+    } else if (typeof window.startReveal === 'function') {
+      try { window.startReveal() } catch (_) {}
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
-  // ONBOARDING — three steps total: name → niche → Instagram, then reveal.
-  // The agents derive sub-niche / audience / goals / tool sources themselves
-  // from the connected account + brand memory + niche knowledge base, so we
-  // don't ask the CEO to fill any of that in upfront.
+  // ONBOARDING — three steps total: name → niche → integrations, then reveal.
   // ───────────────────────────────────────────────────────────────────────────
   const obWrap = document.querySelector('#onboarding .ob-wrap')
   if (obWrap) {
     const reveal = document.getElementById('ob-4')
 
-    // Inject Step 3 — Instagram connect (direct Meta OAuth).
-    // Required for now — no skip. Connection is what unlocks every
-    // personalized agent reply, so we gate the reveal on it.
-    const ig = document.createElement('div')
-    ig.className = 'ob-step'
-    ig.id = 'ob-8'
-    ig.innerHTML = `
+    const platStep = document.createElement('div')
+    platStep.className = 'ob-step'
+    platStep.id = 'ob-8'
+    platStep.innerHTML = `
       <span class="ob-eyebrow">Step 3 of 3</span>
-      <h2 class="ob-title">Connect Instagram.</h2>
-      <p class="ob-sub">Required to launch — your team needs real account data to give you real insights. Audience, sub-niche, top posts — the team figures all of that out from the connection.</p>
-      <div class="ob-ig-card">
-        <div class="ob-ig-title">Instagram connection</div>
-        <ul class="ob-ig-bullets">
-          <li>Read-only access — we never post on your behalf.</li>
-          <li>Follower counts, post performance, engagement rate.</li>
-          <li>You can disconnect anytime from Settings.</li>
-        </ul>
-        <div class="ob-ig-result" id="ob-ig-result" style="margin-top:10px;color:var(--t3);font-size:12px;min-height:18px"></div>
-      </div>
+      <h2 class="ob-title">Connect a platform.</h2>
+      <p class="ob-sub">Link <strong style="font-weight:600;color:var(--t2)">Instagram</strong> or <strong style="font-weight:600;color:var(--t2)">TikTok</strong> (or both). We need at least one so your team can pull real audience and performance data. Same controls as <strong style="font-weight:600;color:var(--t2)">Settings → Integrations</strong> — read-only OAuth, disconnect anytime.</p>
+      <div id="ob-platform-rows"></div>
+      <p class="ob-hint" id="ob-connect-hint" style="margin-top:12px;font-size:12px;color:var(--t3)"></p>
       <div class="ob-actions">
-        <button class="btn-fill" id="ob-ig-connect" style="padding:13px 32px;font-size:12px">Connect Instagram</button>
-        <button class="ob-back" data-back>Back</button>
+        <button type="button" class="btn-fill" id="ob-platform-continue" disabled style="padding:13px 32px;font-size:12px;opacity:0.45;cursor:not-allowed">Continue</button>
+        <button type="button" class="ob-back" data-back>Back</button>
       </div>
     `
-    obWrap.insertBefore(ig, reveal)
+    obWrap.insertBefore(platStep, reveal)
 
-    document.getElementById('ob-ig-connect').addEventListener('click', () => {
-      const result = document.getElementById('ob-ig-result')
-      const btn = document.getElementById('ob-ig-connect')
-      if (!currentCompany?.id) {
-        result.textContent = 'Company not ready yet — refresh and try again.'
-        return
-      }
-      btn.disabled = true
-      result.textContent = 'Redirecting to Instagram…'
-      // Direct Meta OAuth — redirect to the API which sends user to Facebook login
-      window.location.href = API + '/api/instagram/auth/start?companyId=' + currentCompany.id
+    document.getElementById('ob-platform-continue').addEventListener('click', function () {
+      void finishToReveal()
     })
-    ig.querySelector('[data-back]').addEventListener('click', () => obPrevTo('ob-8'))
+    platStep.querySelector('[data-back]').addEventListener('click', function () {
+      obPrevTo('ob-8')
+    })
   }
+
+  document.addEventListener('vx-oauth-return-onboarding', function () {
+    var ob = document.getElementById('onboarding')
+    if (ob) ob.classList.add('active')
+    if (typeof window.__vxShowObStep === 'function') window.__vxShowObStep(8)
+  })
 
   function agentName(a) { return { maya: 'Maya', jordan: 'Jordan', alex: 'Alex', riley: 'Riley' }[a] }
   function agentRole(a) { return { maya: 'Trend & insights', jordan: 'Strategy', alex: 'Copy', riley: 'Creative direction' }[a] }
@@ -361,8 +620,10 @@
   window.obNext = async function (step) {
     if (step === 1) {
       obState.companyName = document.getElementById('ob-name-input').value.trim() || 'My Company'
+      if (typeof window.obResetNicheTags === 'function') window.obResetNicheTags()
       document.getElementById('ob-1').classList.remove('active')
       document.getElementById('ob-2').classList.add('active')
+      if (typeof obWireNicheTagInput === 'function') obWireNicheTagInput()
       setProgress(66)
     } else if (step === 2) {
       obState.niche = window.selectedNiche || ''
@@ -371,12 +632,19 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Setting up your team…' }
       const ok = await createCompanyForOnboarding()
       if (!ok) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
+        if (btn) {
+          btn.disabled = false
+          btn.textContent = 'Continue'
+        }
+        if (typeof obSetNicheContinueEnabled === 'function') {
+          obSetNicheContinueEnabled(!!window.selectedNiche)
+        }
         return
       }
       document.getElementById('ob-2').classList.remove('active')
       document.getElementById('ob-8').classList.add('active')
       setProgress(100)
+      if (typeof window.__vxObRefreshPlatforms === 'function') void window.__vxObRefreshPlatforms()
     }
   }
 
@@ -390,27 +658,11 @@
       if (!r.ok) return false
       const j = await r.json()
       currentCompany = j.company
+      // New signup path: user is created here, set authedUser from the response.
+      if (j.user) authedUser = j.user
       return true
     } catch { return false }
   }
-
-  async function finishToReveal() {
-    document.getElementById('ob-8').classList.remove('active')
-    document.getElementById('ob-4').classList.add('active')
-    setProgress(100)
-    // Hook for any post-onboarding init (refresh dashboard later, etc.)
-    if (typeof window.startTeamReveal === 'function') {
-      try { window.startTeamReveal() } catch {}
-    }
-  }
-
-  // Capture selectNiche so we mirror the niche into our state
-  const origSelectNiche = window.selectNiche
-  window.selectNiche = function (el, niche) {
-    window.selectedNiche = niche
-    if (typeof origSelectNiche === 'function') origSelectNiche(el, niche)
-  }
-
 
   // ───────────────────────────────────────────────────────────────────────────
   // Wire the topbar login/signup and session bootstrap
