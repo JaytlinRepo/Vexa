@@ -17,16 +17,8 @@
     }
   }
 
-  function daysUntil(iso) {
-    if (!iso) return null
-    const diff = new Date(iso).getTime() - Date.now()
-    if (diff <= 0) return 0
-    return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)))
-  }
-
   function planLabel(plan, status) {
-    const base = String(plan || 'starter').replace(/^./, (c) => c.toUpperCase())
-    if (status === 'trial') return `${base} · Trial`
+    const base = String(plan || 'free').replace(/^./, (c) => c.toUpperCase())
     if (status === 'past_due') return `${base} · Past due`
     if (status === 'canceled') return `${base} · Canceled`
     return `${base} · Active`
@@ -34,7 +26,6 @@
 
   function accent(status) {
     if (status === 'past_due' || status === 'canceled') return '#ff6b6b'
-    if (status === 'trial') return '#e8c87a'
     return 'var(--t1)'
   }
 
@@ -45,15 +36,14 @@
     if (!stats) return
     document.getElementById('vx-plan-card')?.remove()
 
-    const days = daysUntil(usage.trialEndsAt)
     const trialLine =
-      usage.subscriptionStatus === 'trial' && days !== null
-        ? `Trial ends in ${days} day${days === 1 ? '' : 's'} — auto-renews to paid`
+      usage.subscriptionStatus === 'active' && usage.plan === 'free'
+        ? 'Free plan — upgrade anytime for meetings, video, and brand memory'
         : usage.subscriptionStatus === 'active'
-          ? 'Active — renews monthly'
-          : usage.subscriptionStatus === 'past_due'
-            ? 'Payment failed — update billing to keep your team active'
-            : 'Subscription canceled'
+        ? 'Active — renews monthly'
+        : usage.subscriptionStatus === 'past_due'
+          ? 'Payment failed — update billing to keep your team active'
+          : 'Subscription canceled'
 
     const used = usage.tasks.used
     const limit = usage.tasks.limit
@@ -75,7 +65,7 @@
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-          <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Tasks this month</span>
+          <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Tasks ${usage.tasks?.resetWindow === 'daily' ? 'today' : 'this month'}</span>
           <span style="font-size:12px;color:var(--t2)"><strong style="color:var(--t1);font-weight:600">${used}</strong> / ${limit >= 9999 ? '∞' : limit}</span>
         </div>
         <div style="height:6px;border-radius:3px;background:var(--s3);overflow:hidden">
@@ -113,8 +103,8 @@
         <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Plan limit reached</div>
         <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 8px">Your team is at the monthly limit</h3>
         <p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 18px">
-          You have used all ${usage?.tasks?.limit ?? '—'} tasks on the ${usage?.plan ?? 'starter'} plan this month.
-          Upgrade to Pro for unlimited tasks, video generation, and meeting access.
+          You have used all ${usage?.tasks?.limit ?? '—'} tasks on the ${usage?.plan ?? 'free'} plan ${usage?.tasks?.resetWindow === 'daily' ? 'today' : 'this month'}.
+          Upgrade to Pro for 200 tasks/month, video generation, and meeting access.
         </p>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button id="vx-up-cancel" style="background:none;border:1px solid var(--b2);color:var(--t2);padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">Close</button>

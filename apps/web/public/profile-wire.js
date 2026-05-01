@@ -116,7 +116,7 @@
       fillEl.style.background = pct > 80 ? 'var(--down,#d68a8a)' : pct > 50 ? 'var(--accent)' : 'var(--ok)'
     }
     tasksEl.textContent = used + (isUnlimited ? ' tasks' : ' / ' + limit + ' tasks')
-    if (planEl) planEl.textContent = (u.plan || 'starter').charAt(0).toUpperCase() + (u.plan || 'starter').slice(1)
+    if (planEl) planEl.textContent = (u.plan || 'free').charAt(0).toUpperCase() + (u.plan || 'free').slice(1)
   }
 
   // Run usage on dropdown open

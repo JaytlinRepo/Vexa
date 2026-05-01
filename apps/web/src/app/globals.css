@@ -862,37 +862,7 @@
   color: var(--t3);
 }
 
-.ops-sub {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 500;
-  color: var(--t3);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 14px 0 8px;
-}
-.ops-sub:first-child { margin-top: 0; }
-
-/* ── Rows (working/landed/approved) ────────────────────────────── */
-.ops-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--s1);
-  border: 1px solid var(--b1);
-  border-radius: 8px;
-  text-align: left;
-  cursor: pointer;
-  font-family: inherit;
-  margin-bottom: 6px;
-  transition: border-color 0.12s ease, background 0.12s ease;
-}
-.ops-row:hover { border-color: var(--accent); }
-.ops-row:last-child { margin-bottom: 0; }
-
-/* Avatar circle for rows */
+/* Avatar circle (used by Plan source line, decisions, replies) */
 .ops-port {
   width: 26px;
   height: 26px;
@@ -910,58 +880,10 @@
 }
 .ops-port.sm { width: 20px; height: 20px; font-size: 9px; }
 
-.ops-row-body { flex: 1; min-width: 0; }
-.ops-row-title {
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--t1);
-  letter-spacing: -0.005em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.35;
-}
-.ops-row-meta {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  color: var(--t3);
-  margin-top: 3px;
-  letter-spacing: 0.02em;
-}
-
-.ops-pulse {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex-shrink: 0;
-  animation: ops-pulse 1.6s ease-in-out infinite;
-}
+/* Pending-state pulse animation, kept because journal "team reviewing" reuses it */
 @keyframes ops-pulse {
   0%, 100% { opacity: 0.3; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.25); }
-}
-
-.ops-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--bg);
-  flex-shrink: 0;
-}
-
-.ops-more {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  color: var(--t3);
-  padding: 4px 10px;
-  font-style: italic;
 }
 
 .ops-empty {
@@ -996,21 +918,6 @@
   line-height: 1.5;
 }
 
-.ops-assign-btn {
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: transparent;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 4px 12px;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-.ops-assign-btn:hover { background: var(--accent); color: var(--bg); }
 
 /* ── Decided block — meeting decisions/summaries ─────────────────── */
 .ops-decision {
@@ -1426,12 +1333,114 @@
   flex: 1;
   min-width: 0;
 }
-.brief-main.brief-review .brief-msg { color: var(--accent); }
-.brief-main.brief-stale .brief-msg { color: var(--t1); }
-.brief-main.brief-busy  .brief-msg { color: var(--t2); }
-.brief-main.brief-calm  .brief-msg { color: var(--t2); }
+.brief-main.brief-noplan  .brief-msg { color: var(--accent); }
+.brief-main.brief-partial .brief-msg { color: var(--t1); }
+.brief-main.brief-full    .brief-msg { color: var(--t2); }
 
-.brief-cta {
+
+.brief-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.brief-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.brief-btn-primary {
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+}
+.brief-btn-primary:hover { filter: brightness(1.06); }
+.brief-btn-secondary {
+  color: var(--t1);
+  background: transparent;
+  border: 1px solid var(--b1);
+}
+.brief-btn-secondary:hover { border-color: var(--t1); }
+
+@media (max-width: 900px) {
+  .team-brief-strip { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .brief-main { width: 100%; }
+  .brief-actions { width: 100%; justify-content: flex-start; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Plan ahead — next 7 days from Jordan's approved content_plan.
+   The Team tab's primary block: what was decided, what's coming up.
+   ──────────────────────────────────────────────────────────────────────── */
+.ops-plan-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--b1);
+}
+.ops-plan-source-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.ops-plan-day {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--b1);
+}
+.ops-plan-day:first-of-type { border-top: 0; }
+
+.ops-plan-day-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--t2);
+  padding-top: 2px;
+}
+
+.ops-plan-item { margin-bottom: 4px; }
+.ops-plan-item:last-child { margin-bottom: 0; }
+.ops-plan-item-topic {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+  line-height: 1.4;
+}
+.ops-plan-item-note {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.ops-plan-day.open-slot .ops-plan-day-label { color: var(--t3); }
+.ops-plan-day-empty {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+  padding-top: 2px;
+}
+
+.ops-empty-cta {
+  margin-top: 12px;
   font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 500;
@@ -1441,184 +1450,11 @@
   background: var(--accent);
   border: 0;
   border-radius: 999px;
-  padding: 8px 18px;
+  padding: 6px 16px;
   cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
   transition: filter 0.12s ease;
 }
-.brief-cta:hover { filter: brightness(1.06); }
-
-.brief-stats {
-  display: flex;
-  gap: 32px;
-  flex-shrink: 0;
-}
-.brief-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1;
-}
-.brief-stat-num {
-  font-family: 'Syne', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--t1);
-  letter-spacing: -0.02em;
-}
-.brief-stat-num.urgent { color: var(--accent); }
-.brief-stat-of {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--t3);
-  margin-left: 2px;
-}
-.brief-stat-lbl {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  color: var(--t3);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-top: 6px;
-}
-
-@media (max-width: 900px) {
-  .team-brief-strip { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .brief-main { width: 100%; }
-  .brief-stats { width: 100%; justify-content: flex-start; gap: 24px; }
-}
-
-/* ────────────────────────────────────────────────────────────────────────
-   NOW block proactive nudge (replaces static "Nothing in flight" copy)
-   ──────────────────────────────────────────────────────────────────────── */
-.ops-nudge {
-  padding: 14px;
-  background: var(--s1);
-  border: 1px solid var(--b1);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.ops-nudge-text {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 14px;
-  color: var(--t1);
-  line-height: 1.45;
-}
-.ops-nudge-stale .ops-nudge-text,
-.ops-nudge-cadence .ops-nudge-text { color: var(--t1); }
-.ops-nudge-calm .ops-nudge-text,
-.ops-nudge-busy .ops-nudge-text { color: var(--t2); }
-
-.ops-nudge-cta {
-  align-self: flex-start;
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: transparent;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 5px 14px;
-  cursor: pointer;
-}
-.ops-nudge-cta:hover { background: var(--accent); color: var(--bg); }
-
-/* ────────────────────────────────────────────────────────────────────────
-   Expandable Approved rows — inline content preview
-   ──────────────────────────────────────────────────────────────────────── */
-.ops-approved-row { margin-bottom: 6px; }
-.ops-approved-row:last-child { margin-bottom: 0; }
-.ops-row-toggle { width: 100%; }
-.ops-row-chevron {
-  font-family: 'Inter', sans-serif;
-  font-size: 18px;
-  color: var(--t3);
-  transition: transform 0.18s ease, color 0.12s ease;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.ops-approved-row.expanded .ops-row-chevron {
-  transform: rotate(90deg);
-  color: var(--accent);
-}
-.ops-approved-detail {
-  display: none;
-  padding: 12px 14px 4px 14px;
-  margin-top: 6px;
-  background: var(--bg);
-  border: 1px solid var(--b1);
-  border-left: 2px solid var(--accent);
-  border-radius: 8px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  color: var(--t2);
-  line-height: 1.5;
-}
-.ops-approved-row.expanded .ops-approved-detail { display: block; }
-.ops-approved-detail .sb-detail-section { margin-bottom: 10px; }
-.ops-approved-detail .sb-detail-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 500;
-  color: var(--t3);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 6px;
-}
-.ops-approved-detail .sb-detail-item {
-  padding: 4px 0;
-  border-bottom: 1px dashed var(--b1);
-}
-.ops-approved-detail .sb-detail-item:last-child { border-bottom: 0; }
-.ops-approved-detail .sb-detail-item-title {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--t1);
-}
-.ops-approved-detail .sb-detail-item-body {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 13px;
-  color: var(--t2);
-  margin-top: 2px;
-  line-height: 1.5;
-}
-.ops-approved-detail .sb-detail-hook {
-  padding: 6px 10px;
-  margin: 4px 0;
-  background: var(--s1);
-  border-radius: 6px;
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 13px;
-  color: var(--t1);
-  line-height: 1.4;
-}
-.ops-approved-detail .sb-detail-text {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 13px;
-  color: var(--t2);
-  line-height: 1.5;
-}
-.ops-approved-detail .sb-detail-tag {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--bg);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-}
+.ops-empty-cta:hover { filter: brightness(1.06); }
 
 /* ────────────────────────────────────────────────────────────────────────
    Calendar planned-content overlay (future cells)
@@ -1673,3 +1509,7 @@
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* Knowledge tab shelved — hidden across all surfaces until re-released */
+#view-db-knowledge { display: none !important; }
+[data-v2-nav="db-knowledge"] { display: none !important; }

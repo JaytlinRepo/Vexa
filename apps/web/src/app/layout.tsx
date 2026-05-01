@@ -8,6 +8,7 @@ import './globals.css'
 import './mobile.css'  // phone Safari / Chrome
 import './app.css'     // Capacitor wrapper (apps/sovexa-mobile)
 import './hq-v3.css'   // warm-ivory HQ redesign — scoped to #view-db-dashboard.hq-v3
+import './community-share.css' // Knowledge-tab community sharing + admin moderation
 
 export const metadata: Metadata = {
   title: 'Sovexa — Your AI Content Team',

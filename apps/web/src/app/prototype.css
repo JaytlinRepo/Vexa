@@ -250,8 +250,14 @@ body.cp #cd{opacity:.5;width:3px;height:3px}
 .notif-btn:hover{color:var(--t1)}
 .notif-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent);border:1.5px solid var(--bg);box-shadow:0 0 0 3px var(--accent-soft)}
 
+/* Bell hidden — activity is surfaced via HQ pipeline / Studio */
+#notif-btn{display:none !important}
+
 /* Hide standalone theme btn + notif when profile avatar is visible */
 html[data-vx-authed] #topbar-theme-btn{display:none}
+
+/* Section crumb (e.g. "HQ") duplicates the highlighted app nav — hide when logged in */
+html[data-vx-authed] #topbar-section{display:none !important}
 
 /* ══ PROFILE AVATAR ════════════════════════════════════ */
 .vx-profile{position:relative}
@@ -761,6 +767,21 @@ input,textarea{cursor:text}
 .ob-input:focus{border-color:var(--t2)}
 .ob-hint{font-size:12px;color:var(--t3);letter-spacing:.02em;margin-bottom:32px}
 .ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:32px}
+.ob-niche-tag-ui{margin-bottom:24px}
+.ob-niche-tags{display:flex;flex-wrap:wrap;gap:8px;min-height:36px;margin-bottom:12px;align-items:center}
+.ob-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 6px 7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:999px;font-size:13px;color:var(--t1);
+}
+.ob-chip-x{
+  border:0;background:transparent;color:var(--t3);cursor:pointer;font-size:16px;line-height:1;width:22px;height:22px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+}
+.ob-chip-x:hover{color:var(--t1);background:var(--s3)}
+.ob-tag-add-row{display:flex;gap:10px;align-items:stretch;margin-bottom:4px}
+.ob-tag-add-row .ob-tag-entry{flex:1;margin-bottom:0}
+.ob-tag-add-btn{
+  flex-shrink:0;padding:0 16px;border-radius:10px;border:1px solid var(--b2);background:transparent;color:var(--t2);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;font-family:inherit;white-space:nowrap;
+}
+.ob-tag-add-btn:hover{border-color:var(--t1);color:var(--t1)}
 .ob-card{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:22px 20px;transition:all .2s}
 .ob-card:hover{border-color:var(--b2);background:var(--s2)}
 .ob-card.selected{border-color:var(--t2);background:var(--s2)}
