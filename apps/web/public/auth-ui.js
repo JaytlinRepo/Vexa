@@ -306,13 +306,24 @@
     var top = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2))
     var popup = window.open(url, 'vx_oauth', 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes')
     if (!popup) {
-      // Popup blocked — fall back to new tab
       window.open(url, '_blank')
       return null
     }
-    // Poll until popup closes, then refresh platform rows
     var poll = setInterval(function () {
-      try { if (popup.closed) { clearInterval(poll); if (typeof window.__vxObRefreshPlatforms === 'function') window.__vxObRefreshPlatforms() } } catch (_) { clearInterval(poll) }
+      try {
+        if (!popup.closed) return
+        clearInterval(poll)
+        // After popup closes, check if user is now authenticated (new signup
+        // path — account was created atomically with the OAuth connection).
+        fetchMe().then(function (me) {
+          if (me && me.user) {
+            authedUser = me.user
+            if (me.companies && me.companies.length > 0) currentCompany = me.companies[0]
+            try { localStorage.setItem('vx-authed', '1') } catch (_) {}
+          }
+          if (typeof window.__vxObRefreshPlatforms === 'function') window.__vxObRefreshPlatforms()
+        })
+      } catch (_) { clearInterval(poll) }
     }, 500)
     return popup
   }
@@ -645,17 +656,20 @@
       if (!obState.niche) return
       const btn = document.getElementById('ob-niche-btn')
       if (btn) { btn.disabled = true; btn.textContent = 'Setting up your team…' }
-      const ok = await createCompanyForOnboarding()
-      if (!ok) {
-        if (btn) {
-          btn.disabled = false
-          btn.textContent = 'Continue'
-        }
-        if (typeof obSetNicheContinueEnabled === 'function') {
-          obSetNicheContinueEnabled(!!window.selectedNiche)
-        }
+      // Store company details in the pending cookie — account created only
+      // when the first platform connects (OAuth callback, atomically).
+      try {
+        const r = await fetch(API + '/api/auth/pending-company', {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyName: obState.companyName, niche: obState.niche }),
+        })
+        if (!r.ok) throw new Error('pending-company failed')
+      } catch {
+        if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
         return
       }
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
       document.getElementById('ob-2').classList.remove('active')
       document.getElementById('ob-8').classList.add('active')
       setProgress(100)

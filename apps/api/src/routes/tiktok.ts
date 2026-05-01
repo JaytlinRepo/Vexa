@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 import { oauthSuccessPage } from '../lib/oauthSuccess'
-import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { requireAuth, AuthedRequest, readSession, createSession } from '../middleware/auth'
+import { readPendingSignup, clearPendingSignup } from './auth'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
@@ -105,8 +106,7 @@ function decodeState(
   }
 }
 
-router.get('/auth/start', requireAuth, async (req, res) => {
-  const { userId } = (req as AuthedRequest).session
+router.get('/auth/start', async (req, res) => {
   const { clientKey, redirectUri } = readConfig()
   const missing: string[] = []
   if (!clientKey) missing.push('TIKTOK_CLIENT_KEY')
@@ -116,14 +116,24 @@ router.get('/auth/start', requireAuth, async (req, res) => {
     return
   }
 
-  // Validate companyId ownership — prevents an unauthenticated caller from
-  // injecting another user's companyId into the state and connecting their
-  // own TikTok account to that workspace.
-  const rawId = typeof req.query.companyId === 'string' ? req.query.companyId : ''
-  const company = rawId
-    ? await prisma.company.findFirst({ where: { id: rawId, userId }, select: { id: true } })
-    : await prisma.company.findFirst({ where: { userId }, select: { id: true } })
-  const companyId = company?.id ?? ''
+  const session = await readSession(req)
+  const pending = !session ? await readPendingSignup(req) : null
+  if (!session && !pending) {
+    res.status(401).type('html').send('<h1>Not authenticated</h1>')
+    return
+  }
+
+  let companyId = ''
+  if (session) {
+    // Authenticated: validate companyId ownership to prevent IDOR.
+    const { userId } = session
+    const rawId = typeof req.query.companyId === 'string' ? req.query.companyId : ''
+    const company = rawId
+      ? await prisma.company.findFirst({ where: { id: rawId, userId }, select: { id: true } })
+      : await prisma.company.findFirst({ where: { userId }, select: { id: true } })
+    companyId = company?.id ?? ''
+  }
+  // Pending signup: companyId stays '' — user+company created atomically at callback.
 
   const nonce = crypto.randomBytes(16).toString('hex')
   const codeVerifier = makeCodeVerifier()
@@ -170,7 +180,38 @@ router.get('/callback', async (req, res) => {
     return
   }
   const codeVerifier = decoded.v
-  const stateCompanyId = decoded.c
+  let stateCompanyId = decoded.c
+
+  // Pending signup path: companyId is empty — create user+company atomically now.
+  if (!stateCompanyId) {
+    const pending = await readPendingSignup(req)
+    if (!pending?.companyName || !pending?.niche) {
+      res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
+      return
+    }
+    const EMPLOYEE_SEED = [
+      { role: 'analyst' as const, name: 'Maya' },
+      { role: 'strategist' as const, name: 'Jordan' },
+      { role: 'copywriter' as const, name: 'Alex' },
+      { role: 'creative_director' as const, name: 'Riley' },
+    ]
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email: pending.email, username: pending.username, passwordHash: pending.passwordHash, fullName: pending.fullName ?? null },
+        select: { id: true, email: true },
+      })
+      const company = await tx.company.create({
+        data: { userId: user.id, name: pending.companyName!, niche: pending.niche!, employees: { create: EMPLOYEE_SEED } },
+        select: { id: true },
+      })
+      return { user, company }
+    })
+    stateCompanyId = created.company.id
+    clearPendingSignup(res)
+    await createSession(res, { userId: created.user.id, email: created.user.email })
+    const { seedStarterTasks } = await import('../lib/seedStarterTasks')
+    seedStarterTasks(prisma, { companyId: stateCompanyId, niche: pending.niche! }).catch(() => {})
+  }
 
   if (!code) {
     res.status(400).type('html').send('<h1>No code returned</h1>')

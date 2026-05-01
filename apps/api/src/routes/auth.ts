@@ -17,11 +17,20 @@ function pendingSecret(): Uint8Array {
   return new TextEncoder().encode(raw + ':pending')
 }
 
+export interface PendingSignupData {
+  email: string
+  username: string
+  passwordHash: string
+  fullName?: string
+  companyName?: string
+  niche?: string
+}
+
 export async function writePendingSignup(
   res: import('express').Response,
-  data: { email: string; username: string; passwordHash: string; fullName?: string }
+  data: PendingSignupData
 ): Promise<void> {
-  const token = await new SignJWT(data as Record<string, string>)
+  const token = await new SignJWT(data as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${PENDING_TTL_SECONDS}s`)
@@ -37,12 +46,12 @@ export async function writePendingSignup(
 
 export async function readPendingSignup(
   req: import('express').Request
-): Promise<{ email: string; username: string; passwordHash: string; fullName?: string } | null> {
+): Promise<PendingSignupData | null> {
   const token = req.cookies?.[PENDING_COOKIE]
   if (!token) return null
   try {
     const { payload } = await jwtVerify(token, pendingSecret())
-    return payload as { email: string; username: string; passwordHash: string; fullName?: string }
+    return payload as unknown as PendingSignupData
   } catch {
     return null
   }
@@ -86,8 +95,8 @@ router.post('/signup', async (req, res, next) => {
     }
     const passwordHash = await bcrypt.hash(data.password, 10)
     // Do NOT create the user yet — store pending data in a short-lived signed
-    // cookie. The user row is created atomically with the company in
-    // POST /api/onboarding/company so abandoned signups leave no orphan rows.
+    // cookie. The user+company row is created atomically with the first
+    // platform connection so abandoned signups leave no orphan rows.
     await writePendingSignup(res, { email: data.email, username: data.username, passwordHash, fullName: data.fullName })
     res.status(200).json({ status: 'pending' })
   } catch (err) {
@@ -97,6 +106,17 @@ router.post('/signup', async (req, res, next) => {
     }
     next(err)
   }
+})
+
+// Stores company name + niche into the pending signup cookie so the OAuth
+// callback can create user + company + connection all in one transaction.
+router.patch('/pending-company', async (req, res) => {
+  const pending = await readPendingSignup(req)
+  if (!pending) { res.status(401).json({ error: 'no_pending_signup' }); return }
+  const { companyName, niche } = req.body as { companyName?: string; niche?: string }
+  if (!companyName || !niche) { res.status(400).json({ error: 'missing_fields' }); return }
+  await writePendingSignup(res, { ...pending, companyName, niche })
+  res.json({ status: 'ok' })
 })
 
 // Pre-computed bcrypt hash of the string "dummy". Used as a constant-time
