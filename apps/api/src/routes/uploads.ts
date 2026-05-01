@@ -213,7 +213,10 @@ router.get('/', requireAuth, async (req, res, next) => {
           if (uploadMeta.uploadKey) {
             uploadUrl = await getPresignedUrl(uploadMeta.uploadKey)
           }
-        } catch { /* ignore parse errors */ }
+        } catch (parseErr) {
+          console.error(`[uploads] Failed to parse task description for task ${t.id}:`, parseErr)
+          // uploadMeta stays as {} — uploadUrl stays null, UI shows no thumbnail
+        }
 
         return {
           id: t.id,
@@ -568,10 +571,32 @@ router.post('/combine-existing', requireAuth, async (req, res, next) => {
         })
       } catch (err) {
         console.error('[uploads] combine-existing failed:', err)
-        // Mark task as failed so UI shows an error
+        // Mark task as failed and notify user. 'revision' is the closest
+        // existing TaskStatus that signals "needs attention" — there is no
+        // 'failed' enum value yet. Also embed the error so the UI can surface it.
+        const errMsg = err instanceof Error ? err.message : 'Unknown error'
         await prisma.task.update({
           where: { id: task.id },
-          data: { status: 'revision' },
+          data: {
+            status: 'revision',
+            description: JSON.stringify({
+              uploadKey: '',
+              uploadType: 'video',
+              notes: data.notes || null,
+              sourceClips: data.uploadKeys,
+              clipCount: data.uploadKeys.length,
+              error: errMsg,
+            }),
+          },
+        }).catch(() => {})
+        await createNotification({
+          userId,
+          companyId: data.companyId,
+          type: 'output_delivered',
+          title: 'Video combination failed',
+          body: `Couldn't combine your ${data.uploadKeys.length} clips. Please try again.`,
+          emoji: '⚠️',
+          actionUrl: '/work?tab=content',
         }).catch(() => {})
       }
     })()

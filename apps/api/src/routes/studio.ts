@@ -80,7 +80,10 @@ export function initStudioRoutes(_prisma: PrismaClient) {
       })
 
       if (data.action === 'approve') {
-        // Approve visual
+        // Only write brand memory on the first approval to prevent duplicate
+        // entries when the network drops and the client retries the request.
+        const wasAlreadyApproved = clip.visualApprovalStatus === 'approved'
+
         await prisma.videoClip.update({
           where: { id: clip.id },
           data: {
@@ -88,20 +91,22 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
         })
 
-        // Record approval in brand memory with visual context
-        await recordEditorialFeedback(prisma, {
-          companyId: clip.companyId,
-          feedback: 'Visual edit approved',
-          type: 'visual_approval',
-          context: {
-            clipId: clip.id,
-            adjustments: clip.adjustments,
-            styleMetrics: clip.styleMetrics,
-          },
-          visualKeywords,
-          segmentLabels,
-          actionDecisions,
-        })
+        if (!wasAlreadyApproved) {
+          // Record approval in brand memory with visual context
+          await recordEditorialFeedback(prisma, {
+            companyId: clip.companyId,
+            feedback: 'Visual edit approved',
+            type: 'visual_approval',
+            context: {
+              clipId: clip.id,
+              adjustments: clip.adjustments,
+              styleMetrics: clip.styleMetrics,
+            },
+            visualKeywords,
+            segmentLabels,
+            actionDecisions,
+          })
+        }
 
         res.json({ clip: { id: clip.id, visualApprovalStatus: 'approved' } })
       } else {
@@ -207,6 +212,9 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           selectedCaption = captionOptions[0]
         }
 
+        // Guard against double-writing brand memory when client retries on network drop
+        const wasAlreadyApproved = clip.copyApprovalStatus === 'approved'
+
         await prisma.videoClip.update({
           where: { id: clip.id },
           data: {
@@ -216,16 +224,17 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           },
         })
 
-        // Record approval in brand memory
-        await recordEditorialFeedback(prisma, {
-          companyId: clip.companyId,
-          feedback: `Caption approved: "${selectedCaption?.text.slice(0, 100)}"`,
-          type: 'copy_approval',
-          context: {
-            clipId: clip.id,
-            selectedCaption,
-          },
-        })
+        if (!wasAlreadyApproved) {
+          await recordEditorialFeedback(prisma, {
+            companyId: clip.companyId,
+            feedback: `Caption approved: "${selectedCaption?.text.slice(0, 100)}"`,
+            type: 'copy_approval',
+            context: {
+              clipId: clip.id,
+              selectedCaption,
+            },
+          })
+        }
 
         res.json({ clip: { id: clip.id, copyApprovalStatus: 'approved' } })
       } else {
