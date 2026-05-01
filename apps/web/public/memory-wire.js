@@ -77,13 +77,13 @@
         <h3>Brand Memory</h3>
         <p>What your team has learned about you from approvals, rejections, and meetings. Every item here shows up in every agent's system prompt — they actually use it.</p>
         <div id="vx-memory-add" style="display:grid;grid-template-columns:120px 1fr auto;gap:8px;margin:14px 0;align-items:center">
-          <select id="vx-mem-type" style="padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;font-family:inherit">
+          <select id="vx-mem-type" style="padding:10px 12px;background:transparent;border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;font-family:inherit">
             <option value="preference">Preference</option>
             <option value="feedback">Correction</option>
             <option value="voice">Voice rule</option>
             <option value="performance">What worked</option>
           </select>
-          <input id="vx-mem-text" placeholder="e.g. Never use the phrase 'game-changer'" style="padding:10px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;font-family:inherit" />
+          <input id="vx-mem-text" placeholder="e.g. Never use the phrase 'game-changer'" style="padding:10px 14px;background:transparent;border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;font-family:inherit" />
           <button id="vx-mem-add-btn" style="background:var(--t1);color:var(--bg);border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add</button>
         </div>
         <div id="vx-memory-list" style="margin-top:12px"></div>
@@ -121,7 +121,7 @@
       const summary = m.content?.summary || '—'
       const source = m.content?.source || 'manual'
       return `
-        <div style="display:flex;gap:12px;padding:12px 14px;border:1px solid var(--b1);border-radius:10px;margin-bottom:8px;background:var(--s2)">
+        <div style="display:flex;gap:12px;padding:12px 14px;border:1px solid var(--b1);border-radius:10px;margin-bottom:8px;background:transparent">
           <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:10px;background:${color}22;color:${color};flex-shrink:0;height:fit-content">${escapeHtml(label)}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;color:var(--t1);line-height:1.5">${escapeHtml(summary)}</div>

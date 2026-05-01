@@ -565,10 +565,17 @@
     setTimeout(injectWork, 100)
   }
 
+  var _retryInterval = null
   function retry() {
     var tasksView = document.getElementById('view-db-tasks')
     if (!tasksView) return
-    if (!tasksView.querySelector('#vx-work-tabs')) injectWork()
+    if (!tasksView.querySelector('#vx-work-tabs')) {
+      injectWork()
+    } else {
+      // Work is injected — no need to keep polling
+      clearInterval(_retryInterval)
+      _retryInterval = null
+    }
   }
 
   // Check URL for tab param (e.g. ?tab=content)
@@ -579,5 +586,5 @@
     }
   } catch {}
 
-  setInterval(retry, 1500)
+  _retryInterval = setInterval(retry, 1500)
 })()

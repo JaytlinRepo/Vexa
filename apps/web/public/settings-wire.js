@@ -23,18 +23,53 @@
     if (profInputs[0]) profInputs[0].value = u?.fullName ?? ''
     if (profInputs[1]) profInputs[1].value = u?.email ?? ''
 
-    // Brand panel: Tone / Avoid / Audience
-    const brandInputs = document.querySelectorAll('#settings-brand .settings-input')
-    const bv = c?.brandVoice || {}
-    if (brandInputs[0]) brandInputs[0].value = Array.isArray(bv.tone) ? bv.tone.join(', ') : (bv.tone ?? '')
-    if (brandInputs[1]) brandInputs[1].value = Array.isArray(bv.avoid) ? bv.avoid.join(', ') : (bv.avoid ?? '')
-    const aud = c?.audience || {}
-    if (brandInputs[2]) brandInputs[2].value = aud.description || ''
+    // Brand Voice tab — unhide when company exists, then prefill
+    const brandPanel = document.getElementById('settings-brand')
+    const brandTab = document.getElementById('vx-settings-brand-tab')
+    if (c && brandPanel) {
+      brandPanel.hidden = false
+      if (brandTab) brandTab.hidden = false
+      const brandInputs = document.querySelectorAll('#settings-brand .settings-input')
+      const bv = c?.brandVoice || {}
+      if (brandInputs[0]) brandInputs[0].value = Array.isArray(bv.tone) ? bv.tone.join(', ') : (bv.tone ?? '')
+      if (brandInputs[1]) brandInputs[1].value = Array.isArray(bv.avoid) ? bv.avoid.join(', ') : (bv.avoid ?? '')
+      const aud = c?.audience || {}
+      if (brandInputs[2]) brandInputs[2].value = aud.description || ''
+    }
 
-    // Niche panel
-    const nicheInputs = document.querySelectorAll('#settings-niche .settings-input')
-    if (nicheInputs[0]) nicheInputs[0].value = c?.niche ?? ''
-    if (nicheInputs[1]) nicheInputs[1].value = c?.subNiche ?? ''
+    // Niche tab — unhide when company exists, then prefill
+    const nichePanel = document.getElementById('settings-niche')
+    const nicheTab = document.getElementById('vx-settings-niche-tab')
+    if (c && nichePanel) {
+      nichePanel.hidden = false
+      if (nicheTab) nicheTab.hidden = false
+      const nicheInputs = document.querySelectorAll('#settings-niche .settings-input')
+      if (nicheInputs[0]) nicheInputs[0].value = c?.niche ?? ''
+      if (nicheInputs[1]) nicheInputs[1].value = c?.subNiche ?? ''
+    }
+
+    // Community sharing toggle (Profile section) — skip when UI is hidden
+    const csWrap = document.getElementById('settings-community-section')
+    const csCb = document.getElementById('settings-community-opt-in')
+    const csStatus = document.getElementById('settings-community-status')
+    if (csWrap && !csWrap.hidden && csCb) {
+      csCb.checked = !!c?.communityOptIn
+      if (csStatus) {
+        csStatus.textContent = c?.communityOptIn
+          ? `On · since ${c.communityOptInAt ? new Date(c.communityOptInAt).toLocaleDateString() : '—'}`
+          : 'Off — your content stays private to your team.'
+      }
+    }
+  }
+
+  async function patchCommunityOptIn(optIn) {
+    const res = await fetch('/api/company/me/community-opt-in', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ optIn, agreementVersion: 'v1' }),
+    })
+    return res.ok
   }
 
   async function patchCompany(payload) {
@@ -101,8 +136,11 @@
 
   function wireSaveButtons() {
     const profileBtn = document.querySelector('#settings-profile .settings-save')
-    const brandBtn = document.querySelector('#settings-brand .settings-save')
-    const nicheBtn = document.querySelector('#settings-niche .settings-save')
+    const brandPanelEl = document.getElementById('settings-brand')
+    const brandBtn = brandPanelEl && !brandPanelEl.hidden ? document.querySelector('#settings-brand .settings-save') : null
+    const nichePanelEl = document.getElementById('settings-niche')
+    const nicheBtn =
+      nichePanelEl && !nichePanelEl.hidden ? document.querySelector('#settings-niche .settings-save') : null
     if (profileBtn && !profileBtn.dataset.vxWired) {
       profileBtn.addEventListener('click', () => saveProfile(profileBtn))
       profileBtn.dataset.vxWired = '1'
@@ -115,98 +153,240 @@
       nicheBtn.addEventListener('click', () => saveNiche(nicheBtn))
       nicheBtn.dataset.vxWired = '1'
     }
+
+    // Community sharing toggle — direct PATCH on change, with inline status
+    const csWrap = document.getElementById('settings-community-section')
+    const csCb = document.getElementById('settings-community-opt-in')
+    if (csWrap && !csWrap.hidden && csCb && !csCb.dataset.vxWired) {
+      csCb.dataset.vxWired = '1'
+      csCb.addEventListener('change', async () => {
+        const desired = csCb.checked
+        const status = document.getElementById('settings-community-status')
+        if (status) status.textContent = 'Saving…'
+        const ok = await patchCommunityOptIn(desired)
+        if (!ok) {
+          csCb.checked = !desired
+          if (status) status.textContent = 'Could not save — please try again.'
+          return
+        }
+        if (state.company) {
+          state.company.communityOptIn = desired
+          state.company.communityOptInAt = desired ? new Date().toISOString() : null
+        }
+        if (status) {
+          status.textContent = desired
+            ? 'On · your content can appear in the Knowledge feed'
+            : 'Off — your content stays private to your team.'
+        }
+      })
+    }
   }
 
-  // ── Billing ──────────────────────────────────────────────
+  // ── Billing — cards + Stripe checkout (GET /api/stripe/subscription) ─────
   var PLANS = [
-    { id:'free', name:'Free', price:'$0', features:['All 4 employees','5 tasks/month','No meetings, video, or memory','Audition the team'] },
-    { id:'starter', name:'Solo', price:'$19', features:['All 4 employees','50 tasks/month','Basic brand voice','No meetings or video'] },
-    { id:'pro', name:'Pro', price:'$59', features:['All 4 employees','200 tasks/month','Meetings + brand memory','15 videos/month','Weekly trend reports'], popular:true },
-    { id:'agency', name:'Agency', price:'$149', features:['Up to 5 workspaces','1,000 tasks/month','Everything in Pro per workspace','75 videos/month','Priority processing'] },
+    { id:'free', name:'Free', price:'$0', billingNote:'Free forever · no card required',
+      features:['All four employees · quality parity','3 tasks/day','No meetings, videos, or memory','Great for proving fit'] },
+    { id:'pro', name:'Pro', price:'$59', billingNote:'Billed monthly · annual at checkout', popular:true,
+      features:['200 tasks/month','Meetings · brand memory','15 videos/month','Weekly trend pulse · priority flow'] },
+    { id:'agency', name:'Agency', price:'$149', billingNote:'Billed monthly · annual at checkout',
+      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','Everything in Pro per workspace','Priority processing'] },
   ]
+
+  function planDisplayName (id) {
+    var row = PLANS.find(function (p) { return p.id === id })
+    if (row) return row.name
+    if (!id) return 'Unknown'
+    return id.charAt(0).toUpperCase() + id.slice(1)
+  }
+
+  function formatResetDate (iso) {
+    if (!iso) return ''
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric', year:'numeric' })
+    } catch (__) { return '' }
+  }
+
+  /** Plan matches and subscription still authorizes paid features */
+  function isOnPlan (sub, planId) {
+    if (!sub || sub.plan !== planId) return false
+    return ['active','past_due'].indexOf(sub.status) !== -1
+  }
 
   async function loadBilling() {
     var statusEl = document.getElementById('vx-billing-status')
+    var usageEl = document.getElementById('vx-billing-usage')
     var cardsEl = document.getElementById('vx-plan-cards')
     var manageBtn = document.getElementById('vx-billing-manage')
     if (!statusEl || !cardsEl) return
 
+    var clearUsage = function () {
+      if (usageEl) { usageEl.hidden = true; usageEl.textContent = '' }
+    }
+
     try {
       var res = await fetch('/api/stripe/subscription', { credentials:'include' })
-      var sub = res.ok ? await res.json() : null
+      var sub = await res.json().catch(function () { return null })
+      if (!res.ok || !sub || sub.error) {
+        statusEl.textContent = 'Could not load subscription. Refresh the page or sign in again.'
+        cardsEl.innerHTML = ''
+        clearUsage()
+        if (manageBtn) manageBtn.style.display = 'none'
+        return
+      }
 
-      if (!sub) { statusEl.textContent = 'Unable to load subscription.'; return }
-
-      var isTrial = sub.status === 'trial'
       var isActive = sub.status === 'active'
       var isCanceled = sub.status === 'canceled'
       var isPastDue = sub.status === 'past_due'
+      var tierName = planDisplayName(sub.plan)
 
-      if (isTrial && sub.trialDaysLeft != null) {
-        statusEl.innerHTML = '<span style="color:var(--accent)">' + sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) + ' Trial</span> — ' + sub.trialDaysLeft + ' days left'
-      } else if (isActive) {
-        statusEl.innerHTML = '<span style="color:#34d27a">' + sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) + ' Plan</span> — Active'
+      if (isPastDue) {
+        statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
+          + ' · <span style="color:#e87a7a;font-weight:500">payment issue</span> — '
+          + 'Stripe could not charge your card. Update payment in <strong>Manage billing</strong> or pick a fresh plan.'
       } else if (isCanceled) {
-        statusEl.innerHTML = '<span style="color:#e87a7a">Canceled</span> — subscribe to continue using Sovexa'
-      } else if (isPastDue) {
-        statusEl.innerHTML = '<span style="color:#e87a7a">Payment failed</span> — update your payment method'
+        statusEl.innerHTML = '<span style="color:#e87a7a;font-weight:500">No active subscription</span> · '
+          + 'Choose Pro or Agency below to reconnect billing.'
+      } else if (isActive && sub.plan === 'free') {
+        statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">Free</strong>'
+          + ' · <span style="color:#34d27a;font-weight:500">Active</span> · '
+          + 'Upgrade to Pro or Agency to unlock meetings, video, and brand memory.'
+      } else if (isActive) {
+        statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
+          + ' · <span style="color:#34d27a;font-weight:500">Active</span> · '
+          + 'Renewals and invoices stay in Stripe — use Manage billing anytime.'
+      } else {
+        statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
+          + ' · Subscription status unavailable — refresh or contact support.'
       }
 
-      // Show manage button if they have a Stripe customer
+      var tk = sub.usage && sub.usage.tasks
+      if (usageEl && tk) {
+        var taskPeriod = (sub.resetWindow || sub.usage.resetWindow) === 'daily' ? 'today' : 'this month'
+        var parts = ['Tasks · ' + tk.used + ' / ' + tk.limit + ' ' + taskPeriod]
+        if (sub.usage.videos && sub.usage.videos.limit > 0) {
+          parts.push('Videos · ' + sub.usage.videos.used + ' / ' + sub.usage.videos.limit)
+        }
+        var rs = formatResetDate(tk.resetAt)
+        if (rs) parts.push('Resets · ' + rs)
+        usageEl.hidden = false
+        usageEl.textContent = parts.join(' · ')
+      } else clearUsage()
+
       if (sub.hasStripeCustomer && manageBtn) {
         manageBtn.style.display = ''
         manageBtn.onclick = async function () {
-          manageBtn.textContent = 'Opening...'
-          var r = await fetch('/api/stripe/portal', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:'{}' })
+          manageBtn.textContent = 'Opening…'
+          var r = await fetch('/api/stripe/portal', { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body:'{}' })
           if (r.ok) { var d = await r.json(); window.open(d.url, '_blank') }
-          else { alert('Could not open billing portal.') }
+          else { var errBody = await r.json().catch(function () { return {} }); alert(errBody.error || 'Could not open billing portal.') }
           manageBtn.textContent = 'Manage billing'
         }
+      } else if (manageBtn) {
+        manageBtn.style.display = 'none'
       }
 
-      // Render plan cards
+      cardsEl.style.display = 'grid'
+      cardsEl.style.gridTemplateColumns = 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))'
+      cardsEl.style.gap = '12px'
+      cardsEl.style.marginTop = '20px'
       cardsEl.innerHTML = PLANS.map(function (p) {
-        var isCurrent = sub.plan === p.id && (isActive || isTrial)
-        return '<div style="background:var(--s1);border:1px solid ' + (p.popular ? 'var(--accent)' : 'var(--b1)') + ';border-radius:12px;padding:20px;position:relative;' + (isCurrent ? 'box-shadow:0 0 0 1px var(--accent)' : '') + '">'
-          + (p.popular ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:4px;background:var(--accent);color:var(--inv)">Most popular</div>' : '')
+        var subscriptionLive = ['active','past_due'].indexOf(sub.status) !== -1
+        var onThis = subscriptionLive && isOnPlan(sub, p.id)
+        var borderCol = p.popular ? 'var(--accent)' : 'var(--b1)'
+        var emphasis = onThis ? 'box-shadow:0 0 0 2px rgba(192,138,62,.55);' : ''
+
+        var footBtn
+        if (p.id === 'free') {
+          footBtn = onThis
+            ? '<button type="button" disabled style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--b1);background:transparent;color:var(--t3);font-size:12px;font-weight:500;cursor:default;font-family:inherit">Current tier</button>'
+            : '<button type="button" disabled style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px dashed var(--b1);background:transparent;color:var(--t3);font-size:11px;line-height:1.35;cursor:default;font-family:inherit">Included at signup · contact support to downgrade.</button>'
+        } else if (onThis) {
+          footBtn = '<button type="button" disabled style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--b1);background:transparent;color:var(--t2);font-size:12px;font-weight:500;cursor:default;font-family:inherit">Current plan</button>'
+        } else {
+          footBtn = '<button type="button" data-vx-checkout="' + p.id + '" style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--t1);background:var(--t1);color:var(--inv);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Choose ' + p.name + '</button>'
+        }
+
+        return '<div style="background:var(--s1);border:1px solid ' + borderCol + ';border-radius:12px;padding:20px 20px 22px;position:relative;' + emphasis + '">'
+          + (p.popular ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:4px;background:var(--accent);color:var(--inv);white-space:nowrap">Most popular</div>' : '')
           + '<div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:4px">' + p.name + '</div>'
-          + '<div style="margin-bottom:12px"><span style="font-size:24px;font-weight:600;color:var(--t1)">' + p.price + '</span><span style="font-size:12px;color:var(--t3)">/mo</span></div>'
-          + '<div style="font-size:11px;color:var(--t3);margin-bottom:14px">' + p.annual + '/mo billed annually</div>'
-          + p.features.map(function (f) { return '<div style="font-size:12px;color:var(--t2);padding:3px 0;display:flex;align-items:center;gap:6px"><span style="color:#34d27a;font-size:10px">+</span>' + f + '</div>' }).join('')
-          + '<button data-vx-checkout="' + p.id + '" style="margin-top:14px;width:100%;padding:10px;border-radius:8px;border:1px solid ' + (isCurrent ? 'var(--b2)' : 'var(--t1)') + ';background:' + (isCurrent ? 'transparent' : 'var(--t1)') + ';color:' + (isCurrent ? 'var(--t2)' : 'var(--inv)') + ';font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">' + (isCurrent ? 'Current plan' : 'Choose ' + p.name) + '</button>'
+          + '<div style="margin-bottom:8px"><span style="font-size:24px;font-weight:600;color:var(--t1)">' + p.price + '</span><span style="font-size:12px;color:var(--t3)"> / mo</span></div>'
+          + '<div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.4">' + p.billingNote + '</div>'
+          + p.features.map(function (f) {
+            return '<div style="font-size:12px;color:var(--t2);padding:3px 0;display:flex;align-items:flex-start;gap:8px;line-height:1.45">'
+              + '<span style="color:#34d27a;font-size:10px;flex-shrink:0;margin-top:2px">+</span><span>' + f + '</span></div>'
+          }).join('')
+          + footBtn
           + '</div>'
       }).join('')
 
-      // Wire checkout buttons
       cardsEl.querySelectorAll('[data-vx-checkout]').forEach(function (btn) {
-        if (btn.textContent === 'Current plan') { btn.disabled = true; return }
         btn.addEventListener('click', async function () {
-          btn.textContent = 'Redirecting...'
+          var planCard = PLANS.filter(function (x) { return x.id === btn.dataset.vxCheckout })[0]
+          var labelAfter = planCard ? planCard.name : (btn.dataset.vxCheckout || 'plan')
+          btn.textContent = 'Redirecting…'
           btn.disabled = true
           var r = await fetch('/api/stripe/checkout', {
             method:'POST', credentials:'include',
-            headers:{'Content-Type':'application/json'},
+            headers:{ 'Content-Type':'application/json' },
             body: JSON.stringify({ plan: btn.dataset.vxCheckout, billing: 'monthly' }),
           })
           if (r.ok) {
             var d = await r.json()
-            window.location.href = d.url
+            if (d.url) window.location.href = d.url
+            else {
+              alert('Stripe did not return a checkout URL. Is Stripe configured?')
+              btn.textContent = 'Choose ' + labelAfter
+              btn.disabled = false
+            }
           } else {
-            var err = await r.json().catch(function(){return{}})
-            alert('Checkout error: ' + (err.error || 'Unknown error'))
-            btn.textContent = 'Choose ' + btn.dataset.vxCheckout.charAt(0).toUpperCase() + btn.dataset.vxCheckout.slice(1)
+            var err = await r.json().catch(function () { return {} })
+            alert('Checkout error: ' + (err.error || ('HTTP ' + r.status)))
+            btn.textContent = 'Choose ' + labelAfter
             btn.disabled = false
           }
         })
       })
     } catch (e) {
       statusEl.textContent = 'Error loading subscription.'
+      cardsEl.innerHTML = ''
+      clearUsage()
+      if (manageBtn) manageBtn.style.display = 'none'
     }
   }
 
-  function init() {
+  function init () {
     wireSaveButtons()
     if (document.getElementById('view-db-settings')) { loadMe(); loadBilling() }
+  }
+
+  // dashboard-wire restores sessions via navigate() — it does not always call the
+  // chained enterDashboard. Hydrate billing + profile whenever Settings opens or
+  // the Billing sub-tab is selected (fixes empty Subscription panel).
+  function kickSettingsHydration () {
+    if (!document.getElementById('view-db-settings')) return
+    try { wireSaveButtons() } catch (e) { /* noop */ }
+    loadMe().catch(function () {})
+    loadBilling().catch(function () {})
+  }
+
+  ;(function hookSettingsNavigation () {
+    var pn = window.navigate
+    if (typeof pn !== 'function') return
+    window.navigate = function (id) {
+      var ret = pn.apply(this, arguments)
+      if (id === 'db-settings') setTimeout(kickSettingsHydration, 0)
+      return ret
+    }
+  })()
+
+  if (typeof window.switchSettings === 'function') {
+    var ps = window.switchSettings
+    window.switchSettings = function (btn, panel) {
+      ps(btn, panel)
+      if (panel === 'billing') setTimeout(function () {
+        loadBilling().catch(function () {})
+      }, 0)
+    }
   }
 
   const prevEnter = window.enterDashboard

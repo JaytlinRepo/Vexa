@@ -11,7 +11,7 @@
 ;(function () {
   const MARKETING_VIEWS = [
     'view-team', 'view-how',
-    'view-outputs', 'view-knowledge',
+    'view-outputs', /* 'view-knowledge', — shelved */
     'view-pricing', 'view-faq',
   ]
 
@@ -33,7 +33,7 @@
             <a href="#" data-vx-nav="team">The team</a>
             <a href="#" data-vx-nav="how">How it works</a>
             <a href="#" data-vx-nav="outputs">See outputs</a>
-            <a href="#" data-vx-nav="knowledge">Knowledge feed</a>
+            <!-- knowledge feed shelved -->
           </div>
 
           <div class="vx-footer-col">

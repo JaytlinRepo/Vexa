@@ -13,10 +13,156 @@
     open: false,
     badge: null,
     wired: false,
+    sseStarted: false,
   }
 
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  function absUrl(url) {
+    if (!url || typeof url !== 'string') return null
+    if (url.startsWith('http')) return url
+    try {
+      var o = window.location.origin
+      return url.startsWith('/') ? o + url : o + '/' + url
+    } catch {
+      return url
+    }
+  }
+
+  function parseDashboardTasksPath(url) {
+    var m = String(url || '').match(/\/dashboard\/tasks\/([^/?#]+)/)
+    return m ? m[1] : null
+  }
+
+  function hqPipelineVisible() {
+    var v = document.getElementById('view-db-dashboard')
+    return !!(v && v.classList.contains('active'))
+  }
+
+  function goHqPipelineFocus(taskIdMaybe) {
+    var switchView = !hqPipelineVisible()
+    if (switchView && typeof window.navigate === 'function') window.navigate('db-dashboard')
+    var delay = switchView ? 350 : 0
+    setTimeout(function () {
+      try {
+        window.dispatchEvent(new CustomEvent('vx-hq3-focus-pipeline', { detail: { taskId: taskIdMaybe || undefined } }))
+      } catch (_) { /* noop */ }
+    }, delay)
+  }
+
+  function goStudio(clipIdMaybe) {
+    if (clipIdMaybe) {
+      try {
+        sessionStorage.setItem('vxStudioClipFocus', String(clipIdMaybe))
+      } catch (_) { /* noop */ }
+    }
+    if (typeof window.navigate === 'function') window.navigate('db-studio')
+  }
+
+  function goPosts() {
+    if (typeof window.navigate === 'function') window.navigate('db-posts')
+  }
+
+  function goSettingsBilling() {
+    if (typeof window.navigate === 'function') window.navigate('db-settings')
+    setTimeout(function () {
+      var tabs = document.querySelectorAll('.settings-nav .settings-nav-item')
+      var billingBtn = null
+      tabs.forEach(function (el) {
+        if (/billing/i.test(String(el.textContent || ''))) billingBtn = el
+      })
+      if (billingBtn && typeof window.switchSettings === 'function') {
+        window.switchSettings(billingBtn, 'billing')
+      }
+    }, 400)
+  }
+
+  /**
+   * Map persistent notification payload → current SPA (HQ pipeline, Studio,
+   * Posts). Legacy URLs like /dashboard/tasks/* and /work?tab=content are
+   * rewritten here rather than chasing every emitter.
+   */
+  function runNotificationAction(n) {
+    var meta = n.metadata || {}
+    var rawUrl = n.actionUrl
+    var url = typeof rawUrl === 'string' ? rawUrl : ''
+    var taskFromUrl = parseDashboardTasksPath(url)
+    var tid =
+      meta.nextTaskId || meta.next_task_id || meta.taskId || meta.nextTaskID || taskFromUrl || null
+
+    var openContentTab =
+      meta.tab === 'content' ||
+      (typeof n.actionLabel === 'string' && /open\s+content\s+tab/i.test(n.actionLabel))
+
+    if (n.type === 'payment_failed' || /\/settings\/billing/.test(url)) {
+      goSettingsBilling()
+      return
+    }
+
+    if (n.type === 'trial_ending') {
+      goSettingsBilling()
+      return
+    }
+
+    if (/\/db-team/.test(url) || /\bthought=/.test(url)) {
+      if (typeof window.navigate === 'function') window.navigate('db-team')
+      return
+    }
+
+    if (/\/app\?/.test(url) && /meeting=/.test(url)) {
+      if (typeof window.navigate === 'function') window.navigate('db-team')
+      return
+    }
+
+    if (n.type === 'task_approved' && openContentTab) {
+      goPosts()
+      return
+    }
+
+    if (url.includes('/work') && /tab=content/i.test(url)) {
+      var cid = meta.clipId || meta.clip_id
+      goStudio(cid || undefined)
+      return
+    }
+
+    if (n.type === 'video_ready') {
+      goStudio(meta.clipId || meta.clip_id || undefined)
+      return
+    }
+
+    if (url.includes('/dashboard/strategy') || url.includes('/dashboard/trends')) {
+      goHqPipelineFocus(null)
+      return
+    }
+
+    if (url.replace(/\/$/, '') === '/dashboard/tasks' || url.endsWith('/dashboard/tasks')) {
+      goHqPipelineFocus(null)
+      return
+    }
+
+    if (taskFromUrl) {
+      goHqPipelineFocus(taskFromUrl)
+      return
+    }
+
+    if (n.type === 'meeting_summary' || n.type === 'plan_ready' || n.type === 'trend_report_ready') {
+      goHqPipelineFocus(null)
+      return
+    }
+
+    if (tid && typeof tid === 'string') {
+      goHqPipelineFocus(tid)
+      return
+    }
+
+    if (rawUrl && (String(rawUrl).startsWith('http') || String(rawUrl).startsWith('/'))) {
+      window.location.href = absUrl(rawUrl)
+      return
+    }
+
+    goHqPipelineFocus(null)
   }
 
   function ensurePanel() {
@@ -82,17 +228,22 @@
       const empty = document.createElement('div')
       empty.style.cssText = 'padding:24px 18px;color:var(--t2);font-size:13px;text-align:center;line-height:1.5'
       empty.innerHTML =
-        '<p style="margin:0 0 12px">No alerts yet — open the queue to move work forward.</p>' +
-        '<button type="button" id="vx-notif-empty-queue" style="background:var(--t1);color:var(--bg);border:none;padding:8px 16px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Open work queue</button>'
+        '<p style="margin:0 0 14px;font-size:12px;line-height:1.5;color:var(--t2)">No alerts yet. Open the live pipeline on HQ or review clips in Studio.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">' +
+        '<button type="button" id="vx-notif-empty-hq" style="flex:1;min-width:120px;background:var(--t1);color:var(--bg);border:none;padding:8px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">HQ pipeline</button>' +
+        '<button type="button" id="vx-notif-empty-studio" style="flex:1;min-width:120px;background:transparent;color:var(--t1);border:1px solid var(--b1);padding:8px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Studio</button>' +
+        '</div>'
       list.appendChild(empty)
-      const b = empty.querySelector('#vx-notif-empty-queue')
-      if (b) {
-        b.addEventListener('click', (e) => {
-          e.stopPropagation()
-          if (typeof window.navigate === 'function') window.navigate('db-tasks')
-          setOpen(false)
-        })
-      }
+      empty.querySelector('#vx-notif-empty-hq')?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        goHqPipelineFocus(null)
+        setOpen(false)
+      })
+      empty.querySelector('#vx-notif-empty-studio')?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        goStudio()
+        setOpen(false)
+      })
       return
     }
     for (const n of state.items.slice(0, 20)) {
@@ -102,8 +253,12 @@
         ${n.isRead ? 'opacity:.55' : ''}
       `
       const meta = n.metadata || {}
-      const nextId = meta.nextTaskId || meta.next_task_id || meta.taskId
-      const hasAction = Boolean(n.actionLabel && (nextId || n.actionUrl))
+      const linkedId =
+        meta.nextTaskId || meta.next_task_id || meta.taskId || meta.clipId || meta.clip_id
+      const hasLegacyUrl = !!(n.actionUrl && typeof n.actionUrl === 'string')
+      const hasAction = Boolean(
+        n.actionLabel && (linkedId || hasLegacyUrl || n.type === 'meeting_summary' || n.type === 'plan_ready' || n.type === 'trend_report_ready'),
+      )
       row.innerHTML = `
         <div style="display:flex;gap:12px;cursor:default">
           <div style="flex:1;min-width:0">
@@ -121,14 +276,7 @@
       row.querySelector('.vx-notif-primary')?.addEventListener('click', (e) => {
         e.stopPropagation()
         markRead(n)
-        if (nextId) {
-          try {
-            sessionStorage.setItem('vxFocusTaskId', String(nextId))
-          } catch {}
-          if (typeof window.navigate === 'function') window.navigate('db-tasks')
-        } else if (n.actionUrl) {
-          window.location.href = n.actionUrl
-        }
+        runNotificationAction(n)
         setOpen(false)
         renderList()
       })
@@ -203,6 +351,16 @@
     renderList()
   }
 
+  function bellIsVisible(btn) {
+    if (!btn) return false
+    if (btn.style.display === 'none') return false
+    try {
+      return window.getComputedStyle(btn).display !== 'none'
+    } catch {
+      return true
+    }
+  }
+
   function wireBellClick() {
     if (state.wired) return
     const btn = document.getElementById('notif-btn')
@@ -216,18 +374,41 @@
     state.wired = true
   }
 
-  function init() {
-    wireBellClick()
-    // Only boot SSE/list if bell is visible (which happens on enterDashboard).
-    if (document.getElementById('notif-btn')?.style.display === 'none') return
+  function bootStreamIfNeeded(btn) {
+    if (state.sseStarted) return
+    if (!bellIsVisible(btn)) return
+    state.sseStarted = true
     loadInitial().then(connectStream)
   }
 
-  // Kick off once after dashboard enter
+  function init() {
+    const btn = document.getElementById('notif-btn')
+    wireBellClick()
+    bootStreamIfNeeded(btn)
+  }
+
+  // Kick off once after dashboard enter (login flow)
   const prevEnter = window.enterDashboard
   window.enterDashboard = async function () {
     if (typeof prevEnter === 'function') await prevEnter()
     setTimeout(init, 100)
   }
+
+  // Session restore + HQ v3 skip enterDashboard chain — bell had no listener.
+  function kickFromAppShell () {
+    setTimeout(init, 0)
+  }
+  window.addEventListener('vx-dash-ready', kickFromAppShell)
+  window.addEventListener('vx-dashboard-ready', kickFromAppShell)
+  window.addEventListener('vx-app-topbar-synced', kickFromAppShell)
+  ;(function hookNotifNavigate () {
+    const pn = window.navigate
+    if (typeof pn !== 'function') return
+    window.navigate = function (id) {
+      const ret = pn.apply(this, arguments)
+      if (typeof id === 'string' && /^db-/.test(id)) kickFromAppShell()
+      return ret
+    }
+  })()
 
 })()

@@ -90,6 +90,45 @@
         get('/api/platform/accounts').then((p) => { STATE.platformAccounts = p?.accounts || [] }),
       ])
     }
+
+    // HQ v3 skips v2 innerHTML but still needs the app shell (notif bell, nav labels).
+    syncHqAppTopbarIfNeeded()
+  }
+
+  function syncHqAppTopbarIfNeeded() {
+    var view = document.getElementById('view-db-dashboard')
+    if (!view || !view.classList.contains('hq-v3')) return
+    var me = STATE.me
+    if (!me?.user) return
+    var mktNav = document.getElementById('nav-marketing')
+    var appNav = document.getElementById('nav-app')
+    var loginBtn = document.getElementById('topbar-login')
+    var ctaBtn = document.getElementById('topbar-cta')
+    var notifBtn = document.getElementById('notif-btn')
+    var profile = document.getElementById('vx-profile')
+    if (mktNav) mktNav.style.display = 'none'
+    if (appNav) appNav.style.display = 'flex'
+    if (loginBtn) loginBtn.style.display = 'none'
+    if (ctaBtn) ctaBtn.style.display = 'none'
+    if (notifBtn) notifBtn.style.display = 'flex'
+    if (profile) profile.style.display = ''
+    try {
+      document.documentElement.dataset.vxAuthed = '1'
+    } catch (e) {
+      /* noop */
+    }
+    var company = me.companies && me.companies[0]
+    var nameEl = document.getElementById('nav-username')
+    var planEl = document.getElementById('nav-userplan')
+    var avatarEl = document.getElementById('nav-avatar')
+    if (nameEl) nameEl.textContent = company?.name || 'My Company'
+    if (planEl) planEl.textContent = ({ free: 'Free', starter: 'Solo', pro: 'Pro', agency: 'Agency' }[me.user.plan] || 'Free') + ' plan'
+    if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
+    try {
+      window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
+    } catch (e) {
+      /* noop */
+    }
   }
 
   // Background Instagram sync — runs AFTER the first render
@@ -474,11 +513,8 @@
     const user = me?.user
     const company = me?.companies?.[0]
     const u = STATE.usage
-    const status = u?.subscriptionStatus || 'trial'
-    const daysLeft = u?.trialEndsAt ? Math.max(0, Math.ceil((new Date(u.trialEndsAt).getTime() - Date.now()) / 86400000)) : null
-    const chipLabel = status === 'trial' && daysLeft != null
-      ? `${capitalize(u.plan)} · Trial · ${daysLeft}d left`
-      : `${capitalize(u?.plan || 'starter')} · ${capitalize(status)}`
+    const status = u?.subscriptionStatus || 'active'
+    const chipLabel = `${capitalize(u?.plan || 'free')} · ${capitalize(status)}`
 
     return `
       <section style="margin-bottom:28px">
@@ -877,13 +913,13 @@
   function teamCard(role, tasks) {
     const r = ROLE[role]
     // Check if this role is locked on the current plan
-    const userPlan = STATE.me?.user?.plan || 'starter'
+    const userPlan = STATE.me?.user?.plan || 'free'
     const planEmployees = {
-      starter: ['analyst', 'copywriter'],
+      free: ['analyst', 'strategist', 'copywriter', 'creative_director'],
       pro: ['analyst', 'strategist', 'copywriter', 'creative_director'],
       agency: ['analyst', 'strategist', 'copywriter', 'creative_director'],
     }
-    const isLocked = !(planEmployees[userPlan] || planEmployees.starter).includes(role)
+    const isLocked = !(planEmployees[userPlan] || planEmployees.free).includes(role)
     if (isLocked) {
       return `
         <div class="vx-dcard" style="background:var(--s1);border:1px dashed var(--b2);border-radius:12px;padding:16px 18px;opacity:0.6">
@@ -2046,8 +2082,13 @@
       var avatarEl = document.getElementById('nav-avatar')
       var company = STATE.me.companies?.[0]
       if (nameEl) nameEl.textContent = company?.name || 'My Company'
-      if (planEl) planEl.textContent = (STATE.me.user.plan || 'starter') + ' plan'
+      if (planEl) planEl.textContent = (STATE.me.user.plan || 'free') + ' plan'
       if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
+      try {
+        window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
+      } catch (e2) {
+        /* noop */
+      }
     }
     // Animations — staggered reveal + counters + sparkline draw
     requestAnimationFrame(function () {
@@ -2224,6 +2265,10 @@
       const isTiktok = params.get('tiktokConnected') === '1'
       const isInstagram = params.get('instagramConnected') === '1'
       if (!isTiktok && !isInstagram) return
+
+      var awaitingOb = false
+      try { awaitingOb = sessionStorage.getItem('vx-ob-await-connect') === '1' } catch (_) {}
+
       // Clear the query param so a refresh doesn't re-trigger.
       const clean = window.location.pathname + (window.location.hash || '')
       window.history.replaceState({}, '', clean)
@@ -2233,8 +2278,18 @@
           .then(r => r.ok ? r.json() : null).catch(() => null)
         if (!me?.user) {
           if (typeof window.navigate === 'function') window.navigate('home')
+          try { sessionStorage.removeItem('vx-ob-await-connect') } catch (_) {}
           return
         }
+
+        if (awaitingOb) {
+          try { sessionStorage.removeItem('vx-ob-await-connect') } catch (_) {}
+          if (typeof window.enterDashboard === 'function') await window.enterDashboard()
+          await refresh()
+          window.dispatchEvent(new CustomEvent('vx-oauth-return-onboarding'))
+          return
+        }
+
         if (typeof window.enterDashboard === 'function') window.enterDashboard()
         await refresh()
         if (isTiktok) {

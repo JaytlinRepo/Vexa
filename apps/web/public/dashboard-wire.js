@@ -44,7 +44,7 @@
   function populateNav(user, company) {
     const displayName = company?.name || user.fullName || user.username || 'Your company'
     setText('nav-username', displayName)
-    setText('nav-userplan', (user.plan || 'starter').replace(/^./, (c) => c.toUpperCase()) + ' plan')
+    setText('nav-userplan', (user.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan')
     setText('nav-avatar', displayName.charAt(0).toUpperCase())
     setText('db-greeting', `${greeting()}, ${user.fullName || user.username || 'CEO'}.`)
     if (company) {
@@ -61,7 +61,7 @@
     if (!host) return
     let chip = document.getElementById('vx-profile-chip')
     const displayName = company?.name || user?.fullName || user?.username || 'Account'
-    const planLabel = (user?.plan || 'starter').replace(/^./, (c) => c.toUpperCase()) + ' plan'
+    const planLabel = (user?.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan'
     const initial = displayName.charAt(0).toUpperCase()
 
     if (!chip) {
@@ -255,6 +255,10 @@
     const me = await fetchMe()
     safeOriginalEnter()
     if (me?.user) {
+      // Persist the auth flag so the layout.tsx gate can pre-show the correct
+      // view on next refresh — without this, signup → onboarding → enter causes
+      // a flash of the marketing home on every subsequent page load.
+      try { localStorage.setItem('vx-authed', '1') } catch {}
       const company = me.companies?.[0]
       await refreshDashboardFor(me.user, company)
       if (company) fireDashboardReady(me.user, company)
@@ -285,6 +289,9 @@
     }
     const company = me.companies?.[0]
     if (!company) return
+    // Session is confirmed valid — keep the auth gate flag current so the
+    // next refresh pre-shows the correct view without a marketing-home flash.
+    try { localStorage.setItem('vx-authed', '1') } catch {}
     // Refresh-restore path. Suppress enterDashboard's hardcoded navigate('db-dashboard')
     // so HQ doesn't flash before we route to the user's intended view.
     var intended = (location.hash || '').replace(/^#/, '')

@@ -32,6 +32,106 @@
   let currentCompanyId = null
   let pendingClips = []
   let clipStateMap = {} // Track approval state per clip
+  let activeClipId = null // The clip currently being reviewed — used by sidebar schedule buttons
+  /** Shared across init — must not be recreated per Studio visit */
+  let selectedFiles = []
+  let studioDelegatedWired = false
+  let studioUploadDomWired = false
+  /** Hard cap on a single batch upload — anything more rejects the whole submit */
+  const MAX_BATCH_FILES = 12
+
+  // ── Processing UI helpers ─────────────────────────────────────────
+  // Phases: 'upload' (0-15%) → 'combine' (15-45%) → 'edit' (45-95%) → 'done' (100%).
+  // setPhase highlights the current pill; setProgress drives the bar + label.
+  let processingStartedAt = 0
+  let elapsedTickHandle = null
+
+  function setPhase(active) {
+    const phases = document.querySelectorAll('#processing-phases [data-phase]')
+    if (!phases.length) return
+    const order = ['upload', 'combine', 'edit', 'done']
+    const activeIdx = order.indexOf(active)
+    phases.forEach((el) => {
+      const p = el.getAttribute('data-phase')
+      const idx = order.indexOf(p)
+      if (idx < activeIdx) {
+        el.style.background = 'rgba(159,179,138,.12)'
+        el.style.borderColor = 'var(--ok)'
+        el.style.color = 'var(--t2)'
+      } else if (idx === activeIdx) {
+        el.style.background = 'var(--accent)'
+        el.style.borderColor = 'var(--accent)'
+        el.style.color = 'var(--accent-text, #000)'
+      } else {
+        el.style.background = 'transparent'
+        el.style.borderColor = 'var(--b1)'
+        el.style.color = 'var(--t3)'
+      }
+    })
+  }
+
+  function setProgress(pct, statusText, detailText) {
+    const bar = document.getElementById('processing-bar')
+    const progressEl = document.getElementById('processing-progress')
+    const statusEl = document.getElementById('processing-status')
+    const detailEl = document.getElementById('processing-detail')
+    if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%'
+    if (progressEl) progressEl.textContent = Math.round(pct) + '%'
+    if (statusEl && statusText != null) statusEl.textContent = statusText
+    if (detailEl && detailText != null) detailEl.textContent = detailText
+  }
+
+  function startElapsedTick() {
+    processingStartedAt = Date.now()
+    if (elapsedTickHandle) clearInterval(elapsedTickHandle)
+    const update = () => {
+      const el = document.getElementById('processing-elapsed')
+      if (!el) return
+      const sec = Math.floor((Date.now() - processingStartedAt) / 1000)
+      el.textContent = sec < 60 ? sec + 's elapsed' : Math.floor(sec / 60) + 'm ' + (sec % 60) + 's'
+    }
+    update()
+    elapsedTickHandle = setInterval(update, 1000)
+  }
+  function stopElapsedTick() {
+    if (elapsedTickHandle) { clearInterval(elapsedTickHandle); elapsedTickHandle = null }
+  }
+
+  function showProcessing(initialStatus, initialDetail) {
+    const el = document.getElementById('studio-processing')
+    if (el) el.style.display = 'block'
+    hideCompletionBanner()
+    setPhase('upload')
+    setProgress(5, initialStatus, initialDetail)
+    startElapsedTick()
+  }
+  function hideProcessing() {
+    const el = document.getElementById('studio-processing')
+    if (el) el.style.display = 'none'
+    stopElapsedTick()
+  }
+
+  function showCompletionBanner(titleText, detailText) {
+    const banner = document.getElementById('studio-complete-banner')
+    const titleEl = document.getElementById('complete-banner-title')
+    const detailEl = document.getElementById('complete-banner-detail')
+    if (titleEl && titleText) titleEl.textContent = titleText
+    if (detailEl && detailText != null) detailEl.textContent = detailText
+    if (banner) banner.style.display = 'block'
+    if (banner) banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+  function hideCompletionBanner() {
+    const banner = document.getElementById('studio-complete-banner')
+    if (banner) banner.style.display = 'none'
+  }
+  function clearUploadPreviews() {
+    const previewsEl = document.getElementById('studio-previews')
+    if (previewsEl) previewsEl.style.display = 'none'
+    const grid = document.getElementById('studio-preview-grid')
+    if (grid) grid.innerHTML = ''
+    const countEl = document.getElementById('studio-preview-count')
+    if (countEl) countEl.textContent = ''
+  }
 
   // ── API Calls ────────────────────────────────────────────────────
 
@@ -336,11 +436,36 @@
   function updateClipState(clipId, updates) {
     if (!clipStateMap[clipId]) clipStateMap[clipId] = {}
     Object.assign(clipStateMap[clipId], updates)
+    // When both approvals are in, make this the active clip for the sidebar
+    const state = clipStateMap[clipId]
+    if (state.visualApprovalStatus === 'approved' && state.copyApprovalStatus === 'approved') {
+      activeClipId = clipId
+      document.querySelectorAll('[data-studio-action="schedule"], [data-studio-action="schedule-custom"], [data-studio-action="save-draft"]').forEach(btn => {
+        btn.dataset.clipId = clipId
+      })
+    }
   }
 
   // ── Wire Up Event Listeners ──────────────────────────────────────
 
   function wireStudioTab() {
+    if (studioDelegatedWired) return
+    studioDelegatedWired = true
+    // Show/hide visual feedback textarea (Reject / Cancel)
+    document.addEventListener('click', (e) => {
+      const show = e.target.closest('[data-studio-action="show-visual-feedback"]')
+      if (show) {
+        const el = document.getElementById(`visual-feedback-${show.dataset.clipId}`)
+        if (el) el.style.display = 'block'
+        return
+      }
+      const hide = e.target.closest('[data-studio-action="hide-visual-feedback"]')
+      if (hide) {
+        const el = document.getElementById(`visual-feedback-${hide.dataset.clipId}`)
+        if (el) el.style.display = 'none'
+      }
+    })
+
     // Approve visual buttons
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-studio-action="approve-visual"]')
@@ -348,9 +473,10 @@
         const clipId = btn.dataset.clipId
         btn.disabled = true
         btn.textContent = '⏳ Approving...'
-        await approveVisual(clipId)
-        btn.disabled = false
-        btn.textContent = '✓ Approve'
+        try { await approveVisual(clipId) } finally {
+          btn.disabled = false
+          btn.textContent = '✓ Approve'
+        }
       }
     })
 
@@ -363,9 +489,10 @@
         const feedback = feedbackEl?.value || ''
         btn.disabled = true
         btn.textContent = '⏳ Rejecting...'
-        await rejectVisual(clipId, feedback)
-        btn.disabled = false
-        btn.textContent = 'Submit & regenerate'
+        try { await rejectVisual(clipId, feedback) } finally {
+          btn.disabled = false
+          btn.textContent = 'Submit & regenerate'
+        }
       }
     })
 
@@ -377,9 +504,10 @@
         const captionId = btn.dataset.captionId
         btn.disabled = true
         btn.textContent = '⏳ Using...'
-        await approveCopy(clipId, captionId)
-        btn.disabled = false
-        btn.textContent = '✓ Use this'
+        try { await approveCopy(clipId, captionId) } finally {
+          btn.disabled = false
+          btn.textContent = '✓ Use this'
+        }
       }
     })
 
@@ -425,6 +553,15 @@
       if (btn) {
         const clipId = btn.dataset.clipId
         const scheduledTime = btn.dataset.scheduledTime
+        if (!clipId || clipId === 'pending') {
+          showToast('Approve a clip first before scheduling', 'error')
+          return
+        }
+        const state = clipStateMap[clipId] || {}
+        if (state.visualApprovalStatus !== 'approved' || state.copyApprovalStatus !== 'approved') {
+          showToast('Approve both visual and caption before scheduling', 'error')
+          return
+        }
         if (scheduledTime) {
           // Show confirmation modal
           document.getElementById('confirm-time').textContent = scheduledTime
@@ -449,8 +586,18 @@
       const btn = e.target.closest('[data-studio-action="schedule-custom"]')
       if (btn) {
         const clipId = btn.dataset.clipId
+        if (!clipId || clipId === 'pending') {
+          showToast('Approve a clip first before scheduling', 'error')
+          return
+        }
+        const state = clipStateMap[clipId] || {}
+        if (state.visualApprovalStatus !== 'approved' || state.copyApprovalStatus !== 'approved') {
+          showToast('Approve both visual and caption before scheduling', 'error')
+          return
+        }
         const dateInput = document.querySelector('[data-studio-input="date"]')
         const timeInput = document.querySelector('[data-studio-input="time"]')
+        if (dateInput) dateInput.min = new Date().toISOString().slice(0, 10)
 
         if (!dateInput?.value || !timeInput?.value) {
           showToast('Please select both date and time', 'error')
@@ -515,23 +662,10 @@
     if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
 
     showVideoPreviews(files)
-
-    const processingEl = document.getElementById('studio-processing')
-    const bar = document.getElementById('processing-bar')
-    const statusEl = document.getElementById('processing-status')
-    const detailEl = document.getElementById('processing-detail')
-    const progressEl = document.getElementById('processing-progress')
-
-    if (processingEl) processingEl.style.display = 'block'
-    if (statusEl) statusEl.textContent = 'Uploading ' + files.length + ' videos...'
-    if (detailEl) detailEl.textContent = files.length + ' videos selected'
-    if (bar) bar.style.width = '10%'
-    if (progressEl) progressEl.textContent = '10%'
+    showProcessing(`Uploading ${files.length} videos...`, `Sending ${files.length} files to S3`)
 
     const form = new FormData()
-    for (const file of files) {
-      form.append('videos', file)
-    }
+    for (const file of files) form.append('videos', file)
     form.append('companyId', currentCompanyId)
     form.append('strategy', 'montage')
 
@@ -547,42 +681,37 @@
         throw new Error(errMsg)
       }
       const json = await res.json()
-      if (bar) bar.style.width = '15%'
-      if (statusEl) statusEl.textContent = files.length + ' videos uploaded — Riley is analyzing all of them...'
-      if (detailEl) detailEl.textContent = json.message || 'Processing compilation'
-      if (progressEl) progressEl.textContent = '15%'
-      showToast(files.length + ' videos uploaded — compilation started', 'success')
-      // Clear preview strip
-      var previewsEl = document.getElementById('studio-previews')
-      if (previewsEl) previewsEl.style.display = 'none'
+      // Upload phase done → combine phase begins
+      setPhase('combine')
+      setProgress(18, 'Combining your ' + files.length + ' videos…', 'Stitching clips into one source for Riley')
+      showToast(files.length + ' videos uploaded — combining now', 'success')
+      // Clear preview strip — files are uploaded, no longer relevant
+      clearUploadPreviews()
 
-      // Poll until clip appears
+      // Subscribe to SSE for live progress, plus poll as fallback safety net
+      connectProcessingStream(json.compilationId, { isCompilation: true, fileCount: files.length })
       pollUntilClipReady(json.compilationId)
     } catch (err) {
-      showToast('Upload failed: ' + err.message, 'error')
-      if (processingEl) processingEl.style.display = 'none'
+      // Large multi-video uploads (hundreds of MB) sometimes hit the dev
+      // proxy's keep-alive timeout: the api accepts the body and starts
+      // processing, but the response is dropped on the wire. Don't tear
+      // down the UI — start a recovery poll that watches for the new clip
+      // appearing in the pending list. Worst case the poll times out and
+      // we hide gracefully; best case the user sees the banner anyway.
+      console.warn('[studio] upload-batch fetch errored; entering recovery poll mode:', err)
+      showToast('Connection dropped — checking if upload completed in background', 'info')
+      setPhase('edit')
+      setProgress(45, 'Connection hiccup — verifying server state…', 'Your reel may still be on its way')
+      clearUploadPreviews()
+      pollUntilClipReady('__recovery__', { fileCount: files.length, recovery: true })
     }
   }
 
   async function uploadVideo(file) {
-    if (!currentCompanyId) {
-      showToast('Not signed in', 'error')
-      return
-    }
+    if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
 
     showVideoPreviews([file])
-
-    const processingEl = document.getElementById('studio-processing')
-    const bar = document.getElementById('processing-bar')
-    const statusEl = document.getElementById('processing-status')
-    const detailEl = document.getElementById('processing-detail')
-    const progressEl = document.getElementById('processing-progress')
-
-    if (processingEl) processingEl.style.display = 'block'
-    if (statusEl) statusEl.textContent = 'Uploading...'
-    if (detailEl) detailEl.textContent = '1 video selected'
-    if (bar) bar.style.width = '10%'
-    if (progressEl) progressEl.textContent = '10%'
+    showProcessing('Uploading…', 'Sending your video to S3')
 
     const form = new FormData()
     form.append('video', file)
@@ -599,20 +728,21 @@
         throw new Error(err.error || 'Upload failed')
       }
       const json = await res.json()
-      if (bar) bar.style.width = '15%'
-      if (statusEl) statusEl.textContent = 'Uploaded — processing starting...'
-      if (detailEl) detailEl.textContent = 'Your video is being analyzed'
-      if (progressEl) progressEl.textContent = '15%'
-      showToast('Video uploaded — processing started', 'success')
-      var previewsEl = document.getElementById('studio-previews')
-      if (previewsEl) previewsEl.style.display = 'none'
+      // Single upload skips the combine phase entirely
+      setPhase('edit')
+      setProgress(45, 'Riley is editing your video…', 'Picking the best moments and cutting the reel')
+      showToast('Uploaded — Riley is editing now', 'success')
+      clearUploadPreviews()
 
-      // Poll until clip appears (SSE is unreliable with auth cookies)
+      connectProcessingStream(json.uploadId)
       pollUntilClipReady(json.uploadId)
     } catch (err) {
-      console.error('[studio] upload failed:', err)
-      showToast(`Upload failed: ${err.message}`, 'error')
-      if (processingEl) processingEl.style.display = 'none'
+      console.warn('[studio] upload fetch errored; entering recovery poll mode:', err)
+      showToast('Connection dropped — checking if upload completed in background', 'info')
+      setPhase('edit')
+      setProgress(45, 'Connection hiccup — verifying server state…', 'Your clip may still be on its way')
+      clearUploadPreviews()
+      pollUntilClipReady('__recovery__', { fileCount: 1, recovery: true })
     }
   }
 
@@ -628,82 +758,106 @@
     'Write captions (Alex)': 'Alex is writing captions...',
   }
 
-  function connectProcessingStream(uploadId) {
+  function connectProcessingStream(matchId, options) {
+    // matchId is what we're listening for. Single uploads pass uploadId.
+    // Batch (compilation) uploads pass compilationId; the backend emits
+    // compilation_* events first, then resolves to a combined-video uploadId
+    // and emits stage_* / processing_complete events for that. We track the
+    // resolved uploadId on the fly so subsequent matching works.
+    const isCompilation = options?.isCompilation === true
+    const fileCount = options?.fileCount ?? 1
+    let resolvedUploadId = isCompilation ? null : matchId
+
     const evtSource = new EventSource(`${API}/api/video/stream`, { withCredentials: true })
-    const processingEl = document.getElementById('studio-processing')
-    const bar = document.getElementById('processing-bar')
-    const statusEl = document.getElementById('processing-status')
-    const detailEl = document.getElementById('processing-detail')
-    const progressEl = document.getElementById('processing-progress')
 
     evtSource.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data.uploadId && data.uploadId !== uploadId) return
+        const idMatches =
+          (data.compilationId && data.compilationId === matchId) ||
+          (data.uploadId && (data.uploadId === resolvedUploadId || data.uploadId === matchId))
+        if (!idMatches) return
 
+        // ── COMBINE PHASE EVENTS ────────────────────────────────────
+        if (data.event === 'compilation_progress') {
+          const i = (data.completed ?? 0)
+          const n = (data.total ?? fileCount)
+          const pct = 18 + Math.round((i / Math.max(1, n)) * 22) // 18-40% range
+          setPhase('combine')
+          setProgress(pct, 'Combining your videos…', `${i} of ${n} downloaded`)
+        }
+        if (data.event === 'compilation_complete') {
+          if (data.uploadId) resolvedUploadId = data.uploadId
+          setPhase('edit')
+          setProgress(48, 'Riley is editing your reel…', 'Analyzing motion, audio, and key moments')
+        }
+
+        // ── RILEY EDIT PHASE EVENTS ────────────────────────────────
         if (data.event === 'stage_start') {
           const label = stageLabels[data.stage] || data.stage
-          if (statusEl) statusEl.textContent = label
-          if (detailEl) detailEl.textContent = `Step ${data.stageIndex + 1} of ${data.totalStages}`
-          if (bar) bar.style.width = `${Math.max(15, data.progress)}%`
-          if (progressEl) progressEl.textContent = `${data.progress}%`
+          // Map Riley's pipeline progress into the edit-phase band (48-95%)
+          const editPct = 48 + Math.round(((data.progress ?? 0) / 100) * 47)
+          setPhase('edit')
+          setProgress(editPct, label, `Step ${data.stageIndex + 1} of ${data.totalStages}`)
         }
-
         if (data.event === 'stage_done') {
-          if (bar) bar.style.width = `${data.progress}%`
-          if (progressEl) progressEl.textContent = `${data.progress}%`
+          const editPct = 48 + Math.round(((data.progress ?? 0) / 100) * 47)
+          setProgress(editPct)
         }
 
+        // ── DONE ────────────────────────────────────────────────────
         if (data.event === 'processing_complete') {
-          if (statusEl) statusEl.textContent = 'Done!'
-          if (detailEl) detailEl.textContent = data.hook || 'Clip ready for review'
-          if (bar) bar.style.width = '100%'
-          if (progressEl) progressEl.textContent = '100%'
-          showToast('Clip ready for review', 'success')
+          setPhase('done')
+          setProgress(100, 'Done!', data.hook || 'Reel ready for review')
           evtSource.close()
           refreshClips()
-          // Hide processing bar after a moment
-          setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 3000)
+          const titleText = isCompilation
+            ? `Your reel from ${fileCount} videos is ready`
+            : 'Your reel is ready'
+          const detailText = data.hook ? `Hook: "${data.hook}" — review and approve below` : 'Review and approve below'
+          showCompletionBanner(titleText, detailText)
+          // Brief 100% display, then collapse the processing card
+          setTimeout(() => hideProcessing(), 1200)
         }
 
+        // ── ERROR ───────────────────────────────────────────────────
         if (data.event === 'processing_error') {
-          if (statusEl) statusEl.textContent = 'Processing failed'
-          if (detailEl) detailEl.textContent = data.error || 'Unknown error'
-          if (bar) bar.style.width = '0%'
+          setProgress(0, 'Processing failed', data.error || 'Unknown error')
           showToast(`Processing failed: ${data.error}`, 'error')
           evtSource.close()
-          setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 5000)
+          setTimeout(() => hideProcessing(), 5000)
         }
       } catch {}
     }
 
     evtSource.onerror = () => {
-      // SSE disconnected — fall back to polling
+      // SSE disconnected — fall back to polling. Don't tear down the
+      // progress UI; pollUntilClipReady will keep it updated.
       evtSource.close()
-      if (statusEl) statusEl.textContent = 'Still processing...'
-      if (detailEl) detailEl.textContent = 'Connection lost — checking for results'
-      pollUntilClipReady(uploadId)
+      const detail = document.getElementById('processing-detail')
+      if (detail) detail.textContent = 'Connection lost — checking for results'
+      pollUntilClipReady(matchId)
     }
   }
 
-  function pollUntilClipReady(uploadId) {
-    const processingEl = document.getElementById('studio-processing')
-    const statusEl = document.getElementById('processing-status')
-    const detailEl = document.getElementById('processing-detail')
-    const bar = document.getElementById('processing-bar')
-    const progressEl = document.getElementById('processing-progress')
+  function pollUntilClipReady(uploadId, options) {
+    const isRecovery = options?.recovery === true
+    const fileCount = options?.fileCount ?? 1
     let attempts = 0
-    const startTime = new Date().toISOString()
+    // Snapshot of clip IDs at the moment processing started. Anything that
+    // appears after this is "new" and means the pipeline finished.
     const startIds = new Set(pendingClips.map(c => c.id))
 
+    // Estimated phase milestones — used as a fallback when SSE isn't
+    // delivering events. Mirrors the SSE-driven phases (combine: 18-40,
+    // edit: 48-95) so the UI stays consistent.
     const progressSteps = [
-      { at: 1, pct: 20, label: 'Analyzing video...', detail: 'Getting duration and format' },
-      { at: 3, pct: 35, label: 'Transcribing audio...', detail: 'AWS is listening to your video' },
-      { at: 5, pct: 50, label: 'Riley is picking the best moments...', detail: 'Analyzing transcript for high-energy segments' },
-      { at: 8, pct: 65, label: 'Building reel from best moments...', detail: 'Cutting and encoding segments' },
-      { at: 15, pct: 80, label: 'Still encoding...', detail: 'Large files take a bit longer' },
-      { at: 20, pct: 85, label: 'Alex is writing captions...', detail: 'Captions based on what was actually said' },
-      { at: 25, pct: 90, label: 'Almost done...', detail: 'Uploading to S3' },
+      { at: 1, pct: 22, phase: 'combine', label: 'Combining videos…', detail: 'Stitching source files' },
+      { at: 4, pct: 50, phase: 'edit', label: 'Riley is picking the best moments…', detail: 'Analyzing motion and audio' },
+      { at: 8, pct: 70, phase: 'edit', label: 'Riley is editing the reel…', detail: 'Cutting and encoding segments' },
+      { at: 15, pct: 82, phase: 'edit', label: 'Still encoding…', detail: 'Large files take a bit longer' },
+      { at: 20, pct: 88, phase: 'edit', label: 'Alex is writing captions…', detail: 'Generating hooks and copy' },
+      { at: 25, pct: 92, phase: 'edit', label: 'Almost done…', detail: 'Uploading to S3' },
     ]
 
     const poll = async () => {
@@ -712,32 +866,37 @@
 
       const hasNewClip = pendingClips.some(c => !startIds.has(c.id))
       if (hasNewClip) {
-        // New clip appeared — done!
-        if (statusEl) statusEl.textContent = 'Done!'
-        if (detailEl) detailEl.textContent = 'Your reel is ready for review'
-        if (bar) bar.style.width = '100%'
-        if (progressEl) progressEl.textContent = '100%'
-        showToast('Reel ready for review', 'success')
-        setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 3000)
+        // New clip appeared — done. Show persistent completion banner.
+        setPhase('done')
+        setProgress(100, 'Done!', 'Your reel is ready for review')
+        const titleText = isRecovery && fileCount > 1
+          ? `Your reel from ${fileCount} videos is ready`
+          : fileCount > 1
+            ? `Your reel from ${fileCount} videos is ready`
+            : 'Your reel is ready'
+        showCompletionBanner(titleText, 'Review and approve below')
+        setTimeout(() => hideProcessing(), 1200)
         return
       }
 
-      // Show estimated progress
       const step = [...progressSteps].reverse().find(s => attempts >= s.at)
       if (step) {
-        if (statusEl) statusEl.textContent = step.label
-        if (detailEl) detailEl.textContent = step.detail
-        if (bar) bar.style.width = `${step.pct}%`
-        if (progressEl) progressEl.textContent = `${step.pct}%`
+        setPhase(step.phase)
+        setProgress(step.pct, step.label, step.detail)
       }
 
-      if (attempts < 60) {
-        // Poll every 5s for up to 5 minutes
+      // Recovery polls run longer (8 min) since we don't know how far
+      // along the server was when the connection dropped.
+      const maxAttempts = isRecovery ? 96 : 60
+      if (attempts < maxAttempts) {
         setTimeout(poll, 5000)
       } else {
-        if (statusEl) statusEl.textContent = 'Processing is taking longer than expected'
-        if (detailEl) detailEl.textContent = 'Your clip may still be processing — check back shortly'
-        setTimeout(() => { if (processingEl) processingEl.style.display = 'none' }, 10000)
+        setProgress(
+          undefined,
+          'Processing is taking longer than expected',
+          'Your clip may still be processing — check back shortly',
+        )
+        setTimeout(() => hideProcessing(), 10000)
       }
     }
     setTimeout(poll, 5000)
@@ -757,7 +916,7 @@
     }
 
     if (pendingClips.length === 0) {
-      container.innerHTML = `<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:40px;text-align:center;color:var(--t3);font-size:13px">
+      container.innerHTML = `<div class="studio-pending-empty" role="status" style="text-align:center;color:var(--t3);font-size:13px;line-height:1.5;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:28px 20px">
         No clips pending approval. Upload a video to get started.
       </div>`
       return
@@ -771,62 +930,139 @@
       const scoreBg = (style.styleReplication || 0) >= 0.85 ? 'rgba(159,179,138,.1)' : 'rgba(212,165,116,.1)'
       const version = adj.version || 1
 
-      return `<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;margin-bottom:20px">
-        <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;padding:20px">
-          <!-- Visual -->
-          <div>
+      return `<article id="studio-clip-card-${clip.id}" class="studio-clip-card">
+        <div class="studio-clip-inner">
+          <div class="studio-clip-visual">
             ${(() => {
               const isDescriptLink = clip.clippedUrl && clip.clippedUrl.includes('web.descript.com')
               const videoSrc = (!isDescriptLink && clip.clippedUrl) ? clip.clippedUrl : clip.sourceVideoUrl
               if (videoSrc) {
-                return `<video src="${videoSrc}" style="width:100%;aspect-ratio:9/16;border-radius:8px;object-fit:cover;background:#000;max-height:260px" controls></video>`
+                return `<video src="${videoSrc}" controls></video>`
               }
-              return `<div style="background:#000;aspect-ratio:9/16;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:40px;color:var(--t3);max-height:260px">🎬</div>`
+              return `<div class="studio-clip-placeholder" aria-hidden="true">&#127909;</div>`
             })()}
-            <div style="font-size:11px;color:var(--t3);margin-top:10px">
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-                <span style="font-weight:500;color:var(--t2)">Riley's edit</span>
-                <span style="background:${scoreColor};color:#000;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:700">v${version}</span>
-              </div>
-              ${adj.colorTemperature ? `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.03em;line-height:1.6">Temp: ${adj.colorTemperature} · Sat: ${adj.saturation || 0} · Warmth: ${adj.warmth || 0}</div>` : ''}
-              <div style="margin-top:8px;padding:6px 8px;background:${scoreBg};border-radius:6px">
-                <div style="color:${scoreColor};font-weight:600">Style match: ${(style.styleReplication || 0).toFixed(2)}</div>
-              </div>
+          </div>
+          <div class="studio-clip-meta">
+            <div class="studio-clip-meta-row">
+              <span>Riley's edit</span>
+              <span class="studio-clip-ver" style="background:${scoreColor}">v${version}</span>
             </div>
-            <div style="display:flex;gap:8px;margin-top:10px">
-              <button class="btn-fill" style="flex:1;padding:7px;font-size:11px" data-studio-action="approve-visual" data-clip-id="${clip.id}">Approve</button>
-              <button class="btn" style="flex:1;padding:7px;font-size:11px" onclick="document.getElementById('visual-feedback-${clip.id}').style.display='block'">Reject</button>
-            </div>
-            <div id="visual-feedback-${clip.id}" style="display:none;margin-top:10px;padding:10px;background:rgba(196,138,138,.06);border-radius:6px;border:1px solid rgba(196,138,138,.2)">
-              <textarea style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:8px;font-size:11px;resize:none;background:var(--bg);color:var(--t2);font-family:inherit" id="visual-fb-${clip.id}" placeholder="E.g. 'Too warm', 'Not enough contrast'" rows="2"></textarea>
-              <div style="display:flex;gap:8px;margin-top:8px">
-                <button class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(196,138,138,.6);border:none;cursor:pointer" data-studio-action="reject-visual-submit" data-clip-id="${clip.id}">Submit & regenerate</button>
-                <button class="btn" style="flex:1;padding:6px;font-size:11px" onclick="document.getElementById('visual-feedback-${clip.id}').style.display='none'">Cancel</button>
-              </div>
+            ${adj.colorTemperature ? `<div class="studio-clip-toning">Temp: ${adj.colorTemperature} · Sat: ${adj.saturation || 0} · Warmth: ${adj.warmth || 0}</div>` : ''}
+            <div class="studio-clip-score" style="background:${scoreBg}">
+              <span style="color:${scoreColor}">Match ${(style.styleReplication || 0).toFixed(2)}</span>
             </div>
           </div>
-
-          <!-- Captions -->
-          <div style="max-height:400px;overflow-y:auto">
-            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;position:sticky;top:0;background:var(--s1);padding:4px 0;z-index:1">Alex's captions — choose one</div>
-            ${captions.length > 0 ? captions.map((cap, i) => `
-              <div style="background:var(--bg);border:${i === 0 ? '2px solid var(--accent)' : '1px solid var(--b1)'};border-radius:8px;padding:12px;margin-bottom:10px">
-                <div style="font-size:13px;font-weight:500;line-height:1.5;color:var(--t1);margin-bottom:4px">"${(cap.text || '').replace(/"/g, '&quot;')}"</div>
-                <div style="font-size:11px;color:var(--t3);margin-bottom:10px;font-style:italic">${cap.rationale || cap.type || ''}</div>
+          <div class="studio-clip-actions">
+            <button type="button" class="btn-fill" style="flex:1;padding:7px 10px;font-size:11px" data-studio-action="approve-visual" data-clip-id="${clip.id}">Approve</button>
+            <button type="button" class="btn" style="flex:1;padding:7px 10px;font-size:11px" data-studio-action="show-visual-feedback" data-clip-id="${clip.id}">Reject</button>
+          </div>
+          <div id="visual-feedback-${clip.id}" class="studio-clip-feedback" style="display:none">
+            <textarea id="visual-fb-${clip.id}" rows="2" placeholder="What to change (e.g. 'Too warm')" style="width:100%;border:1px solid var(--b1);border-radius:8px;padding:8px;font-size:11px;resize:none;background:var(--bg);color:var(--t2);font-family:inherit;box-sizing:border-box"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button type="button" class="btn-fill" style="flex:1;padding:6px;font-size:11px;background:rgba(196,138,138,.6);border:none;cursor:pointer" data-studio-action="reject-visual-submit" data-clip-id="${clip.id}">Regenerate</button>
+              <button type="button" class="btn" style="flex:1;padding:6px;font-size:11px" data-studio-action="hide-visual-feedback" data-clip-id="${clip.id}">Cancel</button>
+            </div>
+          </div>
+          <!-- captions UI retained for delegated handlers; hidden -->
+          <div style="display:none" aria-hidden="true" data-studio-captions-shelf="${clip.id}">
+            ${captions.length > 0 ? captions.map((cap, i) => {
+              const capText = String(cap.text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;')
+              const rat = String(cap.rationale || cap.type || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+              return `<div style="border:${i === 0 ? '2px solid var(--accent)' : '1px solid var(--b1)'};border-radius:8px;padding:12px;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:500;line-height:1.5;color:var(--t1);margin-bottom:4px">"${capText}"</div>
+                <div style="font-size:11px;color:var(--t3);margin-bottom:10px;font-style:italic">${rat}</div>
                 <div style="display:flex;gap:8px">
-                  <button class="btn-fill" style="flex:1;padding:7px;font-size:11px" data-studio-action="approve-copy" data-clip-id="${clip.id}" data-caption-id="${cap.id}">Use this</button>
-                  <button class="btn" style="flex:1;padding:7px;font-size:11px" data-studio-action="reject-copy" data-clip-id="${clip.id}">Not this one</button>
+                  <button type="button" class="btn-fill" style="flex:1;padding:7px;font-size:11px" data-studio-action="approve-copy" data-clip-id="${clip.id}" data-caption-id="${cap.id}">Use this</button>
+                  <button type="button" class="btn" style="flex:1;padding:7px;font-size:11px" data-studio-action="reject-copy" data-clip-id="${clip.id}">Not this one</button>
                 </div>
-              </div>
-            `).join('') : `<div style="color:var(--t3);font-size:12px;padding:20px;text-align:center">Captions generating...</div>`}
-            ${captions.length > 0 ? `<button class="btn" style="width:100%;padding:8px;font-size:11px;color:var(--t3)" data-studio-action="reject-all-copy" data-clip-id="${clip.id}">Reject all — get new captions</button>` : ''}
+              </div>`
+            }).join('') : ''}
+            ${captions.length > 0 ? `<button type="button" class="btn" style="width:100%;padding:8px;font-size:11px;color:var(--t3)" data-studio-action="reject-all-copy" data-clip-id="${clip.id}">Reject all captions</button>` : ''}
           </div>
         </div>
-        <div style="padding:8px 20px;border-top:1px solid var(--b1);display:flex;justify-content:flex-end">
-          <button class="btn" style="padding:5px 10px;font-size:10px;color:var(--t3)" data-studio-action="discard" data-clip-id="${clip.id}">Discard this clip</button>
+        <div class="studio-clip-footer">
+          <button type="button" class="btn" style="padding:5px 10px;font-size:10px;color:var(--t3)" data-studio-action="discard" data-clip-id="${clip.id}">Discard</button>
         </div>
+      </article>`
+    }).join('')
+  }
+
+  // ── Posting Strategy ─────────────────────────────────────────────
+
+  function fmtStrategyTime(isoOrDate) {
+    const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate
+    if (isNaN(d)) return '—'
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    const h = d.getUTCHours()
+    const period = h >= 12 ? 'PM' : 'AM'
+    const display = (h % 12 || 12) + ':00 ' + period
+    return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()} · ${display}`
+  }
+
+  function fmtPeakHour(hour) {
+    if (hour == null) return '—'
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+    const period = hour >= 12 ? 'PM' : 'AM'
+    return `${period === 'PM' ? hour - 12 || 12 : hour || 12} ${period} UTC`
+  }
+
+  function renderPostingStrategy(strategy) {
+    const slotsEl = document.getElementById('studio-strategy-slots')
+    const peakEl = document.getElementById('studio-peak-label')
+    if (!slotsEl) return
+
+    if (!strategy) {
+      slotsEl.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">Could not load strategy — Jordan needs more data.</div>'
+      return
+    }
+
+    if (peakEl && strategy.context && strategy.context.audiencePeakHour != null) {
+      const ctx = strategy.context
+      const dayPart = ctx.bestDayOfWeek ? ctx.bestDayOfWeek.slice(0, 3) + ' ' : ''
+      peakEl.textContent = dayPart + fmtPeakHour(ctx.audiencePeakHour)
+    }
+
+    const SLOTS = [
+      { key: 'primary',   label: 'Primary',        labelColor: 'var(--accent)', border: '1px solid var(--accent)', confColor: 'var(--ok)', confBg: 'rgba(159,179,138,.15)' },
+      { key: 'secondary', label: 'Alternative',     labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--accent)', confBg: 'var(--accent-soft)' },
+      { key: 'tertiary',  label: 'Testing window',  labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--down)',   confBg: 'rgba(196,138,138,.15)' },
+    ]
+
+    slotsEl.innerHTML = SLOTS.map(slot => {
+      const rec = strategy[slot.key]
+      if (!rec) return ''
+      const pct = Math.round((rec.confidence || 0) * 100) + '%'
+      const timeStr = fmtStrategyTime(rec.recommendedTime)
+      const isoTime = rec.recommendedTime
+      const tags = [
+        rec.audiencePeak ? '<span style="font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(159,179,138,.15);color:var(--ok)">Audience peak</span>' : '',
+        rec.formatPerformance ? `<span style="font-size:10px;padding:3px 8px;border-radius:4px;background:var(--b1);color:var(--t2)">${rec.formatPerformance}</span>` : '',
+      ].filter(Boolean).join('')
+
+      return `<div style="background:var(--bg);border:${slot.border};border-radius:8px;padding:14px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+          <div>
+            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:${slot.labelColor};margin-bottom:4px">${slot.label}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${timeStr}</div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${slot.confColor};padding:4px 8px;background:${slot.confBg};border-radius:4px">${pct}</span>
+        </div>
+        <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:${tags ? '10px' : '10px'}">${rec.rationale || ''}</div>
+        ${tags ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tags}</div>` : ''}
+        <button class="btn-fill" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="pending" data-scheduled-time="${isoTime}">Schedule for this time</button>
       </div>`
     }).join('')
+  }
+
+  async function loadPostingStrategy() {
+    const strategy = await fetchPostingStrategy('video')
+    renderPostingStrategy(strategy)
   }
 
   // ── Load & Refresh ───────────────────────────────────────────────
@@ -835,14 +1071,42 @@
     const count = pendingClips.length
     const countEl = document.querySelector('[data-studio-pending-count]')
     if (countEl) countEl.textContent = count === 1 ? '1 item' : `${count} items`
+
+    // Keep sidebar schedule buttons in sync with the first pending clip
+    activeClipId = pendingClips[0]?.id || null
+    document.querySelectorAll('[data-studio-action="schedule"], [data-studio-action="schedule-custom"], [data-studio-action="save-draft"]').forEach(btn => {
+      if (activeClipId) btn.dataset.clipId = activeClipId
+    })
   }
 
   async function refreshClips() {
     console.log('[studio] refreshClips called, companyId:', currentCompanyId)
     pendingClips = await fetchPendingClips()
     console.log('[studio] fetched', pendingClips.length, 'pending clips')
+    // Seed clipStateMap so approval guards work immediately (no action needed yet)
+    pendingClips.forEach(clip => {
+      if (!clipStateMap[clip.id]) {
+        clipStateMap[clip.id] = {
+          visualApprovalStatus: clip.visualApprovalStatus,
+          copyApprovalStatus: clip.copyApprovalStatus,
+        }
+      }
+    })
     updateClipCount()
     renderPendingClips()
+    consumeStudioClipFocus()
+  }
+
+  function consumeStudioClipFocus () {
+    try {
+      const id = sessionStorage.getItem('vxStudioClipFocus')
+      if (!id) return
+      sessionStorage.removeItem('vxStudioClipFocus')
+      requestAnimationFrame(function () {
+        const el = document.getElementById('studio-clip-card-' + id)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    } catch (_) { /* noop */ }
   }
 
   // ── Init ─────────────────────────────────────────────────────────
@@ -858,69 +1122,91 @@
 
     wireStudioTab()
 
-    // Wire file upload
-    // ── File selection: show previews, wait for submit ──
-    let selectedFiles = []
+    // Load Jordan's posting strategy (fire-and-forget, renders into sidebar)
+    loadPostingStrategy()
 
-    const fileInput = document.getElementById('studio-file-input')
-    if (fileInput) {
-      fileInput.addEventListener('change', (e) => {
-        const newFiles = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/'))
+    if (!studioUploadDomWired) {
+      studioUploadDomWired = true
+
+      // Helper that enforces the MAX_BATCH_FILES cap on the merged list.
+      // Per product decision: reject the WHOLE merged set if it exceeds the
+      // cap, rather than silently truncating. The user has to explicitly
+      // remove some before they can submit.
+      function tryAddFiles(newFiles) {
         if (newFiles.length === 0) return
-        selectedFiles = [...selectedFiles, ...newFiles]
-        showVideoPreviews(selectedFiles)
-        fileInput.value = ''
-      })
-    }
-
-    // Drag & drop adds to selection
-    const dropZone = document.getElementById('studio-upload-zone')
-    if (dropZone) {
-      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)' })
-      dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--b2)' })
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault()
-        dropZone.style.borderColor = 'var(--b2)'
-        const newFiles = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('video/'))
-        if (newFiles.length === 0) { showToast('Please drop video files', 'error'); return }
-        selectedFiles = [...selectedFiles, ...newFiles]
-        showVideoPreviews(selectedFiles)
-      })
-    }
-
-    // Submit button — triggers upload
-    const submitBtn = document.getElementById('studio-submit-btn')
-    if (submitBtn) {
-      submitBtn.addEventListener('click', () => {
-        if (selectedFiles.length === 0) { showToast('No videos selected', 'error'); return }
-        if (selectedFiles.length === 1) {
-          uploadVideo(selectedFiles[0])
-        } else {
-          uploadBatch(selectedFiles)
+        const merged = [...selectedFiles, ...newFiles]
+        if (merged.length > MAX_BATCH_FILES) {
+          showToast(`Max ${MAX_BATCH_FILES} videos per upload — you tried to add ${merged.length}. Remove some first.`, 'error')
+          return
         }
-        selectedFiles = []
-      })
-    }
+        selectedFiles = merged
+        showVideoPreviews(selectedFiles)
+      }
 
-    // Clear button
-    const clearBtn = document.getElementById('studio-clear-btn')
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        selectedFiles = []
-        const previewsEl = document.getElementById('studio-previews')
-        if (previewsEl) previewsEl.style.display = 'none'
-      })
+      const fileInput = document.getElementById('studio-file-input')
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          const newFiles = Array.from(e.target.files || []).filter(f => f.type.startsWith('video/'))
+          tryAddFiles(newFiles)
+          fileInput.value = ''
+        })
+      }
+
+      const dropZone = document.getElementById('studio-upload-zone')
+      if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)' })
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--b2)' })
+        dropZone.addEventListener('drop', (e) => {
+          e.preventDefault()
+          dropZone.style.borderColor = 'var(--b2)'
+          const newFiles = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('video/'))
+          if (newFiles.length === 0) { showToast('Please drop video files', 'error'); return }
+          tryAddFiles(newFiles)
+        })
+      }
+
+      const submitBtn = document.getElementById('studio-submit-btn')
+      if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+          if (selectedFiles.length === 0) { showToast('No videos selected', 'error'); return }
+          if (selectedFiles.length > MAX_BATCH_FILES) {
+            // Defense-in-depth: should already be impossible from the
+            // tryAddFiles cap, but guard the submit too.
+            showToast(`Max ${MAX_BATCH_FILES} videos per upload — remove ${selectedFiles.length - MAX_BATCH_FILES} first.`, 'error')
+            return
+          }
+          if (selectedFiles.length === 1) {
+            uploadVideo(selectedFiles[0])
+          } else {
+            uploadBatch(selectedFiles)
+          }
+          selectedFiles = []
+        })
+      }
+
+      const clearBtn = document.getElementById('studio-clear-btn')
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          selectedFiles = []
+          clearUploadPreviews()
+        })
+      }
+
+      // Completion banner dismiss
+      const completeDismiss = document.getElementById('studio-complete-dismiss')
+      if (completeDismiss) {
+        completeDismiss.addEventListener('click', () => hideCompletionBanner())
+      }
+
+      const studioNav = document.getElementById('nav-db-studio')
+      if (studioNav) {
+        studioNav.addEventListener('click', () => {
+          setTimeout(refreshClips, 300)
+        })
+      }
     }
 
     await refreshClips()
-
-    // Refresh clips when navigating to Studio tab
-    const studioNav = document.getElementById('nav-db-studio')
-    if (studioNav) {
-      studioNav.addEventListener('click', () => {
-        setTimeout(refreshClips, 300)
-      })
-    }
   }
 
   // ── Navigation wiring ──────────────────────────────────────────

@@ -30,13 +30,11 @@
   /* ── state ─────────────────────────────────────────── */
   var allPosts = []
   var acctMap = {}       // accountId → platform string
-  var PAGE_SIZE = 12
   var state = {
     platform: 'all',     // all | instagram | tiktok | youtube
     format: 'all',       // all | REEL | CAROUSEL_ALBUM | VIDEO | IMAGE
     sort: 'recent',      // recent | reach | saves | engagement
     search: '',
-    page: 0,
     view: 'grid',        // grid | table
     top5: 'all',         // all | instagram | tiktok
     top5Sort: 'reach',   // reach | likes | views
@@ -81,6 +79,78 @@
     return r > 0 ? ((likes(p) + comments(p) + saves(p)) / r * 100) : 0
   }
 
+  function normCaption(caption) {
+    var s = String(caption || '').toLowerCase()
+    s = s.replace(/https?:\/\/\S+/g, ' ')
+    s = s.replace(/#[^\s#]+/g, ' ')
+    s = s.replace(/@[^\s@]+/g, ' ')
+    s = s.replace(/[^\w\s]/g, ' ')
+    s = s.replace(/\s+/g, ' ').trim()
+    return s
+  }
+
+  function mediaFamily(p) {
+    var t = normaliseType(p.mediaType)
+    return (t === 'REEL' || t === 'VIDEO' || t === 'SHORT') ? 'video' : 'image'
+  }
+
+  function dedupeCrossPosted(list) {
+    var groups = new Map()
+    var WINDOW_MS = 12 * 60 * 60 * 1000 // 12-hour publish bucket
+
+    list.forEach(function (p) {
+      var norm = normCaption(p.caption)
+      // If caption is too short/noisy, avoid risky collapsing.
+      if (norm.length < 18) {
+        groups.set('id:' + p.id, [p])
+        return
+      }
+      var t = new Date(p.publishedAt || 0).getTime()
+      var bucket = Math.floor(t / WINDOW_MS)
+      var key = mediaFamily(p) + '|' + bucket + '|' + norm.slice(0, 80)
+      var arr = groups.get(key) || []
+      arr.push(p)
+      groups.set(key, arr)
+    })
+
+    var merged = []
+    groups.forEach(function (items) {
+      if (!items || items.length === 0) return
+      if (items.length === 1) {
+        var single = Object.assign({}, items[0])
+        single._platforms = [platKey(items[0]).toUpperCase()]
+        single._mergedCount = 1
+        merged.push(single)
+        return
+      }
+
+      var base = items.slice().sort(function (a, b) { return reach(b) - reach(a) })[0]
+      var bestMedia = items.find(function (x) { return !!x.mediaUrl }) || base
+      var newest = items.slice().sort(function (a, b) { return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0) })[0]
+      var plats = Array.from(new Set(items.map(function (x) { return platKey(x).toUpperCase() })))
+
+      var m = Object.assign({}, base)
+      m.publishedAt = newest.publishedAt
+      m.mediaUrl = bestMedia.mediaUrl || m.mediaUrl
+      m.thumbnailUrl = bestMedia.thumbnailUrl || m.thumbnailUrl
+      m.url = bestMedia.url || m.url
+      m._platforms = plats
+      m._mergedCount = items.length
+
+      m.likeCount = items.reduce(function (s, x) { return s + (x.likeCount || 0) }, 0)
+      m.commentCount = items.reduce(function (s, x) { return s + (x.commentCount || 0) }, 0)
+      m.shareCount = items.reduce(function (s, x) { return s + (x.shareCount || 0) }, 0)
+      m.saveCount = items.reduce(function (s, x) { return s + (x.saveCount || 0) }, 0)
+      m.viewCount = items.reduce(function (s, x) { return s + (x.viewCount || 0) }, 0)
+      m.reachCount = items.reduce(function (s, x) { return s + (x.reachCount || 0) }, 0)
+      m.impressionCount = items.reduce(function (s, x) { return s + (x.impressionCount || 0) }, 0)
+
+      merged.push(m)
+    })
+
+    return merged
+  }
+
   /* ── filter + sort ────────────────────────────────── */
   function filtered() {
     var list = allPosts.slice()
@@ -108,6 +178,11 @@
       })
     }
 
+    // Dedupe cross-posted items only in "All platforms" mode.
+    if (state.platform === 'all') {
+      list = dedupeCrossPosted(list)
+    }
+
     // Sort
     if (state.sort === 'reach') {
       list.sort(function (a, b) { return reach(b) - reach(a) })
@@ -125,7 +200,7 @@
   /* ── render: grid card ────────────────────────────── */
   function renderCard(p, i) {
     var pk = platKey(p)
-    var pl = platLabel(p)
+    var pl = (p._platforms && p._platforms.length) ? p._platforms.join(' + ') : platLabel(p)
     var rawType = normaliseType(p.mediaType)
     var caption = (p.caption || '').slice(0, 100)
     var shortCaption = caption.split('.')[0] || caption.slice(0, 40)
@@ -135,13 +210,13 @@
     var colorIdx = (i % 8) + 1
     var isVideo = rawType === 'REEL' || rawType === 'VIDEO' || rawType === 'SHORT'
     var isCarousel = rawType === 'CAROUSEL'
-    var playIcon = isCarousel ? '' : isVideo ? '<span class="play">&#9655;</span>' : ''
+    var mediaIcon = isCarousel ? '&#9638;' : isVideo ? '&#9654;' : '&#9633;'
 
     return '<div class="card" data-post-idx="' + i + '">'
       + '<div class="th a' + colorIdx + '"' + (thumb ? ' style="background:url(' + esc(thumb) + ') center/cover"' : '') + '>'
       + '<span class="plat"><span class="d ' + pk + '"></span>' + pl + '</span>'
       + '<span class="fmt">' + rawType + '</span>'
-      + playIcon
+      + '<span class="media-ic" aria-hidden="true">' + mediaIcon + '</span>'
       + '<span class="qt">&ldquo;' + esc(shortCaption.slice(0, 36)) + '&rdquo;</span>'
       + '</div>'
       + '<div class="body">'
@@ -167,9 +242,10 @@
       ? '<div class="thumb" style="background:url(' + esc(thumb) + ') center/cover"></div>'
       : '<div class="thumb">' + (rawType === 'REEL' || rawType === 'VIDEO' ? '&#9655;' : '&#10022;') + '</div>'
 
+    var platformLabel = (p._platforms && p._platforms.length) ? p._platforms.join('+') : platKey(p).toUpperCase()
     return '<tr>'
       + '<td><div class="cell-first">' + thumbHtml + '<div><div class="ttl">' + esc(caption) + '</div>'
-      + '<div class="meta"><span class="pf ' + pk + '"><span class="dot"></span>' + platKey(p).toUpperCase() + '</span>'
+      + '<div class="meta"><span class="pf ' + pk + '"><span class="dot"></span>' + platformLabel + '</span>'
       + '<span>' + formatLabel(p.mediaType) + '</span>'
       + '<span>' + shortDate(p.publishedAt) + '</span></div></div></div></td>'
       + '<td class="num">' + fmt(r) + '</td>'
@@ -187,10 +263,7 @@
     if (!view) return
 
     var list = filtered()
-    var totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
-    if (state.page >= totalPages) state.page = totalPages - 1
-    var start = state.page * PAGE_SIZE
-    var visible = list.slice(start, start + PAGE_SIZE)
+    var visible = list
     var total = list.length
     var gridEl = view.querySelector('.grid')
     var tableWrap = view.querySelector('.tbl-wrap')
@@ -215,7 +288,11 @@
       if (tableWrap) tableWrap.style.display = 'none'
       if (gridEl) {
         gridEl.style.display = ''
-        gridEl.innerHTML = visible.map(function (p, i) { return renderCard(p, i) }).join('')
+        if (visible.length === 0 && allPosts.length > 0) {
+          gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:80px 0;color:var(--t3);font-size:14px">No posts match this filter.</div>'
+        } else {
+          gridEl.innerHTML = visible.map(function (p, i) { return renderCard(p, i) }).join('')
+        }
       }
     }
 
@@ -223,30 +300,15 @@
     var countEl = view.querySelector('.list-head .c')
     if (countEl) {
       var sortLabel = state.sort === 'reach' ? 'reach' : state.sort === 'saves' ? 'saves' : state.sort === 'engagement' ? 'engagement' : 'recent'
-      var from = total > 0 ? start + 1 : 0
-      var to = Math.min(start + PAGE_SIZE, total)
+      var from = total > 0 ? 1 : 0
+      var to = total
       countEl.textContent = from + '\u2013' + to + ' of ' + total + ' \u00b7 sorted by ' + sortLabel
     }
 
-    // Pagination
+    // Continuous feed: no pagination controls.
     if (paginationEl) {
-      if (totalPages <= 1) {
-        paginationEl.style.display = 'none'
-      } else {
-        paginationEl.style.display = ''
-        var pgHtml = ''
-        if (state.page > 0) pgHtml += '<button class="fchip pg-btn" data-pg="' + (state.page - 1) + '">&larr; Prev</button>'
-        // Page numbers
-        for (var pi = 0; pi < totalPages; pi++) {
-          if (totalPages > 7 && pi > 1 && pi < totalPages - 2 && Math.abs(pi - state.page) > 1) {
-            if (pi === 2 || pi === totalPages - 3) pgHtml += '<span style="color:var(--t3);padding:0 4px">&hellip;</span>'
-            continue
-          }
-          pgHtml += '<button class="fchip pg-btn' + (pi === state.page ? ' on' : '') + '" data-pg="' + pi + '">' + (pi + 1) + '</button>'
-        }
-        if (state.page < totalPages - 1) pgHtml += '<button class="fchip pg-btn" data-pg="' + (state.page + 1) + '">Next &rarr;</button>'
-        paginationEl.innerHTML = pgHtml
-      }
+      paginationEl.style.display = 'none'
+      paginationEl.innerHTML = ''
     }
 
     // Card click → open modal
@@ -268,7 +330,7 @@
     var miniRail = view.querySelector('.mini-rail')
     if (!miniRail || posts.length === 0) return
 
-    var pool = state.top5 === 'all' ? posts : posts.filter(function (p) { return platOf(p) === state.top5 })
+    var pool = state.top5 === 'all' ? dedupeCrossPosted(posts) : posts.filter(function (p) { return platOf(p) === state.top5 })
     var sortFn = state.top5Sort === 'likes' ? function (a, b) { return likes(b) - likes(a) }
       : state.top5Sort === 'views' ? function (a, b) { return (b.viewCount || 0) - (a.viewCount || 0) }
       : function (a, b) { return reach(b) - reach(a) }
@@ -306,34 +368,27 @@
   }
 
   /* ── post detail modal ─────────────────────────────── */
-  function getEmbedUrl(post) {
-    var url = post.url
-    if (!url) return null
-    // Instagram embed
-    if (url.indexOf('instagram.com') !== -1) return url + 'embed/'
-    // TikTok embed
-    if (url.indexOf('tiktok.com') !== -1) {
-      var match = url.match(/video\/(\d+)/)
-      if (match) return 'https://www.tiktok.com/embed/v2/' + match[1]
-    }
-    return null
-  }
-
   function openPostModal(post) {
     var existing = document.getElementById('post-modal-overlay')
     if (existing) existing.remove()
 
-    var embedUrl = getEmbedUrl(post)
     var pk = platKey(post)
+    var looksTikTok = pk === 'tt'
+      || /tiktok/i.test(String(post.url || ''))
+      || /tiktok|muscdn|bytecdn/i.test(String(post.mediaUrl || ''))
     var rawType = normaliseType(post.mediaType)
     var caption = post.caption || ''
     var r = reach(post), s = saves(post), l = likes(post), c = comments(post), sh = shares(post), e = er(post).toFixed(1)
+    var mediaSrc = post.mediaUrl || post.thumbnailUrl || ''
+    var isVideo = rawType === 'REEL' || rawType === 'VIDEO' || rawType === 'SHORT'
+    var mediaClass = 'pm-native-media is-' + pk + (looksTikTok ? ' is-tt' : '') + (isVideo ? ' is-video' : ' is-image')
+    var hasDirectVideo = !!(post.mediaUrl && String(post.mediaUrl).trim())
 
     var embedHtml = ''
-    if (embedUrl) {
-      embedHtml = '<iframe src="' + esc(embedUrl) + '" style="width:100%;height:100%;border:0;border-radius:8px" allowfullscreen allow="autoplay; encrypted-media"></iframe>'
-    } else if (post.thumbnailUrl) {
-      embedHtml = '<div style="width:100%;height:100%;background:url(' + esc(post.thumbnailUrl) + ') center/contain no-repeat var(--s1);border-radius:8px"></div>'
+    if (isVideo && hasDirectVideo && post.mediaUrl) {
+      embedHtml = '<video class="' + mediaClass + '" src="' + esc(mediaSrc) + '" controls playsinline preload="metadata"' + (post.thumbnailUrl ? ' poster="' + esc(post.thumbnailUrl) + '"' : '') + '></video>'
+    } else if (mediaSrc) {
+      embedHtml = '<img class="' + mediaClass + '" src="' + esc(mediaSrc) + '" alt="Post media" loading="lazy" />'
     } else {
       embedHtml = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--s1);border-radius:8px;color:var(--t3);font-size:14px">No preview available</div>'
     }
@@ -350,6 +405,7 @@
       + '<button class="pm-close">&times;</button>'
       + '</div>'
       + '<div class="pm-caption">' + esc(caption) + '</div>'
+      + (isVideo && !hasDirectVideo ? '<div class="pm-date">Video preview unavailable in-app. Use the link below to play on platform.</div>' : '')
       + '<div class="pm-date">' + shortDate(post.publishedAt) + '</div>'
       + '<div class="pm-metrics">'
       + '<div class="pm-m"><div class="pm-ml">Reach</div><div class="pm-mv">' + fmt(r) + '</div></div>'
@@ -364,13 +420,22 @@
       + '</div>'
 
     document.body.appendChild(overlay)
+    var prevBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
 
     // Close handlers
-    overlay.querySelector('.pm-backdrop').addEventListener('click', function () { overlay.remove() })
-    overlay.querySelector('.pm-close').addEventListener('click', function () { overlay.remove() })
-    document.addEventListener('keydown', function onEsc(e) {
-      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc) }
-    })
+    function closeModal() {
+      if (!overlay || !overlay.parentNode) return
+      overlay.remove()
+      document.body.style.overflow = prevBodyOverflow
+      document.removeEventListener('keydown', onEsc)
+    }
+    function onEsc(e) {
+      if (e.key === 'Escape') closeModal()
+    }
+    overlay.querySelector('.pm-backdrop').addEventListener('click', closeModal)
+    overlay.querySelector('.pm-close').addEventListener('click', closeModal)
+    document.addEventListener('keydown', onEsc)
   }
 
   /* ── chip wiring ──────────────────────────────────── */
@@ -393,7 +458,6 @@
       b.classList.add('on')
       var txt = b.textContent.trim()
       state.platform = platMap[txt] || 'all'
-      state.page = 0
       render()
     })
 
@@ -406,7 +470,6 @@
       b.classList.add('on')
       var txt = b.textContent.trim()
       state.format = fmtMap[txt] || 'all'
-      state.page = 0
       render()
     })
 
@@ -419,7 +482,6 @@
       b.classList.add('on')
       var txt = b.textContent.trim()
       state.sort = sortMap[txt] || 'recent'
-      state.page = 0
       render()
     })
 
@@ -431,26 +493,8 @@
         clearTimeout(debounce)
         debounce = setTimeout(function () {
           state.search = searchInput.value.trim()
-          state.page = 0
           render()
         }, 200)
-      })
-    }
-
-    // Pagination — page buttons (delegated, since buttons are rebuilt each render)
-    var pagination = view.querySelector('.pagination')
-    if (pagination) {
-      pagination.addEventListener('click', function (e) {
-        var btn = e.target.closest('.pg-btn')
-        if (!btn) return
-        var pg = parseInt(btn.getAttribute('data-pg'), 10)
-        if (!isNaN(pg)) {
-          state.page = pg
-          render()
-          // Scroll to top of grid
-          var listCol = view.querySelector('.list-col')
-          if (listCol) listCol.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
       })
     }
 

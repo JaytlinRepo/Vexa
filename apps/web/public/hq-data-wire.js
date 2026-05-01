@@ -47,6 +47,9 @@
 
   var hqPopulated = false
   function populateHQ(S, force) {
+    // v3 redesign owns its own DOM — all selectors in this file target the
+    // old v2 layout and silently no-op in v3. Skip entirely to save cycles.
+    if (document.getElementById('view-db-dashboard')?.classList.contains('hq-v3')) return
     if (hqPopulated && !force) return
     hqPopulated = true
     var ov = S.overview

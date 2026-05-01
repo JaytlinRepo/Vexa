@@ -66,23 +66,7 @@
     return days
   }
 
-  // ── Cadence + plan helpers ──
-
-  // Counts approved tasks landed this week (Mon-anchored). Used as a
-  // posting-cadence proxy until a Post integration feeds real publish counts.
-  function thisWeekApprovedCount() {
-    var monday = new Date()
-    var dow = monday.getDay()
-    var offsetToMonday = (dow + 6) % 7
-    monday.setDate(monday.getDate() - offsetToMonday)
-    monday.setHours(0, 0, 0, 0)
-    return allTasks.filter(function (t) {
-      if (t.status !== 'approved') return false
-      var when = new Date(t.completedAt || t.createdAt).getTime()
-      return when >= monday.getTime()
-    }).length
-  }
-
+  // ── Plan helper ──
   // Pulls the days array from the most recent approved content_plan output
   // and returns a date→entry map for overlaying on future calendar cells.
   // Plan day labels like "Monday"/"Tuesday" map to the next occurrence
@@ -148,84 +132,6 @@
       byDate[dateStr].push(d)
     }
     return byDate
-  }
-
-  // Picks the single most actionable nudge for the user. Used by both the
-  // brief strip and the NOW block's empty state — the page should always
-  // pitch something, never just say "team is idle."
-  function getProactiveNudge() {
-    var inProgress = allTasks.filter(function (t) { return t.status === 'in_progress' }).length
-    var pendingReview = allTasks.filter(function (t) { return t.status === 'delivered' }).length
-    var DAY = 24 * 60 * 60 * 1000
-
-    // 1. Pending reviews always win — only the user can clear these
-    if (pendingReview > 0) {
-      return {
-        kind: 'review',
-        text: pendingReview + ' deliverable' + (pendingReview === 1 ? '' : 's') + ' need your eyes',
-        cta: 'Review',
-        action: 'scroll-now',
-      }
-    }
-
-    // 2. Active work — show the team is busy
-    if (inProgress > 0) {
-      return { kind: 'busy', text: 'Your team is on it (' + inProgress + ' in flight)', cta: null, action: null }
-    }
-
-    // 3. Otherwise: surface the staleness of each agent's last delivery
-    var lastByRole = {}
-    for (var i = 0; i < allTasks.length; i++) {
-      var t = allTasks[i]
-      if (!t.employee) continue
-      var when = new Date(t.completedAt || t.createdAt).getTime()
-      if (!lastByRole[t.employee.role] || lastByRole[t.employee.role] < when) {
-        lastByRole[t.employee.role] = when
-      }
-    }
-    var checks = [
-      { role: 'analyst',          name: 'Maya',   work: 'pull fresh trends',         maxAgeDays: 3 },
-      { role: 'strategist',       name: 'Jordan', work: 'run your weekly plan',      maxAgeDays: 7 },
-      { role: 'creative_director',name: 'Riley',  work: 'audit your feed',           maxAgeDays: 14 },
-      { role: 'copywriter',       name: 'Alex',   work: 'draft new hooks',           maxAgeDays: 7 },
-    ]
-    for (var c = 0; c < checks.length; c++) {
-      var chk = checks[c]
-      var last = lastByRole[chk.role]
-      // Agent has never delivered → "hasn't run yet" rather than
-      // "hasn't run in 20571 days" (epoch 0 nonsense).
-      if (!last) {
-        return {
-          kind: 'stale',
-          text: chk.name + ' hasn\u2019t ' + chk.work + ' yet',
-          cta: 'Run ' + chk.name,
-          action: 'assign:' + chk.role,
-        }
-      }
-      var ageDays = (Date.now() - last) / DAY
-      if (ageDays > chk.maxAgeDays) {
-        return {
-          kind: 'stale',
-          text: chk.name + ' hasn\u2019t ' + chk.work + ' in ' + Math.floor(ageDays) + ' days',
-          cta: 'Run ' + chk.name,
-          action: 'assign:' + chk.role,
-        }
-      }
-    }
-
-    // 4. Cadence pressure
-    var posted = thisWeekApprovedCount()
-    if (posted < 3) {
-      return {
-        kind: 'cadence',
-        text: 'You\u2019ve approved ' + posted + ' of 3 this week — keep momentum',
-        cta: 'Brief next',
-        action: 'assign:any',
-      }
-    }
-
-    // 5. Genuinely calm
-    return { kind: 'calm', text: 'Caught up. Plan ahead or rest.', cta: 'Plan ahead', action: 'assign:strategist' }
   }
 
   // ── Group helpers ──
@@ -575,56 +481,90 @@
   }
 
   // ── Brief strip (top of Team tab) ──
-  // Single sticky banner answering "what should I be doing right now?"
-  // — a single nudge, plus weekly cadence + pending-review counts.
+  // The Team tab is the home of THE PLAN. Other tabs handle metrics (HQ),
+  // pending content (Studio), and tasks. This strip summarizes the plan's
+  // shape and offers two ways to interact with the team.
   function renderBriefStrip() {
     var strip = document.getElementById('team-brief-strip')
     if (!strip) return
 
-    var nudge = getProactiveNudge()
-    var pendingReview = allTasks.filter(function (t) { return t.status === 'delivered' }).length
-    var posted = thisWeekApprovedCount()
-    var WEEK_TARGET = 3
-
-    var ctaHtml = ''
-    if (nudge.cta) {
-      ctaHtml = '<button class="brief-cta" data-action="' + escHtml(nudge.action || '') + '">' + escHtml(nudge.cta) + '</button>'
-    }
+    var summary = getPlanSummary()
 
     strip.innerHTML = ''
-      + '<div class="brief-main brief-' + escHtml(nudge.kind) + '">'
-      + '<div class="brief-msg">' + escHtml(nudge.text) + '</div>'
-      + ctaHtml
+      + '<div class="brief-main brief-' + escHtml(summary.kind) + '">'
+      + '<div class="brief-msg">' + escHtml(summary.text) + '</div>'
       + '</div>'
-      + '<div class="brief-stats">'
-      + '<div class="brief-stat"><span class="brief-stat-num">' + posted + '<span class="brief-stat-of">/' + WEEK_TARGET + '</span></span><span class="brief-stat-lbl">approved this week</span></div>'
-      + '<div class="brief-stat"><span class="brief-stat-num' + (pendingReview > 0 ? ' urgent' : '') + '">' + pendingReview + '</span><span class="brief-stat-lbl">need your eyes</span></div>'
+      + '<div class="brief-actions">'
+      + '<button class="brief-btn brief-btn-primary" data-action="brief">Brief work</button>'
+      + '<button class="brief-btn brief-btn-secondary" data-action="talk">Talk to team</button>'
       + '</div>'
 
-    // Wire CTA actions
-    var cta = strip.querySelector('.brief-cta')
-    if (cta) {
-      cta.addEventListener('click', function () {
-        var act = cta.dataset.action || ''
-        if (act === 'scroll-now') {
-          // Scroll to NOW block in sidebar
-          var sidebar = document.getElementById('team-calendar-sidebar')
-          if (sidebar) sidebar.scrollTo({ top: 0, behavior: 'smooth' })
-        } else if (act.indexOf('assign:') === 0) {
-          var role = act.slice('assign:'.length)
-          if (role && role !== 'any' && AGENTS[role]) assignSelectedRole = role
+    // Wire CTAs
+    strip.querySelectorAll('.brief-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.dataset.action
+        if (act === 'brief') {
           openAssignModal()
+        } else if (act === 'talk') {
+          // Scroll the journal into view and focus its textarea
+          var sidebar = document.getElementById('team-calendar-sidebar')
+          var ta = document.getElementById('new-thought-input')
+          if (sidebar && ta) {
+            // Scroll the input into view inside the sidebar's scroll container
+            var sbRect = sidebar.getBoundingClientRect()
+            var taRect = ta.getBoundingClientRect()
+            sidebar.scrollTo({ top: sidebar.scrollTop + (taRect.top - sbRect.top) - 16, behavior: 'smooth' })
+            setTimeout(function () { ta.focus() }, 300)
+          } else if (ta) {
+            ta.focus()
+          }
         }
       })
+    })
+  }
+
+  // Summarize the plan's shape over the next 7 days. Used by brief strip.
+  function getPlanSummary() {
+    var planned = getPlannedContentByDate()
+    var todayStr = fmtDate(today())
+    var coveredDays = 0
+    var totalItems = 0
+    for (var i = 0; i < 7; i++) {
+      var d = new Date()
+      d.setDate(d.getDate() + i)
+      d.setHours(0, 0, 0, 0)
+      var ds = fmtDate(d)
+      if (planned[ds] && planned[ds].length > 0) {
+        coveredDays++
+        totalItems += planned[ds].length
+      }
+    }
+
+    if (totalItems === 0) {
+      return {
+        kind: 'noplan',
+        text: 'No content plan yet — brief Jordan to map out your week.',
+      }
+    }
+    if (coveredDays >= 5) {
+      return {
+        kind: 'full',
+        text: 'Your week is mapped: ' + totalItems + ' item' + (totalItems === 1 ? '' : 's') + ' across ' + coveredDays + ' days.',
+      }
+    }
+    return {
+      kind: 'partial',
+      text: coveredDays + ' day' + (coveredDays === 1 ? '' : 's') + ' planned this week, ' + (7 - coveredDays) + ' open.',
     }
   }
 
   // ── Operations sidebar (always-on; replaces the per-day sidebar) ──
-  // Four blocks, top to bottom:
-  //   NOW       — agents working live + just delivered (last 6h)
-  //   APPROVED  — recent approved tasks; the canonical "plan" record
-  //   DECIDED   — meeting decisions/summaries (the team's memory)
-  //   JOURNAL   — thoughts with inline capture + agent threads
+  // Three blocks, top to bottom:
+  //   PLAN AHEAD — next 7 days from Jordan's approved content_plan
+  //   DECIDED    — meeting decisions/summaries (the team's memory)
+  //   JOURNAL    — thoughts with inline capture + agent threads
+  // Removed: NOW (live agent status — Studio/HQ owns this) and APPROVED
+  // (folder-list — folded into PLAN AHEAD with inline content).
   function renderOpsSidebar() {
     var sidebar = document.getElementById('team-calendar-sidebar')
     if (!sidebar) return
@@ -636,8 +576,7 @@
     if (existingInput) draft = existingInput.value || ''
 
     var html = ''
-    html += renderNowBlock()
-    html += renderApprovedBlock()
+    html += renderPlanAheadBlock()
     html += renderDecidedBlock()
     html += renderJournalBlock(draft)
 
@@ -646,122 +585,80 @@
     wireOpsSidebar()
   }
 
-  function renderNowBlock() {
-    var inProgress = allTasks.filter(function (t) { return t.status === 'in_progress' })
-    var deliveredCutoff = Date.now() - 6 * 60 * 60 * 1000
-    var justLanded = allTasks.filter(function (t) {
-      if (t.status !== 'delivered') return false
-      var when = new Date(t.completedAt || t.createdAt).getTime()
-      return when >= deliveredCutoff
-    }).slice(0, 4)
+  // Plan ahead — next 7 days of Jordan's approved content_plan.
+  // The Team tab's primary block: it's what the user came here to see.
+  function renderPlanAheadBlock() {
+    var planned = getPlannedContentByDate()
 
-    var html = '<section class="ops-block ops-now">'
-      + '<header class="ops-block-head">'
-      + '<h3>Now</h3>'
-      + '<button class="ops-assign-btn" id="ops-assign-btn">Assign work</button>'
+    // Find the most recent approved content_plan to attribute the plan
+    var planTask = null
+    for (var pi = 0; pi < allTasks.length; pi++) {
+      var pt = allTasks[pi]
+      if (pt.type === 'content_plan' && pt.status === 'approved') {
+        if (!planTask || new Date(pt.completedAt || pt.createdAt) > new Date(planTask.completedAt || planTask.createdAt)) {
+          planTask = pt
+        }
+      }
+    }
+
+    var html = '<section class="ops-block ops-plan">'
+      + '<header class="ops-block-head"><h3>Plan ahead</h3>'
+      + '<span class="ops-block-hint">Next 7 days</span>'
       + '</header>'
 
-    if (inProgress.length === 0 && justLanded.length === 0) {
-      // Replaces the static "Nothing in flight" copy with a proactive
-      // nudge — see getProactiveNudge() for the priority chain (pending
-      // reviews → stale agents → cadence → calm).
-      var nudge = getProactiveNudge()
-      var ctaHtml = ''
-      if (nudge.cta) {
-        ctaHtml = '<button class="ops-nudge-cta" data-action="' + escHtml(nudge.action || '') + '">' + escHtml(nudge.cta) + '</button>'
-      }
-      html += '<div class="ops-nudge ops-nudge-' + escHtml(nudge.kind) + '">'
-        + '<div class="ops-nudge-text">' + escHtml(nudge.text) + '</div>'
-        + ctaHtml
+    // Build entries for the next 7 days (today inclusive)
+    var entries = []
+    for (var i = 0; i < 7; i++) {
+      var d = new Date()
+      d.setDate(d.getDate() + i)
+      d.setHours(0, 0, 0, 0)
+      var ds = fmtDate(d)
+      var items = planned[ds] || []
+      entries.push({ date: d, ds: ds, items: items })
+    }
+
+    var hasAny = entries.some(function (e) { return e.items.length > 0 })
+    if (!hasAny) {
+      html += '<div class="ops-empty">'
+        + '<div class="ops-empty-lbl">No plan yet</div>'
+        + '<div class="ops-empty-hint">Brief Jordan and they\u2019ll map your week.</div>'
+        + '<button class="ops-empty-cta" data-action="assign:strategist">Brief Jordan</button>'
         + '</div></section>'
       return html
     }
 
-    if (inProgress.length > 0) {
-      html += '<div class="ops-sub">Working now</div>'
-      for (var i = 0; i < Math.min(inProgress.length, 4); i++) {
-        var t = inProgress[i]
-        var roleKey = t.employee ? t.employee.role : 'strategist'
-        var ag = AGENTS[roleKey] || AGENTS.strategist
-        var typeLabel = TYPE_LABEL[t.type] || t.type
-        html += '<button class="ops-row" data-task-id="' + escHtml(t.id) + '">'
-          + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
-          + '<div class="ops-row-body">'
-          + '<div class="ops-row-title">' + escHtml(t.title || typeLabel) + '</div>'
-          + '<div class="ops-row-meta">' + ag.label + ' · ' + typeLabel + ' · started ' + relativeTime(t.createdAt) + '</div>'
-          + '</div>'
-          + '<span class="ops-pulse"></span>'
-          + '</button>'
-      }
-      if (inProgress.length > 4) {
-        html += '<div class="ops-more">+' + (inProgress.length - 4) + ' more in progress</div>'
-      }
-    }
-
-    if (justLanded.length > 0) {
-      html += '<div class="ops-sub">Just landed</div>'
-      for (var j = 0; j < justLanded.length; j++) {
-        var jt = justLanded[j]
-        var jrk = jt.employee ? jt.employee.role : 'strategist'
-        var jag = AGENTS[jrk] || AGENTS.strategist
-        var jtl = TYPE_LABEL[jt.type] || jt.type
-        html += '<button class="ops-row landed" data-task-id="' + escHtml(jt.id) + '">'
-          + '<div class="ops-port" style="border-color:' + jag.css + '">' + jag.initial + '</div>'
-          + '<div class="ops-row-body">'
-          + '<div class="ops-row-title">' + escHtml(jt.title || jtl) + '</div>'
-          + '<div class="ops-row-meta">' + jag.label + ' · ' + jtl + ' · ' + relativeTime(jt.completedAt || jt.createdAt) + '</div>'
-          + '</div>'
-          + '<span class="ops-tag">Review</span>'
-          + '</button>'
-      }
-    }
-
-    html += '</section>'
-    return html
-  }
-
-  function renderApprovedBlock() {
-    // Approved tasks are the user's canonical "plan" record — the things
-    // the CEO has explicitly committed to. Show the most recent ones.
-    var approved = allTasks.filter(function (t) { return t.status === 'approved' }).slice(0, 6)
-
-    var html = '<section class="ops-block ops-approved">'
-      + '<header class="ops-block-head"><h3>Approved</h3>'
-      + '<span class="ops-block-hint">Your plan of record</span>'
-      + '</header>'
-
-    if (approved.length === 0) {
-      html += '<div class="ops-empty-thin">Nothing approved yet. Approve delivered work to lock it into your plan.</div>'
-        + '</section>'
-      return html
-    }
-
-    for (var i = 0; i < approved.length; i++) {
-      var t = approved[i]
-      var roleKey = t.employee ? t.employee.role : 'strategist'
-      var ag = AGENTS[roleKey] || AGENTS.strategist
-      var typeLabel = TYPE_LABEL[t.type] || t.type
-
-      // Inline content preview — pulled from the latest output. This is
-      // what makes Approved an actual "plan of record" instead of a list
-      // of folder names.
-      var preview = ''
-      if (t.outputs && t.outputs.length > 0) {
-        var out = t.outputs[0]
-        if (out && out.content) preview = renderOutputContent(out.content, t.type, ag)
-      }
-
-      html += '<div class="ops-approved-row" data-task-id="' + escHtml(t.id) + '">'
-        + '<button class="ops-row ops-row-toggle" data-toggle-id="' + escHtml(t.id) + '">'
-        + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
-        + '<div class="ops-row-body">'
-        + '<div class="ops-row-title">' + escHtml(t.title || typeLabel) + '</div>'
-        + '<div class="ops-row-meta">' + ag.label + ' \u00b7 ' + typeLabel + ' \u00b7 ' + relativeTime(t.completedAt || t.createdAt) + '</div>'
+    // Plan attribution row
+    if (planTask) {
+      var ag = AGENTS.strategist
+      html += '<div class="ops-plan-source">'
+        + '<div class="ops-port sm" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
+        + '<span class="ops-plan-source-text">From ' + ag.label + '\u2019s plan, ' + relativeTime(planTask.completedAt || planTask.createdAt) + '</span>'
         + '</div>'
-        + '<span class="ops-row-chevron">\u203a</span>'
-        + '</button>'
-        + (preview ? '<div class="ops-approved-detail">' + preview + '</div>' : '')
-        + '</div>'
+    }
+
+    // Day-by-day entries
+    for (var ei = 0; ei < entries.length; ei++) {
+      var e = entries[ei]
+      var dayLabel = ei === 0 ? 'Today' : (ei === 1 ? 'Tomorrow' : e.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
+      var isOpen = e.items.length === 0
+
+      html += '<div class="ops-plan-day' + (isOpen ? ' open-slot' : '') + '">'
+        + '<div class="ops-plan-day-label">' + escHtml(dayLabel) + '</div>'
+
+      if (isOpen) {
+        html += '<div class="ops-plan-day-empty">Open slot</div>'
+      } else {
+        for (var j = 0; j < e.items.length; j++) {
+          var pd = e.items[j]
+          var topic = pd.topic || pd.content || pd.description || pd.title || pd.theme || ''
+          var notes = pd.notes || pd.brief || pd.detail || pd.why || ''
+          html += '<div class="ops-plan-item">'
+            + '<div class="ops-plan-item-topic">' + escHtml(String(topic).slice(0, 120)) + '</div>'
+            + (notes ? '<div class="ops-plan-item-note">' + escHtml(String(notes).slice(0, 180)) + '</div>' : '')
+            + '</div>'
+        }
+      }
+      html += '</div>'
     }
 
     html += '</section>'
@@ -886,32 +783,14 @@
     var sidebar = document.getElementById('team-calendar-sidebar')
     if (!sidebar) return
 
-    // Approved rows: click chevron toggles inline detail. Other rows
-    // (NOW block) open the modal as before.
-    sidebar.querySelectorAll('.ops-row-toggle').forEach(function (el) {
-      el.addEventListener('click', function (e) {
-        e.stopPropagation()
-        var parent = el.closest('.ops-approved-row')
-        if (parent) parent.classList.toggle('expanded')
-      })
-    })
-    // NON-approved rows (NOW block): click → modal
-    sidebar.querySelectorAll('.ops-row[data-task-id]:not(.ops-row-toggle)').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var id = el.dataset.taskId
-        var task = allTasks.find(function (t) { return t.id === id })
-        if (task) openTaskModal(task)
-      })
-    })
-
-    // Nudge CTA in the NOW empty state
-    var nudgeCta = sidebar.querySelector('.ops-nudge-cta')
-    if (nudgeCta) {
-      nudgeCta.addEventListener('click', function () {
-        var act = nudgeCta.dataset.action || ''
+    // Empty-state CTA in the Plan ahead block ("Brief Jordan")
+    var emptyCta = sidebar.querySelector('.ops-empty-cta')
+    if (emptyCta) {
+      emptyCta.addEventListener('click', function () {
+        var act = emptyCta.dataset.action || ''
         if (act.indexOf('assign:') === 0) {
           var role = act.slice('assign:'.length)
-          if (role && role !== 'any' && AGENTS[role]) assignSelectedRole = role
+          if (role && AGENTS[role]) assignSelectedRole = role
           openAssignModal()
         }
       })
@@ -925,9 +804,6 @@
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitThought(fmtDate(today())) }
     })
 
-    // Assign-work CTA → open modal (no longer date-bound)
-    var assignBtn = document.getElementById('ops-assign-btn')
-    if (assignBtn) assignBtn.addEventListener('click', function () { openAssignModal() })
   }
 
   // Legacy renderSidebar — kept as a stub in case anything still calls it.

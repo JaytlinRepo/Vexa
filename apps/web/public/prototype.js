@@ -54,6 +54,8 @@ try{
 }catch(e){}
 var isLoggedIn=false
 var selectedNiche=''
+/** @type {string[]} chips for onboarding step 2 → joined into `niche` for API */
+var obContentTags=[]
 var companyName=''
 
 /* ── NAVIGATION ─────────────────────────────────────── */
@@ -168,9 +170,93 @@ function startOnboarding(){
   document.getElementById('ob-1').classList.add('active')
 }
 
+function obResetNicheTags(){
+  obContentTags.length=0
+  selectedNiche=''
+  var wrap=document.getElementById('ob-niche-tags')
+  if(wrap)wrap.innerHTML=''
+  var inp=document.getElementById('ob-tag-input')
+  if(inp)inp.value=''
+  obSetNicheContinueEnabled(false)
+}
+window.obResetNicheTags=obResetNicheTags
+
+function obSetNicheContinueEnabled(ok){
+  var btn=document.getElementById('ob-niche-btn')
+  if(!btn)return
+  btn.disabled=!ok
+  btn.style.opacity=ok?'1':'.4'
+}
+
+function obAddTagNormalized(raw){
+  var t=String(raw||'').trim().replace(/\s+/g,' ')
+  if(t.length<2)return false
+  if(t.length>48)t=t.slice(0,48)
+  var lk=t.toLowerCase()
+  for(var i=0;i<obContentTags.length;i++){
+    if(obContentTags[i].toLowerCase()===lk)return false
+  }
+  if(obContentTags.length>=16)return false
+  obContentTags.push(t)
+  return true
+}
+
+function obSyncNicheFromTags(){
+  selectedNiche=obContentTags.join(', ')
+  obRenderNicheTagPills()
+  obSetNicheContinueEnabled(obContentTags.length>=1)
+}
+
+function obRenderNicheTagPills(){
+  var wrap=document.getElementById('ob-niche-tags')
+  if(!wrap)return
+  wrap.innerHTML=obContentTags.map(function(tag,i){
+    var safe=String(tag).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')
+    return '<span class="ob-chip">' + safe + '<button type="button" class="ob-chip-x" aria-label="Remove tag" data-idx="' + i + '">&times;</button></span>'
+  }).join('')
+  wrap.querySelectorAll('.ob-chip-x').forEach(function(b){
+    b.onclick=function(){
+      obRemoveTag(parseInt(b.getAttribute('data-idx'),10))
+    }
+  })
+}
+
+window.obRemoveTag=function(idx){
+  if(idx<0||idx>=obContentTags.length)return
+  obContentTags.splice(idx,1)
+  obSyncNicheFromTags()
+}
+
+function obCommitTagInputValue(){
+  var inp=document.getElementById('ob-tag-input')
+  if(!inp||!inp.value)return
+  var parts=inp.value.split(/[,;]+/)
+  var any=false
+  for(var i=0;i<parts.length;i++){
+    if(obAddTagNormalized(parts[i]))any=true
+  }
+  inp.value=''
+  if(any)obSyncNicheFromTags()
+}
+
+window.obAddCurrentTag=function(){obCommitTagInputValue()}
+
+function obWireNicheTagInput(){
+  var inp=document.getElementById('ob-tag-input')
+  if(!inp||inp.dataset.vxObTags)return
+  inp.dataset.vxObTags='1'
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();obCommitTagInputValue()}
+  })
+}
+
+document.addEventListener('DOMContentLoaded',obWireNicheTagInput)
+if(document.readyState!=='loading')obWireNicheTagInput()
+
 function obNext(step){
   if(step===1){
     companyName=document.getElementById('ob-name-input').value||'My Company'
+    obResetNicheTags()
     document.getElementById('ob-1').classList.remove('active')
     document.getElementById('ob-2').classList.add('active')
     document.getElementById('ob-prog').style.width='66%'
@@ -189,43 +275,6 @@ function obPrev(step){
     document.getElementById('ob-2').classList.remove('active')
     document.getElementById('ob-1').classList.add('active')
     document.getElementById('ob-prog').style.width='33%'
-  }
-}
-
-function selectNiche(el,niche){
-  document.querySelectorAll('.ob-card').forEach(c=>c.classList.remove('selected'))
-  el.classList.add('selected')
-  selectedNiche=niche
-  // Hide custom input if a preset was picked
-  var customWrap = document.getElementById('ob-custom-niche')
-  if (customWrap && niche !== '__custom__') customWrap.style.display = 'none'
-  var btn=document.getElementById('ob-niche-btn')
-  btn.disabled=false
-  btn.style.opacity='1'
-}
-
-function toggleCustomNiche(){
-  document.querySelectorAll('.ob-card').forEach(c=>c.classList.remove('selected'))
-  document.getElementById('ob-niche-other').classList.add('selected')
-  var customWrap = document.getElementById('ob-custom-niche')
-  customWrap.style.display = 'block'
-  var input = document.getElementById('ob-custom-niche-input')
-  input.focus()
-  selectedNiche = '__custom__'
-  var btn = document.getElementById('ob-niche-btn')
-  // Enable button only when they type something
-  btn.disabled = true
-  btn.style.opacity = '.4'
-  input.oninput = function() {
-    var val = input.value.trim()
-    if (val.length >= 2) {
-      selectedNiche = val.toLowerCase().replace(/[^a-z0-9_ ]/g, '').replace(/\s+/g, '_')
-      btn.disabled = false
-      btn.style.opacity = '1'
-    } else {
-      btn.disabled = true
-      btn.style.opacity = '.4'
-    }
   }
 }
 
@@ -868,7 +917,7 @@ window.navigateTo = function (brief) {
     'weekly-plan': '/api/weekly/jordan-plan',
     'weekly-pulse': '/api/weekly/maya-pulse',
     'weekly-hooks': '/api/weekly/alex-hooks',
-    'weekly-briefs': '/api/weekly/riley-briefs',
+    'weekly-briefs': '/api/studio/weekly-status',
     'trends': '/api/briefs/morning',
     'evening-recap': '/api/briefs/evening',
   }
@@ -904,43 +953,396 @@ window.navigateTo = function (brief) {
   fetch(url + '?companyId=' + encodeURIComponent(cid), { credentials: 'include' })
     .then(function (r) { return r.ok ? r.json() : null })
     .then(function (data) {
-      var body = document.getElementById('vx-brief-body')
-      if (!body) return
-      if (!data) { body.textContent = 'No data available yet.'; return }
+      var bodyEl = document.getElementById('vx-brief-body')
+      if (!bodyEl) return
+      if (!data) { bodyEl.textContent = 'No data available yet.'; return }
 
-      var o = data.output || data
-      var html = ''
+      var html = brief === 'weekly-briefs'
+        ? formatRileyStatus(data)
+        : formatBriefOutput(data.output || data, brief)
 
-      // Format the output as readable content
-      if (typeof o === 'string') {
-        html = '<div style="white-space:pre-wrap">' + esc(o) + '</div>'
-      } else if (typeof o === 'object') {
-        html = formatBriefOutput(o, brief)
+      if (brief !== 'weekly-briefs' && brief !== 'trends' && data.employee) {
+        html = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.t3 + ';margin-bottom:12px">From ' + esc(data.employee) + ' &middot; ' + (data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '') + '</div>' + html
       }
 
-      if (data.employee) {
-        html = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:var(--t3);margin-bottom:12px">From ' + esc(data.employee) + ' &middot; ' + (data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '') + '</div>' + html
-      }
-
-      body.innerHTML = html
+      bodyEl.innerHTML = html
     })
     .catch(function () {
-      var body = document.getElementById('vx-brief-body')
-      if (body) body.textContent = 'Failed to load.'
+      var bodyEl = document.getElementById('vx-brief-body')
+      if (bodyEl) bodyEl.textContent = 'Failed to load.'
     })
 
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] }) }
 
   function formatBriefOutput(o, type) {
+    if (type === 'trends') return formatMorningBrief(o)
+    if (type === 'weekly-pulse') return formatMayaPulse(o)
+    return formatGenericBrief(o)
+  }
+
+  function formatMorningBrief(data) {
     var parts = []
-    // Iterate keys and render them as labeled sections
+    var at = data.accountTrends || {}
+
+    // ── Metric trend cards ─────────────────────────────────────────────
+    var metrics = at.metrics || []
+    if (at.hasData && metrics.length > 0) {
+      parts.push(
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
+          + '<div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:' + C.t3 + '">' + esc(at.weekLabel || 'This week') + '</div>'
+          + (at.engagementTrend && at.engagementTrend !== 'stable'
+            ? '<div style="font-size:11px;color:' + (at.engagementTrend === 'improving' ? '#4caf50' : '#e06060') + ';font-family:\'JetBrains Mono\',monospace">'
+                + (at.engagementTrend === 'improving' ? '↑ ' : '↓ ') + at.engagementTrend
+              + '</div>'
+            : '')
+        + '</div>'
+      )
+
+      var grid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">'
+      metrics.forEach(function (m) {
+        var up = m.direction === 'up'
+        var dn = m.direction === 'down'
+        var dirColor = up ? '#4caf50' : dn ? '#e06060' : C.t3
+        var arrow = up ? '↑' : dn ? '↓' : '→'
+        var valStr = m.format === 'percent' ? m.value + '%' : fmtNum(m.value)
+        var deltaStr = m.deltaPct != null ? arrow + ' ' + Math.abs(m.deltaPct) + '% vs prior' : (m.prior == null ? 'no prior' : arrow)
+        grid += '<div style="background:rgba(20,16,10,.04);border:1px solid rgba(20,16,10,.08);border-radius:8px;padding:12px">'
+          + '<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:' + C.t3 + ';margin-bottom:5px">' + esc(m.label) + '</div>'
+          + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:20px;font-weight:600;color:' + C.t1 + ';line-height:1">' + esc(valStr) + '</div>'
+          + '<div style="font-size:11px;color:' + dirColor + ';margin-top:5px;font-family:\'JetBrains Mono\',monospace">' + deltaStr + '</div>'
+          + '</div>'
+      })
+      grid += '</div>'
+      parts.push(grid)
+
+      if (at.bestFormat || at.bestDay) {
+        var tips = []
+        if (at.bestFormat) tips.push(at.bestFormat.toLowerCase() + 's perform best')
+        if (at.bestDay) tips.push(at.bestDay + 's are your top day')
+        parts.push(
+          '<div style="background:rgba(192,138,62,.07);border-left:3px solid ' + C.accent + ';border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:16px;font-size:12px;color:' + C.t2 + '">'
+            + tips.join(' · ')
+          + '</div>'
+        )
+      }
+    } else {
+      parts.push(
+        '<div style="padding:12px 0 16px;font-size:13px;color:' + C.t3 + ';font-style:italic">'
+          + 'No trend data yet — post some content and sync your account to see performance trends here.'
+        + '</div>'
+      )
+    }
+
+    // ── Yesterday's posts ──────────────────────────────────────────────
+    var yp = data.yesterdayPosts || []
+    if (yp.length > 0) {
+      parts.push(
+        '<div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:' + C.t3 + ';margin:4px 0 8px">'
+          + 'Yesterday (' + yp.length + ' post' + (yp.length !== 1 ? 's' : '') + ')'
+        + '</div>'
+      )
+      yp.forEach(function (p) {
+        var eng = (p.metrics || {}).engagement || 0
+        var er  = (p.metrics || {}).engagementRate || 0
+        var reach = (p.metrics || {}).reach || 0
+        parts.push(
+          '<div style="padding:8px 0;border-bottom:1px solid rgba(20,16,10,.07);line-height:1.4">'
+            + '<div style="font-size:13px;color:' + C.t1 + ';margin-bottom:4px">' + esc((p.caption || 'No caption').substring(0, 80)) + '</div>'
+            + '<div style="display:flex;gap:12px;flex-wrap:wrap">'
+              + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:' + C.t3 + '">' + fmtNum(reach) + ' reach</span>'
+              + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:' + C.t3 + '">' + fmtNum(eng) + ' eng</span>'
+              + (er ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:' + C.t3 + '">' + (er * 100).toFixed(1) + '%</span>' : '')
+            + '</div>'
+          + '</div>'
+        )
+      })
+      parts.push('<div style="margin-bottom:8px"></div>')
+    }
+
+    // ── Queue ──────────────────────────────────────────────────────────
+    var q = data.queuedPosts || []
+    if (q.length > 0) {
+      parts.push(
+        '<div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:' + C.t3 + ';margin:4px 0 8px">'
+          + 'In queue (' + q.length + ')'
+        + '</div>'
+      )
+      q.forEach(function (p) {
+        var ready = p.status === 'ready'
+        parts.push(
+          '<div style="padding:6px 0;border-bottom:1px solid rgba(20,16,10,.07);display:flex;justify-content:space-between;align-items:center">'
+            + '<div style="font-size:13px;color:' + C.t2 + '">' + esc((p.caption || 'Untitled').substring(0, 60)) + '</div>'
+            + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + (ready ? '#4caf50' : C.accent) + '">' + (ready ? 'ready' : 'in production') + '</div>'
+          + '</div>'
+        )
+      })
+    }
+
+    return parts.join('') || '<div style="color:' + C.t3 + ';font-style:italic">Nothing to report yet.</div>'
+  }
+
+  function formatMayaPulse(o) {
+    var parts = []
+
+    // ── Header stat row ────────────────────────────────────────────────────
+    var dir = (o.trajectory || {}).direction || 'flat'
+    var arrow = dir === 'up' ? '↑' : dir === 'down' ? '↓' : '→'
+    var arrowColor = dir === 'up' ? '#4caf50' : dir === 'down' ? '#e06060' : C.t3
+    var postsLabel = o.postsThisWeek === 1 ? '1 post' : (o.postsThisWeek || 0) + ' posts'
+    var weekLabel = o.weekOf ? 'Week of ' + new Date(o.weekOf + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+
+    parts.push(
+      '<div style="display:flex;gap:16px;padding:12px 0 16px;border-bottom:1px solid rgba(20,16,10,.10);margin-bottom:4px">'
+        + '<div style="flex:1;text-align:center">'
+          + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:22px;font-weight:600;color:' + arrowColor + '">' + arrow + '</div>'
+          + '<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:' + C.t3 + ';margin-top:2px">' + dir + '</div>'
+        + '</div>'
+        + '<div style="flex:1;text-align:center">'
+          + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:22px;font-weight:600;color:' + C.t1 + '">' + (o.postsThisWeek || 0) + '</div>'
+          + '<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:' + C.t3 + ';margin-top:2px">posts</div>'
+        + '</div>'
+        + (weekLabel ? '<div style="flex:2;display:flex;align-items:center;justify-content:flex-end"><div style="font-size:11px;color:' + C.t3 + ';font-style:italic">' + esc(weekLabel) + '</div></div>' : '')
+      + '</div>'
+    )
+
+    // ── Trajectory summary ─────────────────────────────────────────────────
+    if (o.trajectory && o.trajectory.summary) {
+      parts.push(
+        '<div style="padding:10px 0 14px;border-bottom:1px solid rgba(20,16,10,.07);margin-bottom:4px">'
+          + '<div style="font-size:13px;color:' + C.t2 + ';line-height:1.55">' + esc(o.trajectory.summary) + '</div>'
+        + '</div>'
+      )
+    }
+
+    // ── Win of the week ───────────────────────────────────────────────────
+    if (o.winOfTheWeek) {
+      var w = o.winOfTheWeek
+      parts.push(sec('Win of the week'))
+      parts.push(
+        '<div style="background:rgba(76,175,80,.06);border:1px solid rgba(76,175,80,.18);border-radius:8px;padding:12px 14px;margin-bottom:16px">'
+          + (w.videoTitle ? '<div style="font-size:13px;font-weight:500;color:' + C.t1 + ';margin-bottom:6px">' + esc(w.videoTitle) + '</div>' : '')
+          + '<div style="display:flex;gap:16px;margin-bottom:8px">'
+            + (w.viewCount != null ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:#4caf50">' + fmtNum(w.viewCount) + ' views</div>' : '')
+            + (w.engagementScore != null ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:' + C.t3 + '">' + fmtNum(w.engagementScore) + ' eng</div>' : '')
+          + '</div>'
+          + (w.whyItWorked ? '<div style="font-size:12px;color:' + C.t2 + ';line-height:1.5">' + esc(w.whyItWorked) + '</div>' : '')
+          + (w.url ? '<a href="' + esc(w.url) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;font-size:11px;color:' + C.accent + ';text-decoration:none">View post ↗</a>' : '')
+        + '</div>'
+      )
+    }
+
+    // ── Miss of the week ──────────────────────────────────────────────────
+    if (o.missOfTheWeek) {
+      var m = o.missOfTheWeek
+      parts.push(sec('Miss of the week'))
+      parts.push(
+        '<div style="background:rgba(224,96,96,.05);border:1px solid rgba(224,96,96,.15);border-radius:8px;padding:12px 14px;margin-bottom:16px">'
+          + (m.videoTitle ? '<div style="font-size:13px;font-weight:500;color:' + C.t1 + ';margin-bottom:6px">' + esc(m.videoTitle) + '</div>' : '')
+          + '<div style="display:flex;gap:16px;margin-bottom:8px">'
+            + (m.viewCount != null ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:#e06060">' + fmtNum(m.viewCount) + ' views</div>' : '')
+            + (m.engagementScore != null ? '<div style="font-family:\'JetBrains Mono\',monospace;font-size:12px;color:' + C.t3 + '">' + fmtNum(m.engagementScore) + ' eng</div>' : '')
+          + '</div>'
+          + (m.whatToTryNext ? '<div style="font-size:12px;color:' + C.t2 + ';line-height:1.5">' + esc(m.whatToTryNext) + '</div>' : '')
+        + '</div>'
+      )
+    }
+
+    // ── One thing to do ───────────────────────────────────────────────────
+    if (o.oneThingToDo) {
+      parts.push(sec('One thing to do this week'))
+      parts.push(
+        '<div style="background:rgba(192,138,62,.07);border-left:3px solid ' + C.accent + ';border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:' + C.t1 + ';line-height:1.55">'
+          + esc(o.oneThingToDo)
+        + '</div>'
+      )
+    }
+
+    return parts.join('') || '<div style="color:' + C.t3 + ';font-style:italic">Pulse not available yet.</div>'
+  }
+
+  function fmtNum(n) {
+    if (n == null) return ''
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return String(n)
+  }
+
+  function formatRileyStatus(data) {
+    var done = data.doneThisWeek || []
+    var queue = data.needsApproval || []
+    var ready = data.readyToPost || []
+    var parts = []
+
+    function clipLine(c) {
+      var description = c.description || null
+      var hook = c.hook || c.caption || 'Untitled clip'
+      var dur = c.duration ? ' &middot; ' + c.duration + 's' : ''
+      var when = c.updatedAt ? ' &middot; ' + new Date(c.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+      return '<div style="padding:8px 0;border-bottom:1px solid rgba(20,16,10,.07);line-height:1.4">'
+        + (description
+          ? '<div style="font-size:13px;color:' + C.t1 + ';font-style:italic">' + esc(description) + '</div>'
+            + '<div style="font-size:11px;color:' + C.t3 + ';margin-top:2px">' + esc(hook.substring(0, 80)) + '<span style="font-family:\'JetBrains Mono\',monospace">' + dur + when + '</span></div>'
+          : '<div style="font-size:13px;color:' + C.t1 + '">' + esc(hook)
+            + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.t3 + '">' + dur + when + '</span></div>')
+        + '</div>'
+    }
+
+    function queueLine(c) {
+      var description = c.description || null
+      var hook = c.hook || c.caption || 'Untitled clip'
+      var missing = []
+      if (c.visualApprovalStatus === 'pending') missing.push('visual')
+      if (c.copyApprovalStatus === 'pending') missing.push('copy')
+      var tag = missing.length ? 'needs ' + missing.join(' + ') : ''
+      return '<div style="padding:8px 0;border-bottom:1px solid rgba(20,16,10,.07);line-height:1.4">'
+        + (description
+          ? '<div style="font-size:13px;color:' + C.t1 + ';font-style:italic">' + esc(description) + '</div>'
+            + '<div style="font-size:11px;color:' + C.t3 + ';margin-top:2px">' + esc(hook.substring(0, 80))
+              + (tag ? ' &middot; <span style="color:' + C.accent + ';font-family:\'JetBrains Mono\',monospace">' + tag + '</span>' : '') + '</div>'
+          : '<div style="font-size:13px;color:' + C.t1 + '">' + esc(hook)
+            + (tag ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.accent + '"> &middot; ' + tag + '</span>' : '') + '</div>')
+        + '</div>'
+    }
+
+    // Done this week
+    if (done.length) {
+      parts.push(sec('Done this week (' + done.length + ')'))
+      parts.push(done.map(clipLine).join(''))
+    } else {
+      parts.push(sec('Done this week'))
+      parts.push('<div style="font-size:13px;color:' + C.t3 + ';font-style:italic;padding:6px 0">No clips approved this week yet.</div>')
+    }
+
+    // Needs approval
+    if (queue.length) {
+      parts.push(sec('Needs your approval (' + queue.length + ')'))
+      parts.push(queue.map(queueLine).join(''))
+    }
+
+    // Ready to post
+    if (ready.length) {
+      parts.push(sec('Ready to post (' + ready.length + ')'))
+      parts.push(ready.map(clipLine).join(''))
+      parts.push('<div style="margin-top:12px"><button onclick="window.navigate(\'db-studio\');document.getElementById(\'vx-brief-modal\')&&document.getElementById(\'vx-brief-modal\').remove()" style="background:' + C.accent + ';color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif">Go to Studio →</button></div>')
+    } else if (!queue.length) {
+      parts.push(sec('Ready to post'))
+      parts.push('<div style="font-size:13px;color:' + C.t3 + ';font-style:italic;padding:6px 0">Nothing staged yet.</div>')
+    }
+
+    return parts.join('') || '<div style="color:' + C.t3 + ';font-style:italic">Nothing to report this week.</div>'
+  }
+
+  // Hard-coded colors — the modal overlay sits outside the scoped CSS tokens,
+  // so var(--t1) etc. don't resolve. Use explicit hex values instead.
+  var C = { t1: '#1a1a1a', t2: '#5a5856', t3: '#8a8682', accent: '#c08a3e', hair: 'rgba(20,16,10,.10)' }
+  function sec(label) {
+    return '<div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:' + C.t3 + ';margin:18px 0 8px">' + esc(label) + '</div>'
+  }
+  function body(text) {
+    return '<div style="color:' + C.t2 + ';font-size:13px;line-height:1.6;margin-bottom:10px">' + esc(text) + '</div>'
+  }
+  function shotRow(s) {
+    // Handles both field shapes:
+    //   agentExecutor template: { n, at, shot, note }
+    //   real Bedrock output:    { type, n, duration, audio, cameraDirection, sceneDescription }
+    var num   = s.n != null ? String(s.n) : ''
+    var time  = s.at || s.duration || ''
+    var sType = s.type || ''
+    var desc  = s.shot || s.sceneDescription || ''
+    var dir   = s.cameraDirection || ''
+    var audio = s.note || s.audio || ''
+
+    return '<div style="border-left:2px solid ' + C.hair + ';padding:0 0 14px 14px;margin-bottom:0">'
+      // meta line: shot number · type · duration
+      + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.08em;color:' + C.accent + ';margin-bottom:6px">'
+        + (num ? 'Shot ' + esc(num) : '')
+        + (sType ? (num ? ' &middot; ' : '') + esc(sType) : '')
+        + (time ? ' &middot; ' + esc(time) : '')
+      + '</div>'
+      // scene description — the hero line
+      + (desc ? '<div style="font-size:13px;color:' + C.t1 + ';line-height:1.55;margin-bottom:4px;font-weight:500">' + esc(desc) + '</div>' : '')
+      // camera direction
+      + (dir ? '<div style="font-size:12px;color:' + C.t2 + ';line-height:1.45;margin-bottom:3px">' + esc(dir) + '</div>' : '')
+      // audio / note
+      + (audio ? '<div style="font-size:11px;color:' + C.t3 + ';font-style:italic;line-height:1.4">' + esc(audio) + '</div>' : '')
+    + '</div>'
+  }
+
+  function formatRileyBrief(o) {
+    var kind = o.kind || ''
+    var parts = []
+
+    if (kind === 'reel_shot_list' || Array.isArray(o.shots)) {
+      if (o.reelTitle) parts.push(body(o.reelTitle + (o.duration ? ' · ' + o.duration : '') + (o.framework ? ' · ' + o.framework : '')))
+      if (Array.isArray(o.shots) && o.shots.length) {
+        parts.push(sec('Shots'))
+        parts.push(o.shots.map(shotRow).join(''))
+      }
+      if (o.soundNote) { parts.push(sec('Sound')); parts.push(body(o.soundNote)) }
+      if (o.editorNote) { parts.push(sec('Editor note')); parts.push(body(o.editorNote)) }
+
+    } else if (kind === 'pacing_notes') {
+      if (Array.isArray(o.sections)) {
+        o.sections.forEach(function (s) {
+          parts.push(sec(s.heading || ''))
+          if (s.body) parts.push(body(s.body))
+          if (Array.isArray(s.items)) parts.push(s.items.map(function (it) {
+            return '<div style="padding:3px 0 3px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(it) + '</div>'
+          }).join(''))
+        })
+      }
+      if (o.oneFixThisWeek) { parts.push(sec('This week')); parts.push(body(o.oneFixThisWeek)) }
+
+    } else if (kind === 'visual_direction') {
+      if (o.headline) parts.push(body(o.headline))
+      if (Array.isArray(o.sections)) {
+        o.sections.forEach(function (s) {
+          parts.push(sec(s.heading || ''))
+          if (s.body) parts.push(body(s.body))
+          if (Array.isArray(s.items)) parts.push(s.items.map(function (it) {
+            return '<div style="padding:3px 0 3px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(it) + '</div>'
+          }).join(''))
+        })
+      }
+      if (o.testShot) { parts.push(sec('Test shot')); parts.push(body(o.testShot)) }
+
+    } else if (kind === 'thumbnail_brief') {
+      if (o.headline) parts.push(body(o.headline))
+      if (o.spec) {
+        parts.push(sec('Spec'))
+        var specKeys = { typeTreatment: 'Type', color: 'Colour', focalSubject: 'Subject', negativeSpace: 'Negative space', compositionRule: 'Composition' }
+        for (var k in specKeys) {
+          if (o.spec[k]) parts.push('<div style="display:flex;gap:12px;padding:4px 0;border-bottom:1px dashed var(--b1);font-size:12px"><span style="color:var(--t3);min-width:110px">' + specKeys[k] + '</span><span style="color:var(--t1)">' + esc(o.spec[k]) + '</span></div>')
+        }
+      }
+      if (o.dontDo) { parts.push(sec("Don't")); parts.push(body(o.dontDo)) }
+      if (o.testAgainst) { parts.push(sec('Test against')); parts.push(body(o.testAgainst)) }
+
+    } else if (kind === 'fix_weak_reel') {
+      if (o.headline) parts.push(body(o.headline))
+      if (o.diagnosis && o.diagnosis.body) { parts.push(sec('What went wrong')); parts.push(body(o.diagnosis.body)) }
+      if (o.proposedFix && Array.isArray(o.proposedFix.shots)) {
+        parts.push(sec('New open'))
+        parts.push(o.proposedFix.shots.map(shotRow).join(''))
+      }
+      if (o.whyItWorks) { parts.push(sec('Why it works')); parts.push(body(o.whyItWorks)) }
+      if (o.reshoot) { parts.push(sec('Reshoot')); parts.push(body(o.reshoot)) }
+
+    } else {
+      // Unknown kind — fall back to generic
+      return formatGenericBrief(o)
+    }
+
+    return parts.join('') || '<div style="color:var(--t3)">No details available</div>'
+  }
+
+  function formatGenericBrief(o) {
+    var parts = []
     for (var key in o) {
       if (!o.hasOwnProperty(key)) continue
       var val = o[key]
       if (val === null || val === undefined) continue
-
       var label = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim().toUpperCase()
-
       if (typeof val === 'string') {
         parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">' + label + '</div><div style="color:var(--t1);font-size:13px;line-height:1.55">' + esc(val) + '</div></div>')
       } else if (typeof val === 'number') {
@@ -948,21 +1350,10 @@ window.navigateTo = function (brief) {
       } else if (Array.isArray(val) && val.length > 0) {
         var items = val.map(function (item) {
           if (typeof item === 'string') return '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--accent);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(item) + '</div>'
-          if (typeof item === 'object') {
-            var line = Object.values(item).filter(function (v) { return typeof v === 'string' || typeof v === 'number' }).map(function (v) { return esc(String(v)) }).join(' &middot; ')
-            return '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + line + '</div>'
-          }
+          if (typeof item === 'object' && item !== null) return shotRow(item)
           return ''
         }).join('')
         parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">' + label + '</div>' + items + '</div>')
-      } else if (typeof val === 'object' && !Array.isArray(val)) {
-        var subParts = []
-        for (var sk in val) {
-          if (val[sk] === null || val[sk] === undefined) continue
-          var sv = typeof val[sk] === 'object' ? JSON.stringify(val[sk]) : String(val[sk])
-          subParts.push('<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--b1)"><span style="font-size:11px;color:var(--t3)">' + esc(sk.replace(/_/g, ' ')) + '</span><span style="font-size:11px;color:var(--t1)">' + esc(sv.slice(0, 100)) + '</span></div>')
-        }
-        if (subParts.length) parts.push('<div style="margin-bottom:14px"><div style="font-family:Inter,sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">' + label + '</div>' + subParts.join('') + '</div>')
       }
     }
     return parts.join('') || '<div style="color:var(--t3)">No details available</div>'

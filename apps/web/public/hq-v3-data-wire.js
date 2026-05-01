@@ -132,7 +132,7 @@
   // Module-level state. Updated by the toggle handler in wirePlatformToggle()
   // and read by every renderer that filters posts/snapshots/sparkline.
   // 'all' = no filter, 'instagram' / 'tiktok' = scope to that platform only.
-  var currentPlatform = 'all'
+  var currentPlatform = (function () { try { return localStorage.getItem('hq3-platform') || 'all' } catch { return 'all' } })()
 
   function filterPostsByPlatform (posts, accountPlatforms) {
     if (currentPlatform === 'all') return posts
@@ -475,7 +475,10 @@
       btn.textContent = label
       // Deep-link to the Tasks tab when prototype.js exposes navigateTo
       btn.onclick = function () {
-        if (typeof window.navigateTo === 'function') window.navigateTo('db-tasks')
+        var firstId = bucket[0] && bucket[0].id
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('vx-hq3-focus-pipeline', { detail: { taskId: firstId } }))
+        }
       }
       chips.appendChild(btn)
       rendered++
@@ -487,7 +490,10 @@
       var remaining = delivered.length - rendered
       more.textContent = remaining > 0 ? '+' + remaining + ' more' : 'View all'
       more.onclick = function () {
-        if (typeof window.navigateTo === 'function') window.navigateTo('db-tasks')
+        var firstDelivered = delivered[0] && delivered[0].id
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('vx-hq3-focus-pipeline', { detail: { taskId: firstDelivered } }))
+        }
       }
       chips.appendChild(more)
     }
@@ -559,6 +565,9 @@
 
   // ───── render: forecast hero numbers ──────────────────────────────
   function renderForecastHead (root, d) {
+    // Guard: if overview hasn't loaded yet (followers === null), keep whatever
+    // was previously rendered rather than flashing "—" over good data.
+    if (d.followers == null) return
     var nu = fmtNumWithUnit(d.followers)
     var fcNum = $('.fc-num', root)
     if (fcNum) fcNum.innerHTML = nu[0] + (nu[1] ? '<span class="unit">' + nu[1] + '</span>' : '')
@@ -585,11 +594,14 @@
 
   // ───── render: mini stat strip ────────────────────────────────────
   function renderMiniStats (root, d) {
+    // Same guard as renderForecastHead: skip overview-derived stats when
+    // overview hasn't loaded yet so we don't flash "—" over good values.
+    var hasOverview = d.followers != null
     var rows = $$('.hq3-hero-mini .row', root)
     if (rows[0]) {
       var v = rows[0].querySelector('.v')
       var del = rows[0].querySelector('.d .u')
-      if (v) {
+      if (v && hasOverview) {
         if (d.reach7d != null) {
           var rn = fmtNumWithUnit(d.reach7d)
           v.innerHTML = '<em>' + rn[0] + '</em>' + rn[1]
@@ -599,7 +611,7 @@
       }
       if (del && d.reach7dDelta != null) del.textContent = fmtDelta(d.reach7dDelta, '%')
     }
-    if (rows[1]) {
+    if (rows[1] && hasOverview) {
       var v2 = rows[1].querySelector('.v')
       var del2 = rows[1].querySelector('.d .u')
       if (v2) v2.textContent = fmtShort(d.followers)
@@ -731,26 +743,97 @@
       })
     }
 
-    // ── X-axis date labels — derived from real series + projected window ──
-    var axisGroup = svg.querySelector('g.hq3-axis-labels')
-    if (axisGroup) {
-      while (axisGroup.firstChild) axisGroup.removeChild(axisGroup.firstChild)
+    // ── X-axis date labels — HTML overlay so text stays crisp (SVG
+    //    uses preserveAspectRatio:none which distorts SVG text horizontally)
+    var xAxisEl = root.querySelector('#hq3-x-axis')
+    if (xAxisEl) {
+      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
       var firstDate = series[0] && series[0].date ? new Date(series[0].date) : null
       var lastDate = series[series.length - 1] && series[series.length - 1].date ? new Date(series[series.length - 1].date) : null
-      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      function axisLabel (xPos, text) {
-        var t = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-        t.setAttribute('x', xPos); t.setAttribute('y', 278); t.setAttribute('class', 'axis')
-        t.textContent = text
-        axisGroup.appendChild(t)
-      }
-      if (firstDate) axisLabel(0, months[firstDate.getMonth()] + ' ' + firstDate.getDate())
-      if (lastDate) axisLabel(420, months[lastDate.getMonth()] + ' ' + lastDate.getDate())
+      var labels = []
+      if (firstDate) labels.push({ pct: 0, text: months[firstDate.getMonth()] + ' ' + firstDate.getDate() })
+      if (lastDate) labels.push({ pct: 52.5, text: months[lastDate.getMonth()] + ' ' + lastDate.getDate() })
       if (d.pacePerDay != null) {
-        axisLabel(610, '+30d')
-        axisLabel(795, '+60d')
+        labels.push({ pct: 76.25, text: '+30d' })
+        labels.push({ pct: 99, text: '+60d' })
       }
+      xAxisEl.innerHTML = labels.map(function (l) {
+        return '<span style="left:' + l.pct + '%">' + l.text + '</span>'
+      }).join('')
     }
+
+    // ── Crosshair + tooltip on hover ─────────────────────────────────
+    var chart = root.querySelector('#hq3-fc-chart')
+    if (chart && !chart._crossWired) {
+      chart._crossWired = true
+      var crossSvg = chart.querySelector('.fc-cross')
+      var crossLine = crossSvg && crossSvg.querySelector('.vline')
+      var crossDot = crossSvg && crossSvg.querySelector('.dot')
+      var tooltip = chart.querySelector('.fc-tooltip')
+      var ttVal = tooltip && tooltip.querySelector('.fc-tt-val')
+      var ttDate = tooltip && tooltip.querySelector('.fc-tt-date')
+
+      chart.addEventListener('mousemove', function (e) {
+        var rect = chart.getBoundingClientRect()
+        var mx = e.clientX - rect.left
+        var my = e.clientY - rect.top
+        var xFrac = Math.max(0, Math.min(1, mx / rect.width))
+        var svgX = xFrac * 800
+
+        // Resolve value + label at cursor position
+        var val = null
+        var dateStr = ''
+        var dotY = 140
+
+        // Grab the live series/pts baked on the chart element by renderForecastChart
+        var _pts = chart._chartPts
+        var _series = chart._chartSeries
+        var _nowVal = chart._chartNowVal
+        var _pace = chart._chartPace
+        var _yBottom = 250
+        var _yTop = 30
+        var _yRange = _yBottom - _yTop
+
+        if (svgX <= 420 && _pts && _pts.length >= 2) {
+          var idx = Math.round(xFrac / (420 / 800) * (_pts.length - 1))
+          idx = Math.max(0, Math.min(_pts.length - 1, idx))
+          val = _series && _series[idx] ? _series[idx].total : null
+          dateStr = _series && _series[idx] && _series[idx].date
+            ? new Date(_series[idx].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : ''
+          dotY = _pts[idx] ? _pts[idx][1] : 140
+        } else if (svgX > 420 && _pace != null && _nowVal != null) {
+          var daysFwd = Math.round((svgX - 420) / (800 - 420) * 60)
+          val = Math.round(_nowVal + _pace * daysFwd)
+          dateStr = '+' + daysFwd + 'd (projected)'
+          // y position: need the same scale used for future line
+          var _minV = chart._chartMinV || 0
+          var _maxV = chart._chartMaxV || val
+          var _span = Math.max(1, _maxV - _minV)
+          dotY = _yBottom - ((val - _minV) / _span) * _yRange
+        }
+
+        // Position crosshair in SVG coordinates
+        if (crossLine) { crossLine.setAttribute('x1', svgX.toFixed(1)); crossLine.setAttribute('x2', svgX.toFixed(1)) }
+        if (crossDot) { crossDot.setAttribute('cx', svgX.toFixed(1)); crossDot.setAttribute('cy', dotY.toFixed(1)) }
+
+        // Position tooltip in CSS pixels
+        if (tooltip) {
+          tooltip.style.left = mx + 'px'
+          tooltip.style.top = my + 'px'
+        }
+        if (ttVal && val != null) ttVal.textContent = val.toLocaleString()
+        if (ttDate) ttDate.textContent = dateStr
+      })
+    }
+
+    // Store chart state on element so mousemove can read it
+    chart._chartPts = pts2 || pts
+    chart._chartSeries = series
+    chart._chartNowVal = nowVal
+    chart._chartPace = d.pacePerDay != null ? d.pacePerDay : null
+    chart._chartMinV = futurePts.length ? Math.min(minV, nowVal + (d.pacePerDay || 0) * 60) : minV
+    chart._chartMaxV = futurePts.length ? Math.max(maxV, nowVal + (d.pacePerDay || 0) * 60) : maxV
   }
 
   // ───── render: forecast legend ────────────────────────────────────
@@ -774,104 +857,166 @@
     legend.innerHTML = rows.join('')
   }
 
-  // ───── render: goal anchor ────────────────────────────────────────
-  // Stores in localStorage as { target: number, deadline: 'YYYY-MM-DD' }.
-  // No backend yet — promotes to a DB column in a follow-up. Goal applies
-  // to the CURRENT platform scope (so a user with separate IG and TikTok
-  // goals could store one per platform; for now it's global to keep the
-  // UX simple). Re-renders the forecast section with goal trajectory:
-  //   • Days at current pace until target
-  //   • Whether they're on/off pace vs deadline (▲ ahead, ▼ behind)
-  var GOAL_KEY = 'vx-hq3-goal'
-  function readGoal () {
-    try {
-      var raw = localStorage.getItem(GOAL_KEY)
-      if (!raw) return null
-      var g = JSON.parse(raw)
-      if (typeof g.target !== 'number' || g.target <= 0) return null
-      if (typeof g.deadline !== 'string') return null
-      return g
-    } catch { return null }
-  }
-  function writeGoal (g) { try { localStorage.setItem(GOAL_KEY, JSON.stringify(g)) } catch {} }
-  function clearGoal () { try { localStorage.removeItem(GOAL_KEY) } catch {} }
+  // ───── render: goal anchor (DB-backed) ───────────────────────────
+  // Goal is stored on company.goals.active via /api/company/goal.
+  // Jordan auto-generates from real snapshot data (POST /goal/generate).
+  // User can also set manually. Pacing computed server-side.
 
-  function renderGoal (root, d) {
+  var _goalCache = null    // { data, ts }
+  var GOAL_CACHE_TTL = 30000 // 30 s — avoids spinner on every dashboard re-render
+
+  function fetchGoal (cb) {
+    if (_goalCache && Date.now() - _goalCache.ts < GOAL_CACHE_TTL) {
+      cb(_goalCache.data)
+      return
+    }
+    fetch('/api/company/goal', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (data) { _goalCache = { data: data, ts: Date.now() }; cb(data) })
+      .catch(function () { cb(null) })
+  }
+
+  function _invalidateGoalCache () { _goalCache = null }
+
+  function renderGoal (root) {
     var panel = root.querySelector('#hq3-goal')
     var form = root.querySelector('#hq3-goal-form')
     if (!panel || !form) return
-    var goal = readGoal()
-    if (!goal) {
-      // Empty state — single line affordance
-      panel.innerHTML = '<span>No goal set yet.</span><button type="button" data-set-goal>Set a goal</button>'
+
+    // Only show spinner on cold load (no cache yet)
+    if (!_goalCache) {
+      panel.innerHTML = '<span style="color:var(--t3);font-size:12px"><span class="vx-spin" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:6px"></span></span>'
       panel.removeAttribute('hidden')
-      form.setAttribute('hidden', '')
-      panel.querySelector('[data-set-goal]').onclick = function () {
+    }
+    form.setAttribute('hidden', '')
+
+    fetchGoal(function (data) {
+      if (!data || !data.goal) {
+        // No goal — offer Jordan's auto-generate
+        panel.innerHTML = '<span style="color:var(--t3);font-size:12px">No goal set yet.</span>'
+          + '<button type="button" data-goal-action="generate" style="margin-left:10px">Let Jordan set one</button>'
+          + '<button type="button" data-goal-action="manual" style="margin-left:6px;color:var(--t3)">Set manually</button>'
+        panel.removeAttribute('hidden')
+        _wireGoalButtons(root, panel, form, null)
+        return
+      }
+
+      var goal = data.goal
+      var pacing = data.pacing
+      var label = goal.metricLabel || 'Followers'
+      var targetFmt = goal.type === 'engagement'
+        ? goal.target.toFixed(2) + '%'
+        : goal.target.toLocaleString()
+
+      var pct = 0
+      var daysLeft = 0
+      var onTrack = true
+      var goalReached = false
+      if (pacing) {
+        goalReached = pacing.progressPct >= 1
+        pct = goalReached ? 100 : Math.round(pacing.progressPct * 100)
+        daysLeft = pacing.daysLeft || 0
+        onTrack = pacing.onTrack !== false
+      }
+
+      var barColor = goalReached ? 'var(--ok)' : (onTrack ? 'var(--ok)' : 'var(--accent)')
+      var barFill = Math.min(pct, 100)
+      // min 2px visual so the fill dot is always visible even at 0%
+      var barFillStyle = barFill === 0
+        ? 'height:100%;width:2px;background:' + barColor + ';border-radius:100px'
+        : 'height:100%;width:' + barFill + '%;background:' + barColor + ';border-radius:100px;transition:width .4s ease'
+      var barHtml = pacing
+        ? '<div style="margin:8px 0 4px;background:var(--hair-strong);border-radius:100px;height:5px;overflow:visible">'
+            + '<div style="' + barFillStyle + '"></div>'
+          + '</div>'
+          + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3)">'
+            + '<span style="color:' + barColor + '">' + (goalReached ? '✓ Goal reached' : (onTrack ? '▲' : '▼') + ' ' + pct + '% there') + '</span>'
+            + (daysLeft > 0 && !goalReached ? '<span>' + daysLeft + 'd left</span>' : '')
+          + '</div>'
+        : ''
+
+      var sourceTag = goal.source === 'jordan'
+        ? '<span style="font-size:10px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-left:6px">Jordan</span>'
+        : ''
+
+      panel.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px">'
+        + '<span style="font-size:12px;font-weight:500;color:var(--t1)">' + label + ' → ' + targetFmt + '</span>'
+        + sourceTag
+        + '</div>'
+        + barHtml
+        + '<div style="font-size:11px;color:var(--t3);margin-top:4px">' + escHtml(goal.rationale.replace(/\bin \d+ days?\b/gi, 'in ' + daysLeft + (daysLeft === 1 ? ' day' : ' days'))) + '</div>'
+      panel.removeAttribute('hidden')
+      _wireGoalButtons(root, panel, form, goal)
+    })
+  }
+
+  function _wireGoalButtons (root, panel, form, goal) {
+    panel.addEventListener('click', function handler (e) {
+      var btn = e.target.closest('[data-goal-action]')
+      if (!btn) return
+      var action = btn.dataset.goalAction
+
+      if (action === 'generate' || action === 'different') {
+        btn.disabled = true
+        btn.textContent = '⏳ Jordan is thinking…'
+        var url = '/api/company/goal/generate' + (action === 'different' ? '?different=1' : '')
+        fetch(url, { method: 'POST', credentials: 'include' })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status) })
+          .then(function () { _invalidateGoalCache(); panel.removeEventListener('click', handler); renderGoal(root) })
+          .catch(function () { btn.disabled = false; btn.textContent = action === 'different' ? 'Different goal' : 'Let Jordan set one' })
+        return
+      }
+
+      if (action === 'manual') {
         panel.setAttribute('hidden', '')
         form.removeAttribute('hidden')
         var t = form.querySelector('input[name="target"]')
         if (t) t.focus()
+        return
       }
-      return
-    }
-    // Goal exists — compute progress
-    var current = d && d.followers != null ? d.followers : 0
-    var pace = d && d.pacePerDay != null ? d.pacePerDay : 0
-    var remaining = goal.target - current
-    var deadlineMs = Date.parse(goal.deadline + 'T23:59:59')
-    var daysToDeadline = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 86400000))
-    var paceRequired = daysToDeadline > 0 ? Math.ceil(remaining / daysToDeadline) : null
-    var paceLabel
-    var status
-    if (remaining <= 0) {
-      status = 'reached'
-      paceLabel = '<span class="progress">Goal reached.</span>'
-    } else if (pace > 0) {
-      var daysAtPace = Math.ceil(remaining / pace)
-      var arrival = new Date(Date.now() + daysAtPace * 86400000)
-      var arrivalStr = arrival.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      var ahead = paceRequired != null && pace >= paceRequired
-      status = ahead ? 'ahead' : 'behind'
-      paceLabel = '<span class="progress">' + daysAtPace + ' days from your goal of ' + goal.target.toLocaleString() + '</span>'
-    } else {
-      status = 'stalled'
-      paceLabel = '<span class="progress">Pace is flat — goal needs movement.</span>'
-    }
-    var deadlineFmt = new Date(deadlineMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    var meta = (paceRequired != null && status !== 'reached'
-      ? 'Need +' + paceRequired + '/day to hit ' + deadlineFmt
-      : 'Deadline ' + deadlineFmt)
-    panel.innerHTML = paceLabel
-      + '<span class="meta">' + meta + '</span>'
-      + '<button type="button" data-edit-goal>Edit</button>'
-    panel.removeAttribute('hidden')
-    form.setAttribute('hidden', '')
-    panel.querySelector('[data-edit-goal]').onclick = function () {
-      var t = form.querySelector('input[name="target"]')
-      var dd = form.querySelector('input[name="deadline"]')
-      if (t) t.value = goal.target
-      if (dd) dd.value = goal.deadline
-      panel.setAttribute('hidden', '')
-      form.removeAttribute('hidden')
-      if (t) t.focus()
-    }
+
+      if (action === 'clear') {
+        fetch('/api/company/goal', { method: 'DELETE', credentials: 'include' })
+          .then(function () { _invalidateGoalCache(); panel.removeEventListener('click', handler); renderGoal(root) })
+        return
+      }
+    }, { once: false })
   }
 
   function wireGoalForm (root) {
     var form = root.querySelector('#hq3-goal-form')
-    if (!form) return
+    if (!form || form._goalWired) return
+    form._goalWired = true
     form.onsubmit = function (e) {
       e.preventDefault()
       var t = form.querySelector('input[name="target"]')
       var dd = form.querySelector('input[name="deadline"]')
-      var target = parseInt(t && t.value, 10)
+      var target = parseFloat(t && t.value)
       var deadline = dd && dd.value
       if (!target || !deadline) return
-      writeGoal({ target: target, deadline: deadline })
-      render()
+      var submit = form.querySelector('button[type="submit"]')
+      if (submit) { submit.disabled = true; submit.textContent = '⏳ Saving…' }
+      fetch('/api/company/goal', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: target, byDate: deadline }),
+      })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status) })
+        .then(function () {
+          _invalidateGoalCache()
+          form.setAttribute('hidden', '')
+          renderGoal(root)
+        })
+        .catch(function () {
+          if (submit) { submit.disabled = false; submit.textContent = 'Save' }
+        })
     }
     var cancel = form.querySelector('[data-cancel]')
-    if (cancel) cancel.onclick = function () { render() }
+    if (cancel) cancel.onclick = function () {
+      form.setAttribute('hidden', '')
+      renderGoal(root)
+    }
   }
 
   // ───── wire: platform toggle (All / connected platforms) ─────────
@@ -912,6 +1057,7 @@
         var newPlatform = btn.dataset.platform || 'all'
         if (newPlatform === currentPlatform) return
         currentPlatform = newPlatform
+        try { localStorage.setItem('hq3-platform', newPlatform) } catch {}
         toggle.querySelectorAll('button').forEach(function (b) { b.classList.remove('on') })
         btn.classList.add('on')
         var cap = root.querySelector('#hq3-platform-cap')
@@ -1083,15 +1229,14 @@
         extract: function (r) {
           var o = r && r.output
           if (!o) return null
-          // Riley's output is a shot list + production notes. Combine the
-          // mood + shot count for a one-liner that conveys what's queued.
-          var mood = o.musicMood || o.mood
-          var shotCount = Array.isArray(o.shots) ? o.shots.length : null
-          if (mood && shotCount) return mood.charAt(0).toUpperCase() + mood.slice(1) + ' \u00b7 ' + shotCount + ' shots'
-          if (mood) return mood.charAt(0).toUpperCase() + mood.slice(1) + ' brief ready'
-          if (shotCount) return shotCount + ' shots staged'
-          if (o.rileyNote) return o.rileyNote.slice(0, 70) + (o.rileyNote.length > 70 ? '\u2026' : '')
-          return null
+          if (o.kind === 'reel_shot_list' || Array.isArray(o.shots)) {
+            var sc = Array.isArray(o.shots) ? o.shots.length : null
+            return (o.reelTitle ? o.reelTitle.slice(0, 50) : 'Shot list') + (sc ? ' \u00b7 ' + sc + ' shots' : '')
+          }
+          if (o.kind === 'pacing_notes') return o.headline || 'Pacing audit ready'
+          if (o.kind === 'visual_direction') return o.headline || 'Visual direction ready'
+          if (o.kind === 'thumbnail_brief') return o.headline || 'Thumbnail brief staged'
+          return o.rileyNote ? o.rileyNote.slice(0, 70) + (o.rileyNote.length > 70 ? '\u2026' : '') : null
         },
       },
     ]
@@ -1099,19 +1244,376 @@
     FETCHES.forEach(function (f) {
       get(f.url).then(function (r) {
         if (!r) return
-        var summary = null
-        try { summary = f.extract(r) } catch { return }
-        if (!summary) return
         var node = root.querySelector('[data-node="' + f.role + '"]')
         if (!node) return
-        var taskEl = node.querySelector('.hq3-node-task')
-        if (!taskEl) return
-        // Use textContent (not innerHTML) — the brief output is
-        // user-derived data and may contain HTML-unsafe chars.
-        taskEl.textContent = summary
+        // Cache the full payload + role config so the drawer can render
+        // the full brief on click. Keyed on role; one fetch per role per
+        // render cycle so we don't need staleness logic here.
+        PIPELINE_DRAWER_CACHE[f.role] = { payload: r, role: f.role }
+        if (r.taskId) node.setAttribute('data-task-id', r.taskId)
+        if (r.status) node.setAttribute('data-task-status', r.status)
+        node.classList.add('has-task')
+        var summary = null
+        try { summary = f.extract(r) } catch { return }
+        if (summary) {
+          var taskEl = node.querySelector('.hq3-node-task')
+          // textContent: brief output is user-derived data
+          if (taskEl) taskEl.textContent = summary
+        }
       })
     })
+
+    // ── Riley queue chips — needs approval + ready to post counts ──
+    fetch('/api/studio/counts?companyId=' + encodeURIComponent(companyId), { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (data) {
+        if (!data) return
+        var queueEl = root.querySelector('#hq3-riley-queue')
+        if (!queueEl) return
+        var chips = []
+        if (data.needsApproval > 0) {
+          chips.push('<button class="hq3-riley-chip needs" data-navigate="db-studio">'
+            + '<span class="dot"></span>'
+            + data.needsApproval + ' need' + (data.needsApproval === 1 ? 's' : '') + ' approval'
+            + '</button>')
+        }
+        if (data.readyToPost > 0) {
+          chips.push('<button class="hq3-riley-chip ready" data-navigate="db-studio">'
+            + '<span class="dot"></span>'
+            + data.readyToPost + ' ready to post'
+            + '</button>')
+        }
+        if (chips.length > 0) {
+          queueEl.innerHTML = chips.join('')
+          queueEl.removeAttribute('hidden')
+          queueEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-navigate]')
+            if (btn) window.navigate(btn.dataset.navigate)
+          })
+        }
+      })
+      .catch(function () {})
   }
+
+  // ───── pipeline node drawer (Approve / Reject / Reconsider) ──────
+  // Cache populated by enhancePipelineNodes() above. The drawer renders
+  // off this cache so a click is instantaneous — no second fetch.
+  var PIPELINE_DRAWER_CACHE = {}
+  var ROLE_META = {
+    maya:   { name: 'Maya',   role: 'Trend & Insights Analyst', letter: 'M' },
+    jordan: { name: 'Jordan', role: 'Content Strategist',       letter: 'J' },
+    alex:   { name: 'Alex',   role: 'Copywriter & Script Writer', letter: 'A' },
+    riley:  { name: 'Riley',  role: 'Creative Director',        letter: 'R' },
+  }
+
+  function ensurePipelineDrawer () {
+    var existing = document.getElementById('hq3-node-drawer')
+    if (existing) return existing
+    var d = document.createElement('div')
+    d.id = 'hq3-node-drawer'
+    d.className = 'hq3-drawer'
+    d.setAttribute('aria-hidden', 'true')
+    d.innerHTML = ''
+      + '<div class="hq3-drawer-scrim" data-drawer-close></div>'
+      + '<aside class="hq3-drawer-panel" role="dialog" aria-labelledby="hq3-drawer-name">'
+      +   '<header class="hq3-drawer-head">'
+      +     '<div class="hq3-drawer-port"><span class="ltr"></span></div>'
+      +     '<div class="hq3-drawer-id"><div class="hq3-drawer-name" id="hq3-drawer-name"></div><div class="hq3-drawer-role"></div></div>'
+      +     '<button class="hq3-drawer-close" data-drawer-close aria-label="Close">×</button>'
+      +   '</header>'
+      +   '<div class="hq3-drawer-status"></div>'
+      +   '<div class="hq3-drawer-title"></div>'
+      +   '<div class="hq3-drawer-body"></div>'
+      +   '<footer class="hq3-drawer-actions">'
+      +     '<button class="hq3-drawer-btn hq3-drawer-btn--primary" data-drawer-action="approve">Approve</button>'
+      +     '<button class="hq3-drawer-btn" data-drawer-action="reconsider">Reconsider</button>'
+      +     '<button class="hq3-drawer-btn hq3-drawer-btn--danger" data-drawer-action="reject">Reject</button>'
+      +   '</footer>'
+      +   '<div class="hq3-drawer-msg" data-drawer-msg></div>'
+      + '</aside>'
+    document.body.appendChild(d)
+
+    d.addEventListener('click', function (e) {
+      if (e.target.closest('[data-drawer-close]')) {
+        closePipelineDrawer()
+        return
+      }
+      var btn = e.target.closest('[data-drawer-action]')
+      if (btn) handleDrawerAction(btn)
+    })
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && d.classList.contains('is-open')) closePipelineDrawer()
+    })
+    return d
+  }
+
+  function closePipelineDrawer () {
+    var d = document.getElementById('hq3-node-drawer')
+    if (!d) return
+    d.classList.remove('is-open')
+    d.setAttribute('aria-hidden', 'true')
+  }
+
+  function renderDrawerBody (role, payload) {
+    var o = payload && payload.output
+    if (!o) return '<p class="hq3-drawer-empty">This brief hasn’t produced output yet. Once the agent ships, you’ll see the details here.</p>'
+    var rows = []
+    function row (k, v) {
+      if (!v) return
+      rows.push('<div class="hq3-drawer-row"><div class="hq3-drawer-k">' + escHtml(k) + '</div><div class="hq3-drawer-v">' + v + '</div></div>')
+    }
+    if (role === 'maya') {
+      row('One thing to do', o.oneThingToDo ? escHtml(o.oneThingToDo) : null)
+      row('Trajectory', o.trajectory && o.trajectory.summary ? escHtml(o.trajectory.summary) : null)
+      if (Array.isArray(o.signals) && o.signals.length) {
+        row('Signals', o.signals.slice(0, 4).map(function (s) { return '<span class="hq3-drawer-pill">' + escHtml(typeof s === 'string' ? s : (s.label || s.title || '')) + '</span>' }).join(''))
+      }
+    } else if (role === 'jordan') {
+      var plan = o.content_plan || o
+      row('Weekly goal', plan.weeklyGoal || plan.weekly_goal ? escHtml(plan.weeklyGoal || plan.weekly_goal) : null)
+      if (Array.isArray(plan.formats) && plan.formats.length) {
+        row('Formats', plan.formats.slice(0, 4).map(function (fmt) { return '<span class="hq3-drawer-pill">' + escHtml(fmt.name || fmt) + '</span>' }).join(''))
+      }
+      if (plan.cadence && plan.cadence.feed_posts) row('Cadence', escHtml(plan.cadence.feed_posts + ' posts/wk'))
+    } else if (role === 'alex') {
+      var hooks = o.hooks || o.weeklyHooks || o.weekly_hooks
+      if (Array.isArray(hooks) && hooks.length) {
+        row('Hooks (' + hooks.length + ')', hooks.slice(0, 5).map(function (h) {
+          var copy = (h && (h.copy || h.text || h.hook)) || ''
+          return '<div class="hq3-drawer-line">' + escHtml(copy) + '</div>'
+        }).join(''))
+      }
+    } else if (role === 'riley') {
+      if (o.kind === 'reel_shot_list' || (Array.isArray(o.shots) && !o.proposedFix)) {
+        // ── Shot list ───────────────────────────────────────────────
+        var desc = 'Shot list'
+          + (o.reelTitle ? ' for <em>' + escHtml(o.reelTitle) + '</em>' : '')
+          + (o.duration ? ' · ' + escHtml(o.duration) : '')
+          + (o.framework ? '. <em>' + escHtml(o.framework) + '</em>.' : '.')
+        rows.push('<p class="hq3-drawer-desc">' + desc + '</p>')
+        if (Array.isArray(o.shots) && o.shots.length) {
+          var shotLines = o.shots.map(function (s) {
+            return '<div class="hq3-drawer-shot">'
+              + '<span class="hq3-drawer-shot-at">' + escHtml(s.at || '') + '</span>'
+              + '<span class="hq3-drawer-shot-desc">' + escHtml(s.shot || '') + '</span>'
+              + (s.note ? '<span class="hq3-drawer-shot-note">' + escHtml(s.note) + '</span>' : '')
+              + '</div>'
+          }).join('')
+          row('Shots', shotLines)
+        }
+        if (o.soundNote) row('Sound', escHtml(o.soundNote))
+        if (o.editorNote) row('Editor note', escHtml(o.editorNote))
+
+      } else if (o.kind === 'pacing_notes') {
+        // ── Pacing notes ─────────────────────────────────────────────
+        var seeingSection = Array.isArray(o.sections) && o.sections.find(function (s) { return /seeing/i.test(s.heading || '') })
+        var seeingBody = seeingSection && seeingSection.body
+        if (seeingBody) rows.push('<p class="hq3-drawer-desc">' + escHtml(seeingBody) + '</p>')
+        var holdSection = Array.isArray(o.sections) && o.sections.find(function (s) { return /hold|target/i.test(s.heading || '') })
+        if (holdSection && Array.isArray(holdSection.items)) {
+          row('Target holds', holdSection.items.map(function (it) {
+            return '<div class="hq3-drawer-line">' + escHtml(it) + '</div>'
+          }).join(''))
+        }
+        if (o.oneFixThisWeek) row('This week', escHtml(o.oneFixThisWeek))
+
+      } else if (o.kind === 'visual_direction') {
+        // ── Visual direction ─────────────────────────────────────────
+        rows.push('<p class="hq3-drawer-desc">' + escHtml(o.headline || 'Visual direction') + '</p>')
+        if (Array.isArray(o.sections)) {
+          o.sections.forEach(function (s) {
+            var content = ''
+            if (Array.isArray(s.items) && s.items.length) {
+              content = s.items.map(function (it) { return '<div class="hq3-drawer-line">' + escHtml(it) + '</div>' }).join('')
+            } else if (s.body) {
+              content = escHtml(s.body)
+            }
+            if (content) row(s.heading || '', content)
+          })
+        }
+        if (o.testShot) row('Test shot', escHtml(o.testShot))
+
+      } else if (o.kind === 'thumbnail_brief') {
+        // ── Thumbnail brief ───────────────────────────────────────────
+        rows.push('<p class="hq3-drawer-desc">' + escHtml(o.headline || 'Thumbnail brief') + '</p>')
+        if (o.spec) {
+          if (o.spec.typeTreatment) row('Type', escHtml(o.spec.typeTreatment))
+          if (o.spec.color) row('Colour', escHtml(o.spec.color))
+          if (o.spec.focalSubject) row('Subject', escHtml(o.spec.focalSubject))
+          if (o.spec.negativeSpace) row('Negative space', escHtml(o.spec.negativeSpace))
+          if (o.spec.compositionRule) row('Composition', escHtml(o.spec.compositionRule))
+        }
+        if (o.dontDo) row("Don't", escHtml(o.dontDo))
+        if (o.testAgainst) row('Test against', escHtml(o.testAgainst))
+
+      } else if (o.kind === 'fix_weak_reel') {
+        // ── Fix weak reel ─────────────────────────────────────────────
+        rows.push('<p class="hq3-drawer-desc">' + escHtml(o.headline || 'Fix weak reel') + '</p>')
+        if (o.diagnosis && o.diagnosis.body) row('What went wrong', escHtml(o.diagnosis.body))
+        if (o.proposedFix && Array.isArray(o.proposedFix.shots)) {
+          var fixLines = o.proposedFix.shots.map(function (s) {
+            return '<div class="hq3-drawer-shot">'
+              + '<span class="hq3-drawer-shot-at">' + escHtml(s.at || '') + '</span>'
+              + '<span class="hq3-drawer-shot-desc">' + escHtml(s.shot || '') + '</span>'
+              + (s.note ? '<span class="hq3-drawer-shot-note">' + escHtml(s.note) + '</span>' : '')
+              + '</div>'
+          }).join('')
+          row('New open', fixLines)
+        }
+        if (o.whyItWorks) row('Why it works', escHtml(o.whyItWorks))
+        if (o.reshoot) row('Reshoot', escHtml(o.reshoot))
+
+      } else {
+        // fallback for older/generic outputs
+        if (o.musicMood || o.mood) row('Mood', escHtml(o.musicMood || o.mood))
+        if (Array.isArray(o.shots)) row('Shots', escHtml(o.shots.length + ' staged'))
+      }
+    }
+    if (!rows.length) return '<p class="hq3-drawer-empty">Brief is in flight. Detail will appear once the agent finalizes.</p>'
+    return rows.join('')
+  }
+
+  function openPipelineDrawer (role) {
+    var meta = ROLE_META[role]
+    if (!meta) return
+    var entry = PIPELINE_DRAWER_CACHE[role]
+    var d = ensurePipelineDrawer()
+    var payload = entry && entry.payload
+    var taskId = payload && payload.taskId
+    var status = payload && payload.status
+    d.setAttribute('data-role', role)
+    d.setAttribute('data-task-id', taskId || '')
+    d.querySelector('.hq3-drawer-port .ltr').textContent = meta.letter
+    d.querySelector('.hq3-drawer-name').textContent = meta.name
+    d.querySelector('.hq3-drawer-role').textContent = meta.role
+    var statusEl = d.querySelector('.hq3-drawer-status')
+    statusEl.textContent = status ? ('Status · ' + status) : 'No active brief'
+    var title = (payload && payload.output && (payload.output.title || payload.output.briefTitle)) || (entry ? meta.name + '’s latest brief' : meta.name + ' has nothing in flight')
+    d.querySelector('.hq3-drawer-title').textContent = title
+    d.querySelector('.hq3-drawer-body').innerHTML = renderDrawerBody(role, payload)
+    var actionable = !!taskId && status !== 'approved' && status !== 'rejected'
+    d.querySelectorAll('[data-drawer-action]').forEach(function (b) {
+      b.disabled = !actionable
+      b.classList.toggle('is-disabled', !actionable)
+    })
+    d.querySelector('[data-drawer-msg]').textContent = ''
+    d.classList.add('is-open')
+    d.setAttribute('aria-hidden', 'false')
+  }
+
+  async function handleDrawerAction (btn) {
+    var d = document.getElementById('hq3-node-drawer')
+    if (!d) return
+    var taskId = d.getAttribute('data-task-id')
+    var role = d.getAttribute('data-role')
+    var action = btn.getAttribute('data-drawer-action')
+    if (!taskId) return
+    var feedback
+    if (action === 'reject' || action === 'reconsider') {
+      var promptMsg = action === 'reject'
+        ? 'Why is this off? (optional — the agent uses this to revise)'
+        : 'What angle should the agent rethink? (optional)'
+      feedback = window.prompt(promptMsg, '')
+      if (feedback === null) return
+    }
+    var msgEl = d.querySelector('[data-drawer-msg]')
+    var btns = d.querySelectorAll('[data-drawer-action]')
+    btns.forEach(function (b) { b.disabled = true })
+    msgEl.textContent = 'Sending…'
+    msgEl.classList.remove('is-error')
+    try {
+      var res = await fetch('/api/tasks/' + encodeURIComponent(taskId) + '/action', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, ...(feedback ? { feedback: feedback } : {}) }),
+      })
+      if (!res.ok) throw new Error('http ' + res.status)
+      var data = await res.json().catch(function () { return {} })
+      var verb = action === 'approve' ? 'Approved' : action === 'reject' ? 'Rejected' : 'Sent for reconsideration'
+      var chain = data && data.chain
+      if (action === 'approve' && chain && chain.ok && chain.nextEmployeeName) {
+        msgEl.textContent = verb + ' · ' + chain.nextEmployeeName + ' picked up the next step.'
+      } else {
+        msgEl.textContent = verb + '.'
+      }
+      // Mirror status onto the source node so the dashboard reflects it
+      // without a full reload.
+      var node = document.querySelector('#hq3-pipe .hq3-node[data-node="' + role + '"]')
+      if (node) node.setAttribute('data-task-status', action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'revision')
+      setTimeout(closePipelineDrawer, 1400)
+    } catch (e) {
+      msgEl.textContent = 'Couldn’t reach the API. Try again.'
+      msgEl.classList.add('is-error')
+      btns.forEach(function (b) { b.disabled = false })
+    }
+  }
+
+  // Expose for the body.html click handler
+  window.openHQPipelineDrawer = openPipelineDrawer
+
+  // ───── Bell / deep-link — expand HQ pipeline & open drawer for a task ─
+  function expandHqPipelineSection () {
+    var sect = document.getElementById('hq3-pipeline-sect')
+    var btn = document.getElementById('hq3-pipeline-toggle')
+    if (!sect) return
+    if (!sect.classList.contains('collapsed')) return
+    sect.classList.remove('collapsed')
+    if (btn) {
+      btn.textContent = 'Hide pipeline'
+      btn.setAttribute('aria-expanded', 'true')
+    }
+    try {
+      localStorage.setItem('hq3.pipelineCollapsed', '0')
+    } catch (_) { /* noop */ }
+  }
+
+  function scrollHqPipelineIntoView () {
+    var sect = document.getElementById('hq3-pipeline-sect')
+    if (sect) sect.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function pollOpenDrawerForTaskId (taskId, attempt) {
+    if (!taskId) return
+    var max = 28
+    var i = attempt || 0
+    var nodes = document.querySelectorAll('#hq3-pipe .hq3-node[data-task-id]')
+    var found = null
+    for (var j = 0; j < nodes.length; j++) {
+      if (nodes[j].getAttribute('data-task-id') === taskId) {
+        found = nodes[j]
+        break
+      }
+    }
+    if (found) {
+      var role = found.getAttribute('data-node')
+      document.querySelectorAll('#hq3-pipe .hq3-node').forEach(function (x) {
+        x.classList.remove('active')
+      })
+      found.classList.add('active')
+      if (typeof window.openHQPipelineDrawer === 'function' && role) {
+        window.openHQPipelineDrawer(role)
+      }
+      return
+    }
+    if (i < max) {
+      setTimeout(function () {
+        pollOpenDrawerForTaskId(taskId, i + 1)
+      }, 200)
+    }
+  }
+
+  window.addEventListener('vx-hq3-focus-pipeline', function (ev) {
+    var detail = (ev && ev.detail) || {}
+    expandHqPipelineSection()
+    try {
+      window.dispatchEvent(new CustomEvent('vx-dash-ready'))
+    } catch (_) { /* noop */ }
+    scrollHqPipelineIntoView()
+    setTimeout(function () {
+      pollOpenDrawerForTaskId(detail.taskId, 0)
+    }, 140)
+  })
 
   // ═══════════════════════════════════════════════════════════════════
   // PHASE 2 RENDERERS — fed by /api/platform/timeseries (snapshots, posts,
@@ -1607,6 +2109,56 @@
     }
   }
 
+  // ───── trend tile hover — crosshair + tooltip (same spirit as fc-chart) ─
+  function _formatTrendHoverDate (ds) {
+    if (!ds) return ''
+    var iso = /^(\d{4}-\d{2}-\d{2})/.exec(String(ds))
+    var d = iso ? new Date(iso[1] + 'T12:00:00') : new Date(ds)
+    return isNaN(d.getTime()) ? String(ds) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  function wireTrendChartHover (canvas, series, pts, opts) {
+    if (!canvas || !series || series.length < 2 || !pts || pts.length < 2) return
+    var w = opts.w
+    var h = opts.h
+    var n = series.length
+    var formatVal = opts.format || function (v) { return Math.round(v).toLocaleString() }
+    var crossSvg = canvas.querySelector('.hq3-trend-cross')
+    var crossLine = crossSvg && crossSvg.querySelector('.vline')
+    var crossDot = crossSvg && crossSvg.querySelector('.dot')
+    var tooltip = canvas.querySelector('.hq3-trend-tooltip')
+    var ttVal = tooltip && tooltip.querySelector('.hq3-trend-tt-val')
+    var ttDate = tooltip && tooltip.querySelector('.hq3-trend-tt-date')
+
+    canvas.addEventListener('mousemove', function (e) {
+      var rect = canvas.getBoundingClientRect()
+      if (!(rect.width > 0)) return
+      var mx = e.clientX - rect.left
+      var my = e.clientY - rect.top
+      var xFrac = Math.max(0, Math.min(1, mx / rect.width))
+      var svgX = xFrac * w
+      var idx = Math.round(xFrac * (n - 1))
+      idx = Math.max(0, Math.min(n - 1, idx))
+      var row = series[idx]
+      var dotY = pts[idx] ? pts[idx][1] : h * 0.5
+
+      if (crossLine) {
+        crossLine.setAttribute('x1', svgX.toFixed(1))
+        crossLine.setAttribute('x2', svgX.toFixed(1))
+      }
+      if (crossDot) {
+        crossDot.setAttribute('cx', svgX.toFixed(1))
+        crossDot.setAttribute('cy', dotY.toFixed(1))
+      }
+      if (tooltip) {
+        tooltip.style.left = mx + 'px'
+        tooltip.style.top = my + 'px'
+      }
+      if (ttVal && row) ttVal.textContent = formatVal(row.v)
+      if (ttDate && row && row.d != null) ttDate.textContent = _formatTrendHoverDate(row.d)
+    })
+  }
+
   // ───── shared SVG line-chart helper for trend tiles ──────────────
   // Renders a compact line chart with a top summary (current value + delta
   // vs first value). Used by reach trend + engagement velocity. Returns
@@ -1640,16 +2192,27 @@
     var deltaText = first > 0 && Math.abs(deltaPct) >= 0.5
       ? arrow + Math.abs(deltaPct).toFixed(0) + '% over ' + values.length + ' days'
       : 'steady over ' + values.length + ' days'
+    var startCx = pts[0][0].toFixed(1)
     containerEl.innerHTML = ''
       + '<div class="hq3-trend-summary">'
         + '<div class="v"><em>' + escHtml(formatVal(last)) + '</em></div>'
         + '<div class="d ' + summaryClass + '">' + deltaText + '</div>'
       + '</div>'
-      + '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="height:96px">'
-        + '<path d="' + fill + '" fill="var(--accent)" opacity=".08"/>'
-        + '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="1.8"/>'
-        + '<circle cx="' + lastPt[0].toFixed(1) + '" cy="' + lastPt[1].toFixed(1) + '" r="3" fill="var(--accent)"/>'
-      + '</svg>'
+      + '<div class="hq3-trend-canvas">'
+        + '<svg class="hq3-trend-lines" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
+          + '<path d="' + fill + '" fill="var(--accent)" opacity=".08"/>'
+          + '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>'
+          + '<circle cx="' + lastPt[0].toFixed(1) + '" cy="' + lastPt[1].toFixed(1) + '" r="3" fill="var(--accent)"/>'
+        + '</svg>'
+        + '<svg class="hq3-trend-cross" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">'
+          + '<line class="vline" x1="' + startCx + '" y1="0" x2="' + startCx + '" y2="' + h + '"/>'
+          + '<circle class="dot" cx="' + lastPt[0].toFixed(1) + '" cy="' + lastPt[1].toFixed(1) + '" r="3.5"/>'
+        + '</svg>'
+        + '<div class="hq3-trend-tooltip"><strong class="hq3-trend-tt-val"></strong><span class="hq3-trend-tt-date"></span></div>'
+      + '</div>'
+    wireTrendChartHover(containerEl.querySelector('.hq3-trend-canvas'), series, pts, {
+      w: w, h: h, pad: pad, format: formatVal,
+    })
     return { first: first, last: last, delta: delta, deltaPct: deltaPct, n: values.length }
   }
 
@@ -1984,7 +2547,7 @@
     if (!bodyEl) return
     if (openBtn) {
       openBtn.onclick = function () {
-        if (typeof window.navigateTo === 'function') window.navigateTo('db-team')
+        if (typeof window.navigate === 'function') window.navigate('db-team')
       }
     }
 
@@ -2226,7 +2789,7 @@
     try { renderMiniStats(root, d) } catch (e) { console.error('[hq-v3] mini stats', e) }
     try { renderForecastChart(root, d) } catch (e) { console.error('[hq-v3] forecast chart', e) }
     try { renderForecastLegend(root, d) } catch (e) { console.error('[hq-v3] forecast legend', e) }
-    try { renderGoal(root, d) } catch (e) { console.error('[hq-v3] goal', e) }
+    try { renderGoal(root) } catch (e) { console.error('[hq-v3] goal', e) }
     try { wireGoalForm(root) } catch (e) { console.error('[hq-v3] goal form', e) }
     try { renderPipelineNodes(root, d) } catch (e) { console.error('[hq-v3] pipeline nodes', e) }
     try { enhancePipelineNodes(root, state) } catch (e) { console.error('[hq-v3] pipeline enhancer', e) }
