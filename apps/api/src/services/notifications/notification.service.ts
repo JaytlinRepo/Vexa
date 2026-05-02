@@ -27,7 +27,6 @@ export type NotificationType =
   | 'trend_report_ready'    // Maya's Monday report is in
   | 'plan_ready'            // Jordan's weekly plan delivered
   | 'video_ready'           // Creatomate render completed
-  | 'trial_ending'          // trial ends in 3 days
   | 'payment_failed'        // Stripe payment failed
   | 'team_update'           // system message from the team
 
@@ -257,21 +256,6 @@ export async function notifyMeetingSummary(params: {
     actionUrl: `/dashboard/tasks`,
     actionLabel: 'View tasks',
     metadata: { meetingId: params.meetingId },
-  })
-}
-
-export async function notifyTrialEnding(params: {
-  userId: string
-  daysLeft: number
-}): Promise<void> {
-  await createNotification({
-    userId: params.userId,
-    type: 'trial_ending',
-    emoji: '⏳',
-    title: `${params.daysLeft} day${params.daysLeft > 1 ? 's' : ''} left in your trial`,
-    body: 'Subscribe to keep your team running and your memory intact.',
-    actionUrl: '/pricing',
-    actionLabel: 'Subscribe',
   })
 }
 

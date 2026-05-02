@@ -1,6 +1,7 @@
-/* Sovexa — top bar scroll: HG-style floating “island” morph. Uses scroll position
+/* Sovexa — top bar scroll: HG-style floating "island" morph. Uses scroll position
  * over a long range (not a hard threshold) + rAF smoothing so the transition
- * feels continuous. Dashboard views skip the morph. Scroll: `.view` or `main`.
+ * feels continuous. All views scroll freely — island forms as you scroll down.
+ * Scroll: `.view` or `main`.
  */
 ;(function () {
   var scrollEl = null
@@ -19,10 +20,6 @@
   /** Scroll distance over which island progress goes 0 → 1 (longer = gentler). */
   var ISLAND_RANGE = 260
 
-  function isDashboardView(view) {
-    return !!(view && view.id && view.id.indexOf('view-db') === 0)
-  }
-
   function syncIslandMaxWidth() {
     if (!topbar || !mainEl) return
     var mw = mainEl.clientWidth
@@ -34,7 +31,7 @@
 
   function computeTargetP() {
     if (!scrollEl) return 0
-    if (reduce || isDashboardView(activeView)) return 0
+    if (reduce) return 0
     var y = scrollEl.scrollTop
     return Math.max(0, Math.min(1, (y - ISLAND_START) / ISLAND_RANGE))
   }

@@ -16,6 +16,9 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# project-local scratch (Riley test renders, ad-hoc downloads, etc.)
+tmp/
+
 # env
 .env
 .env.local
@@ -29,6 +32,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+
+# Cursor/Claude local worktrees (nested repo — do not commit)
+.claude/worktrees/
 
 # editor
 .vscode/

@@ -544,23 +544,19 @@
   // ── Navigation wiring ──────────────────────────────────────────
   var origNavigate = window.navigate
   window.navigate = function (id) {
-    if (id === 'db-team') {
-      currentTab = 'team'
-      var r = typeof origNavigate === 'function' ? origNavigate('db-tasks') : undefined
-      setTimeout(injectWork, 60)
-      return r
-    }
+    // Always pass the original ID down the chain so all handlers see it
+    var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
     if (id === 'db-outputs') {
+      // Outputs is part of the unified Work page — show tasks view, switch to inbox tab
       currentTab = 'inbox'
-      var r2 = typeof origNavigate === 'function' ? origNavigate('db-tasks') : undefined
+      // Show the tasks view if not already visible
+      var tasksView = document.getElementById('view-db-tasks')
+      if (tasksView) tasksView.style.display = ''
       setTimeout(injectWork, 60)
-      return r2
-    }
-    var r3 = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-tasks') {
+    } else if (id === 'db-tasks') {
       setTimeout(injectWork, 60)
     }
-    return r3
+    return r
   }
 
   var prevEnter = window.enterDashboard
@@ -569,10 +565,17 @@
     setTimeout(injectWork, 100)
   }
 
+  var _retryInterval = null
   function retry() {
     var tasksView = document.getElementById('view-db-tasks')
     if (!tasksView) return
-    if (!tasksView.querySelector('#vx-work-tabs')) injectWork()
+    if (!tasksView.querySelector('#vx-work-tabs')) {
+      injectWork()
+    } else {
+      // Work is injected — no need to keep polling
+      clearInterval(_retryInterval)
+      _retryInterval = null
+    }
   }
 
   // Check URL for tab param (e.g. ?tab=content)
@@ -583,7 +586,5 @@
     }
   } catch {}
 
-  if (document.readyState !== 'loading') setTimeout(injectWork, 700)
-  document.addEventListener('DOMContentLoaded', function () { setTimeout(injectWork, 800) })
-  setInterval(retry, 1500)
+  _retryInterval = setInterval(retry, 1500)
 })()

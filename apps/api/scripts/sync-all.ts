@@ -1,5 +1,5 @@
 /**
- * Manually trigger the same sync the scheduled cron runs.
+ * Manually trigger platform syncs (Instagram + TikTok).
  *
  * Usage:
  *   npm run sync:all --workspace @vexa/api
@@ -7,19 +7,37 @@
 
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
-import { syncAllConnectedAccounts } from '../src/lib/phylloSync'
+import { syncInstagramAccount } from '../src/lib/instagramSync'
+import { syncTiktokAccount } from '../src/lib/tiktokRefreshSync'
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log('[sync-all] starting…')
-  const results = await syncAllConnectedAccounts(prisma)
-  console.log(`[sync-all] done — ${results.length} accounts`)
-  for (const r of results) {
-    const tag = r.error ? 'ERR  ' : r.sparse ? 'SPRS ' : r.skipped ? 'SKIP ' : 'OK   '
-    const detail = r.error || r.skipped || `${r.followers.toLocaleString()} followers`
-    console.log(`  ${tag} ${r.platform.padEnd(20)} @${(r.handle || '—').padEnd(20)} ${detail}`)
+
+  // Instagram
+  const igConns = await prisma.instagramConnection.findMany({ select: { companyId: true, handle: true } })
+  for (const { companyId, handle } of igConns) {
+    try {
+      const result = await syncInstagramAccount(prisma, companyId)
+      console.log(`  IG   @${handle.padEnd(20)} ${result.synced ? `OK (${result.newPosts} new posts)` : result.reason || 'skipped'}`)
+    } catch (e) {
+      console.log(`  IG   @${handle.padEnd(20)} ERR: ${(e as Error).message}`)
+    }
   }
+
+  // TikTok
+  const ttConns = await prisma.tiktokConnection.findMany({ select: { companyId: true, handle: true } })
+  for (const { companyId, handle } of ttConns) {
+    try {
+      await syncTiktokAccount(prisma, companyId)
+      console.log(`  TT   @${(handle || '—').padEnd(20)} OK`)
+    } catch (e) {
+      console.log(`  TT   @${(handle || '—').padEnd(20)} ERR: ${(e as Error).message}`)
+    }
+  }
+
+  console.log(`[sync-all] done — ${igConns.length} IG + ${ttConns.length} TT accounts`)
 }
 
 main()

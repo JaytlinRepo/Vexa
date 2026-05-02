@@ -2,7 +2,8 @@ import { Router } from 'express'
 import { EmployeeRole } from '@prisma/client'
 import prisma from '../lib/prisma'
 import { z } from 'zod'
-import { requireAuth, AuthedRequest } from '../middleware/auth'
+import { requireAuth, AuthedRequest, createSession, readSession } from '../middleware/auth'
+import { readPendingSignup, clearPendingSignup } from './auth'
 import { seedStarterTasks } from '../lib/seedStarterTasks'
 import { createNotification } from '../services/notifications/notification.service'
 
@@ -25,10 +26,40 @@ const companySchema = z.object({
   agentTools: z.record(z.any()).optional(),
 })
 
-router.post('/company', requireAuth, async (req, res, next) => {
+router.post('/company', async (req, res, next) => {
   try {
     const data = companySchema.parse(req.body)
-    const { userId } = (req as AuthedRequest).session
+
+    // Resolve userId: existing session (returning user adding a company) takes
+    // priority; otherwise consume the pending signup cookie set by /signup.
+    let userId: string
+    let newUser: { id: string; email: string; username: string | null; fullName: string | null } | null = null
+
+    const session = await readSession(req)
+
+    if (session) {
+      userId = session.userId
+    } else {
+      const pending = await readPendingSignup(req)
+      if (!pending) {
+        res.status(401).json({ error: 'unauthorized' })
+        return
+      }
+      // Create user + company atomically — no orphan row if this fails.
+      const created = await prisma.user.create({
+        data: {
+          email: pending.email,
+          username: pending.username,
+          passwordHash: pending.passwordHash,
+          fullName: pending.fullName ?? null,
+        },
+        select: { id: true, email: true, username: true, fullName: true },
+      })
+      newUser = created
+      userId = created.id
+      clearPendingSignup(res)
+      await createSession(res, { userId, email: created.email })
+    }
 
     const company = await prisma.company.create({
       data: {
@@ -49,7 +80,6 @@ router.post('/company', requireAuth, async (req, res, next) => {
 
     await seedStarterTasks(prisma, { companyId: company.id, niche: company.niche })
 
-    // Seed a welcome notification so the bell shows something on first login.
     try {
       await createNotification({
         userId,
@@ -63,13 +93,12 @@ router.post('/company', requireAuth, async (req, res, next) => {
       console.warn('[onboarding] welcome notification failed', e)
     }
 
-    // Send welcome email
     try {
       const { triggerWelcomeEmail } = await import('../lib/emailTriggers')
       triggerWelcomeEmail(userId)
     } catch {}
 
-    res.status(201).json({ company })
+    res.status(201).json({ company, ...(newUser ? { user: newUser } : {}) })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })

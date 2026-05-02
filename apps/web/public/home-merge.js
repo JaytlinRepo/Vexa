@@ -2,7 +2,7 @@
 // sections, rewrite the sidebar, and patch every inline navigate() call that
 // used to target those (now-removed) views.
 ;(function () {
-  var MERGED = ['team', 'how', 'outputs', 'knowledge']
+  var MERGED = ['team', 'how', 'outputs'] /* 'knowledge' shelved */
 
   function scrollToMerged(id) {
     var active = document.querySelector('.view.active')

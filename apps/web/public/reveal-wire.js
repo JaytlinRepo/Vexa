@@ -155,9 +155,29 @@
     update()
   }
 
+  // First paint: sections below the hero start as opacity:0 until IO fires.
+  // If the observer is late or the root margin is tight, the page looks empty.
+  function revealNearViewport() {
+    if (reduce) return
+    var vh = typeof window.innerHeight === 'number' ? window.innerHeight : 800
+    var slack = Math.round(vh * 0.4)
+    document.querySelectorAll('.vx-reveal:not(.is-in)').forEach(function (el) {
+      try {
+        var r = el.getBoundingClientRect()
+        if (r.top < vh + slack && r.bottom > -slack) {
+          reveal(el)
+          if (observer) observer.unobserve(el)
+        }
+      } catch (e) {}
+    })
+  }
+
   function boot() {
     run()
     initHeroParallax()
+    requestAnimationFrame(function () {
+      requestAnimationFrame(revealNearViewport)
+    })
   }
 
   if (document.readyState === 'loading') {

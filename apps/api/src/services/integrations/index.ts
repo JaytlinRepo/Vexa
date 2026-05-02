@@ -276,6 +276,6 @@ export const INTEGRATION_COST_SUMMARY = {
   youtube:      { cost: 0, limit: '10,000 units/day (100 searches)' },
   pexels:       { cost: 0, limit: '200 req/hour' },
   pixabay:      { cost: 0, limit: '100 req/min' },
-  creatomate:   { cost: 29, limit: '1,000 renders/mo on starter plan' },
+  creatomate:   { cost: 29, limit: '1,000 renders/mo on paid plans' },
   totalMonthly: 29,
 }

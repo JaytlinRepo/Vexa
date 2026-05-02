@@ -17,12 +17,14 @@ export interface IgMedia {
   timestamp: string
   like_count: number
   comments_count: number
+  video_duration?: number // seconds, VIDEO/REEL only
   insights: {
     reach: number
     impressions: number
     saved: number
     shares: number
     engagement: number
+    avgWatchTimeMs?: number
   }
 }
 
@@ -37,6 +39,21 @@ export interface IgAudienceBucket {
   share: number       // 0..1
 }
 
+export interface IgStoryItem {
+  id: string
+  media_type: 'IMAGE' | 'VIDEO'
+  media_url: string | null
+  timestamp: string
+  insights: {
+    impressions: number
+    reach: number
+    replies: number
+    tapsForward: number
+    tapsBack: number
+    exits: number
+  }
+}
+
 export interface IgStub {
   username: string
   igUserId: string
@@ -49,8 +66,13 @@ export interface IgStub {
   engagementRate: number
   avgReach: number
   avgImpressions: number
+  profileViews: number
+  websiteClicks: number
+  dailyProfileViews: Array<{ date: string; value: number }>
+  dailyWebsiteClicks: Array<{ date: string; value: number }>
   topPosts: IgMedia[]
   recentMedia: IgMedia[]
+  stories: IgStoryItem[]
   followerSeries: IgFollowerPoint[]
   audienceAge: IgAudienceBucket[]
   audienceGender: IgAudienceBucket[]
@@ -172,6 +194,10 @@ export function buildStub(handle: string): IgStub {
   const countryShares = normaliseShares(5, rand, [0.55, 0.14, 0.10, 0.07, 0.05])
   const audienceTopCountries = shuffled.map((c, i) => ({ bucket: c, share: countryShares[i]! }))
 
+  // Stub profile views / website clicks (realistic ranges)
+  const profileViews = Math.floor(followerCount * (0.03 + rand() * 0.12)) // 3-15% of followers over 28d
+  const websiteClicks = Math.floor(profileViews * (0.02 + rand() * 0.08)) // 2-10% of profile visitors click
+
   return {
     username: cleanHandle,
     igUserId: `stub_${seed}`,
@@ -189,8 +215,13 @@ export function buildStub(handle: string): IgStub {
     engagementRate,
     avgReach,
     avgImpressions,
+    profileViews,
+    websiteClicks,
+    dailyProfileViews: [],
+    dailyWebsiteClicks: [],
     topPosts,
     recentMedia,
+    stories: [],
     followerSeries,
     audienceAge,
     audienceGender,

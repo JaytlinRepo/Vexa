@@ -12,7 +12,7 @@ import { AgentRole } from '../lib/nicheKnowledge'
 import { triggerNextAgentAfterApproval, type AgentPipelineChainResult } from '../agents/task-orchestrator'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { PLAN_LIMITS } from '../lib/plans'
-import { getBedrockUsage } from '../lib/bedrockUsage'
+import { getBedrockUsage, getCooldown, setCooldown, deleteCooldown } from '../lib/rateLimitStore'
 
 const router = Router()
 
@@ -53,9 +53,6 @@ const createSchema = z.object({
   briefKind: z.string().min(1).max(60).optional(),
 })
 
-// Per-user brief cooldown — duration comes from plan limits.
-const briefCooldowns = new Map<string, number>()
-
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     console.log('[tasks] POST /api/tasks received', { body: req.body?.type, briefKind: req.body?.briefKind })
@@ -77,20 +74,20 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // Plan-based enforcement
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
-    const plan = PLAN_LIMITS[user?.plan ?? 'starter']
+    const plan = PLAN_LIMITS[user?.plan ?? 'free']
 
-    // Cooldown: plan-based minutes between briefs per agent
+    // Cooldown: plan-based minutes between briefs per agent (Redis-backed)
     const cooldownMs = plan.briefCooldownMin * 60 * 1000
     const cooldownKey = `${userId}:${data.employeeId}`
-    const lastBrief = briefCooldowns.get(cooldownKey) || 0
-    if (Date.now() - lastBrief < cooldownMs) {
-      const waitSec = Math.ceil((cooldownMs - (Date.now() - lastBrief)) / 1000)
+    const remainingMs = await getCooldown(cooldownKey)
+    if (remainingMs > 0) {
+      const waitSec = Math.ceil(remainingMs / 1000)
       res.status(429).json({ error: 'brief_cooldown', message: `This agent is still working. Try again in ${waitSec}s.`, retryAfter: waitSec })
       return
     }
 
     // Bedrock monthly cap
-    const bedrockUsage = getBedrockUsage(company.id)
+    const bedrockUsage = await getBedrockUsage(company.id)
     if (bedrockUsage.count >= plan.bedrockCallsPerMonth) {
       res.status(402).json({ error: 'bedrock_limit_reached', message: `Your ${user?.plan} plan allows ${plan.bedrockCallsPerMonth} AI calls per month. Upgrade for more.` })
       return
@@ -103,7 +100,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    briefCooldowns.set(cooldownKey, Date.now())
+    await setCooldown(cooldownKey, cooldownMs)
 
     try {
       await assertTaskQuota(prisma, userId)
@@ -204,6 +201,10 @@ router.post('/', requireAuth, async (req, res, next) => {
         })
       } catch (err) {
         console.warn('[tasks] background execution failed', err)
+        // Refund the cooldown — the user shouldn't be locked out for an
+        // agent that never actually ran. Both the primary orchestrator
+        // path AND the mock fallback failed to reach this catch.
+        deleteCooldown(cooldownKey).catch(() => {})
         try {
           await prisma.output.create({
             data: {
@@ -260,7 +261,10 @@ router.get('/', requireAuth, async (req, res, next) => {
     const tasks = await prisma.task.findMany({
       where: { companyId: company.id, ...(status ? { status } : {}) },
       orderBy: { createdAt: 'desc' },
-      include: { employee: true, outputs: true },
+      include: {
+        employee: true,
+        outputs: { orderBy: { version: 'desc' } },
+      },
       take: 50,
     })
     res.json({ tasks, companyId: company.id })

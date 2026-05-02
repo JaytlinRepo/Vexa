@@ -1,372 +1,422 @@
-/* ============================================================
-   mobile.css — phone Safari / Chrome surface for the production
-   landing + waitlist UI. Every selector is prefixed with
-   html[data-vx-device="mobile"] so a rule in here cannot leak
-   to desktop or to the Capacitor app surface.
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE-ONLY STYLESHEET
+   ──────────────────────────────────────────────────────────────────────
+   This file is the ONE place to put styles that should only affect the
+   mobile browser UI. Every rule below is prefixed with
+       html[data-vx-device="mobile"]
+   which means it CANNOT match on desktop — even if the @media wrapper is
+   forgotten or the breakpoint is wrong, desktop is physically protected.
 
-   Audit grep (must return zero unprefixed top-level rules):
-     grep -nE '^(\s*)[.#a-zA-Z\[]' apps/web/src/app/mobile.css \
-       | grep -v 'data-vx-device="mobile"' | grep -v '^[[:space:]]*\(/\*\|\*\|@\)'
+   How `data-vx-device` is set:
+     • Inline script in layout.tsx (beforeInteractive — runs before any
+       render, no flash) reads matchMedia('(max-width: 640px)') and sets
+       html[data-vx-device="mobile"] or "desktop".
+     • A matchMedia listener flips the attribute on resize so DevTools
+       responsive mode + window-drag both work without a reload.
 
-   Surfaces this file styles:
-     - Marketing landing (#view-home)        — vexa-landing.css base
-     - Waitlist overlay (#vx-waitlist)        — built by waitlist.js
-     - Topbar (#topbar)                       — global header
-     - Intro overlay (#vx-intro)              — built by intro-wire.js
+   ── Rules for editing this file ───────────────────────────────────────
+   1. Every selector MUST start with  html[data-vx-device="mobile"]
+      so the protection actually applies. The audit (also excludes the
+      desktop-side utility rule + the .vx-* utility class definitions):
+        grep -E "^[^/* @}]" apps/web/src/app/mobile.css \
+          | grep -v 'html\[data-vx-device="mobile"\]\|html\[data-vx-device="desktop"\]\|^\.vx-mobile-only\|^\.vx-desktop-only'
+      should return NOTHING. If a line shows up, it's a leak risk.
+   2. Don't add desktop overrides here. Put those in the relevant shared
+      file (prototype.css, vexa-shared.css, etc.).
+   3. Avoid !important unless you're overriding an inline style. The
+       attribute prefix already gives you 0,0,2,0 specificity which beats
+       most shared rules without escalating.
+   4. Mobile-only ELEMENTS (markup that exists only on phones) should
+      use the `vx-mobile-only` utility class on the markup; CSS-level
+      hiding for desktop is handled below in this file. No @media needed.
 
-   Build pattern: leave desktop markup untouched. All mobile
-   adjustments are CSS-only — collapse multi-column layouts to
-   single column, scale type down, increase tap targets.
-============================================================ */
+   ── Quick reference ───────────────────────────────────────────────────
+     html[data-vx-device="mobile"] .foo  → applies on mobile only
+     html[data-vx-device="desktop"] .foo → applies on desktop only
+     class="vx-mobile-only"              → element shown only on mobile
+     class="vx-desktop-only"             → element shown only on desktop
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* Block desktop-only chrome on mobile. Reciprocal `.vx-mobile-only`
-   utility hides the mobile drawer / hamburger from desktop. */
-html[data-vx-device="mobile"] .vx-desktop-only { display: none !important; }
-html:not([data-vx-device="mobile"]) .vx-mobile-only { display: none !important; }
+/* ── Utility classes: show/hide markup based on device class ─────────── */
+.vx-mobile-only,
+.vx-desktop-only{display:none!important}
+html[data-vx-device="mobile"] .vx-mobile-only{display:revert!important}
+html[data-vx-device="desktop"] .vx-desktop-only{display:revert!important}
 
-/* ───────── Topbar ─────────────────────────────────────────── */
-html[data-vx-device="mobile"] #topbar {
-  padding: 12px 16px !important;
-}
-html[data-vx-device="mobile"] #topbar .topbar-nav,
-html[data-vx-device="mobile"] #topbar #nav-marketing,
-html[data-vx-device="mobile"] #topbar #nav-app {
-  display: none !important;
-}
-html[data-vx-device="mobile"] #topbar .topbar-right {
-  gap: 8px !important;
-}
-html[data-vx-device="mobile"] #topbar .topbar-btn {
-  padding: 8px 12px !important;
-  font-size: 13px !important;
-}
-html[data-vx-device="mobile"] #topbar #topbar-login { display: none !important; }
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE NAV CHROME — hamburger button + slide-out drawer
+   The drawer replaces the inline .topnav on phone browsers. Both pieces
+   are .vx-mobile-only so desktop and the native app never see them.
+   ══════════════════════════════════════════════════════════════════════ */
 
-/* ───────── Marketing hero (#view-home) ────────────────────── */
-html[data-vx-device="mobile"] #view-home .hero {
-  min-height: auto !important;
-  padding: 80px 20px 56px !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-h1 {
-  font-size: clamp(38px, 11vw, 56px) !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.02em !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-sub {
-  font-size: 16px !important;
-  line-height: 1.55 !important;
-  margin-top: 20px !important;
-  max-width: 100% !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-ctas {
-  flex-direction: column !important;
-  gap: 10px !important;
-  width: 100% !important;
-  margin-top: 28px !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-ctas > * {
-  width: 100% !important;
-  justify-content: center !important;
-  padding: 14px 18px !important;
-  font-size: 15px !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-meta {
-  flex-wrap: wrap !important;
-  gap: 8px 12px !important;
-  font-size: 12px !important;
-  margin-top: 24px !important;
-}
-html[data-vx-device="mobile"] #view-home .hero-meta-div {
-  display: none !important;
-}
+/* Hide the inline topnav entirely on mobile — drawer is the only nav UI */
+html[data-vx-device="mobile"] .topnav,
+html[data-vx-device="mobile"] .topnav-group{display:none!important}
 
-/* Section spacing — landing rhythm collapses on phones */
-html[data-vx-device="mobile"] #view-home section,
-html[data-vx-device="mobile"] #view-home .section {
-  padding: 56px 20px !important;
+/* Hamburger button — animated bun, lives in topbar-left */
+html[data-vx-device="mobile"] .vxm-burger{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:4px;
+  width:36px;height:36px;padding:0;margin-right:8px;
+  background:transparent;border:1px solid var(--b1);border-radius:8px;
+  color:var(--t1);cursor:pointer;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
 }
-html[data-vx-device="mobile"] #view-home h2,
-html[data-vx-device="mobile"] #view-home .section-h2 {
-  font-size: clamp(28px, 7.5vw, 40px) !important;
-  line-height: 1.1 !important;
+html[data-vx-device="mobile"] .vxm-burger > span{
+  display:block;width:16px;height:1.5px;background:currentColor;
+  transition:transform .25s ease,opacity .15s ease;
 }
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(2){opacity:0}
+html[data-vx-device="mobile"] .vxm-burger.on > span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
 
-/* Multi-column grids → single column */
-html[data-vx-device="mobile"] #view-home .grid-3,
-html[data-vx-device="mobile"] #view-home .grid-2,
-html[data-vx-device="mobile"] #view-home .team-grid,
-html[data-vx-device="mobile"] #view-home .pricing-grid,
-html[data-vx-device="mobile"] #view-home .faq-grid {
-  grid-template-columns: 1fr !important;
-  gap: 16px !important;
+/* Drawer container — fixed, full viewport, behind topbar (z<topbar) */
+html[data-vx-device="mobile"] .vxm-drawer{
+  position:fixed;inset:0;z-index:9000;
+  visibility:hidden;pointer-events:none;
 }
+html[data-vx-device="mobile"] .vxm-drawer.on{visibility:visible;pointer-events:auto}
 
-/* ───────── Waitlist overlay (#vx-waitlist) ────────────────── */
-html[data-vx-device="mobile"] #vx-waitlist .top {
-  padding: 14px 18px !important;
+/* Backdrop scrim */
+html[data-vx-device="mobile"] .vxm-drawer-scrim{
+  position:absolute;inset:0;background:rgba(0,0,0,.5);
+  opacity:0;transition:opacity .3s ease;
 }
-html[data-vx-device="mobile"] #vx-waitlist .top nav,
-html[data-vx-device="mobile"] #vx-waitlist .top .links {
-  display: none !important;
+html[data-vx-device="mobile"] .vxm-drawer.on .vxm-drawer-scrim{opacity:1}
+
+/* Sliding panel — from the right edge */
+html[data-vx-device="mobile"] .vxm-drawer-panel{
+  position:absolute;top:0;right:0;bottom:0;
+  width:min(82vw,320px);
+  background:var(--bg);border-left:1px solid var(--b1);
+  padding:20px 0 max(20px,env(safe-area-inset-bottom));
+  transform:translateX(100%);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;
+}
+html[data-vx-device="mobile"] .vxm-drawer.on .vxm-drawer-panel{transform:translateX(0)}
+
+html[data-vx-device="mobile"] .vxm-drawer-head{
+  font-family:'Syne',sans-serif;font-weight:600;font-size:16px;
+  letter-spacing:.04em;color:var(--t1);
+  padding:0 24px 18px;
+  border-bottom:1px solid var(--b1);margin-bottom:8px;
 }
 
-/* Hero — keep the desktop 2-col grid (form on the left, LIVE PIPELINE on
-   the right) for any viewport ≥ 700px so the mobile-forced server still
-   reads "side-by-side like desktop" when opened in a wide browser. Only
-   collapse to a single column on actual phone viewports (< 700px) where
-   there isn't room. The narrow-viewport overrides live further below in
-   the @media block. */
-html[data-vx-device="mobile"] #vx-waitlist .hero {
-  min-height: auto !important;
-  padding: 88px 32px 48px !important;
+html[data-vx-device="mobile"] .vxm-drawer-link{
+  display:block;padding:14px 24px;
+  font-family:'Inter',sans-serif;font-size:15px;color:var(--t1);
+  text-decoration:none;cursor:pointer;
+  border-bottom:1px solid var(--b1);
+  transition:background .15s ease;
+  -webkit-tap-highlight-color:transparent;
 }
-/* Pipeline column visible — desktop's 2-col grid is preserved for wide
-   viewports of the mobile-forced server. Narrow-phone collapse rules sit
-   in the @media block at the bottom of this file. */
-html[data-vx-device="mobile"] #vx-waitlist .hero-right {
-  display: block !important;
+html[data-vx-device="mobile"] .vxm-drawer-link:hover,
+html[data-vx-device="mobile"] .vxm-drawer-link:active{background:var(--s1)}
+html[data-vx-device="mobile"] .vxm-drawer-link.on{color:var(--accent);background:var(--accent-soft)}
+
+/* When drawer is open, prevent body scroll (matches the JS `body.vxm-drawer-open` toggle) */
+html[data-vx-device="mobile"] body.vxm-drawer-open{overflow:hidden}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PHONE LAYOUT  (data-vx-device="mobile" → viewport ≤ 640px)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Viewport: stop any horizontal scroll ──────────────────────────── */
+html[data-vx-device="mobile"] body,
+html[data-vx-device="mobile"] #app,
+html[data-vx-device="mobile"] #main{
+  overflow-x:hidden!important;max-width:100%!important;min-width:0!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero-right .agent-stack {
-  width: 100% !important;
+html[data-vx-device="mobile"] .view{overflow-x:hidden!important;min-width:0!important;max-width:100%!important}
+
+/* ── Topbar: marketing = floating island, authed = full-bleed bar ───── */
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topbar-right{grid-column:3}
+html[data-vx-device="mobile"]:not([data-vx-authed]) #topbar{
+  --vx-island-p:1!important;
+  grid-template-columns:auto 1fr auto!important;
 }
-/* Stat strip — "This week / Reach / CEO hours" — keep it as 3 cells in a
-   row on phone (the values are short), just shrink the type. */
-html[data-vx-device="mobile"] #vx-waitlist .hero-right .m {
-  flex: 1 1 0 !important;
-  min-width: 0 !important;
+html[data-vx-device="mobile"][data-vx-authed] #topbar{
+  --vx-island-p:0!important;
+  --vx-island-max:calc(100% - 0px)!important;
+  grid-template-columns:auto 1fr auto!important;
+  padding:10px 16px!important;
+  gap:8px!important;
+  top:0!important;width:100%!important;left:0!important;
+  border-radius:0!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero-right .m .l {
-  font-size: 9.5px !important;
+html[data-vx-device="mobile"] .topbar-section{display:none!important}
+html[data-vx-device="mobile"]:not([data-vx-authed]) #topbar-cta.btn-primary{
+  white-space:nowrap;font-size:10px!important;padding:6px 10px!important;gap:4px;border-radius:5px;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero-right .m .v {
-  font-size: 14px !important;
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav,
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav-link,
+html[data-vx-device="mobile"]:not([data-vx-authed]) .topnav-group{display:none!important}
+
+/* ── View padding ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .view{
+  padding-top:68px!important;padding-bottom:0!important;overflow-x:hidden!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero-content {
-  padding: 56px 20px !important;
+html[data-vx-device="mobile"] .view-inner{padding:20px 16px 40px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .mkt-view{padding:20px 16px!important;max-width:100%!important}
+
+/* ── Landing hero ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .hero{min-height:auto!important;padding:24px 20px 40px!important}
+html[data-vx-device="mobile"] .hero-right{display:none!important}
+html[data-vx-device="mobile"] .hero-content{padding:0 20px!important}
+html[data-vx-device="mobile"] .hero-ctas{flex-direction:column!important;align-items:center!important}
+html[data-vx-device="mobile"] .hero-meta{flex-wrap:wrap!important;justify-content:center!important;gap:10px 14px!important;font-size:11px!important}
+html[data-vx-device="mobile"] #landing-atmo{overflow:hidden!important}
+html[data-vx-device="mobile"] .hero-light{width:100%!important;max-width:100%!important}
+
+/* ── Landing sections ──────────────────────────────────────────────── */
+html[data-vx-device="mobile"] section.blk{padding:48px 20px!important}
+html[data-vx-device="mobile"] .how-stage{display:none!important}
+
+/* ── Compare (Before / After) ──────────────────────────────────────── */
+html[data-vx-device="mobile"] section#compare{padding:32px 16px!important}
+html[data-vx-device="mobile"] section#compare .sec-head{margin-bottom:12px!important}
+html[data-vx-device="mobile"] section#compare .sec-head h2{font-size:clamp(28px,8vw,40px)!important}
+html[data-vx-device="mobile"] .compare{border-radius:12px!important}
+html[data-vx-device="mobile"] .compare .col{min-height:auto!important;padding:14px 12px 16px!important}
+html[data-vx-device="mobile"] .compare .col .lab{font-size:8px!important;letter-spacing:.12em!important;line-height:1.35!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .compare .col h3{font-size:22px!important;line-height:1.1!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .compare ul li{padding:7px 0!important;gap:8px!important;font-size:12px!important;line-height:1.3!important;grid-template-columns:16px 1fr!important}
+html[data-vx-device="mobile"] .compare ul li .i{font-size:10px!important}
+html[data-vx-device="mobile"] .compare .col.after ul li em{font-size:13px!important}
+
+/* ── Disable scroll-reveal animations (no IntersectionObserver lag) ── */
+html[data-vx-device="mobile"] .reveal{opacity:1!important;transform:none!important;transition:none!important}
+
+/* ── Dashboard: stack feed strip out of the way ────────────────────── */
+html[data-vx-device="mobile"] .db-layout{display:block!important;height:auto!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .db-main-col{padding:20px 16px 32px!important;border-right:none!important;height:auto!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .db-feed-strip{display:none!important}
+
+/* ── Masthead ──────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .masthead{grid-template-columns:1fr!important;gap:16px!important;padding:20px 16px!important}
+html[data-vx-device="mobile"] .masthead h1{font-size:clamp(22px,6vw,30px)!important;margin-top:6px!important}
+html[data-vx-device="mobile"] .masthead .sub{font-size:12px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .masthead .stat-grid{min-width:0!important;grid-template-columns:repeat(3,1fr)!important;gap:10px!important;padding:12px 0!important}
+html[data-vx-device="mobile"] .masthead .stat .v{font-size:20px!important}
+
+/* ── Pipeline (4-col → 2×2) ────────────────────────────────────────── */
+html[data-vx-device="mobile"] .pipe{grid-template-columns:repeat(2,1fr)!important;overflow:hidden!important}
+html[data-vx-device="mobile"] .pipe .arrow{display:none!important}
+html[data-vx-device="mobile"] .pipe::before{display:none!important}
+html[data-vx-device="mobile"] .node{border-right:1px solid var(--b1)!important;padding:14px 12px 16px!important}
+html[data-vx-device="mobile"] .node:nth-child(even){border-right:none!important}
+html[data-vx-device="mobile"] .node:nth-child(n+3){border-top:1px solid var(--b1)}
+html[data-vx-device="mobile"] .node-name{font-size:15px!important}
+html[data-vx-device="mobile"] .node-port{width:36px!important;height:36px!important;font-size:18px!important}
+html[data-vx-device="mobile"] .pipe-wrap{padding:16px 16px 8px!important}
+html[data-vx-device="mobile"] .pipe-head{flex-wrap:wrap!important;gap:8px!important;margin-bottom:10px!important}
+html[data-vx-device="mobile"] .pipe-title h2{font-size:18px!important}
+html[data-vx-device="mobile"] .pipe-meta{flex-wrap:wrap!important;gap:8px!important}
+
+/* ── Dash main + side: 2-col → stacked ─────────────────────────────── */
+html[data-vx-device="mobile"] .dash{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .dash-main{padding:20px 16px 32px!important;border-right:none!important}
+html[data-vx-device="mobile"] .dash-side{border-left:none!important;border-top:1px solid var(--b1);padding:16px!important}
+
+/* ── Posts page ────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] #view-db-posts .posts-mast{padding:10px 12px 6px!important}
+html[data-vx-device="mobile"] #view-db-posts .filters{padding:6px 10px 7px!important;gap:5px 8px!important}
+html[data-vx-device="mobile"] #view-db-posts .filters .search{min-width:0!important;max-width:none!important;flex:1 1 100%!important;margin-left:0!important}
+html[data-vx-device="mobile"] #view-db-posts .filters .search .kbd{display:none!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col{padding:10px 8px 16px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .th{aspect-ratio:1/1!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .th .qt{display:none!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .body{padding:4px 5px 5px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .m .cell .l{font-size:6px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .m .cell .n{font-size:9px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .grid.posts-mosaic > .card .post-cap-sum{font-size:6px!important;padding:2px 5px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-col .list-head{margin-bottom:6px!important;flex-wrap:wrap!important}
+html[data-vx-device="mobile"] #view-db-posts .list-head h2{font-size:16px!important}
+html[data-vx-device="mobile"] #view-db-posts .list-head .c{font-size:8px!important}
+
+/* ── KPI / charts / briefing / employees grids → 1-col or denser ──── */
+html[data-vx-device="mobile"] .kpi-row{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .charts-row,
+html[data-vx-device="mobile"] .charts-row.triple{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .briefing-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .emp-cards{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .plat-row{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .trend-row{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .output-grid{grid-template-columns:1fr 1fr!important}
+html[data-vx-device="mobile"] .signals,
+html[data-vx-device="mobile"] .drafts,
+html[data-vx-device="mobile"] .out-ticker{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .feed-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .aud-grid,
+html[data-vx-device="mobile"] .posts-grid{grid-template-columns:1fr!important}
+
+/* ── Settings: sidebar nav wraps into a pill row ───────────────────── */
+html[data-vx-device="mobile"] .settings-grid{grid-template-columns:1fr!important;gap:16px!important}
+html[data-vx-device="mobile"] .settings-nav{
+  flex-direction:row!important;flex-wrap:wrap!important;gap:4px!important;
+  padding-bottom:8px!important;border-bottom:1px solid var(--b1);
+  margin-bottom:4px;overflow:visible!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist section {
-  padding: 56px 20px !important;
+html[data-vx-device="mobile"] .settings-nav-item{white-space:normal!important;flex-shrink:1!important}
+
+/* ── Landing team cards: compact horizontal rows ───────────────────── */
+html[data-vx-device="mobile"] .team-wrap{grid-template-columns:1fr!important;gap:10px!important}
+html[data-vx-device="mobile"] .t-card{
+  display:flex!important;flex-direction:row!important;align-items:center!important;
+  gap:14px!important;padding:14px 16px!important;
+}
+html[data-vx-device="mobile"] .t-card .av{width:44px!important;height:44px!important;font-size:15px!important;flex-shrink:0!important;margin-bottom:0!important}
+html[data-vx-device="mobile"] .t-card .nm{font-size:22px!important;margin-bottom:1px!important}
+html[data-vx-device="mobile"] .t-card .rl{margin-bottom:0!important;font-size:9px!important}
+html[data-vx-device="mobile"] .t-card .bio,
+html[data-vx-device="mobile"] .t-card .skills{display:none!important}
+html[data-vx-device="mobile"] .t-card:hover{transform:none!important}
+
+/* ── Team rows ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .team-row{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .team-row-num{display:none!important}
+html[data-vx-device="mobile"] .team-row-main{padding:20px 20px 12px!important}
+html[data-vx-device="mobile"] .team-row-meta{
+  flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;
+  gap:20px!important;padding:12px 20px 20px!important;
+  border-left:none!important;border-top:1px solid var(--b1)!important;
 }
 
-/* Headline — clamp narrowest case so "team" fits a 390px iPhone */
-html[data-vx-device="mobile"] #vx-waitlist .hero-h1,
-html[data-vx-device="mobile"] #vx-waitlist .hero h1 {
-  font-size: clamp(30px, 8.4vw, 44px) !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.02em !important;
-  margin-bottom: 20px !important;
+/* ── Marketing pipeline (§ 02) ─────────────────────────────────────── */
+html[data-vx-device="mobile"] section#how .sec-head{margin-bottom:16px!important}
+html[data-vx-device="mobile"] section#how .sec-head .eyebrow{margin-bottom:6px!important}
+html[data-vx-device="mobile"] section#how .sec-head .lede{margin-top:10px!important}
+html[data-vx-device="mobile"] #view-how .how-grid,
+html[data-vx-device="mobile"] section#how .how-grid{grid-template-columns:1fr!important;gap:12px!important}
+html[data-vx-device="mobile"] section#how .how-steps{
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;
+  flex-direction:unset!important;overflow:visible!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero h1 .line {
-  overflow: visible !important;  /* let descenders + italics breathe */
+html[data-vx-device="mobile"] section#how .how-step{
+  width:auto!important;min-width:0!important;border-left:none!important;
+  padding:10px 10px 12px!important;border:1px solid var(--b1)!important;border-radius:12px!important;
+  background:linear-gradient(180deg,var(--s1),var(--bg))!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero-sub,
-html[data-vx-device="mobile"] #vx-waitlist .hero .sub,
-html[data-vx-device="mobile"] #vx-waitlist .sub {
-  font-size: 15px !important;
-  line-height: 1.55 !important;
+html[data-vx-device="mobile"] section#how .how-step::before{display:none!important}
+html[data-vx-device="mobile"] section#how .how-step.on{
+  border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent-soft)!important;
 }
-html[data-vx-device="mobile"] #vx-waitlist .hero .eyebrow-row {
-  margin-bottom: 20px !important;
-}
+html[data-vx-device="mobile"] section#how .how-step .n{font-size:8px!important;letter-spacing:.1em!important;margin-bottom:4px!important;line-height:1.2!important}
+html[data-vx-device="mobile"] section#how .how-step h4{font-size:15px!important;line-height:1.15!important}
 
-/* Form is the conversion — fields tap-friendly, but never wider than a
-   readable column. On a real phone the parent's 20px padding caps it
-   below 360px; on a wide browser viewing the mobile server it stays at
-   the same 360px the desktop layout uses. */
-html[data-vx-device="mobile"] #vx-wl-form {
-  max-width: 360px !important;
-  width: 100% !important;
-  margin-top: 24px !important;
-}
-html[data-vx-device="mobile"] #vx-wl-form input {
-  padding: 15px 16px !important;
-  font-size: 16px !important;  /* 16px prevents iOS zoom-on-focus */
-}
-html[data-vx-device="mobile"] #vx-wl-form button[type="submit"] {
-  padding: 16px 18px !important;
-  font-size: 15px !important;
-  width: 100% !important;
-}
+/* ── Pricing ──────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .pricing-grid,
+html[data-vx-device="mobile"] .prices{grid-template-columns:1fr!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
+html[data-vx-device="mobile"] .prices{border-radius:10px!important}
+html[data-vx-device="mobile"] section#pricing{padding:32px 16px!important}
+html[data-vx-device="mobile"] section#pricing .sec-head{margin-bottom:16px!important}
+html[data-vx-device="mobile"] section#pricing .sec-head .lede{margin-top:10px!important}
+html[data-vx-device="mobile"] .plan{padding:16px 14px 18px!important}
+html[data-vx-device="mobile"] .plan .ph{margin-bottom:10px!important}
+html[data-vx-device="mobile"] .plan .ph .n{font-size:20px!important}
+html[data-vx-device="mobile"] .plan .px{font-size:34px!important;margin-bottom:4px!important}
+html[data-vx-device="mobile"] .plan .px em{font-size:16px!important}
+html[data-vx-device="mobile"] .plan .pd{font-size:11px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .plan ul{margin-bottom:12px!important}
+html[data-vx-device="mobile"] .plan ul li{padding:6px 0!important;font-size:12px!important;gap:8px!important}
+html[data-vx-device="mobile"] .plan ul li .c{font-size:10px!important}
+html[data-vx-device="mobile"] .plan .btn{padding:10px 14px!important;font-size:12px!important}
 
-/* Section headers — large desktop sizes blow past 390px on phone. */
-html[data-vx-device="mobile"] #vx-waitlist .blk {
-  padding-left: 20px !important;
-  padding-right: 20px !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .sec-head {
-  margin-bottom: 40px !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .sec-head h2 {
-  font-size: clamp(28px, 8vw, 40px) !important;
-  line-height: 1.1 !important;
-  letter-spacing: -0.02em !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .sec-head .lede {
-  font-size: 15px !important;
-  line-height: 1.55 !important;
-  margin-top: 16px !important;
-}
+/* ── FAQ ───────────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .faq-cols{grid-template-columns:1fr!important}
 
-/* Every multi-column grid in the waitlist body collapses to a single
-   column on phones. The list mirrors vexa-landing.css's grid usage. */
-html[data-vx-device="mobile"] #vx-waitlist .team-wrap,
-html[data-vx-device="mobile"] #vx-waitlist .how-grid,
-html[data-vx-device="mobile"] #vx-waitlist .signals,
-html[data-vx-device="mobile"] #vx-waitlist .drafts,
-html[data-vx-device="mobile"] #vx-waitlist .compare,
-html[data-vx-device="mobile"] #vx-waitlist .stats,
-html[data-vx-device="mobile"] #vx-waitlist .prices,
-html[data-vx-device="mobile"] #vx-waitlist .agent-stack,
-html[data-vx-device="mobile"] #vx-waitlist .grid,
-html[data-vx-device="mobile"] #vx-waitlist .grid-2,
-html[data-vx-device="mobile"] #vx-waitlist .grid-3,
-html[data-vx-device="mobile"] #vx-waitlist .team-grid {
-  grid-template-columns: 1fr !important;
-  gap: 16px !important;
-  max-width: 100% !important;
-}
+/* ── Trial row ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .trial-row,
+html[data-vx-device="mobile"] .trial-checks{grid-template-columns:1fr!important}
 
-/* Stats border lines look broken when a 4-col strip wraps to 1-col;
-   give each cell its own divider instead. */
-html[data-vx-device="mobile"] #vx-waitlist .stats > * {
-  border-bottom: 1px solid var(--b1) !important;
-  padding: 20px 0 !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .stats > *:last-child {
-  border-bottom: none !important;
-}
+/* ── Task list ─────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .task-row{grid-template-columns:28px 1fr auto!important;gap:10px!important}
+html[data-vx-device="mobile"] .task-btn{font-size:9px!important;padding:5px 10px!important;white-space:normal!important}
 
-/* Pricing cards lose their vertical dividers when stacked — use horizontal. */
-html[data-vx-device="mobile"] #vx-waitlist .prices > * {
-  border-right: none !important;
-  border-bottom: 1px solid var(--b1) !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .prices > *:last-child {
-  border-bottom: none !important;
-}
+/* ── Calendar (week grid hidden on phone) ──────────────────────────── */
+html[data-vx-device="mobile"] .cal-week-grid{overflow:hidden!important;display:none!important}
+html[data-vx-device="mobile"] .cal-toolbar,
+html[data-vx-device="mobile"] .cal-legend{flex-wrap:wrap!important;gap:8px!important}
+html[data-vx-device="mobile"] .cal-view-toggle{display:none!important}
+html[data-vx-device="mobile"] .team-calendar-wrapper{grid-template-columns:1fr!important}
 
-/* Pipeline / agent cards stack */
-html[data-vx-device="mobile"] #vx-waitlist .pipeline,
-html[data-vx-device="mobile"] #vx-waitlist .pipe {
-  flex-direction: column !important;
-  gap: 12px !important;
-}
-html[data-vx-device="mobile"] #vx-waitlist .pipe-arrow {
-  transform: rotate(90deg) !important;
-}
+/* ── Contact ───────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .contact-grid{grid-template-columns:1fr!important}
+html[data-vx-device="mobile"] .contact-aside{padding:24px 0 0!important;border-left:none!important;border-top:1px solid var(--b1)!important}
 
-/* Counter / metric strip wraps */
-html[data-vx-device="mobile"] #vx-waitlist .m,
-html[data-vx-device="mobile"] #vx-waitlist .metric-row {
-  flex-wrap: wrap !important;
-  gap: 12px !important;
-}
+/* ── Footers ───────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] footer{padding:20px 14px 18px!important;margin-top:28px!important;gap:14px!important}
+html[data-vx-device="mobile"] footer .lg{margin-bottom:6px!important;font-size:13px!important;gap:8px!important}
+html[data-vx-device="mobile"] footer .lg .dot{width:5px!important;height:5px!important}
+html[data-vx-device="mobile"] footer .brand{font-size:15px!important;line-height:1.25!important}
+html[data-vx-device="mobile"] footer .cols{grid-template-columns:1fr 1fr 1fr!important;gap:8px 10px!important}
+html[data-vx-device="mobile"] footer .cols h5{margin-bottom:6px!important;font-size:9px!important;letter-spacing:.16em!important}
+html[data-vx-device="mobile"] footer .cols a{font-size:12px!important;padding:2px 0!important}
+html[data-vx-device="mobile"] footer .copy{font-size:9px!important;line-height:1.45!important;margin-top:4px!important}
+html[data-vx-device="mobile"] .vx-footer{padding:40px 16px 24px!important;margin-top:60px!important}
+html[data-vx-device="mobile"] .vx-footer-grid{grid-template-columns:1fr!important;gap:24px!important}
+html[data-vx-device="mobile"] .vx-footer-bottom{flex-direction:column!important;gap:6px!important;text-align:center!important}
 
-/* Marquee tape is decorative — keep it but trim the height on phones. */
-html[data-vx-device="mobile"] #vx-waitlist .tape {
-  font-size: 14px !important;
-  padding: 14px 0 !important;
-}
+/* ── Meeting room ──────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .mr-top{padding:14px 16px!important}
+html[data-vx-device="mobile"] .mr-msgs{padding:16px!important;max-width:100%!important;overflow-x:hidden!important}
+html[data-vx-device="mobile"] .mr-foot{padding:12px 16px!important;max-width:100%!important}
+html[data-vx-device="mobile"] .mr-bubble{max-width:90%!important;word-break:break-word!important}
 
-/* ──────────────────────────────────────────────────────────────
-   Hidden on mobile — sections that don't render cleanly yet.
-   These will come back once each block has a proper mobile layout.
-   ────────────────────────────────────────────────────────────── */
+/* ── Onboarding ────────────────────────────────────────────────────── */
+html[data-vx-device="mobile"] .ob-wrap{padding:24px 18px!important;max-width:100%!important}
 
-/* Marquee scroller — the desktop ribbon overflows awkwardly on phones */
-html[data-vx-device="mobile"] #vx-waitlist .marquee {
-  display: none !important;
-}
+/* ── KPI / section heads / mini-cards (vexa-shared elements) ───────── */
+html[data-vx-device="mobile"] .kpi-head .l .v{font-size:28px!important}
+html[data-vx-device="mobile"] .kpi-head{flex-wrap:wrap!important;gap:8px!important}
+html[data-vx-device="mobile"] .kpi-head .r{flex-wrap:wrap!important}
+html[data-vx-device="mobile"] .kpi-card{padding:14px 16px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .section-head h3{font-size:17px!important}
+html[data-vx-device="mobile"] .section-head{flex-wrap:wrap!important;gap:8px!important;margin-bottom:12px!important}
+html[data-vx-device="mobile"] .section-head .tabs button{font-size:9px!important;padding:5px 9px!important}
+html[data-vx-device="mobile"] .plat .big{font-size:22px!important}
+html[data-vx-device="mobile"] .plat{padding:14px!important}
+html[data-vx-device="mobile"] .mini-card .v{font-size:22px!important}
+html[data-vx-device="mobile"] .mini-card{padding:14px 16px!important}
+html[data-vx-device="mobile"] .two-up{gap:10px!important;margin-bottom:14px!important}
 
-/* The pipeline section — its inline 4-col grid (set via style="") can't
-   be overridden by class selectors and crushes the cards on phone. Hide
-   the whole section until we rebuild it with a stacked layout. */
-html[data-vx-device="mobile"] #vx-waitlist #vx-wl-process {
-  display: none !important;
-}
+/* ── Posts table — contained horizontal scroll, not viewport ───────── */
+html[data-vx-device="mobile"] .posts-card{max-height:none!important}
+html[data-vx-device="mobile"] .posts-card .posts-tbl-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+html[data-vx-device="mobile"] .posts-tbl th,
+html[data-vx-device="mobile"] .posts-tbl td{padding:10px 12px!important;font-size:11px!important}
+html[data-vx-device="mobile"] .posts-card .ph{padding:12px 14px!important}
+html[data-vx-device="mobile"] .posts-card .ph h4{font-size:15px!important}
 
-/* Footer — desktop builds it from two <table>s (brand + links, then
-   © + tagline), each 2-col with the right cell text-align:right. The
-   block-stack rebuild lives in the narrow-viewport @media block at the
-   bottom of this file so the desktop 2-col footer is preserved when the
-   mobile-forced server is opened in a wide browser. */
+/* ── Audience cards, app cards ─────────────────────────────────────── */
+html[data-vx-device="mobile"] .aud-card,
+html[data-vx-device="mobile"] .app-card{padding:14px!important}
 
-/* ───────── Intro overlay (#vx-intro) ─────────────────────── */
-html[data-vx-device="mobile"] #vx-intro .scene-h1,
-html[data-vx-device="mobile"] #vx-intro h1 {
-  font-size: clamp(36px, 11vw, 64px) !important;
-  line-height: 1.05 !important;
-  padding: 0 24px !important;
-}
-html[data-vx-device="mobile"] #vx-intro .scene-sub {
-  font-size: 16px !important;
-  padding: 0 24px !important;
-}
+/* ── Topbar padding (authed full bar) + logo ───────────────────────── */
+html[data-vx-device="mobile"][data-vx-authed] #topbar{padding:10px 16px!important}
+html[data-vx-device="mobile"] .logo{font-size:11px!important}
 
-/* ──────────────────────────────────────────────────────────────
-   Narrow-viewport collapse — kicks in below 1100px to match the
-   point where vexa-landing.css already drops the hero from 2-col
-   to 1-col. Below that breakpoint we own the layout: pipeline
-   above the headline, smaller type, narrow form, stacked footer.
-   At ≥ 1100px the desktop 2-col hero is preserved so the
-   mobile-forced server still reads "side-by-side like desktop"
-   when opened in a wide browser.
-   ────────────────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
-  html[data-vx-device="mobile"] #vx-waitlist .hero {
-    grid-template-columns: 1fr !important;
-    grid-auto-flow: row !important;
-    gap: 32px !important;
-    padding: 32px 20px 48px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist .hero-right {
-    order: -1 !important;
-    width: 100% !important;
-    max-width: 420px !important;
-    margin: 0 auto 8px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist .hero-left {
-    order: 0 !important;
-  }
+/* ── Chart wrap: a touch more breathing room on narrow screens ─────── */
+html[data-vx-device="mobile"] .chart-wrap{height:140px!important}
 
-  /* Footer collapses to a stacked, centered, single-column block — only
-     at true phone widths. At wide viewports the desktop <table> 2-col
-     layout (brand left, Company links right) is preserved. */
-  html[data-vx-device="mobile"] #vx-waitlist footer {
-    padding: 48px 20px 28px !important;
-    max-width: 440px !important;
-    margin: 0 auto !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer table,
-  html[data-vx-device="mobile"] #vx-waitlist footer thead,
-  html[data-vx-device="mobile"] #vx-waitlist footer tbody,
-  html[data-vx-device="mobile"] #vx-waitlist footer tfoot,
-  html[data-vx-device="mobile"] #vx-waitlist footer tr,
-  html[data-vx-device="mobile"] #vx-waitlist footer td,
-  html[data-vx-device="mobile"] #vx-waitlist footer th {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    text-align: left !important;
-    white-space: normal !important;
-    padding: 0 !important;
-    border: none !important;
-    border-collapse: separate !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer > table:first-of-type td:first-child {
-    margin-bottom: 28px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer > table:first-of-type td:last-child {
-    margin-bottom: 32px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type {
-    border-top: 1px solid var(--b1) !important;
-    padding-top: 16px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type td {
-    margin-bottom: 6px !important;
-  }
-  html[data-vx-device="mobile"] #vx-waitlist footer > table:last-of-type td:last-child {
-    margin-bottom: 0 !important;
-  }
+/* ── Catch-all: prevent media overflow ─────────────────────────────── */
+html[data-vx-device="mobile"] img,
+html[data-vx-device="mobile"] video,
+html[data-vx-device="mobile"] iframe,
+html[data-vx-device="mobile"] table{max-width:100%!important}
+html[data-vx-device="mobile"] svg{max-width:100%!important;height:auto}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SMALL PHONE  (≤ 480px) — nested @media for tighter tweaks
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width:480px){
+  html[data-vx-device="mobile"] .output-grid{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .ob-grid{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .task-btn{display:none!important}
+  html[data-vx-device="mobile"] .task-row{grid-template-columns:28px 1fr!important}
+  html[data-vx-device="mobile"] .plat-row{grid-template-columns:1fr!important}
+  html[data-vx-device="mobile"] .hero-h1{font-size:clamp(44px,12vw,64px)!important}
+  html[data-vx-device="mobile"] .masthead .stat-grid{grid-template-columns:1fr 1fr!important}
 }

@@ -365,8 +365,11 @@
     }, delayMs)
   }
 
+  let dashReadyTimer = null
   window.addEventListener('vx-dashboard-ready', () => {
-    setTimeout(() => {
+    clearTimeout(dashReadyTimer)
+    dashReadyTimer = setTimeout(() => {
+      dashReadyTimer = null
       if (!isDone()) {
         openTutorial()
       } else {

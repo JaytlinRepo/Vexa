@@ -120,7 +120,4 @@
     refresh()
   }
 
-  // If already on dashboard (e.g. session auto-restored), refresh now.
-  document.addEventListener('DOMContentLoaded', () => setTimeout(refresh, 150))
-  if (document.readyState !== 'loading') setTimeout(refresh, 300)
 })()

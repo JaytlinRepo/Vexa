@@ -128,7 +128,7 @@
         if (r.ok) inject()
         else {
           var el = document.getElementById('vx-goal-autogen')
-          if (el) el.textContent = 'Jordan couldn\'t set a goal yet — try again after the next sync.'
+          if (el) el.textContent = 'Jordan couldn\'t set a goal yet — try again after your accounts refresh.'
         }
       })
     }
@@ -165,7 +165,5 @@
     if (typeof prevEnter === 'function') await prevEnter()
     setTimeout(inject, 260)
   }
-  document.addEventListener('DOMContentLoaded', () => setTimeout(inject, 900))
-  if (document.readyState !== 'loading') setTimeout(inject, 900)
   setInterval(retry, 1300)
 })()

@@ -217,7 +217,7 @@
   let taskChangeTimer
   window.addEventListener('vx-task-changed', () => {
     clearTimeout(taskChangeTimer)
-    taskChangeTimer = setTimeout(syncCalendarFromTasks, 220)
+    taskChangeTimer = setTimeout(syncCalendarFromTasks, 500)
   })
 
   const prevEnter = window.enterDashboard

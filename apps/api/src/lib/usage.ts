@@ -1,46 +1,26 @@
 import { PrismaClient } from '@prisma/client'
-import { PLAN_LIMITS, startOfMonthUTC, startOfNextMonthUTC } from './plans'
+import {
+  PLAN_LIMITS,
+  startOfMonthUTC,
+  startOfNextMonthUTC,
+  startOfDayUTC,
+  startOfNextDayUTC,
+} from './plans'
 
 export interface UsageReport {
-  plan: 'starter' | 'pro' | 'agency'
-  subscriptionStatus: 'trial' | 'active' | 'canceled' | 'past_due'
-  trialEndsAt: string | null
-  tasks: { used: number; limit: number; resetAt: string }
+  plan: 'free' | 'pro' | 'agency'
+  subscriptionStatus: 'active' | 'canceled' | 'past_due'
+  tasks: { used: number; limit: number; resetAt: string; resetWindow: 'daily' | 'monthly' }
   videos: { used: number; limit: number; resetAt: string }
   workspaces: { used: number; limit: number }
   meetingFeature: boolean
   brandMemory: boolean
 }
 
-/**
- * Check trial status. If trial has expired and user hasn't subscribed via
- * Stripe, mark them as canceled so they see the upgrade prompt.
- */
-export async function rolloverTrialIfDue(prisma: PrismaClient, userId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { subscriptionStatus: true, trialEndsAt: true, stripeSubscriptionId: true },
-  })
-  if (!user) return
-  if (user.subscriptionStatus !== 'trial') return
-  if (!user.trialEndsAt) return
-  if (user.trialEndsAt.getTime() > Date.now()) return
-  // Trial expired — if they have a Stripe subscription, Stripe webhooks
-  // handle the transition. If not, mark as canceled to prompt upgrade.
-  if (!user.stripeSubscriptionId) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { subscriptionStatus: 'canceled' },
-    })
-  }
-}
-
 export async function computeUsage(prisma: PrismaClient, userId: string): Promise<UsageReport> {
-  await rolloverTrialIfDue(prisma, userId)
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { plan: true, subscriptionStatus: true, trialEndsAt: true },
+    select: { plan: true, subscriptionStatus: true },
   })
   if (!user) throw new Error('user_not_found')
 
@@ -50,13 +30,16 @@ export async function computeUsage(prisma: PrismaClient, userId: string): Promis
   })
   const companyIds = companies.map((c) => c.id)
 
-  const monthStart = startOfMonthUTC()
-  const monthEnd = startOfNextMonthUTC()
+  const limits = PLAN_LIMITS[user.plan]
+  const isDaily = limits.resetWindow === 'daily'
+
+  const windowStart = isDaily ? startOfDayUTC() : startOfMonthUTC()
+  const windowEnd = isDaily ? startOfNextDayUTC() : startOfNextMonthUTC()
 
   const [taskCount, videoCount] = await Promise.all([
     companyIds.length
       ? prisma.task.count({
-          where: { companyId: { in: companyIds }, createdAt: { gte: monthStart, lt: monthEnd } },
+          where: { companyId: { in: companyIds }, createdAt: { gte: windowStart, lt: windowEnd }, isSeeded: false },
         })
       : 0,
     companyIds.length
@@ -64,20 +47,26 @@ export async function computeUsage(prisma: PrismaClient, userId: string): Promis
           where: {
             companyId: { in: companyIds },
             type: 'video',
-            createdAt: { gte: monthStart, lt: monthEnd },
+            createdAt: { gte: startOfMonthUTC(), lt: startOfNextMonthUTC() },
           },
         })
       : 0,
   ])
 
-  const limits = PLAN_LIMITS[user.plan]
-
   return {
     plan: user.plan,
-    subscriptionStatus: user.subscriptionStatus,
-    trialEndsAt: user.trialEndsAt?.toISOString() ?? null,
-    tasks: { used: taskCount, limit: limits.tasksPerMonth, resetAt: monthEnd.toISOString() },
-    videos: { used: videoCount, limit: limits.videosPerMonth, resetAt: monthEnd.toISOString() },
+    subscriptionStatus: user.subscriptionStatus as 'active' | 'canceled' | 'past_due',
+    tasks: {
+      used: taskCount,
+      limit: limits.tasksPerMonth,
+      resetAt: windowEnd.toISOString(),
+      resetWindow: limits.resetWindow,
+    },
+    videos: {
+      used: videoCount,
+      limit: limits.videosPerMonth,
+      resetAt: startOfNextMonthUTC().toISOString(),
+    },
     workspaces: { used: companies.length, limit: limits.workspaces },
     meetingFeature: limits.meetingFeature,
     brandMemory: limits.brandMemory,

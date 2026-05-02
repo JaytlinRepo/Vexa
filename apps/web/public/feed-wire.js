@@ -137,7 +137,7 @@
     var el = document.createElement('div')
     el.id = 'vx-article-reader'
     el.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(6px)'
-    el.innerHTML = '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:14px;padding:32px;text-align:center;color:var(--t2);font-size:13px">Loading article...</div>'
+    el.innerHTML = '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:14px;padding:32px;text-align:center;color:var(--t2);font-size:13px">Opening article…</div>'
     el.addEventListener('click', function (e) { if (e.target === el) el.remove() })
     document.body.appendChild(el)
 
@@ -179,6 +179,16 @@
     wireArticleReaders(grid)
   }
 
+  function showFeedLoadError() {
+    var html = '<div class="feed-card" role="status" style="padding:22px 20px;text-align:center;color:var(--t2);font-size:13px;line-height:1.55;border:1px dashed var(--b1);border-radius:12px;max-width:420px;margin:0 auto">'
+      + 'We couldn\'t refresh your feed. Check your connection and open this tab again in a moment.'
+      + '</div>'
+    ;['#mkt-feed-grid', '#db-feed-grid'].forEach(function (sel) {
+      var grid = document.querySelector(sel)
+      if (grid) grid.innerHTML = html
+    })
+  }
+
   async function load(force = false) {
     if (state.loading) return
     if (state.loaded && !force) return
@@ -187,6 +197,7 @@
       const res = await fetch('/api/feed', { credentials: 'include' })
       if (!res.ok) {
         state.loading = false
+        showFeedLoadError()
         return
       }
       const json = await res.json()
@@ -217,11 +228,4 @@
     load()
   }
 
-  // Initial best-effort: if the feed grids exist and the user is on the
-  // marketing /knowledge view by default, populate those too.
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.querySelector('#mkt-feed-grid') || document.querySelector('#db-feed-grid')) {
-      setTimeout(() => load(), 600)
-    }
-  })
 })()

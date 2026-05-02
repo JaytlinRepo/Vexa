@@ -13,15 +13,9 @@
  *   5. Performance + outcomes-style activity
  */
 ;(function () {
-  // If the user has an active session, immediately flip to the dashboard
-  // view so the home/marketing page never flashes on refresh.
+  // View visibility on auth is handled by the #vx-auth-gate style in layout.tsx
+  // (runs before any JS loads). No DOM manipulation needed here.
   try {
-    if (localStorage.getItem('vx-authed') === '1') {
-      document.querySelectorAll('.view').forEach((v) => {
-        if (v.id === 'view-db-dashboard') v.classList.add('active')
-        else v.classList.remove('active')
-      })
-    }
     const oldLayout = document.querySelector('#view-db-dashboard .db-layout')
     if (oldLayout) oldLayout.style.opacity = '0'
   } catch {}
@@ -35,8 +29,10 @@
     overview: null,        // combined platform overview (PlatformAccount + snapshots)
     feed: [],
     notifs: [],
-    phylloAccounts: [], // raw Phyllo account list (multi-platform)
+    platformAccounts: [], // connected platform accounts
   }
+
+  // Server-side caching handles fast responses — no localStorage needed
 
   // ─────────────── data ────────────────────────────────────────────
   const get = (u) => fetch(u, { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
@@ -57,6 +53,8 @@
     try { if (me?.user) localStorage.setItem('vx-authed', '1') } catch {}
     // Expose state for agent drawer
     window.__vxDashState = STATE
+    // Notify HQ early — masthead + pipeline can render with me/tasks before overview loads
+    window.dispatchEvent(new CustomEvent('vx-dash-ready'))
 
     const companyId = me?.companies?.[0]?.id
     if (companyId) {
@@ -73,7 +71,10 @@
       STATE.overview = overview || null
       STATE.notifs = notifs?.items || []
 
-      // Supplementary: feed + phyllo are slow (RSS timeouts, Phyllo 429s).
+      // Notify HQ to render with fresh data
+      window.dispatchEvent(new CustomEvent('vx-dash-ready'))
+
+      // Supplementary: feed + platform accounts are fetched after render.
       // Fetch after render so they don't delay the dashboard.
       // Re-render when feed arrives so the sidebar appears.
       void Promise.all([
@@ -86,8 +87,47 @@
             STATE.feed = items
           }
         }),
-        get('/api/phyllo/accounts').then((p) => { STATE.phylloAccounts = p?.accounts || [] }),
+        get('/api/platform/accounts').then((p) => { STATE.platformAccounts = p?.accounts || [] }),
       ])
+    }
+
+    // HQ v3 skips v2 innerHTML but still needs the app shell (notif bell, nav labels).
+    syncHqAppTopbarIfNeeded()
+  }
+
+  function syncHqAppTopbarIfNeeded() {
+    var view = document.getElementById('view-db-dashboard')
+    if (!view || !view.classList.contains('hq-v3')) return
+    var me = STATE.me
+    if (!me?.user) return
+    var mktNav = document.getElementById('nav-marketing')
+    var appNav = document.getElementById('nav-app')
+    var loginBtn = document.getElementById('topbar-login')
+    var ctaBtn = document.getElementById('topbar-cta')
+    var notifBtn = document.getElementById('notif-btn')
+    var profile = document.getElementById('vx-profile')
+    if (mktNav) mktNav.style.display = 'none'
+    if (appNav) appNav.style.display = 'flex'
+    if (loginBtn) loginBtn.style.display = 'none'
+    if (ctaBtn) ctaBtn.style.display = 'none'
+    if (notifBtn) notifBtn.style.display = 'flex'
+    if (profile) profile.style.display = ''
+    try {
+      document.documentElement.dataset.vxAuthed = '1'
+    } catch (e) {
+      /* noop */
+    }
+    var company = me.companies && me.companies[0]
+    var nameEl = document.getElementById('nav-username')
+    var planEl = document.getElementById('nav-userplan')
+    var avatarEl = document.getElementById('nav-avatar')
+    if (nameEl) nameEl.textContent = company?.name || 'My Company'
+    if (planEl) planEl.textContent = ({ free: 'Free', pro: 'Pro', agency: 'Agency' }[me.user.plan] || 'Free') + ' plan'
+    if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
+    try {
+      window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
+    } catch (e) {
+      /* noop */
     }
   }
 
@@ -130,16 +170,14 @@
 
   // Returns the connection state the overview tiles should show for IG:
   //   'ready'      — real numbers in STATE.insights
-  //   'syncing'    — Phyllo says CONNECTED but InstagramConnection is empty/stub
+  //   'syncing'    — PlatformAccount exists but InstagramConnection has no data yet
   //                  (Meta 24-48h propagation is the usual cause)
   //   'none'       — no IG connection at all
   function instagramState() {
     const ig = STATE.insights
-    const phylloIg = STATE.phylloAccounts.find(
-      (a) => (a.work_platform?.name || '').toLowerCase() === 'instagram' && a.status === 'CONNECTED',
-    )
-    if (ig && ig.source === 'phyllo' && Number(ig.followerCount) > 0) return 'ready'
-    if (phylloIg) return 'syncing'
+    const hasIgAccount = STATE.platformAccounts.some((a) => a.platform === 'instagram')
+    if (ig && Number(ig.followerCount) > 0) return 'ready'
+    if (hasIgAccount || (ig && ig.source === 'meta')) return 'syncing'
     if (ig && ig.source === 'stub') return 'demo'
     return 'none'
   }
@@ -475,11 +513,8 @@
     const user = me?.user
     const company = me?.companies?.[0]
     const u = STATE.usage
-    const status = u?.subscriptionStatus || 'trial'
-    const daysLeft = u?.trialEndsAt ? Math.max(0, Math.ceil((new Date(u.trialEndsAt).getTime() - Date.now()) / 86400000)) : null
-    const chipLabel = status === 'trial' && daysLeft != null
-      ? `${capitalize(u.plan)} · Trial · ${daysLeft}d left`
-      : `${capitalize(u?.plan || 'starter')} · ${capitalize(status)}`
+    const status = u?.subscriptionStatus || 'active'
+    const chipLabel = `${capitalize(u?.plan || 'free')} · ${capitalize(status)}`
 
     return `
       <section style="margin-bottom:28px">
@@ -806,6 +841,36 @@
       + '</div>'
   }
 
+  function sectionPerformanceFeedback() {
+    // Show approved outputs that have been linked to posts with performance results
+    const approved = STATE.tasks.filter((t) => t.status === 'approved' && t.outputs && t.outputs[0])
+    const withPerf = approved.filter((t) => t.outputs[0].performedWell != null)
+    if (withPerf.length === 0) return ''
+
+    const items = withPerf.slice(0, 4).map((t) => {
+      const o = t.outputs[0]
+      const well = o.performedWell === true
+      const role = ROLE[t.employee?.role] || { name: 'Team', init: '?' }
+      const icon = well ? '<span style="color:var(--ok,#34d27a)">▲</span>' : '<span style="color:#c76a6a">▼</span>'
+      const label = well ? 'Above average' : 'Below average'
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--b1)">'
+        + '<div style="width:24px;height:24px;border-radius:6px;background:var(--s3);display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--t1);flex-shrink:0">' + role.init + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:11px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(t.title) + '</div>'
+        + '<div style="font-size:10px;color:var(--t3)">' + icon + ' ' + label + ' · ' + esc(role.name) + '</div>'
+        + '</div></div>'
+    }).join('')
+
+    return `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">LEARNING · HOW YOUR APPROVALS PERFORMED</div>
+        <div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px">
+          ${items}
+        </div>
+      </div>
+    `
+  }
+
   function outputPreview(o) {
     if (!o) return ''
     const c = o.content || {}
@@ -848,13 +913,13 @@
   function teamCard(role, tasks) {
     const r = ROLE[role]
     // Check if this role is locked on the current plan
-    const userPlan = STATE.me?.user?.plan || 'starter'
+    const userPlan = STATE.me?.user?.plan || 'free'
     const planEmployees = {
-      starter: ['analyst', 'copywriter'],
+      free: ['analyst', 'strategist', 'copywriter', 'creative_director'],
       pro: ['analyst', 'strategist', 'copywriter', 'creative_director'],
       agency: ['analyst', 'strategist', 'copywriter', 'creative_director'],
     }
-    const isLocked = !(planEmployees[userPlan] || planEmployees.starter).includes(role)
+    const isLocked = !(planEmployees[userPlan] || planEmployees.free).includes(role)
     if (isLocked) {
       return `
         <div class="vx-dcard" style="background:var(--s1);border:1px dashed var(--b2);border-radius:12px;padding:16px 18px;opacity:0.6">
@@ -954,14 +1019,14 @@
         <section style="margin-bottom:32px">
           ${sectionLabel('Instagram')}
           <div style="padding:24px 20px;border:1px solid var(--b1);border-radius:12px;background:var(--s1)">
-            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — insights are syncing</div>
+            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — your detailed metrics are on the way</div>
             <div style="color:var(--t2);font-size:12px;line-height:1.55;margin-bottom:4px">
               ${esc(platform)} shows <strong>${ig.followerCount?.toLocaleString() || 0} followers</strong> but detailed metrics (engagement, reach, post performance) aren't available yet.
             </div>
             <ul style="color:var(--t3);font-size:11px;line-height:1.7;margin:12px 0 0;padding-left:18px">
               <li>Make sure your Instagram is a <strong>Professional</strong> account (Creator or Business) — personal accounts don't expose insights.</li>
               <li>If you just switched to Professional, Meta takes 24-48 hours to start reporting data.</li>
-              <li>Try resyncing from Settings → Integrations once you've confirmed.</li>
+              <li>Refresh the connection under Settings → Integrations once you’ve confirmed.</li>
             </ul>
           </div>
         </section>
@@ -1753,7 +1818,7 @@
       const ttDisc = e.target.closest('[data-v2-tiktok-disconnect]')
       if (ttDisc) {
         e.preventDefault()
-        if (!window.confirm('Disconnect TikTok? We\'ll drop the token and stop syncing.')) return
+        if (!window.confirm('Disconnect TikTok? We\'ll remove the connection and stop pulling new stats.')) return
         const companyId = STATE.me?.companies?.[0]?.id
         if (!companyId) return
         ttDisc.disabled = true
@@ -1825,8 +1890,8 @@
               chain?.reason === 'quota_exceeded'
                 ? 'Plan task limit reached — the next role did not auto-start. Check usage in Settings or wait for your monthly reset.'
                 : chain?.reason === 'end_of_pipeline'
-                  ? 'That was the last step in this pipeline. Nothing else auto-chained.'
-                  : 'Your approval is saved. Refresh the queue when you are ready for the next move.',
+                  ? 'That was the last step in this pipeline. Your preference has been noted for future outputs.'
+                  : 'Your approval is saved and your preference has been noted. Future outputs will reflect your taste.',
             primaryLabel: 'Open queue',
             onPrimary: () => {
               if (typeof window.navigate === 'function') window.navigate('db-tasks')
@@ -1836,8 +1901,8 @@
           showOutcomeModal({
             title: 'Revision requested',
             body: feedback
-              ? 'Your note was sent with the rejection so the teammate can rework with context.'
-              : 'Rejection recorded — they will rework from your last review.',
+              ? 'Your note was sent with the rejection and saved as feedback. Future outputs will avoid this pattern.'
+              : 'Rejection recorded and saved as feedback — they will rework and learn from this.',
             primaryLabel: 'Open queue',
             onPrimary: () => {
               if (typeof window.navigate === 'function') window.navigate('db-tasks')
@@ -1961,6 +2026,18 @@
   async function render() {
     const view = document.getElementById('view-db-dashboard')
     if (!view) return
+    // If the new Vexa-2 HQ layout OR the v3 warm-ivory redesign is present,
+    // skip the old JS-generated dashboard. v3 is static HTML in body.html
+    // styled by hq-v3.css; the .hq-v3 class on view-db-dashboard is the marker.
+    if (view.classList.contains('hq-v3') || view.querySelector('.masthead') || view.querySelector('.pipe-wrap')) {
+      // If we have cached state, populate HQ immediately while fresh API data loads
+      if (window.__vxDashState && window.__vxDashState.me) {
+        window.dispatchEvent(new CustomEvent('vx-dash-ready'))
+      }
+      // Fetch fresh data in background — vx-dash-ready fires again when done
+      fetchAll().catch(() => {})
+      return
+    }
     try { await fetchAll() } catch (e) { console.warn('[v2] fetchAll failed, rendering with partial data', e) }
     injectMotionStyles()
     const root = view.querySelector('.db-layout') || view
@@ -1975,7 +2052,7 @@
           ${sectionCeoNextAction()}
           ${sectionOverview()}
           ${sectionTeamPulseBanner()}
-          ${sectionReviewQueue()}
+          ${sectionPerformanceFeedback()}
           ${''}<!-- team accessible via side tabs -->
           ${sectionPerformance()}
           ${sectionTiktok()}
@@ -2005,8 +2082,13 @@
       var avatarEl = document.getElementById('nav-avatar')
       var company = STATE.me.companies?.[0]
       if (nameEl) nameEl.textContent = company?.name || 'My Company'
-      if (planEl) planEl.textContent = (STATE.me.user.plan || 'starter') + ' plan'
+      if (planEl) planEl.textContent = (STATE.me.user.plan || 'free') + ' plan'
       if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
+      try {
+        window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
+      } catch (e2) {
+        /* noop */
+      }
     }
     // Animations — staggered reveal + counters + sparkline draw
     requestAnimationFrame(function () {
@@ -2173,24 +2255,51 @@
   // having to reload.
   window.addEventListener('vx-task-changed', () => { setTimeout(render, 80) })
 
-  // When the user returns from the TikTok OAuth callback (?tiktokConnected=1),
-  // jump straight to the dashboard and scroll the TikTok section into view.
-  function maybeHandleTiktokReturn() {
+  // When the user returns from a platform OAuth callback (?tiktokConnected=1
+  // or ?instagramConnected=1), verify the session is still valid, then jump
+  // to the dashboard and refresh data. If the session expired during OAuth,
+  // fall back to the home/login page instead of showing a broken dashboard.
+  function maybeHandlePlatformReturn() {
     try {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('tiktokConnected') !== '1') return
+      const isTiktok = params.get('tiktokConnected') === '1'
+      const isInstagram = params.get('instagramConnected') === '1'
+      if (!isTiktok && !isInstagram) return
+
+      var awaitingOb = false
+      try { awaitingOb = sessionStorage.getItem('vx-ob-await-connect') === '1' } catch (_) {}
+
       // Clear the query param so a refresh doesn't re-trigger.
       const clean = window.location.pathname + (window.location.hash || '')
       window.history.replaceState({}, '', clean)
       setTimeout(async () => {
-        if (typeof window.navigate === 'function') window.navigate('db-dashboard')
+        // Verify the user is still logged in before showing the dashboard
+        const me = await fetch('/api/auth/me', { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+        if (!me?.user) {
+          if (typeof window.navigate === 'function') window.navigate('home')
+          try { sessionStorage.removeItem('vx-ob-await-connect') } catch (_) {}
+          return
+        }
+
+        if (awaitingOb) {
+          try { sessionStorage.removeItem('vx-ob-await-connect') } catch (_) {}
+          if (typeof window.enterDashboard === 'function') await window.enterDashboard()
+          await refresh()
+          window.dispatchEvent(new CustomEvent('vx-oauth-return-onboarding'))
+          return
+        }
+
+        if (typeof window.enterDashboard === 'function') window.enterDashboard()
         await refresh()
-        setTimeout(() => {
-          document.getElementById('tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 250)
+        if (isTiktok) {
+          setTimeout(() => {
+            document.getElementById('tiktok')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }, 250)
+        }
       }, 400)
     } catch { /* noop */ }
   }
-  if (document.readyState !== 'loading') maybeHandleTiktokReturn()
-  document.addEventListener('DOMContentLoaded', maybeHandleTiktokReturn)
+  if (document.readyState !== 'loading') maybeHandlePlatformReturn()
+  document.addEventListener('DOMContentLoaded', maybeHandlePlatformReturn)
 })()

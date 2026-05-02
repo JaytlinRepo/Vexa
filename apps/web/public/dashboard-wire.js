@@ -44,7 +44,7 @@
   function populateNav(user, company) {
     const displayName = company?.name || user.fullName || user.username || 'Your company'
     setText('nav-username', displayName)
-    setText('nav-userplan', (user.plan || 'starter').replace(/^./, (c) => c.toUpperCase()) + ' plan')
+    setText('nav-userplan', (user.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan')
     setText('nav-avatar', displayName.charAt(0).toUpperCase())
     setText('db-greeting', `${greeting()}, ${user.fullName || user.username || 'CEO'}.`)
     if (company) {
@@ -55,11 +55,13 @@
   // Top-right profile chip + dropdown (Name · Plan · Settings · Sign out).
   // Replaces the old sidebar logout button — the sidebar itself is gone now.
   function ensureProfileMenu(user, company) {
+    // Skip if the new profile avatar (#vx-profile) exists in body.html
+    if (document.getElementById('vx-profile')) return
     const host = document.querySelector('#topbar .topbar-right')
     if (!host) return
     let chip = document.getElementById('vx-profile-chip')
     const displayName = company?.name || user?.fullName || user?.username || 'Account'
-    const planLabel = (user?.plan || 'starter').replace(/^./, (c) => c.toUpperCase()) + ' plan'
+    const planLabel = (user?.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan'
     const initial = displayName.charAt(0).toUpperCase()
 
     if (!chip) {
@@ -253,39 +255,60 @@
     const me = await fetchMe()
     safeOriginalEnter()
     if (me?.user) {
+      // Persist the auth flag so the layout.tsx gate can pre-show the correct
+      // view on next refresh — without this, signup → onboarding → enter causes
+      // a flash of the marketing home on every subsequent page load.
+      try { localStorage.setItem('vx-authed', '1') } catch {}
       const company = me.companies?.[0]
       await refreshDashboardFor(me.user, company)
       if (company) fireDashboardReady(me.user, company)
     }
   }
 
-  // Force the view state even if prototype's navigate() animation lost the
-  // swap. Without this, after a session-restore login the marketing view
-  // and the dashboard view can both end up visible on top of each other —
-  // .view is position:absolute inset:0, so anything still holding .active
-  // paints over the dashboard. Belt-and-suspenders: explicitly strip it.
-  function forceDashboardVisible() {
-    document.querySelectorAll('.view').forEach((v) => {
-      if (v.id !== 'view-db-dashboard') v.classList.remove('active')
-    })
-    const dash = document.getElementById('view-db-dashboard')
-    if (dash) dash.classList.add('active')
-    const onboarding = document.getElementById('onboarding')
-    if (onboarding) onboarding.classList.remove('active')
-  }
+  // View visibility is handled by navigate() from prototype.js.
+  // The #vx-auth-gate in layout.tsx handles the initial load.
 
   // ── On page load, auto-enter dashboard if already onboarded ───────────────
   async function init() {
     const me = await fetchMe()
-    if (!me?.user) return
+    if (!me?.user) {
+      // Session expired or was never valid — the optimistic dashboard-v2
+      // sync block may have already shown the dashboard based on the
+      // localStorage flag. Undo that and show the home page instead.
+      // Clear the flag so it doesn't persist after session expiry, but
+      // note: the login flow re-sets it before calling location.reload().
+      try { localStorage.removeItem('vx-authed') } catch {}
+      try { document.documentElement.removeAttribute('data-vxAuthed') } catch {}
+      const gate = document.getElementById('vx-auth-gate')
+      if (gate) gate.remove()
+      try { history.replaceState(null, '', '#home') } catch {}
+      if (typeof window.navigate === 'function') {
+        window.navigate('home')
+      } else {
+        const dashView = document.getElementById('view-db-dashboard')
+        if (dashView?.classList.contains('active')) {
+          dashView.classList.remove('active')
+          const homeView = document.getElementById('view-home')
+          if (homeView) homeView.classList.add('active')
+          if (typeof window.currentView !== 'undefined') window.currentView = 'home'
+        }
+      }
+      return
+    }
     const company = me.companies?.[0]
     if (!company) return
-    // Skip marketing — jump straight to the dashboard
-    safeOriginalEnter()
-    forceDashboardVisible()
-    // And once more after prototype's 280ms navigate animation window has
-    // elapsed, in case our early call lost the race with the animated swap.
-    setTimeout(forceDashboardVisible, 320)
+    // Session is confirmed valid — keep the auth gate flag current so the
+    // next refresh pre-shows the correct view without a marketing-home flash.
+    try { localStorage.setItem('vx-authed', '1') } catch {}
+    // Refresh-restore path. Suppress enterDashboard's hardcoded navigate('db-dashboard')
+    // so HQ doesn't flash before we route to the user's intended view.
+    var intended = (location.hash || '').replace(/^#/, '')
+    window.__vxSuppressEnterNavigate = true
+    try { safeOriginalEnter() } finally { window.__vxSuppressEnterNavigate = false }
+    if (typeof window.navigate === 'function') {
+      var target = (/^[a-z0-9-]+$/.test(intended) && document.getElementById('view-' + intended)) ? intended : 'db-dashboard'
+      window.navigate(target)
+    }
     await refreshDashboardFor(me.user, company)
     fireDashboardReady(me.user, company)
   }

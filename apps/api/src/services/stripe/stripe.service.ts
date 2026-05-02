@@ -8,11 +8,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 // ─── PRICE IDS ────────────────────────────────────────────────────────────────
 
+/** Legacy Stripe Solo price IDs → treat subscriptions as Pro after webhook */
+const LEGACY_SOLO_PRICE_IDS = new Set(
+  [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID, process.env.STRIPE_STARTER_ANNUAL_PRICE_ID].filter(Boolean),
+)
+
 const PRICE_IDS = {
-  starter: {
-    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || '',
-    annual: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID || '',
-  },
   pro: {
     monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || '',
     annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || '',
@@ -33,7 +34,7 @@ export async function createCheckoutSession({
   cancelUrl,
 }: {
   userId: string
-  plan: 'starter' | 'pro' | 'agency'
+  plan: 'pro' | 'agency'
   billing: 'monthly' | 'annual'
   successUrl: string
   cancelUrl: string
@@ -50,7 +51,6 @@ export async function createCheckoutSession({
     cancel_url: cancelUrl,
     metadata: { userId, plan, billing },
     subscription_data: {
-      trial_period_days: 7,
       metadata: { userId, plan },
     },
   }
@@ -120,7 +120,7 @@ export async function handleStripeWebhook(payload: Buffer, signature: string): P
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId
-  const plan = session.metadata?.plan as 'starter' | 'pro' | 'agency'
+  const plan = session.metadata?.plan as 'pro' | 'agency'
   if (!userId || !plan) return
 
   await prisma.user.update({
@@ -181,34 +181,28 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 // ─── PLAN HELPERS ─────────────────────────────────────────────────────────────
 
-function getPlanFromPriceId(priceId?: string): 'starter' | 'pro' | 'agency' | null {
+/** Maps Stripe price ID → internal plan. Legacy Solo prices resolve to Pro. */
+function getPlanFromPriceId(priceId?: string): 'pro' | 'agency' | null {
   if (!priceId) return null
+  if (LEGACY_SOLO_PRICE_IDS.has(priceId)) return 'pro'
   for (const [plan, prices] of Object.entries(PRICE_IDS)) {
     if (Object.values(prices).includes(priceId)) {
-      return plan as 'starter' | 'pro' | 'agency'
+      return plan as 'pro' | 'agency'
     }
   }
   return null
 }
 
 /**
- * Starter: 2 employees (Maya + Alex)
- * Pro/Agency: All 4 employees
+ * Every paid tier gets all four employees active; differentiation is volume + features.
  */
-async function unlockEmployeesForPlan(userId: string, plan: string): Promise<void> {
+async function unlockEmployeesForPlan(userId: string, _plan: string): Promise<void> {
   const companies = await prisma.company.findMany({ where: { userId } })
 
   for (const company of companies) {
-    if (plan === 'starter') {
-      await prisma.employee.updateMany({
-        where: { companyId: company.id, role: { in: ['strategist', 'creative_director'] } },
-        data: { isActive: false },
-      })
-    } else {
-      await prisma.employee.updateMany({
-        where: { companyId: company.id },
-        data: { isActive: true },
-      })
-    }
+    await prisma.employee.updateMany({
+      where: { companyId: company.id },
+      data: { isActive: true },
+    })
   }
 }

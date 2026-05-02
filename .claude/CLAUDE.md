@@ -440,31 +440,45 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 
 ## Subscription Plans
 
-### Starter — $29/mo ($22/mo annual)
-- 2 employees (Maya + Alex)
-- 20 tasks/month
+**Pricing strategy: same team quality at every tier; differentiation is volume + features (Claude model).**
+All plans include all 4 employees (Maya · Jordan · Alex · Riley). Upgrading buys runway, meetings, memory, and video — not access to more agents.
+
+### Free — $0
+- All 4 employees (audition the team)
+- 5 tasks/month
+- No meetings, no video, no brand memory, no auto-pulses
+- 1-hour task cooldown
+- 0 revisions (one-shot per task — encourage upgrade)
+- Top-of-funnel acquisition tier
+
+### Solo — $19/mo (annual: $15/mo, $180/yr)
+- All 4 employees
+- 50 tasks/month
 - Basic brand voice
-- 3 revisions per output
+- 2 revisions per output
 - No meeting feature
 - No video generation
 
-### Pro — $79/mo ($59/mo annual)
+### Pro — $59/mo (annual: $47/mo, $564/yr)
 - All 4 employees
-- Unlimited tasks
+- 200 tasks/month
 - Full brand voice + memory
-- Unlimited revisions
+- 10 revisions per output
 - Meeting feature unlocked
-- Video generation (10/month)
+- Video generation (15/month)
 - Monday trend reports (automatic)
 
-### Agency — $149/mo ($112/mo annual)
+### Agency — $149/mo (annual: $119/mo, $1,428/yr)
 - Up to 5 brand workspaces
 - Everything in Pro per workspace
-- Priority Bedrock processing
-- 50 video generations/month
+- Priority Bedrock processing (2-min brief cooldown vs. 5-min on Pro/Solo)
+- 75 video generations/month
+- 1,000 tasks/month
 - Advanced analytics
 - Custom employee personas
 - White-label exports
+
+> Internal note: the entry paid tier is displayed as "Solo" but the database enum value remains `starter` to avoid a migration. Stripe product is "Sovexa Solo". The `free` Plan enum was added 2026-04-27 — requires `prisma migrate dev --name add_free_plan` before the Free signup path can write `plan: 'free'` to the DB.
 
 ---
 

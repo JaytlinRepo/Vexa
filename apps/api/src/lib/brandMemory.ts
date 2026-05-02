@@ -2,9 +2,10 @@ import { PrismaClient, MemoryType, Prisma } from '@prisma/client'
 
 export interface MemoryContent {
   summary: string
-  source?: 'task' | 'meeting' | 'manual' | 'instagram'
+  source?: 'task' | 'meeting' | 'manual' | 'instagram' | 'performance_tracking' | 'studio'
   sourceId?: string
   tags?: string[]
+  segmentLabels?: string[]
   details?: Record<string, unknown>
 }
 
@@ -134,6 +135,65 @@ export async function recordTaskRejected(
       sourceId: params.taskId,
       summary: `Rejected ${params.employeeName}'s ${formatType(params.taskType)}: "${params.taskTitle}"${feedbackClause}`,
       tags: [params.taskType, 'rejected'],
+    },
+  })
+}
+
+export interface ActionDecisionRecord {
+  /** Riley's classification of this action's duration */
+  durationClass: 'short' | 'medium' | 'long'
+  /** What Riley chose to do with this action */
+  decisionType: 'kept_whole' | 'sampled' | 'skipped'
+  /** Action label (e.g. "loading car with groceries") */
+  label?: string
+  /** Number of beats Riley kept inside this action */
+  beatsKept?: number
+}
+
+export async function recordEditorialFeedback(
+  prisma: PrismaClient,
+  params: {
+    companyId: string
+    feedback: string
+    type: 'visual_approval' | 'visual_rejection' | 'copy_approval' | 'copy_rejection'
+    context?: Record<string, unknown>
+    /** Visual keywords describing what was in the clip (e.g. "dog", "car", "cooking") */
+    visualKeywords?: string[]
+    /** Segment labels from Riley's analysis */
+    segmentLabels?: string[]
+    /** Per-action decisions (for action-aware learning over time) */
+    actionDecisions?: ActionDecisionRecord[]
+  },
+): Promise<void> {
+  const isRejection = params.type.includes('rejection')
+  const isCopy = params.type.includes('copy')
+  const dimension = isCopy ? 'caption' : 'visual'
+
+  // Build rich tags for retrieval — combine action type + visual context
+  const tags = [dimension, isRejection ? 'rejected' : 'approved', 'studio']
+  if (params.visualKeywords?.length) tags.push(...params.visualKeywords)
+
+  // Action-class tags let future Riley prompts query for "past decisions on
+  // similar action classes" (short/medium/long) and compare what was approved
+  // vs rejected. This is the data spine for learning Riley's policy over time.
+  if (params.actionDecisions?.length) {
+    for (const d of params.actionDecisions) {
+      tags.push(`action:${d.durationClass}`)
+      tags.push(`decision:${d.decisionType}`)
+    }
+  }
+
+  await writeMemory(prisma, {
+    companyId: params.companyId,
+    type: isRejection ? 'feedback' : 'preference',
+    weight: isRejection ? 1.5 : 1.0,
+    content: {
+      source: 'studio',
+      sourceId: params.context?.clipId as string | undefined,
+      summary: `${isRejection ? 'Rejected' : 'Approved'} ${dimension} edit${isRejection && params.feedback ? `: ${params.feedback}` : ''}`,
+      tags,
+      segmentLabels: params.segmentLabels || [],
+      details: { ...params.context, actionDecisions: params.actionDecisions },
     },
   })
 }

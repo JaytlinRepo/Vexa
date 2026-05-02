@@ -17,7 +17,6 @@
 import 'dotenv/config'
 import { PrismaClient, EmployeeRole, OutputType, TaskStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
-import { trialEnd } from '../src/lib/plans'
 import { seedStarterTasks } from '../src/lib/seedStarterTasks'
 import { buildStub } from '../src/lib/instagramStub'
 
@@ -39,8 +38,7 @@ async function main() {
       passwordHash,
       fullName: 'Demo CEO',
       plan: 'pro',
-      subscriptionStatus: 'trial',
-      trialEndsAt: trialEnd(),
+      subscriptionStatus: 'active',
     },
   })
   console.log('[seed] user created:', user.id)
@@ -214,7 +212,7 @@ async function main() {
   console.log('  email    ', EMAIL)
   console.log('  username ', USERNAME)
   console.log('  password ', PASSWORD)
-  console.log('  plan     ', 'pro (trial, 7 days)')
+  console.log('  plan     ', 'pro')
   console.log('  open     ', 'http://localhost:3000 → Log in')
 }
 

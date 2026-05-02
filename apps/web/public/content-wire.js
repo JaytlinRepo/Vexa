@@ -100,7 +100,7 @@
           resolve(true)
         } else {
           console.error('[content] S3 upload failed:', xhr.status, xhr.responseText?.slice(0, 200))
-          reject(new Error('S3 upload failed: ' + xhr.status))
+          reject(new Error('upload_failed'))
         }
       })
 
@@ -143,10 +143,10 @@
   async function uploadFile(file, notes) {
     console.log('[content] uploadFile called', file?.name, file?.size)
     var cid = await getCompanyId()
-    if (!cid) { alert('No company found. Please complete onboarding first.'); return null }
+    if (!cid) { alert('We couldn\'t find your workspace. Finish setup first, then try again.'); return null }
 
     var key = await uploadFileToS3(file, 0, 1)
-    if (!key) { alert('Upload to S3 failed'); return null }
+    if (!key) { alert('We couldn\'t upload your file. Check your connection and try again.'); return null }
 
     // Tell API to create Riley review task
     try {
@@ -158,12 +158,14 @@
       })
       if (!res.ok) {
         var err = await res.json().catch(function () { return {} })
-        alert('Upload failed: ' + (err.error || res.statusText))
+        alert(err.error && typeof err.error === 'string' && err.error.length < 120 && err.error.indexOf('_') === -1
+          ? err.error
+          : 'Your upload didn\'t finish. Please try again.')
         return null
       }
       return await res.json()
     } catch (e) {
-      alert('Upload error: ' + e.message)
+      alert('Something went wrong while uploading. Check your connection and try again.')
       return null
     }
   }
@@ -535,14 +537,14 @@
   // Uploads each clip to S3 directly, then calls API to combine the S3 keys
   async function uploadCombined(files, notes) {
     var cid = await getCompanyId()
-    if (!cid) { alert('No company found.'); return null }
+    if (!cid) { alert('We couldn\'t find your workspace. Finish setup first, then try again.'); return null }
 
     // Upload each file to S3
     var keys = []
     for (var i = 0; i < files.length; i++) {
       console.log('[content] uploading clip', i + 1, '/', files.length, files[i].name)
       var key = await uploadFileToS3(files[i], i, files.length)
-      if (!key) { alert('Failed to upload clip ' + (i + 1)); return null }
+      if (!key) { alert('We couldn\'t upload clip ' + (i + 1) + '. Check your connection and try again.'); return null }
       keys.push(key)
     }
 
@@ -557,12 +559,14 @@
       })
       if (!res.ok) {
         var err = await res.json().catch(function () { return {} })
-        alert('Combine failed: ' + (err.error || res.statusText))
+        alert(err.error && typeof err.error === 'string' && err.error.length < 120 && err.error.indexOf('_') === -1
+          ? err.error
+          : 'We couldn\'t merge your clips into one video. Please try again.')
         return null
       }
       return await res.json()
     } catch (e) {
-      alert('Combine error: ' + e.message)
+      alert('Something went wrong while merging your clips. Please try again.')
       return null
     }
   }
@@ -877,7 +881,7 @@
   window.vxRenderContent = async function (host) {
     host.innerHTML = '<div style="padding:4px 0">'
       + uploadZone()
-      + '<div id="vx-uploads-list"><div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">Loading...</div></div>'
+      + '<div id="vx-uploads-list"><div style="text-align:center;padding:24px"><div class="vx-spin" style="margin:0 auto"></div></div></div>'
       + '</div>'
 
     // Wire upload zone
@@ -1149,7 +1153,7 @@
         progressEl.style.cssText = 'margin-top:8px;padding:10px 14px;background:var(--s2);border-radius:8px'
         progressEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
           + '<div style="width:8px;height:8px;border-radius:50%;background:#b482ff;animation:pulse 1.5s infinite"></div>'
-          + '<span style="font-size:12px;color:var(--t2)">Applying edits — downloading, processing, uploading...</span>'
+          + '<span style="font-size:12px;color:var(--t2)">Applying your edits… this can take a minute.</span>'
           + '</div>'
           + '<div style="height:4px;background:var(--s3);border-radius:2px;overflow:hidden">'
           + '<div style="width:30%;height:100%;background:linear-gradient(90deg,#b482ff,#6ab4ff);border-radius:2px;animation:editProgress 3s ease-in-out infinite"></div>'
@@ -1166,7 +1170,9 @@
           })
           if (!res.ok) {
             var err = await res.json().catch(function () { return {} })
-            alert('Edit failed: ' + (err.error || res.statusText))
+            alert(err.error && typeof err.error === 'string' && err.error.length < 120 && err.error.indexOf('_') === -1
+              ? err.error
+              : 'We couldn\'t apply those edits. Please try again.')
             progressEl.remove()
             btn.style.display = ''
             btn.disabled = false
@@ -1175,7 +1181,7 @@
           // Refresh to show the before/after
           await loadUploads(host)
         } catch (e) {
-          alert('Edit error: ' + e.message)
+          alert('Something went wrong while applying edits. Please try again.')
           progressEl.remove()
           btn.style.display = ''
           btn.disabled = false

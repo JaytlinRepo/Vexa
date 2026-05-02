@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs><style>
+    .bg { fill: #fbfaf6; } .ink { fill: #1a1a1a; } .ink2 { fill: #5a5856; } .ink3 { fill: #8a8682; } .accent { fill: #c08a3e; }
+    .hair { stroke: rgba(20,16,10,.16); stroke-width: 1; }
+    .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+    .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+    .sans { font-family: 'Inter', 'Helvetica', sans-serif; }
+  </style></defs>
+  <rect class="bg" width="1080" height="1080"/>
+  <line class="hair" x1="80" y1="100" x2="160" y2="100"/>
+  <text class="mono accent" x="180" y="105" font-size="22" letter-spacing="4">02 / 09 — SOURCE</text>
+
+  <text class="serif ink" x="80" y="540" font-size="160" font-style="italic" font-weight="400" letter-spacing="-2">Google</text>
+  <text class="serif accent" x="80" y="700" font-size="200" font-style="italic" font-weight="400" letter-spacing="-3">Trends.</text>
+
+  <line class="hair" x1="80" y1="800" x2="1000" y2="800"/>
+  <text class="sans ink2" x="80" y="880" font-size="32" font-weight="400">Search terms spiking faster than the</text>
+  <text class="sans ink2" x="80" y="920" font-size="32" font-weight="400">trailing 14-day mean.</text>
+
+  <text class="mono ink3" x="1000" y="1020" font-size="20" text-anchor="end" letter-spacing="4">SOVEXA.AI · 02 / 09</text>
+</svg>

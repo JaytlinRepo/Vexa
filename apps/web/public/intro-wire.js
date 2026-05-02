@@ -5,21 +5,16 @@
  * Loads demo.html content into an iframe overlay, then removes it on completion.
  */
 ;(function () {
-  // Don't show for logged-in users
-  if (document.cookie.indexOf('vx_session') !== -1) return
-  // ?nointro=1 — skip the cinematic intro (used for screenshotting / preview)
-  if (new URLSearchParams(location.search).get('nointro') === '1') return
-  // Phone-narrow viewports get sent straight to the landing page — the demo
-  // is a fixed 1440x810 stage that scales down to a ~390x219 letterbox on a
-  // portrait phone, and iOS "Reduce Motion" trips the auto-skip path inside
-  // demo.html so the overlay flashes for a fraction of a second and closes.
-  // Skip the intro entirely under 768px so the user lands on the real page.
-  try { if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return } catch (_) {}
-  // Temporarily showing on localhost for preview
-  // var host = window.location.hostname
-  // if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com')) return
-  // Clear any stale intro flag so it always plays for testing
-  try { sessionStorage.removeItem('vx-intro-done') } catch (_) {}
+  // Don't show for logged-in users.
+  // vx_session is httpOnly so JS can't read it via document.cookie — use the
+  // localStorage flag the auth flow + layout vx-session-gate already maintain.
+  try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
+  // Only show on production (sovexa.ai) — skip on dev/localhost so testing isn't
+  // blocked, on the named /etc/hosts dev aliases (sovexa-dev-*), and on beta.
+  var host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0 || host === 'beta.sovexa.ai') return
+  // Once shown this session, don't replay
+  if (sessionStorage.getItem('vx-intro-done') === '1') return
 
   // Create overlay
   var overlay = document.createElement('div')

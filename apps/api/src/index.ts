@@ -1,7 +1,9 @@
 import 'dotenv/config'
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
+import compression from 'compression'
 import {
   registerSSEClient,
   getNotifications,
@@ -15,31 +17,64 @@ import onboardingRouter from './routes/onboarding'
 import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
 import tasksRouter from './routes/tasks'
+import employeesRouter from './routes/employees'
 import { getMode } from './lib/mode'
 import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
 import memoryRouter from './routes/memory'
-import phylloRouter from './routes/phyllo'
+import knowledgeRouter from './routes/knowledge'
+import thoughtsRouter from './routes/thoughts'
 import platformDataRouter from './routes/platformData'
+import styleRouter from './routes/style'
 import contactRouter from './routes/contact'
 import tiktokRouter from './routes/tiktok'
 import uploadsRouter from './routes/uploads'
 import stripeRouter from './routes/stripe'
 import adminRouter from './routes/admin'
 import waitlistRouter from './routes/waitlist'
+import communityReportRouter from './routes/communityReport'
+import { initBriefRoutes } from './routes/briefs'
+import { initWeeklyRoutes } from './routes/weekly'
+import { initVideoRoutes } from './routes/video'
+import { initStudioRoutes } from './routes/studio'
 import { registerScheduledJobs } from './scheduler'
+import { registerBullMQSchedules } from './scheduler2'
+import { initSSEBridge } from './queues/sse-bridge'
+import { setupQueueDashboard } from './routes/admin-queues'
 import prisma from './lib/prisma'
 import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
 
-if (!process.env.SESSION_SECRET) {
-  console.warn('[api] SESSION_SECRET is unset — falling back to a dev-only value. Do NOT ship like this.')
-  process.env.SESSION_SECRET = 'dev-only-insecure-secret-change-me'
-}
+// ─── Required env vars — fail fast rather than silently misbehave ─────────────
+;(function validateEnv() {
+  const always = ['SESSION_SECRET', 'DATABASE_URL']
+  const liveOnly = [
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_PRO_MONTHLY_PRICE_ID',
+    'STRIPE_PRO_ANNUAL_PRICE_ID',
+    'STRIPE_AGENCY_MONTHLY_PRICE_ID',
+    'STRIPE_AGENCY_ANNUAL_PRICE_ID',
+  ]
+  const isLive = (process.env.VEXA_MODE || 'live').toLowerCase() !== 'test'
+  const required = isLive ? [...always, ...liveOnly] : always
+  const missing = required.filter((k) => !process.env[k])
+  if (missing.length) {
+    console.error('[api] FATAL: missing required environment variables:')
+    missing.forEach((k) => console.error(`  · ${k}`))
+    console.error('[api] Add them to apps/api/.env and restart.')
+    process.exit(1)
+  }
+})()
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
+
+// Security headers — applied to every response.
+// CSP disabled at the API layer; the Next.js frontend handles its own CSP.
+// crossOriginEmbedderPolicy disabled so the Bull Board admin UI can load assets.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }))
 
 // CORS — accept any origin in CORS_ORIGINS (comma-separated), plus the
 // legacy single-origin NEXT_PUBLIC_APP_URL. Also auto-allows Vercel
@@ -55,12 +90,14 @@ app.use(
       // Same-origin / curl / server-to-server requests have no Origin header
       if (!origin) return cb(null, true)
       if (allowedOrigins.includes(origin)) return cb(null, true)
-      // Allow Amplify previews, sovexa.ai subdomains, and localhost
+      // Allow Amplify previews, sovexa.ai subdomains, localhost, and the
+      // named /etc/hosts dev aliases (sovexa-dev-*, sovexa-prod-*).
       try {
         const host = new URL(origin).hostname
         if (host.endsWith('.amplifyapp.com')) return cb(null, true)
         if (host.endsWith('.sovexa.ai') || host === 'sovexa.ai') return cb(null, true)
         if (host === 'localhost' || host === '127.0.0.1') return cb(null, true)
+        if (host.startsWith('sovexa-dev-') || host.startsWith('sovexa-prod-')) return cb(null, true)
       } catch { /* fallthrough */ }
       cb(new Error(`Origin ${origin} not allowed by CORS`))
     },
@@ -71,6 +108,22 @@ app.use(
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '2mb' }))
 app.use(cookieParser())
+
+// Enable gzip compression for all responses (reduces payload by 60-70%).
+// Skip SSE endpoints — gzip buffering breaks Server-Sent Events: the
+// middleware accumulates writes before flushing, which delays event
+// delivery and causes the browser EventSource to error out / disconnect
+// before any events arrive. Skip text/event-stream and the known SSE path.
+app.use(
+  compression({
+    filter: (req, res) => {
+      if (req.path === '/api/video/stream') return false
+      const ct = String(res.getHeader('Content-Type') || '')
+      if (ct.includes('text/event-stream')) return false
+      return compression.filter(req, res)
+    },
+  }),
+)
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
@@ -98,19 +151,28 @@ app.use('/api/onboarding', onboardingRouter)
 app.use('/api/instagram', instagramRouter)
 app.use('/api/meeting', meetingRouter)
 app.use('/api/tasks', tasksRouter)
+app.use('/api/employees', employeesRouter)
 app.use('/api/feed', feedRouter)
 app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/memory', memoryRouter)
-app.use('/api/phyllo', phylloRouter)
+app.use('/api/knowledge', knowledgeRouter)
+app.use('/api/thoughts', thoughtsRouter)
+app.use('/api/style', styleRouter)
 app.use('/api/platform', platformDataRouter)
 app.use('/api/contact', contactRouter)
 app.use('/api/tiktok', tiktokRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/stripe', stripeRouter)
 app.use('/api/admin', adminRouter)
+app.use('/admin/queues', setupQueueDashboard())
 app.use('/api/waitlist', waitlistRouter)
+app.use('/api/community', communityReportRouter)
+app.use('/api/briefs', initBriefRoutes(prisma))
+app.use('/api/weekly', initWeeklyRoutes(prisma))
+app.use('/api/video', initVideoRoutes(prisma))
+app.use('/api/studio', initStudioRoutes(prisma))
 
 app.get('/api/notifications/stream', requireAuth, (req, res) => {
   const { userId } = (req as AuthedRequest).session
@@ -163,15 +225,13 @@ process.on('uncaughtException', (err) => {
   // Only exit on truly fatal errors (OOM will kill us anyway).
 })
 
-app.listen(PORT, () => {
+const httpServer = app.listen(PORT, () => {
   const mode = getMode()
-  const phylloHost = process.env.PHYLLO_API_BASE || '(unset)'
   const bedrockOn = !!(process.env.AWS_REGION && process.env.AWS_ACCESS_KEY_ID)
   const stripeOn = !!process.env.STRIPE_SECRET_KEY
   console.log(`[api] listening on :${PORT}`)
   console.log(`[api] ╔════════════════════════════════════════════════════════════╗`)
   console.log(`[api] ║ MODE: ${String(mode).toUpperCase().padEnd(54)} ║`)
-  console.log(`[api] ║ Phyllo: ${phylloHost.padEnd(52)} ║`)
   console.log(`[api] ║ Bedrock: ${(bedrockOn ? 'enabled' : 'disabled (mocks only)').padEnd(51)} ║`)
   console.log(`[api] ║ Stripe:  ${(stripeOn ? 'enabled' : 'disabled').padEnd(51)} ║`)
   console.log(`[api] ╚════════════════════════════════════════════════════════════╝`)
@@ -179,4 +239,32 @@ app.listen(PORT, () => {
     console.log(`[api] TEST MODE — this is the preview stack. Do not route real users.`)
   }
   registerScheduledJobs(prisma)
+
+  // BullMQ job queues — register repeatable schedules + SSE bridge
+  registerBullMQSchedules(prisma).catch((err) =>
+    console.error('[api] BullMQ schedule registration failed:', err)
+  )
+  try {
+    // Bridge Redis Pub/Sub events from workers → SSE clients in this
+    // process. We intentionally use the broadcaster from routes/video
+    // here (not videoProcessing.service): videoProcessing's local
+    // `broadcastProcessingEvent` is not exported, AND going through it
+    // would loop back through its own _broadcastFn indirection (which
+    // SSE clients in THIS process need pointed at routes/video's
+    // sseClients map, not redirected through pubsub again).
+    const { broadcastProcessingEvent } = require('./routes/video')
+    initSSEBridge(broadcastProcessingEvent)
+  } catch (err) {
+    console.warn('[api] SSE bridge init skipped:', (err as Error).message)
+  }
 })
+
+// Tune timeouts for large multipart uploads. Defaults are too short for
+// multi-hundred-MB POSTs going through the dev proxy:
+//   requestTimeout = 0    : no per-request timeout (was 5 min)
+//   headersTimeout = 660s : let multipart headers stream over a slow link
+//   keepAliveTimeout = 65s: > Next.js dev's default 60s so the upstream
+//                          half doesn't ECONNRESET before the proxy gives up
+httpServer.requestTimeout = 0
+httpServer.headersTimeout = 660 * 1000
+httpServer.keepAliveTimeout = 65 * 1000

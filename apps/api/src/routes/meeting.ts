@@ -24,7 +24,7 @@ function formatPlatformBlock(ig: {
   // No real account connected (or only the stub / demo data). Be explicit
   // about it so the agent refuses to invent numbers — a customer caught
   // Maya citing a fake "23% engagement drop" when no account was linked.
-  if (!ig || (ig.source !== 'phyllo' && ig.source !== 'meta')) {
+  if (!ig || ig.source === 'stub') {
     return `
 
 --- Account data ---
@@ -79,8 +79,8 @@ function buildFullPlatformBlock(
   const notConnected: string[] = []
   let block = '\n--- Connected platforms ---\n'
 
-  // Instagram (connected via Phyllo or Meta Graph API)
-  if (ig && (ig.source === 'phyllo' || ig.source === 'meta')) {
+  // Instagram (connected via Meta Graph API)
+  if (ig && ig.source !== 'stub') {
     connected.push('Instagram')
     const topPosts = Array.isArray(ig.topPosts) ? ig.topPosts : []
     const topLine = topPosts[0]
@@ -479,23 +479,59 @@ The CEO is reading on mobile, fast. Walls of text fail. Every reply must:
   }
 }
 
+// List recent meetings with their decisions/summaries — used by the Team
+// tab's journal to show "decisions made in meetings" alongside thoughts.
+// Returns only meetings that have actually ended (endedAt not null) so we
+// don't surface in-flight conversations.
+router.get('/', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const companyIdParam = (req.query.companyId as string | undefined) ?? undefined
+    const limit = Math.min(Number(req.query.limit) || 30, 100)
+    const sinceDays = Math.min(Number(req.query.sinceDays) || 30, 365)
+
+    const company = companyIdParam
+      ? await prisma.company.findFirst({ where: { id: companyIdParam, userId } })
+      : await prisma.company.findFirst({ where: { userId } })
+    if (!company) {
+      res.json({ meetings: [] })
+      return
+    }
+
+    const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000)
+    const meetings = await prisma.meeting.findMany({
+      where: {
+        companyId: company.id,
+        endedAt: { not: null, gte: cutoff },
+      },
+      orderBy: { endedAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        endedAt: true,
+        summary: true,
+        decisions: true,
+        tasksCreated: true,
+        employee: { select: { id: true, role: true, name: true } },
+      },
+    })
+
+    res.json({ meetings })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.post('/reply', requireAuth, async (req, res, next) => {
   try {
     const data = replySchema.parse(req.body)
     const { userId } = (req as AuthedRequest).session
 
-    // Plan gate: starter normally doesn't include the Meeting feature, but
-    // during the 7-day trial every user gets the full feature set so they
-    // can evaluate it before committing.
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { plan: true, subscriptionStatus: true, trialEndsAt: true },
+      select: { plan: true },
     })
-    const inTrial =
-      user?.subscriptionStatus === 'trial' &&
-      user?.trialEndsAt != null &&
-      user.trialEndsAt.getTime() > Date.now()
-    if (user && !inTrial && !PLAN_LIMITS[user.plan].meetingFeature) {
+    if (user && !PLAN_LIMITS[user.plan].meetingFeature) {
       res.status(402).json({ error: 'meeting_not_in_plan', plan: user.plan })
       return
     }

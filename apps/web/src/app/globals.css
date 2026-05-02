@@ -5,3 +5,1511 @@
 * {
   box-sizing: border-box;
 }
+
+/* ── Team Calendar ─────────────────────────────────────────────── */
+/* Uses Sovexa design tokens from vexa-shared.css                  */
+
+.team-calendar-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  margin-top: 20px;
+  min-height: 520px;
+}
+
+/* ── Calendar header ── */
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cal-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cal-month {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--t1);
+  margin: 0;
+  min-width: 200px;
+}
+.cal-nav {
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t2);
+  font-size: 13px;
+  transition: background .15s, border-color .15s;
+}
+.cal-nav:hover {
+  background: var(--s1);
+  border-color: var(--b2);
+}
+.cal-nav.cal-today {
+  width: auto;
+  padding: 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+/* ── Filters ── */
+.cal-filters {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.cal-filter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .04em;
+  color: var(--t3);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.cal-filter:hover {
+  background: var(--s1);
+  color: var(--t2);
+}
+.cal-filter.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Grid ── */
+.cal-grid {
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--b1);
+  background: var(--s1);
+}
+.cal-wd {
+  padding: 10px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--t3);
+}
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+/* ── Day cells ── */
+.cal-day {
+  min-height: 90px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--b1);
+  border-bottom: 1px solid var(--b1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: background .15s;
+  background: var(--bg);
+}
+.cal-day:nth-child(7n) { border-right: none }
+.cal-day:hover { background: var(--s1) }
+
+.cal-day.today {
+  background: var(--accent-soft);
+}
+.cal-day.today .cal-day-num {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-day.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cal-day.empty {
+  background: var(--s1);
+  cursor: default;
+  min-height: 90px;
+}
+
+.cal-day.has-work { background: var(--bg) }
+.cal-day.has-work:hover { background: var(--s1) }
+
+.cal-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cal-day-num {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.cal-day-thoughts {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .04em;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ── Task chips in day cells ── */
+.cal-day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+.cal-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 2px;
+  border-radius: 5px;
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  line-height: 1;
+}
+.cal-chip-i {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--chip-c);
+  flex-shrink: 0;
+}
+.cal-chip-l {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .02em;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-chip-more {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  margin-top: 1px;
+}
+
+/* ── Sidebar (matches HQ posts-card pattern) ──────────────── */
+.team-calendar-sidebar {
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 180px);
+}
+
+/* Header */
+.sb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--b1);
+}
+.sb-day {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.01em;
+}
+.sb-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+
+/* Scrollable body */
+.sb-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Section dividers */
+.sb-section { border-bottom: 1px solid var(--b1) }
+.sb-section:last-child { border-bottom: none }
+.sb-section-head {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--t3);
+  padding: 12px 20px 8px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--b1);
+}
+.sb-section-head em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+/* Work table (mini posts-tbl) */
+.sb-tbl { width: 100%; border-collapse: collapse }
+.sb-tbl th {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--t3);
+  text-align: left;
+  padding: 8px 20px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--b1);
+}
+.sb-tbl th.r { text-align: right }
+.sb-tbl td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--b1);
+  vertical-align: middle;
+}
+.sb-tbl tr:last-child td { border-bottom: none }
+
+.sb-task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sb-port {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--b2);
+  background: var(--s1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--t1);
+  flex-shrink: 0;
+}
+.sb-port.sm {
+  width: 22px;
+  height: 22px;
+  font-size: 9px;
+}
+.sb-task-info { flex: 1; min-width: 0 }
+.sb-task-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sb-task-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  letter-spacing: .04em;
+  margin-top: 2px;
+}
+/* Task rows clickable */
+.sb-task-expandable { cursor: pointer; transition: background .1s }
+.sb-task-expandable:hover td { background: var(--s1) }
+.sb-detail-section { margin-bottom: 10px }
+.sb-detail-section:last-child { margin-bottom: 0 }
+.sb-detail-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 6px;
+}
+.sb-detail-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--b1);
+}
+.sb-detail-item:last-child { border-bottom: none }
+.sb-detail-item-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+  margin-bottom: 2px;
+}
+.sb-detail-item-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+.sb-detail-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+.sb-detail-tag.ok { color: var(--ok); background: rgba(159,179,138,.1) }
+.sb-detail-hook {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t1);
+  line-height: 1.5;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--b1);
+  margin-bottom: 4px;
+}
+.sb-detail-hook:last-child { margin-bottom: 0 }
+.sb-detail-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.55;
+}
+.sb-detail-empty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+  padding: 8px 0;
+}
+
+.sb-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--t3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--s1);
+  white-space: nowrap;
+}
+.sb-status.ok { color: var(--ok); background: rgba(159,179,138,.1) }
+.sb-status.accent { color: var(--accent); background: var(--accent-soft) }
+
+/* Thoughts */
+.sb-thought {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--b1);
+}
+.sb-thought:last-child { border-bottom: none }
+.sb-thought-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sb-thought-you {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.sb-thought-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+.sb-thought-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+/* Agent reply */
+.sb-reply {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--s1);
+  border-left: 2px solid var(--accent);
+}
+.sb-reply-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.sb-reply-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t1);
+  flex: 1;
+}
+.sb-reply-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+.sb-reply-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.55;
+}
+
+.sb-pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+.sb-pending-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: vx-rotate .7s linear infinite;
+}
+
+/* Empty state */
+.sb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 20px;
+}
+.sb-empty-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 8px;
+}
+.sb-empty-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t3);
+  line-height: 1.5;
+}
+
+/* (input area moved to .sb-add) */
+
+/* ── "+" button on day cells ── */
+.cal-day-top-r {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cal-day-add {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--b1);
+  background: none;
+  color: var(--t3);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+  line-height: 1;
+}
+.cal-day:hover .cal-day-add { opacity: 1 }
+.cal-day-add:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+/* ── Add to calendar area ── */
+.sb-add {
+  border-top: 1px solid var(--b1);
+  margin-top: auto;
+}
+.sb-add-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--b1);
+}
+.sb-add-tab {
+  flex: 1;
+  padding: 9px 0;
+  background: none;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  text-align: center;
+}
+.sb-add-tab:hover { background: var(--s1) }
+.sb-add-tab.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sb-add-pane {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sb-add-pane textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  resize: none;
+  background: var(--bg);
+  color: var(--t1);
+  line-height: 1.5;
+}
+.sb-add-pane textarea:focus { outline: none; border-color: var(--accent) }
+.sb-add-pane textarea::placeholder { color: var(--t3) }
+.sb-add-pane .btn-primary {
+  padding: 9px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: background .15s;
+}
+.sb-add-pane .btn-primary:hover { background: var(--accent-hov) }
+.sb-add-pane .btn-primary:disabled { opacity: .5; cursor: default }
+
+/* Agent picker */
+.sb-add-agents {
+  display: flex;
+  gap: 5px;
+}
+.sb-agent-pick {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .03em;
+  color: var(--t3);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.sb-agent-pick:hover { background: var(--s1); color: var(--t2) }
+.sb-agent-pick.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sb-agent-pick.flash {
+  animation: sb-flash .4s ease;
+}
+@keyframes sb-flash {
+  0%,100% { border-color: var(--b1) }
+  50% { border-color: var(--down) }
+}
+
+.sb-add-select {
+  padding: 8px 10px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .03em;
+  background: var(--bg);
+  color: var(--t1);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23454540' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.sb-add-select:focus { outline: none; border-color: var(--accent) }
+
+/* ── Task detail modal ── */
+.tm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+}
+.tm-modal {
+  position: relative;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 80vh;
+  background: var(--bg);
+  border: 1px solid var(--b1);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+}
+.tm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+.tm-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+.tm-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.01em;
+  line-height: 1.3;
+}
+.tm-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .04em;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tm-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--t3);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.tm-close:hover { background: var(--s1) }
+.tm-timestamps {
+  display: flex;
+  gap: 16px;
+  padding: 10px 24px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+.tm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
+}
+.tm-desc {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t2);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--b1);
+}
+/* Reuse sb-detail-* styles inside modal */
+.tm-body .sb-detail-section { margin-bottom: 14px }
+.tm-body .sb-detail-label { margin-bottom: 8px }
+.tm-body .sb-detail-item { padding: 8px 0 }
+.tm-body .sb-detail-item-body { font-size: 12px }
+.tm-body .sb-detail-hook { font-size: 13px; padding: 8px 12px }
+.tm-body .sb-detail-text { font-size: 13px }
+
+@media (max-width: 1200px) {
+  .team-calendar-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .team-calendar-sidebar {
+    max-height: 400px;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Operations sidebar — always-on context panel.
+   Four sections live inside the existing .team-calendar-sidebar card:
+   NOW, APPROVED, DECIDED, JOURNAL. Sections divided by hairline rules,
+   not separate cards, to match the rest of HQ's quiet visual language.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Override the outer card to allow internal scroll for long journals.
+   The original rule has overflow:hidden which would clip the journal feed. */
+.team-calendar-sidebar {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ops-block {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--b1);
+}
+.ops-block:last-child { border-bottom: 0; }
+
+.ops-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.ops-block-head h3 {
+  margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--t1);
+}
+.ops-block-hint {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+}
+
+/* Avatar circle (used by Plan source line, decisions, replies) */
+.ops-port {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--b1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--t1);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.ops-port.sm { width: 20px; height: 20px; font-size: 9px; }
+
+/* Pending-state pulse animation, kept because journal "team reviewing" reuses it */
+@keyframes ops-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+.ops-empty {
+  text-align: center;
+  padding: 18px 8px 6px;
+}
+.ops-empty-lbl {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--t2);
+  margin-bottom: 4px;
+}
+.ops-empty-hint {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--t3);
+  line-height: 1.4;
+}
+.ops-empty-hint em {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--accent);
+  font-size: 12px;
+}
+.ops-empty-thin {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--t3);
+  padding: 6px 0;
+  line-height: 1.5;
+}
+
+
+/* ── Decided block — meeting decisions/summaries ─────────────────── */
+.ops-decision {
+  padding: 10px 0;
+  border-top: 1px solid var(--b1);
+}
+.ops-decision:first-of-type { border-top: 0; padding-top: 0; }
+.ops-decision-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ops-decision-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.ops-decision-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.ops-decision-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+}
+.ops-decision-summary {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--t2);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.ops-decision-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ops-decision-list li {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--t1);
+  padding: 4px 0 4px 12px;
+  line-height: 1.5;
+  position: relative;
+}
+.ops-decision-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 11px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ── Journal block — thoughts feed with inline capture ───────────── */
+.ops-thought-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ops-thought-input textarea {
+  flex: 1;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t1);
+  padding: 8px 10px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: var(--s1);
+  resize: none;
+  line-height: 1.4;
+}
+.ops-thought-input textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.ops-thought-send {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  align-self: stretch;
+  transition: filter 0.12s ease;
+}
+.ops-thought-send:hover { filter: brightness(1.05); }
+
+.ops-bucket {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--t3);
+  margin: 14px 0 6px;
+}
+.ops-bucket:first-of-type { margin-top: 0; }
+
+.ops-thought {
+  padding: 10px 0;
+  border-top: 1px solid var(--b1);
+}
+.ops-thought:first-of-type { border-top: 0; padding-top: 0; }
+
+.ops-thought-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ops-thought-you {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+.ops-thought-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+}
+.ops-thought-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t1);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.ops-reply {
+  padding: 8px 10px;
+  background: var(--s1);
+  border-radius: 8px;
+  margin-top: 6px;
+  border-left: 2px solid var(--accent);
+}
+.ops-reply-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.ops-reply-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.ops-reply-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  margin-left: auto;
+}
+.ops-reply-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.5;
+}
+
+.ops-pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+  padding: 4px 0;
+}
+.ops-pending-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t3);
+  animation: ops-pulse 1.6s ease-in-out infinite;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Day modal — opens when user clicks a calendar day.
+   Reuses .tm-overlay / .tm-modal / .tm-header / .tm-body.
+   ──────────────────────────────────────────────────────────────────────── */
+.dm-modal { max-width: 560px; }
+.dm-empty {
+  text-align: center;
+  padding: 32px 16px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--t3);
+}
+.dm-section { margin-bottom: 22px; }
+.dm-section:last-child { margin-bottom: 0; }
+.dm-section-head {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--t1);
+  margin-bottom: 12px;
+}
+.dm-section-head em {
+  font-family: 'JetBrains Mono', monospace;
+  font-style: normal;
+  color: var(--t3);
+  font-weight: 500;
+  margin-left: 6px;
+  font-size: 10px;
+}
+.dm-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 6px;
+  text-align: left;
+  transition: border-color 0.12s ease;
+}
+.dm-task:hover { border-color: var(--accent); }
+.dm-task-body { flex: 1; min-width: 0; }
+.dm-task-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.dm-task-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  margin-top: 3px;
+  letter-spacing: 0.02em;
+}
+
+.dm-thought {
+  padding: 12px 0;
+  border-top: 1px solid var(--b1);
+}
+.dm-thought:first-of-type { border-top: 0; padding-top: 0; }
+.dm-thought-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--t3);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.dm-thought-body {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.dm-reply {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--t2);
+  padding: 4px 0;
+  line-height: 1.5;
+}
+.dm-reply-name { font-weight: 600; }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Assign modal — agent picker + brief textarea.
+   ──────────────────────────────────────────────────────────────────────── */
+.am-modal { max-width: 480px; }
+.am-body { padding: 8px 4px; }
+.am-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--t1);
+  margin: 16px 0 10px;
+}
+.am-label:first-child { margin-top: 0; }
+.am-agents {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.am-agent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.am-agent:hover { border-color: var(--t3); }
+.am-agent.on { border-color: var(--accent); background: var(--s1); }
+.am-agent.flash { animation: am-flash 0.6s ease; }
+@keyframes am-flash {
+  0%, 100% { border-color: var(--b1); }
+  50% { border-color: var(--accent); background: var(--s1); }
+}
+.am-agent-name { font-weight: 500; }
+
+.am-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+}
+.am-select:focus { outline: none; border-color: var(--accent); }
+
+.am-body textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--b1);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--t1);
+  background: var(--bg);
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.5;
+}
+.am-body textarea:focus { outline: none; border-color: var(--accent); }
+
+.am-submit {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: var(--bg);
+  border: 0;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.am-submit:hover { filter: brightness(1.05); }
+.am-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.am-err {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--accent);
+  margin-top: 10px;
+  min-height: 16px;
+  text-align: center;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Brief strip — sticky banner above the calendar.
+   Single nudge + weekly stats. The first thing a creator sees.
+   ──────────────────────────────────────────────────────────────────────── */
+.team-brief-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  background: var(--bg);
+  border: 1px solid var(--b1);
+  border-radius: 12px;
+}
+.team-brief-strip:empty { display: none; }
+
+.brief-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.brief-msg {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--t1);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+.brief-main.brief-noplan  .brief-msg { color: var(--accent); }
+.brief-main.brief-partial .brief-msg { color: var(--t1); }
+.brief-main.brief-full    .brief-msg { color: var(--t2); }
+
+
+.brief-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.brief-btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 8px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.brief-btn-primary {
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+}
+.brief-btn-primary:hover { filter: brightness(1.06); }
+.brief-btn-secondary {
+  color: var(--t1);
+  background: transparent;
+  border: 1px solid var(--b1);
+}
+.brief-btn-secondary:hover { border-color: var(--t1); }
+
+@media (max-width: 900px) {
+  .team-brief-strip { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .brief-main { width: 100%; }
+  .brief-actions { width: 100%; justify-content: flex-start; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Plan ahead — next 7 days from Jordan's approved content_plan.
+   The Team tab's primary block: what was decided, what's coming up.
+   ──────────────────────────────────────────────────────────────────────── */
+.ops-plan-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--b1);
+}
+.ops-plan-source-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.ops-plan-day {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--b1);
+}
+.ops-plan-day:first-of-type { border-top: 0; }
+
+.ops-plan-day-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--t2);
+  padding-top: 2px;
+}
+
+.ops-plan-item { margin-bottom: 4px; }
+.ops-plan-item:last-child { margin-bottom: 0; }
+.ops-plan-item-topic {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t1);
+  line-height: 1.4;
+}
+.ops-plan-item-note {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.ops-plan-day.open-slot .ops-plan-day-label { color: var(--t3); }
+.ops-plan-day-empty {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--t3);
+  padding-top: 2px;
+}
+
+.ops-empty-cta {
+  margin-top: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+.ops-empty-cta:hover { filter: brightness(1.06); }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Calendar planned-content overlay (future cells)
+   ──────────────────────────────────────────────────────────────────────── */
+.cal-day.has-plan {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--s1) 100%);
+}
+.cal-day-planned {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+.cal-day-plan {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: var(--t2);
+  line-height: 1.3;
+  padding: 2px 6px;
+  border-left: 2px solid var(--accent);
+  background: rgba(0,0,0,0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Journal post-thought toast
+   ──────────────────────────────────────────────────────────────────────── */
+.journal-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translate(-50%, 16px);
+  z-index: 9300;
+  max-width: min(480px, 92vw);
+  padding: 12px 20px;
+  background: var(--t1);
+  color: var(--bg);
+  border-radius: 999px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  pointer-events: none;
+}
+.journal-toast.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Knowledge tab shelved — hidden across all surfaces until re-released */
+#view-db-knowledge { display: none !important; }
+[data-v2-nav="db-knowledge"] { display: none !important; }

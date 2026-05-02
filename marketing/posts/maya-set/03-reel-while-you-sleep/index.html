@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sovexa — While you sleep (16s)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 1080px; height: 1920px;
+    background: #fbfaf6; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 1;
+  }
+  body { position: relative; }
+
+  /* — Clock at top, ticks from 03:58 to 04:14 — */
+  .clock {
+    position: absolute; top: 220px; left: 0; right: 0; text-align: center;
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400;
+    font-size: 240px; line-height: 1; color: #1a1a1a; letter-spacing: -.03em;
+  }
+  .clock #hh { color: #1a1a1a; }
+  .clock #mm { color: #c08a3e; }
+
+  .clock-cap {
+    position: absolute; top: 510px; left: 0; right: 0; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; letter-spacing: 0.30em; color: #8a8682; text-transform: uppercase;
+    opacity: 0; animation: fadeIn .6s ease .2s forwards;
+  }
+
+  /* — Source list — */
+  .sources {
+    position: absolute; top: 640px; left: 90px; right: 90px;
+  }
+  .source-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 0;
+    border-bottom: 1px solid rgba(20,16,10,.10);
+    opacity: 0; transform: translateX(-12px);
+    animation: rowIn .5s ease forwards;
+  }
+  .source-row:last-child { border-bottom: 0; }
+  .source-row .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; letter-spacing: 0.22em; color: #8a8682; text-transform: uppercase;
+    width: 60px;
+  }
+  .source-row .name {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400;
+    font-size: 60px; color: #1a1a1a; letter-spacing: -0.01em;
+    flex: 1;
+  }
+  .source-row .check {
+    width: 38px; height: 38px; border-radius: 50%; background: #6f8f63;
+    display: flex; align-items: center; justify-content: center;
+    color: #fbfaf6; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 22px;
+    opacity: 0; transform: scale(.5);
+    animation: checkPop .4s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes rowIn {
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes checkPop {
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* — Source row stagger — */
+  .source-row:nth-child(1) { animation-delay: 3.8s; }
+  .source-row:nth-child(1) .check { animation-delay: 4.2s; }
+  .source-row:nth-child(2) { animation-delay: 4.5s; }
+  .source-row:nth-child(2) .check { animation-delay: 4.9s; }
+  .source-row:nth-child(3) { animation-delay: 5.2s; }
+  .source-row:nth-child(3) .check { animation-delay: 5.6s; }
+  .source-row:nth-child(4) { animation-delay: 5.9s; }
+  .source-row:nth-child(4) .check { animation-delay: 6.3s; }
+  .source-row:nth-child(5) { animation-delay: 6.6s; }
+  .source-row:nth-child(5) .check { animation-delay: 7.0s; }
+  .source-row:nth-child(6) { animation-delay: 7.3s; }
+  .source-row:nth-child(6) .check { animation-delay: 7.7s; }
+  .source-row:nth-child(7) { animation-delay: 8.0s; }
+  .source-row:nth-child(7) .check { animation-delay: 8.4s; }
+
+  /* — Filed banner — */
+  .filed {
+    position: absolute; bottom: 380px; left: 0; right: 0; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px; letter-spacing: 0.30em; color: #c08a3e; text-transform: uppercase;
+    opacity: 0; animation: fadeIn 1s ease 9.6s forwards;
+  }
+
+  /* — Closer — */
+  .closing {
+    position: absolute; bottom: 230px; left: 0; right: 0; text-align: center;
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400;
+    font-size: 96px; color: #1a1a1a; letter-spacing: -.02em;
+    opacity: 0; animation: fadeIn 1s ease 10.8s forwards;
+  }
+  .closing em { color: #c08a3e; font-style: italic; }
+
+  .url {
+    position: absolute; bottom: 130px; left: 0; right: 0; text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; letter-spacing: 0.40em; color: #8a8682; text-transform: uppercase;
+    opacity: 0; animation: fadeIn 1s ease 11.6s forwards;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  body { animation: loop 16s linear infinite; }
+  @keyframes loop { 0%,100% {} }
+</style>
+</head>
+<body>
+  <div class="clock"><span id="hh">03:</span><span id="mm">58</span></div>
+  <div class="clock-cap">WHILE YOU SLEEP</div>
+
+  <div class="sources">
+    <div class="source-row"><div class="num">01</div><div class="name">Google Trends</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">02</div><div class="name">NewsAPI</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">03</div><div class="name">YouTube</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">04</div><div class="name">Reddit</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">05</div><div class="name">RSS feeds</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">06</div><div class="name">Instagram</div><div class="check">✓</div></div>
+    <div class="source-row"><div class="num">07</div><div class="name">TikTok</div><div class="check">✓</div></div>
+  </div>
+
+  <div class="filed">REPORT FILED · 04:14 AM</div>
+  <div class="closing">Maya sees it <em>first.</em></div>
+  <div class="url">SOVEXA.AI</div>
+
+<script>
+  // Tick the clock from 03:58 to 04:14 over the first 3.5 seconds
+  const mm = document.getElementById('mm');
+  const hh = document.getElementById('hh');
+  const startMs = performance.now();
+  const totalDurationMs = 3500;
+  const targetMinutes = 16; // 58 -> 14 = +16
+  function tick() {
+    const t = Math.min(1, (performance.now() - startMs) / totalDurationMs);
+    const minute = 58 + Math.floor(targetMinutes * t);
+    if (minute < 60) {
+      hh.textContent = '03:';
+      mm.textContent = String(minute).padStart(2, '0');
+    } else {
+      hh.textContent = '04:';
+      mm.textContent = String(minute - 60).padStart(2, '0');
+    }
+    if (t < 1) requestAnimationFrame(tick);
+    else { hh.textContent = '04:'; mm.textContent = '14'; }
+  }
+  // Restart on each loop
+  function startLoop() {
+    requestAnimationFrame(tick);
+  }
+  startLoop();
+  setInterval(() => {
+    Object.assign(window, { startMs2: performance.now() });
+    requestAnimationFrame(function reTick(){
+      const t = Math.min(1, (performance.now() - window.startMs2) / totalDurationMs);
+      const minute = 58 + Math.floor(targetMinutes * t);
+      if (minute < 60) { hh.textContent = '03:'; mm.textContent = String(minute).padStart(2,'0'); }
+      else { hh.textContent = '04:'; mm.textContent = String(minute-60).padStart(2,'0'); }
+      if (t < 1) requestAnimationFrame(reTick);
+      else { hh.textContent = '04:'; mm.textContent = '14'; }
+    });
+  }, 16000);
+</script>
+</body>
+</html>

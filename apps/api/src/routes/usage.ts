@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     // Append Bedrock usage for the user's primary company
     const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
     if (company) {
-      const bedrock = getBedrockUsage(company.id)
+      const bedrock = await getBedrockUsage(company.id)
       ;(report as unknown as Record<string, unknown>).bedrock = {
         callsThisMonth: bedrock.count,
         inputTokens: bedrock.inputTokens,

@@ -8,7 +8,7 @@
 import { PrismaClient } from '@prisma/client'
 import * as meta from './metaGraph'
 import { mapMetaToStub } from './metaMapper'
-import { persistPhylloSync } from './platformSync'
+import { persistSnapshotAndPosts, backfillIGDailySnapshots } from './platformSync'
 
 const THROTTLE_MS = 5 * 60 * 1000
 const TOKEN_REFRESH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000 // refresh 7 days before expiry
@@ -18,8 +18,8 @@ export async function syncInstagramAccount(
   companyId: string,
 ): Promise<{ synced: boolean; newPosts: number; reason?: string }> {
   const conn = await prisma.instagramConnection.findUnique({ where: { companyId } })
-  if (!conn || !conn.accessToken || conn.source !== 'meta') {
-    return { synced: false, newPosts: 0, reason: conn ? 'not_meta_source' : 'no_connection' }
+  if (!conn || !conn.accessToken) {
+    return { synced: false, newPosts: 0, reason: conn ? 'no_token' : 'no_connection' }
   }
 
   // Throttle
@@ -52,10 +52,12 @@ export async function syncInstagramAccount(
   if (!igId) return { synced: false, newPosts: 0, reason: 'no_ig_business_id' }
 
   try {
-    // Fetch profile + media in parallel
-    const [profile, media] = await Promise.all([
+    // Fetch profile + media + account insights + stories in parallel
+    const [profile, media, accountInsights, liveStories] = await Promise.all([
       meta.getIGProfile(igId, token),
       meta.getIGMedia(igId, token, 30),
+      meta.getIGAccountInsights(igId, token).catch(() => null),
+      meta.getIGStories(igId, token).catch(() => [] as meta.IGStory[]),
     ])
 
     // Per-post insights (best-effort)
@@ -66,11 +68,35 @@ export async function syncInstagramAccount(
       }),
     )
 
+    // Story insights (best-effort, parallel)
+    const storyData: Array<{ story: meta.IGStory; insights: meta.IGStoryInsight }> = []
+    if (liveStories.length > 0) {
+      await Promise.allSettled(
+        liveStories.map(async (s) => {
+          const insights = await meta.getStoryInsights(s.id, token)
+          storyData.push({ story: s, insights })
+        }),
+      )
+    }
+
     // Audience
     const audience = await meta.getIGAudienceInsights(igId, token).catch(() => null)
 
+    // Carousel thumbnails: fetch first child's media_url for slideshow posts
+    const carouselThumbnails = new Map<string, string>()
+    const carousels = media.filter((m) => m.media_type === 'CAROUSEL_ALBUM' && !m.thumbnail_url && !m.media_url)
+    if (carousels.length > 0) {
+      await Promise.allSettled(
+        carousels.map(async (m) => {
+          const children = await meta.getCarouselChildren(m.id, token)
+          const firstImage = children.find((c) => c.media_url)
+          if (firstImage?.media_url) carouselThumbnails.set(m.id, firstImage.media_url)
+        }),
+      )
+    }
+
     // Map + persist
-    const stub = mapMetaToStub({ profile, media, mediaInsights: insightsMap, audience })
+    const stub = mapMetaToStub({ profile, media, mediaInsights: insightsMap, audience, accountInsights, stories: storyData, carouselThumbnails })
 
     // Count posts before
     const platformAccount = await prisma.platformAccount.findFirst({
@@ -91,8 +117,13 @@ export async function syncInstagramAccount(
         engagementRate: stub.engagementRate,
         avgReach: stub.avgReach,
         avgImpressions: stub.avgImpressions,
+        profileViews: stub.profileViews,
+        websiteClicks: stub.websiteClicks,
+        dailyProfileViews: stub.dailyProfileViews as unknown as object,
+        dailyWebsiteClicks: stub.dailyWebsiteClicks as unknown as object,
         topPosts: stub.topPosts as unknown as object,
         recentMedia: stub.recentMedia as unknown as object,
+        stories: stub.stories as unknown as object,
         followerSeries: stub.followerSeries as unknown as object,
         audienceAge: stub.audienceAge as unknown as object,
         audienceGender: stub.audienceGender as unknown as object,
@@ -102,18 +133,129 @@ export async function syncInstagramAccount(
       },
     })
 
-    // Update Platform* tables
+    // Update Platform* tables (upsert account + snapshot/posts)
     try {
-      await persistPhylloSync(prisma, companyId, '', {
-        id: igId,
-        user: { id: '' },
-        work_platform: { id: '', name: 'Instagram' },
-        platform_username: stub.username,
-        profile_pic_url: profile.profile_picture_url,
-        status: 'CONNECTED',
-      }, stub)
+      const acct = await prisma.platformAccount.upsert({
+        where: {
+          companyId_platform_handle: {
+            companyId,
+            platform: 'instagram',
+            handle: stub.username,
+          },
+        },
+        update: {
+          displayName: stub.username,
+          profileUrl: stub.profileUrl,
+          profileImageUrl: profile.profile_picture_url,
+          bio: stub.bio,
+          accountType: stub.accountType,
+          platformUserId: stub.igUserId || null,
+          status: 'connected',
+          lastSyncedAt: new Date(),
+        },
+        create: {
+          companyId,
+          platform: 'instagram',
+          platformUserId: stub.igUserId || null,
+          handle: stub.username,
+          displayName: stub.username,
+          profileUrl: stub.profileUrl,
+          profileImageUrl: profile.profile_picture_url,
+          bio: stub.bio,
+          accountType: stub.accountType,
+          status: 'connected',
+        },
+      })
+      await persistSnapshotAndPosts(prisma, acct.id, stub)
+
+      // Backfill daily snapshot history (skips days that already have a row).
+      try {
+        const igUserId = conn.igBusinessId || conn.igUserId
+        if (igUserId) {
+          const history = await meta.getIGAccountHistory(igUserId, token, 30)
+          if (history.length > 0) {
+            await backfillIGDailySnapshots(prisma, acct.id, history, stub.followerCount)
+            console.log('[ig-sync] backfilled', history.length, 'daily snapshots')
+          }
+        }
+      } catch (e) {
+        console.warn('[ig-sync] daily history backfill failed:', (e as Error).message)
+      }
     } catch (e) {
-      console.warn('[ig-sync] platform-snapshot write failed', e)
+      console.warn('[ig-sync] platform-account write failed', e)
+    }
+
+    // Refresh metrics for ALL known posts (not just the latest 30)
+    // Fetches fresh insights from Meta for each post in the DB
+    try {
+      const igAccount = await prisma.platformAccount.findFirst({
+        where: { companyId, platform: 'instagram' },
+      })
+      if (igAccount) {
+        const allPosts = await prisma.platformPost.findMany({
+          where: { accountId: igAccount.id },
+          select: { id: true, platformPostId: true, mediaType: true },
+          orderBy: { publishedAt: 'desc' },
+          take: 50, // cap to avoid API rate limits
+        })
+        if (allPosts.length > 0) {
+          console.log(`[ig-sync] refreshing insights for ${allPosts.length} posts`)
+          let updated = 0
+          await Promise.allSettled(
+            allPosts.map(async (post) => {
+              try {
+                const insights = await meta.getMediaInsights(post.platformPostId, post.mediaType as 'VIDEO' | 'IMAGE' | 'CAROUSEL_ALBUM', token)
+                if (insights.reach > 0 || insights.impressions > 0 || insights.saved > 0) {
+                  // Use the larger of reach/impressions, and floor at likeCount
+                  // (a post can't have fewer views than likes)
+                  const currentPost = await prisma.platformPost.findUnique({ where: { id: post.id }, select: { likeCount: true, commentCount: true, saveCount: true, shareCount: true } })
+                  const likes = currentPost?.likeCount || 0
+                  const reach = Math.max(insights.reach, insights.impressions, likes)
+                  const shares = insights.shares || currentPost?.shareCount || 0
+                  const totalEng = likes + (currentPost?.commentCount || 0) + (insights.saved || currentPost?.saveCount || 0) + shares
+                  const engRate = reach > 0 ? Math.min(1, totalEng / reach) : 0
+
+                  // Compute retention for Reels: avgWatchTime / videoDuration
+                  const avgWatchMs = insights.avgWatchTimeMs || 0
+                  let durationSec = 0
+                  // First try the media we already fetched, then query Meta directly
+                  const mediaItem = media.find(m => m.id === post.platformPostId)
+                  if (mediaItem?.video_duration) {
+                    durationSec = mediaItem.video_duration
+                  } else if (avgWatchMs > 0 && (post.mediaType === 'VIDEO' || post.mediaType === 'REEL')) {
+                    try {
+                      const mediaData = await meta.graphGet<{ video_duration?: number }>('/' + post.platformPostId, token, { fields: 'video_duration' })
+                      durationSec = mediaData?.video_duration || 0
+                    } catch {}
+                  }
+                  const retentionRate = (avgWatchMs > 0 && durationSec > 0)
+                    ? Math.min(1, (avgWatchMs / 1000) / durationSec)
+                    : 0
+
+                  await prisma.platformPost.update({
+                    where: { id: post.id },
+                    data: {
+                      reachCount: reach,
+                      impressionCount: Math.max(insights.impressions, reach),
+                      viewCount: reach,
+                      saveCount: insights.saved || currentPost?.saveCount || 0,
+                      shareCount: shares,
+                      engagementRate: engRate,
+                      avgWatchTimeMs: avgWatchMs,
+                      retentionRate,
+                      lastSyncedAt: new Date(),
+                    },
+                  })
+                  updated++
+                }
+              } catch {}
+            }),
+          )
+          if (updated > 0) console.log(`[ig-sync] updated insights for ${updated}/${allPosts.length} posts`)
+        }
+      }
+    } catch (e) {
+      console.warn('[ig-sync] backfill failed', e)
     }
 
     // Count new posts

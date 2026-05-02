@@ -4,18 +4,13 @@
  * Uses vexa-landing.css classes directly.
  */
 ;(function () {
-  if (document.cookie.indexOf('vx_session') !== -1) return
-  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost
-  // and Amplify preview environments. ?waitlist=1 forces the overlay so
-  // the mobile-prod preview server can mirror the production look without
-  // changing this gate.
+  // vx_session is httpOnly so JS can't read it via document.cookie — use the
+  // localStorage flag the auth flow + layout vx-session-gate already maintain.
+  try { if (localStorage.getItem('vx-authed') === '1') return } catch (e) {}
+  // Only show waitlist on production (sovexa.ai) — skip on dev/localhost,
+  // Amplify previews, the named /etc/hosts dev aliases (sovexa-dev-*), and beta.
   var host = window.location.hostname
-  var forcePreview = new URLSearchParams(location.search).get('waitlist') === '1'
-  if (!forcePreview && (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com'))) return
-
-  // Waitlist visitors aren't users yet — clear any cached theme preference and lock to light.
-  try { localStorage.removeItem('vx-t') } catch (_) {}
-  document.documentElement.setAttribute('data-theme', 'light')
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.amplifyapp.com') || host.indexOf('sovexa-dev-') === 0 || host === 'beta.sovexa.ai') return
 
   // ── Build the waitlist page using the same CSS classes as the home page ──
   var overlay = document.createElement('div')
@@ -340,8 +335,8 @@
   // ── Legal modals ──
   var legalContent = {
     terms: { title: 'Terms of Service', body: '<p><strong>Last updated:</strong> April 2026</p><p>By using Sovexa you agree to these terms. You must be 18+. You retain full ownership of all content you create. We do not sell your data. Paid plans are billed monthly \u2014 cancel anytime. AI outputs should be reviewed before publishing.</p><p>Questions? <a href="mailto:hello@sovexa.ai" style="color:var(--accent)">hello@sovexa.ai</a></p>' },
-    privacy: { title: 'Privacy Policy', body: '<p><strong>Last updated:</strong> April 2026</p><p>We collect: account data, brand data, platform data (via OAuth), and usage data. We never sell data, share content, store social passwords, or train models on your content. One session cookie for auth \u2014 no tracking.</p><p><a href="mailto:hello@sovexa.ai" style="color:var(--accent)">hello@sovexa.ai</a></p>' },
-    security: { title: 'Security', body: '<p><strong>Last updated:</strong> April 2026</p><p>AWS infrastructure (SOC 2, ISO 27001). RDS PostgreSQL encrypted at rest. TLS 1.2+ in transit. JWT + httpOnly cookies + bcrypt passwords. Rate limiting. OAuth for social accounts. Payments via Stripe (PCI DSS Level 1).</p><p>Report vulnerabilities: <a href="mailto:security@sovexa.ai" style="color:var(--accent)">security@sovexa.ai</a></p>' },
+    privacy: { title: 'Privacy Policy', body: '<p><strong>Last updated:</strong> April 2026</p><p>We collect account and brand details, metrics from platforms you connect, and how you use Sovexa. We never sell data, share your content with other users, store social passwords, or train models on your content for others. One sign-in cookie \u2014 no ad tracking.</p><p><a href="mailto:hello@sovexa.ai" style="color:var(--accent)">hello@sovexa.ai</a></p>' },
+    security: { title: 'Security', body: '<p><strong>Last updated:</strong> April 2026</p><p>Enterprise-grade hosting with encryption for data at rest and in transit. Secure sign-in and passwords. Official platform connections for social accounts \u2014 we never see your social passwords. Payments handled only by a certified processor; we never see your full card number.</p><p>Report vulnerabilities: <a href="mailto:security@sovexa.ai" style="color:var(--accent)">security@sovexa.ai</a></p>' },
   }
 
   function openLegal(kind) {

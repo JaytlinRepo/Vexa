@@ -1,12 +1,65 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { z } from 'zod'
+import { SignJWT, jwtVerify } from 'jose'
 import { createSession, clearSession, readSession } from '../middleware/auth'
-import { trialEnd } from '../lib/plans'
-import { rolloverTrialIfDue } from '../lib/usage'
-
+import { sendPasswordResetEmail } from '../services/email/email.service'
 import prisma from '../lib/prisma'
 const router = Router()
+
+const PENDING_COOKIE = 'vx_pending_signup'
+const PENDING_TTL_SECONDS = 3600 // 1 hour
+
+function pendingSecret(): Uint8Array {
+  const raw = process.env.SESSION_SECRET
+  if (!raw) throw new Error('SESSION_SECRET is not set')
+  return new TextEncoder().encode(raw + ':pending')
+}
+
+export interface PendingSignupData {
+  email: string
+  username: string
+  passwordHash: string
+  fullName?: string
+  companyName?: string
+  niche?: string
+}
+
+export async function writePendingSignup(
+  res: import('express').Response,
+  data: PendingSignupData
+): Promise<void> {
+  const token = await new SignJWT(data as unknown as Record<string, unknown>)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`${PENDING_TTL_SECONDS}s`)
+    .sign(pendingSecret())
+  res.cookie(PENDING_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: PENDING_TTL_SECONDS * 1000,
+    path: '/',
+  })
+}
+
+export async function readPendingSignup(
+  req: import('express').Request
+): Promise<PendingSignupData | null> {
+  const token = req.cookies?.[PENDING_COOKIE]
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, pendingSecret())
+    return payload as unknown as PendingSignupData
+  } catch {
+    return null
+  }
+}
+
+export function clearPendingSignup(res: import('express').Response): void {
+  res.clearCookie(PENDING_COOKIE, { path: '/' })
+}
 
 const signupSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -30,7 +83,6 @@ const loginSchema = z.object({
 router.post('/signup', async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body)
-    // Check email and username separately for specific error messages
     const existingEmail = await prisma.user.findFirst({ where: { email: data.email } })
     if (existingEmail) {
       res.status(409).json({ error: 'email_taken', message: 'An account with this email already exists.' })
@@ -42,18 +94,11 @@ router.post('/signup', async (req, res, next) => {
       return
     }
     const passwordHash = await bcrypt.hash(data.password, 10)
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        username: data.username,
-        passwordHash,
-        fullName: data.fullName,
-        trialEndsAt: trialEnd(),
-      },
-      select: { id: true, email: true, username: true, fullName: true },
-    })
-    await createSession(res, { userId: user.id, email: user.email })
-    res.status(201).json({ user })
+    // Do NOT create the user yet — store pending data in a short-lived signed
+    // cookie. The user+company row is created atomically with the first
+    // platform connection so abandoned signups leave no orphan rows.
+    await writePendingSignup(res, { email: data.email, username: data.username, passwordHash, fullName: data.fullName })
+    res.status(200).json({ status: 'pending' })
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })
@@ -63,18 +108,33 @@ router.post('/signup', async (req, res, next) => {
   }
 })
 
+// Stores company name + niche into the pending signup cookie so the OAuth
+// callback can create user + company + connection all in one transaction.
+router.patch('/pending-company', async (req, res) => {
+  const pending = await readPendingSignup(req)
+  if (!pending) { res.status(401).json({ error: 'no_pending_signup' }); return }
+  const { companyName, niche } = req.body as { companyName?: string; niche?: string }
+  if (!companyName || !niche) { res.status(400).json({ error: 'missing_fields' }); return }
+  await writePendingSignup(res, { ...pending, companyName, niche })
+  res.json({ status: 'ok' })
+})
+
+// Pre-computed bcrypt hash of the string "dummy". Used as a constant-time
+// stand-in when the user isn't found so response timing doesn't leak
+// whether an email/username is registered.
+const DUMMY_HASH = '$2a$10$dummyhashfortimingneutrality000000000000000000000000000'
+
 router.post('/login', async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body)
     const user = await prisma.user.findFirst({
       where: { OR: [{ email: data.identifier }, { username: data.identifier }] },
     })
-    if (!user?.passwordHash) {
-      res.status(401).json({ error: 'invalid_credentials' })
-      return
-    }
-    const ok = await bcrypt.compare(data.password, user.passwordHash)
-    if (!ok) {
+    // Always run bcrypt — even when user not found — so response time is
+    // identical whether the account exists or not. Early return would leak
+    // user existence via timing.
+    const ok = await bcrypt.compare(data.password, user?.passwordHash ?? DUMMY_HASH)
+    if (!ok || !user) {
       res.status(401).json({ error: 'invalid_credentials' })
       return
     }
@@ -98,7 +158,11 @@ router.post('/logout', (_req, res) => {
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(200),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(200)
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
 })
 
 router.post('/change-password', async (req, res, next) => {
@@ -135,6 +199,13 @@ router.post('/change-password', async (req, res, next) => {
 const meCache = new Map<string, { data: unknown; ts: number }>()
 const ME_CACHE_TTL = 30_000 // 30 seconds
 
+// Mirror of admin.ts ADMIN_EMAILS — read once at module load. The list is
+// short and changes only on env update, so duplicating the parse is fine.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean)
+
 router.get('/me', async (req, res, next) => {
   try {
     const session = await readSession(req)
@@ -150,8 +221,6 @@ router.get('/me', async (req, res, next) => {
       return
     }
 
-    // Auto-transition expired trials to active before reading the user row.
-    await rolloverTrialIfDue(prisma, session.userId)
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
       include: {
@@ -176,13 +245,98 @@ router.get('/me', async (req, res, next) => {
         fullName: user.fullName,
         plan: user.plan,
         subscriptionStatus: user.subscriptionStatus,
-        trialEndsAt: user.trialEndsAt,
+        isAdmin: ADMIN_EMAILS.includes((user.email || '').toLowerCase()),
       },
       companies: user.companies,
     }
     meCache.set(session.userId, { data: result, ts: Date.now() })
     res.json(result)
   } catch (err) {
+    next(err)
+  }
+})
+
+// ─── POST /forgot-password ────────────────────────────────────────────────────
+// Always returns 200 — never reveal whether the email exists.
+
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = z.object({ email: z.string().email() }).parse(req.body)
+
+    const user = await prisma.user.findFirst({ where: { email } })
+    if (user) {
+      // Invalidate any existing unused tokens for this user
+      await prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+
+      const token = randomBytes(32).toString('hex')
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 min
+
+      await prisma.passwordResetToken.create({
+        data: { id: randomBytes(16).toString('hex'), userId: user.id, token, expiresAt },
+      })
+
+      const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.sovexa.ai'
+      const resetUrl = `${BASE_URL}/reset-password?token=${token}`
+
+      sendPasswordResetEmail({
+        to: user.email!,
+        firstName: user.fullName?.split(' ')[0] || user.username || 'there',
+        resetUrl,
+      }).catch((err) => console.warn('[auth] reset email failed:', (err as Error).message))
+    }
+
+    // Return 200 regardless so enumeration isn't possible
+    res.json({ ok: true })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
+    next(err)
+  }
+})
+
+// ─── POST /reset-password ─────────────────────────────────────────────────────
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(200)
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+})
+
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, password } = resetPasswordSchema.parse(req.body)
+
+    const record = await prisma.passwordResetToken.findUnique({ where: { token } })
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      res.status(400).json({ error: 'invalid_or_expired_token', message: 'This reset link is invalid or has expired.' })
+      return
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10)
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+      prisma.passwordResetToken.update({ where: { token }, data: { usedAt: new Date() } }),
+    ])
+
+    // Invalidate the /me cache for this user
+    meCache.delete(record.userId)
+
+    res.json({ ok: true })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
     next(err)
   }
 })

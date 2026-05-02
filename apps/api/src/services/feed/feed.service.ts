@@ -23,6 +23,7 @@ export interface FeedItem {
   publishedAt: string
   niche: string
   tags: string[]
+  thumbnail?: string         // Image URL for visual display
   mayaInsight?: string       // Added by Maya after AI analysis
   contentScore?: number      // 0-100, how useful for content creation
 }
@@ -86,12 +87,14 @@ const NICHE_SOURCES: Record<string, NicheSourceConfig> = {
   },
   lifestyle: {
     rssFeeds: [
-      { url: 'https://www.wellandgood.com/feed/', sourceName: 'Well+Good' },
+      { url: 'https://www.becomingminimalist.com/feed/', sourceName: 'Becoming Minimalist' },
+      { url: 'https://tinybuddha.com/feed/', sourceName: 'Tiny Buddha' },
+      { url: 'https://www.theminimalists.com/feed/', sourceName: 'The Minimalists' },
+      { url: 'https://markmanson.net/feed', sourceName: 'Mark Manson' },
+      { url: 'https://cupofjo.com/feed/', sourceName: 'Cup of Jo' },
       { url: 'https://www.mindbodygreen.com/rss.xml', sourceName: 'mindbodygreen' },
-      { url: 'https://www.refinery29.com/rss.xml', sourceName: 'Refinery29' },
-      { url: 'https://goop.com/feed/', sourceName: 'goop' },
     ],
-    redditSubs: ['r/lifestyle', 'r/wellness', 'r/minimalism', 'r/zerowaste'],
+    redditSubs: ['r/minimalism', 'r/simpleliving', 'r/selfimprovement', 'r/DecidingToBeBetter'],
   },
   personal_development: {
     rssFeeds: [
@@ -232,6 +235,7 @@ export async function aggregateNicheFeed(
     fetchRSSFeeds(config.rssFeeds, niche),
     fetchRedditPosts(config.redditSubs, niche, subNiche),
     config.pubmedKeywords ? fetchPubMedArticles(config.pubmedKeywords, niche) : Promise.resolve([]),
+    fetchYouTubeVideos(niche, config.youtubeChannelIds),
   ])
 
   for (const result of results) {
@@ -312,6 +316,7 @@ async function fetchSingleRSS(
       publishedAt: new Date(pubDate).toISOString(),
       niche,
       tags: [niche, 'article'],
+      thumbnail: extractThumb(item),
     }
   })
 }
@@ -335,19 +340,20 @@ async function fetchRedditPosts(
 async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedItem[]> {
   const sub = subreddit.replace('r/', '')
   const response = await axios.get(`https://www.reddit.com/r/${sub}/hot.json?limit=5`, {
-    timeout: 6000,
-    headers: { 'User-Agent': 'Sovexa/1.0' },
+    timeout: 8000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Sovexa/1.0; +https://sovexa.ai)' },
   })
 
   const posts = response.data?.data?.children || []
 
   return posts
     .filter((p: { data: { is_self: boolean; score: number; stickied: boolean } }) =>
-      p.data.score > 100 && !p.data.stickied
+      p.data.score > 5 && !p.data.stickied
     )
     .slice(0, 4)
     .map((post: { data: Record<string, unknown> }) => {
       const d = post.data
+      const thumb = String(d.thumbnail || '')
       return {
         id: `reddit-${d.id}`,
         type: 'reddit' as FeedItemType,
@@ -359,9 +365,109 @@ async function fetchSubreddit(subreddit: string, niche: string): Promise<FeedIte
         publishedAt: new Date(Number(d.created_utc) * 1000).toISOString(),
         niche,
         tags: [niche, 'community', 'reddit'],
+        thumbnail: thumb.startsWith('http') ? thumb : undefined,
         contentScore: Math.min(100, Math.floor(Number(d.score) / 100)),
       }
     })
+}
+
+// ─── YOUTUBE FETCHER ────────────────────────────────────────────────────────
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || ''
+
+async function fetchYouTubeVideos(niche: string, channelIds?: string[]): Promise<FeedItem[]> {
+  if (!YOUTUBE_API_KEY) return []
+
+  try {
+    const allItems: FeedItem[] = []
+
+    // Search 1: Regular videos in the niche (recent, relevant)
+    const nicheQueries: Record<string, string[]> = {
+      lifestyle: ['aesthetic lifestyle vlog 2026', 'minimalist living routine', 'slow living aesthetic'],
+      fitness: ['workout routine gym', 'fitness motivation training', 'home workout routine'],
+      food: ['what I eat in a day healthy', 'easy meal prep recipe', 'cooking aesthetic kitchen'],
+      coaching: ['personal growth mindset', 'life coaching motivation', 'self development tips'],
+      finance: ['money saving tips budget', 'personal finance investing', 'financial freedom tips'],
+      personal_development: ['morning routine productive', 'self improvement habits', 'productivity tips daily'],
+    }
+    const queries = nicheQueries[niche] || [niche + ' content creator']
+    // Pick a random query for variety on each fetch
+    const query = encodeURIComponent(queries[Math.floor(Math.random() * queries.length)])
+    const since = new Date(Date.now() - 7 * 86400000).toISOString()
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${query}&type=video&order=relevance&maxResults=5&publishedAfter=${since}&key=${YOUTUBE_API_KEY}`
+
+    const response = await axios.get(url, { timeout: 10000 })
+    const items = response.data?.items || []
+
+    for (const item of items) {
+      const snippet = item.snippet || {}
+      const videoId = item.id?.videoId || ''
+      const thumbs = snippet.thumbnails || {}
+      const thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
+
+      allItems.push({
+        id: 'yt-' + videoId,
+        type: 'youtube' as FeedItemType,
+        title: String(snippet.title || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').slice(0, 120),
+        summary: String(snippet.description || '').slice(0, 280),
+        url: 'https://www.youtube.com/watch?v=' + videoId,
+        source: String(snippet.channelTitle || 'YouTube'),
+        author: String(snippet.channelTitle || ''),
+        publishedAt: snippet.publishedAt || new Date().toISOString(),
+        niche,
+        tags: [niche, 'youtube', 'video'],
+        thumbnail: thumb || undefined,
+        contentScore: 75,
+      })
+    }
+
+    // Search 2: Shorts (#shorts in query)
+    try {
+      const shortsQueries: Record<string, string[]> = {
+        lifestyle: ['aesthetic routine #shorts', 'minimalist lifestyle #shorts', 'that girl aesthetic #shorts'],
+        fitness: ['gym motivation #shorts', 'workout hack #shorts'],
+        food: ['easy recipe #shorts', '5 minute meal #shorts'],
+        coaching: ['mindset shift #shorts', 'life hack #shorts'],
+        finance: ['money tip #shorts', 'save money #shorts'],
+        personal_development: ['morning routine #shorts', 'productivity hack #shorts'],
+      }
+      const sQueries = shortsQueries[niche] || [niche + ' #shorts']
+      const shortsQuery = encodeURIComponent(sQueries[Math.floor(Math.random() * sQueries.length)])
+      const shortsUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${shortsQuery}&type=video&order=viewCount&maxResults=5&publishedAfter=${since}&videoDuration=short&key=${YOUTUBE_API_KEY}`
+
+      const shortsRes = await axios.get(shortsUrl, { timeout: 10000 })
+      const shortsItems = shortsRes.data?.items || []
+
+      for (const item of shortsItems) {
+        const snippet = item.snippet || {}
+        const videoId = item.id?.videoId || ''
+        const thumbs = snippet.thumbnails || {}
+        const thumb = thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || ''
+
+        allItems.push({
+          id: 'yt-short-' + videoId,
+          type: 'youtube' as FeedItemType,
+          title: String(snippet.title || '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').slice(0, 120),
+          summary: String(snippet.description || '').slice(0, 280),
+          url: 'https://www.youtube.com/shorts/' + videoId,
+          source: String(snippet.channelTitle || 'YouTube') + ' · Short',
+          author: String(snippet.channelTitle || ''),
+          publishedAt: snippet.publishedAt || new Date().toISOString(),
+          niche,
+          tags: [niche, 'youtube', 'shorts', 'video'],
+          thumbnail: thumb || undefined,
+          contentScore: 80,
+        })
+      }
+    } catch {
+      // Shorts search failed — that's fine, we still have regular videos
+    }
+
+    return allItems
+  } catch (err) {
+    console.error('[feed] YouTube fetch failed:', err)
+    return []
+  }
 }
 
 // ─── PUBMED FETCHER (free, no key needed) ────────────────────────────────────
@@ -439,6 +545,29 @@ function extractText(val: unknown): string {
     return String(obj._ || obj.$t || obj['#text'] || Object.values(obj)[0] || '')
   }
   return String(val)
+}
+
+function extractThumb(item: Record<string, unknown>): string | undefined {
+  // Try media:content, enclosure, media:thumbnail, or og:image from description
+  const media = item['media:content'] || item['media:thumbnail']
+  if (media) {
+    const url = typeof media === 'object' ? (media as any)?.$?.url || (media as any)?.url : null
+    if (url && String(url).startsWith('http')) return decodeEntities(String(url))
+  }
+  const enclosure = item.enclosure as any
+  if (enclosure) {
+    const url = enclosure?.$?.url || enclosure?.url
+    if (url && String(url).startsWith('http') && String(enclosure?.$?.type || enclosure?.type || '').startsWith('image')) return decodeEntities(String(url))
+  }
+  // Try to extract image from description HTML
+  const desc = String(item.description || item['content:encoded'] || '')
+  const imgMatch = desc.match(/<img[^>]+src=["']([^"']+)["']/)
+  if (imgMatch && imgMatch[1].startsWith('http')) return decodeEntities(imgMatch[1])
+  return undefined
+}
+
+function decodeEntities(s: string): string {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
 }
 
 function stripHtml(html: string): string {

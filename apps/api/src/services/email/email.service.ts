@@ -248,34 +248,7 @@ export async function sendMeetingSummaryEmail(params: {
   })
 }
 
-// ─── 5. TRIAL ENDING REMINDER ────────────────────────────────────────────────
-
-export async function sendTrialEndingEmail(params: {
-  to: string
-  firstName: string
-  daysLeft: number
-  tasksCompleted: number
-  outputsApproved: number
-}): Promise<EmailResult> {
-  const { to, firstName, daysLeft, tasksCompleted, outputsApproved } = params
-
-  const content = `
-    ${h1(daysLeft === 1 ? 'Last day of your trial.' : `${daysLeft} days left on your trial.`)}
-    ${p(`Your team has completed <strong style="color:#f5f5f5">${tasksCompleted} tasks</strong> and you've approved <strong style="color:#f5f5f5">${outputsApproved} outputs</strong> during your trial.`)}
-    ${p(`After your trial ends, your team pauses. All your outputs, brand memory, and settings are saved — pick up exactly where you left off when you subscribe.`, true)}
-    ${divider()}
-    ${btn('Continue with Pro →', `${BASE_URL}/pricing`)}
-    ${p(`Questions? Just reply to this email.`, true)}
-  `
-
-  return send({
-    to,
-    subject: daysLeft === 1 ? `Your Sovexa trial ends tomorrow` : `${daysLeft} days left — keep your team`,
-    html: baseTemplate(content, `Your team has been busy. Don't let the momentum stop.`),
-  })
-}
-
-// ─── 6. PAYMENT FAILED ────────────────────────────────────────────────────────
+// ─── 5. PAYMENT FAILED ────────────────────────────────────────────────────────
 
 export async function sendPaymentFailedEmail(params: {
   to: string
@@ -294,6 +267,33 @@ export async function sendPaymentFailedEmail(params: {
     to,
     subject: 'Action required: payment failed',
     html: baseTemplate(content, 'Update your payment method to keep your team running.'),
+  })
+}
+
+// ─── PASSWORD RESET ───────────────────────────────────────────────────────────
+
+export async function sendPasswordResetEmail(params: {
+  to: string
+  firstName: string
+  resetUrl: string
+}): Promise<EmailResult> {
+  const { to, firstName, resetUrl } = params
+
+  const content = `
+    ${h1(`Reset your password`)}
+    ${p(`Hi ${firstName}, we received a request to reset the password for your Sovexa account.`)}
+    ${p(`This link expires in <strong style="color:#f5f5f5">15 minutes</strong>. If you didn't request this, you can safely ignore the email — your password won't change.`)}
+    ${divider()}
+    ${btn('Reset my password →', resetUrl)}
+    ${divider()}
+    ${p(`If the button doesn't work, paste this link into your browser:`, true)}
+    <p style="margin:0;font-size:12px;color:#555;word-break:break-all">${resetUrl}</p>
+  `
+
+  return send({
+    to,
+    subject: 'Reset your Sovexa password',
+    html: baseTemplate(content, 'Your password reset link — expires in 15 minutes.'),
   })
 }
 

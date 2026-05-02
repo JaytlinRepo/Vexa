@@ -476,3 +476,155 @@ export async function triggerKeepAlive(
 
   return { total: companies.length, triggered }
 }
+
+// ─── DAILY BRIEFS ─────────────────────────────────────────────────────────────
+
+/**
+ * 8:00 AM UTC — Morning brief (trends + yesterday + queue)
+ */
+export async function triggerMorningBrief(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerDailyBriefTask(prisma, companyId, {
+    type: 'morning_brief',
+    title: 'Morning brief — trends + queue status',
+    description: "What's trending overnight, how yesterday's posts performed, and what's queued for today.",
+    notifTitle: "Maya's morning briefing is ready",
+    notifBody: "See what's trending, yesterday's wins, and today's queue.",
+    dedupHours: 22,
+  })
+}
+
+/**
+ * 1:00 PM UTC — Midday check (performance tracking)
+ */
+export async function triggerMidayCheck(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerDailyBriefTask(prisma, companyId, {
+    type: 'midday_check',
+    title: 'Midday performance check',
+    description: "How are today's posts tracking? Early performance signals and forecast.",
+    notifTitle: 'How are your posts doing today?',
+    notifBody: 'Quick midday performance snapshot and forecast.',
+    dedupHours: 22,
+  })
+}
+
+/**
+ * 8:00 PM UTC — Evening recap (full summary + tomorrow forecast)
+ */
+export async function triggerEveningRecap(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerDailyBriefTask(prisma, companyId, {
+    type: 'evening_recap',
+    title: 'Evening recap — day summary + tomorrow forecast',
+    description: "What worked today, key learnings, and what to expect from tomorrow's queue.",
+    notifTitle: "Maya's evening recap is in",
+    notifBody: "Today's summary, learnings, and tomorrow's forecast.",
+    dedupHours: 22,
+  })
+}
+
+async function triggerDailyBriefTask(
+  prisma: PrismaClient,
+  companyId: string,
+  opts: {
+    type: string
+    title: string
+    description: string
+    notifTitle: string
+    notifBody: string
+    dedupHours: number
+  },
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  const since = new Date(Date.now() - opts.dedupHours * 60 * 60 * 1000)
+  const existing = await prisma.task.findFirst({
+    where: { companyId, type: opts.type, createdAt: { gte: since } },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (existing) return { triggered: false, reason: 'recent_brief_exists' }
+
+  return triggerAgentTask(prisma, companyId, 'analyst' as EmployeeRole, {
+    type: opts.type,
+    title: opts.title,
+    description: opts.description,
+    notifTitle: opts.notifTitle,
+    notifBody: opts.notifBody,
+    dedupDays: 0, // dedup already handled above
+  })
+}
+
+// ─── WEEKLY ORCHESTRATION ─────────────────────────────────────────────────────
+
+/**
+ * Sunday 6:00 PM UTC — Maya's weekly pulse (dedicated weekly trigger)
+ */
+export async function triggerWeeklyMayaPulse(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerDailyBriefTask(prisma, companyId, {
+    type: 'weekly_pulse',
+    title: 'Weekly pulse — learnings + next week opportunity',
+    description: "Maya analyzes this week's performance and identifies opportunities for next week.",
+    notifTitle: "Maya's weekly pulse is ready",
+    notifBody: 'See what worked this week and what to focus on next.',
+    dedupHours: 168, // 7 days
+  })
+}
+
+/**
+ * Sunday 6:30 PM UTC — Jordan's weekly plan
+ */
+export async function triggerWeeklyJordanPlan(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'strategist' as EmployeeRole, {
+    type: 'content_plan',
+    title: 'Weekly content plan — next 7 days',
+    description: "Jordan plans next week's content informed by Maya's weekly pulse findings.",
+    notifTitle: "Jordan's weekly plan is ready",
+    notifBody: "Next week's strategy informed by this week's data.",
+    dedupDays: 6,
+  })
+}
+
+/**
+ * Sunday 7:00 PM UTC — Alex's weekly hooks
+ */
+export async function triggerWeeklyAlexHooks(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'copywriter' as EmployeeRole, {
+    type: 'hooks',
+    title: 'Weekly hooks — 3 per content piece',
+    description: "Alex generates hooks for this week's content, informed by hook performance data.",
+    notifTitle: "Alex's weekly hooks are ready",
+    notifBody: "Hooks for this week's content, ranked by predicted performance.",
+    dedupDays: 6,
+  })
+}
+
+/**
+ * Sunday 7:30 PM UTC — Riley's weekly production briefs
+ */
+export async function triggerWeeklyRileyBriefs(
+  prisma: PrismaClient,
+  companyId: string,
+): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
+  return triggerAgentTask(prisma, companyId, 'creative_director' as EmployeeRole, {
+    type: 'shot_list',
+    title: 'Weekly production briefs — optimized direction',
+    description: "Riley creates production direction for this week's content, informed by format/pacing data.",
+    notifTitle: "Riley's weekly production briefs are ready",
+    notifBody: 'Production direction optimized for what worked this week.',
+    dedupDays: 6,
+  })
+}

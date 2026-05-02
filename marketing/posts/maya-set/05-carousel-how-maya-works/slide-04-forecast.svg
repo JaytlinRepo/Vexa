@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; } .ink { fill: #1a1a1a; } .ink2 { fill: #5a5856; } .ink3 { fill: #8a8682; } .accent { fill: #c08a3e; }
+      .hair { stroke: rgba(20,16,10,.16); stroke-width: 1; }
+      .hair2 { stroke: rgba(20,16,10,.08); stroke-width: 1; stroke-dasharray: 1 4; }
+      .accentStroke { stroke: #c08a3e; }
+      .inkStroke { stroke: #1a1a1a; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+      .sans { font-family: 'Inter', 'Helvetica', sans-serif; }
+    </style>
+    <linearGradient id="fcFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c08a3e" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#c08a3e" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect class="bg" width="1080" height="1080"/>
+  <line class="hair" x1="80" y1="100" x2="160" y2="100"/>
+  <text class="mono ink3" x="180" y="105" font-size="22" letter-spacing="4">STEP 03 / 04 — FORECAST</text>
+
+  <text class="serif accent" x="80" y="370" font-size="260" font-style="italic" font-weight="400" letter-spacing="-4">+340%</text>
+  <text class="mono ink3" x="80" y="420" font-size="22" letter-spacing="4">PROJECTED REACH · 7-DAY · CONFIDENCE 0.86</text>
+
+  <line class="hair" x1="80" y1="490" x2="1000" y2="490"/>
+
+  <g transform="translate(80, 540)">
+    <line class="hair2" x1="0" y1="0"   x2="920" y2="0"/>
+    <line class="hair2" x1="0" y1="60"  x2="920" y2="60"/>
+    <line class="hair2" x1="0" y1="120" x2="920" y2="120"/>
+    <line class="hair2" x1="0" y1="180" x2="920" y2="180"/>
+    <path d="M0,150 L80,144 L160,148 L240,138 L320,142 L400,132 L480,128 L480,200 L0,200 Z" fill="url(#fcFill)"/>
+    <polyline class="inkStroke" fill="none" stroke-width="2.5" stroke-linecap="round" points="0,150 80,144 160,148 240,138 320,142 400,132 480,128"/>
+    <polyline class="accentStroke" fill="none" stroke-width="3" stroke-dasharray="6 4" stroke-linecap="round" points="480,128 560,90 640,52 720,30 800,18 880,10 920,8"/>
+    <line stroke="#8a8682" stroke-width="1" stroke-dasharray="2 3" x1="480" y1="-10" x2="480" y2="200"/>
+    <text class="mono ink3" x="0" y="222" font-size="13" letter-spacing="3">−7D</text>
+    <text class="mono ink3" x="480" y="222" font-size="13" letter-spacing="3" text-anchor="middle">TODAY</text>
+    <text class="mono ink3" x="920" y="222" font-size="13" letter-spacing="3" text-anchor="end">+7D</text>
+  </g>
+
+  <text class="sans ink2" x="80" y="900" font-size="28" font-weight="400">Holt smoothing against your</text>
+  <text class="sans ink2" x="80" y="940" font-size="28" font-weight="400">trailing 14-day baseline.</text>
+
+  <text class="mono ink3" x="1000" y="1020" font-size="20" text-anchor="end" letter-spacing="4">SOVEXA.AI</text>
+</svg>

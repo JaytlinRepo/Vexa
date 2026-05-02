@@ -67,12 +67,12 @@ export const NICHE_RSS_FEEDS: Record<string, FeedConfig[]> = {
     { url: 'https://www.fastcompany.com/rss', name: 'Fast Company', quality: 'medium' },
   ],
   lifestyle: [
-    { url: 'https://www.wellandgood.com/feed/', name: 'Well+Good', quality: 'high' },
-    { url: 'https://www.mindbodygreen.com/rss.xml', name: 'mindbodygreen', quality: 'high' },
-    { url: 'https://bemorewithless.com/feed/', name: 'Be More With Less', quality: 'medium' },
-    { url: 'https://www.apartmenttherapy.com/main.rss', name: 'Apartment Therapy', quality: 'medium' },
-    { url: 'https://www.nomadicmatt.com/travel-blog/feed/', name: 'Nomadic Matt', quality: 'high' },
-    { url: 'https://theblondeabroad.com/feed/', name: 'The Blonde Abroad', quality: 'high' },
+    { url: 'https://www.becomingminimalist.com/feed/', name: 'Becoming Minimalist', quality: 'high' },
+    { url: 'https://tinybuddha.com/feed/', name: 'Tiny Buddha', quality: 'high' },
+    { url: 'https://www.theminimalists.com/feed/', name: 'The Minimalists', quality: 'high' },
+    { url: 'https://markmanson.net/feed', name: 'Mark Manson', quality: 'high' },
+    { url: 'https://cupofjo.com/feed/', name: 'Cup of Jo', quality: 'high' },
+    { url: 'https://www.mindbodygreen.com/rss.xml', name: 'mindbodygreen', quality: 'medium' },
   ],
   personal_development: [
     { url: 'https://jamesclear.com/feed', name: 'James Clear', quality: 'high' },

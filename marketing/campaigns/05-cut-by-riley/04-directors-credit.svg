@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .bg { fill: #fbfaf6; }
+      .ink3 { fill: #8a8682; }
+      .accent { fill: #c08a3e; }
+      .ink { fill: #1a1a1a; }
+      .mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+      .serif { font-family: 'Cormorant Garamond', 'Times New Roman', serif; }
+    </style>
+  </defs>
+  <rect class="bg" width="1080" height="1080"/>
+
+  <!-- Cinematic title-card style. Two lines. Centered. -->
+  <text class="serif ink" x="540" y="500" font-size="200" font-style="italic" font-weight="400" letter-spacing="-3" text-anchor="middle">Cut by</text>
+  <text class="serif accent" x="540" y="700" font-size="220" font-style="italic" font-weight="400" letter-spacing="-3" text-anchor="middle">Riley.</text>
+
+  <!-- Footer -->
+  <text class="mono ink3" x="540" y="1010" font-size="22" letter-spacing="6" text-anchor="middle">SOVEXA.AI</text>
+</svg>

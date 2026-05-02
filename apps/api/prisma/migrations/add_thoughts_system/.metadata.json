@@ -1,0 +1,12 @@
+{
+  "impl": {
+    "binVersion": "5.22.0",
+    "parseOnSchemaChange": true,
+    "migrationScriptsFolderPath": "prisma/migrations",
+    "win32": false,
+    "all": true,
+    "@prisma/internals": "5.22.0"
+  },
+  "migrationId": "add_thoughts_system",
+  "checksum": "a1b2c3d4e5f6"
+}

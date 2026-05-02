@@ -215,11 +215,20 @@
   // Public API
   window.launchSovexaTour = function() { step=0; render() }
 
-  // Auto-launch for new users
+  // Auto-launch for new users (once per tab session — avoids replay on refresh F5
+  // before the tour is marked done in localStorage).
   function autoLaunch() {
     if (localStorage.getItem('vx-tour-done')==='1') return
     if (localStorage.getItem('vx-authed')!=='1') return
-    setTimeout(window.launchSovexaTour, 2500)
+    try {
+      if (sessionStorage.getItem('vx-tour-auto-fired') === '1') return
+    } catch (e) {}
+    setTimeout(function () {
+      try {
+        sessionStorage.setItem('vx-tour-auto-fired', '1')
+      } catch (e) {}
+      window.launchSovexaTour()
+    }, 2500)
   }
   if (document.readyState!=='loading') autoLaunch()
   else document.addEventListener('DOMContentLoaded', autoLaunch)

@@ -133,6 +133,7 @@ a{color:inherit;text-decoration:none}
   filter:blur(9px)}
 .scene[data-scene="1"],.scene[data-scene="3"]{transform:translate3d(1600px,0,-900px) scale(.3) rotateY(-28deg)}
 .scene[data-scene="2"],.scene[data-scene="4"]{transform:translate3d(-1600px,0,-900px) scale(.3) rotateY(28deg)}
+.scene[data-scene="5"]{transform:translate3d(0,0,-900px) scale(.5)}
 
 /* Approach — scene is faintly visible as a distant blurry shape during the transit gap */
 .scene.approach{opacity:.28;visibility:visible;
@@ -144,6 +145,7 @@ a{color:inherit;text-decoration:none}
 
 .scene[data-scene="1"].out,.scene[data-scene="3"].out{transform:translate3d(-1600px,0,600px) scale(1.8) rotateY(28deg)}
 .scene[data-scene="2"].out,.scene[data-scene="4"].out{transform:translate3d(1600px,0,600px) scale(1.8) rotateY(-28deg)}
+.scene[data-scene="5"].out{transform:translate3d(0,0,900px) scale(2.2)}
 .scene.out{opacity:0;visibility:visible;filter:blur(5px);
   transition:opacity .55s cubic-bezier(.5,0,.75,0),transform .75s cubic-bezier(.5,0,.75,0),filter .4s ease-in,visibility 0s linear .75s}
 
@@ -1265,6 +1267,75 @@ a{color:inherit;text-decoration:none}
       </div>
     </div>
 
+    <!-- ══ SCENE 5 — THE HANDOFF (landing hero) ══ -->
+    <div class="scene" data-scene="5">
+      <div class="s5" id="s5">
+        <div class="left">
+          <div class="eb-row">
+            <span class="pill"><span class="g"></span>Now hiring · <em>4 employees</em></span>
+            <span class="eb">§ The company OS for creators</span>
+          </div>
+          <h1>
+            <span class="ln"><span>Run your content</span></span>
+            <span class="ln"><span>like a <em>company</em>.</span></span>
+            <span class="ln"><span>You're the <em>CEO.</em></span></span>
+          </h1>
+          <p class="sub">Sovexa gives you a team of four AI employees who <em>scout, plan, write, and ship</em> your content across every platform. You stay on voice. They stay on time. Your calendar is finally full.</p>
+          <div class="cta-row">
+            <a class="btn-primary" href="#" onclick="if(window.parent!==window){window.parent.postMessage('vx-intro-done','*')};return false">Start your company <span class="arr">→</span></a>
+            <a class="btn-ghost" href="#" onclick="if(window.parent!==window){window.parent.postMessage('vx-intro-done','*')};return false"><span class="play">▶</span> See it work · 90s</a>
+          </div>
+          <div class="proof">
+            <div class="avs">
+              <div class="av">M</div><div class="av">J</div><div class="av">A</div><div class="av">R</div>
+            </div>
+            <div class="t"><em>2,418 creators</em> hired their team this week</div>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="orb-ring r2"><span class="dot"></span><span class="dot b"></span></div>
+          <div class="orb-ring"><span class="dot"></span><span class="dot b"></span></div>
+          <div class="pipe-card">
+            <div class="pc-head">
+              <div class="t">SOVEXA · <em>LIVE PIPELINE</em></div>
+              <div class="live">Live</div>
+            </div>
+            <div class="agent-stack">
+              <div class="ag m">
+                <div class="av">M</div>
+                <div class="mid"><div class="nm">Maya · Trend scout</div><div class="ts">scanning 66 sources</div></div>
+                <div class="rt">Idle</div>
+              </div>
+              <div class="agent-connector"></div>
+              <div class="ag j">
+                <div class="av">J</div>
+                <div class="mid"><div class="nm">Jordan · Strategy</div><div class="ts">drafting brief #213</div></div>
+                <div class="rt">Idle</div>
+              </div>
+              <div class="agent-connector"></div>
+              <div class="ag a">
+                <div class="av">A</div>
+                <div class="mid"><div class="nm">Alex · Create</div><div class="ts">writing Reel caption</div></div>
+                <div class="rt">Idle</div>
+              </div>
+              <div class="agent-connector"></div>
+              <div class="ag r">
+                <div class="av">R</div>
+                <div class="mid"><div class="nm">Riley · Ship</div><div class="ts">queue for 11:42 PT</div></div>
+                <div class="rt">Idle</div>
+              </div>
+            </div>
+            <div class="out-ticker">
+              <div class="m"><div class="l">This week</div><div class="v"><em>21</em> posts</div></div>
+              <div class="m center"><div class="l">Reach</div><div class="v"><em>1.8</em>M</div></div>
+              <div class="m"><div class="l">CEO hours</div><div class="v"><em>28.4</em>h saved</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1278,10 +1349,10 @@ const TIMELINE = [
   { id:'1', at:0,     dur:2200, tab:'hq' },
   { id:'2', at:3200,  dur:2300, tab:'pipeline' },
   { id:'3', at:6500,  dur:2200, tab:'knowledge' },
-  { id:'4', at:9700,  dur:2300, tab:'team' }
+  { id:'4', at:9700,  dur:2300, tab:'team' },
+  { id:'5', at:13000, dur:2200, tab:null }
 ];
-// End slightly after scene 4 finishes so the host page is revealed cleanly
-const TOTAL = 13000;
+const TOTAL = 15200;
 const GAP_MS = 1000;
 const LANDING_URL = '#';
 
@@ -1347,9 +1418,14 @@ function activate(i){
     const inner = document.getElementById('s'+cur.id);
     if(inner){ void inner.offsetWidth; inner.classList.add('run'); }
 
+    // App nav only appears on scene 5 (the landing handoff)
+    const nav = document.querySelector('.appnav');
+    if(nav) nav.classList.toggle('show', cur.id === '5');
+
     if(cur.id === '2') runScene2();
     if(cur.id === '3') runScene3();
     if(cur.id === '4') runScene4();
+    if(cur.id === '5') runScene5();
   }, enterDelay));
 }
 
@@ -1405,6 +1481,15 @@ function runScene3(){
 /* ── Scene 4 · team page (no extra runtime needed; cards animate via CSS) ── */
 function runScene4(){}
 
+/* ── Scene 5 · done ── */
+function runScene5(){
+  // Skip scene 5 entirely — dissolve straight into the real page
+  finished = true;
+  if (window.parent !== window) {
+    window.parent.postMessage('vx-intro-done', '*');
+  }
+}
+
 function tick(){
   const elapsed = performance.now() - startTs;
   const pct = Math.min(100, (elapsed/TOTAL)*100);
@@ -1416,12 +1501,6 @@ function tick(){
     if(elapsed >= TIMELINE[i].at) idx = i;
   }
   if(idx !== activeIndex) activate(idx);
-
-  // After scene 4 finishes, signal the host page to take over
-  if(elapsed >= TOTAL && !finished){
-    finished = true;
-    if (window.parent !== window) window.parent.postMessage('vx-intro-done', '*');
-  }
 
   if(elapsed < TOTAL + 400){
     rafId = requestAnimationFrame(tick);
@@ -1437,15 +1516,6 @@ function start(){
 }
 
 function goToLanding(){
-  // When this runs inside the intro overlay iframe (intro-wire.js loads
-  // /demo.html#autoclose), `Enter →` should close the overlay rather than
-  // navigate the iframe. Post the same message the auto-finish path uses.
-  var inIframe = window.parent !== window;
-  var autoclose = (location.hash || '').indexOf('autoclose') !== -1;
-  if (inIframe && autoclose) {
-    window.parent.postMessage('vx-intro-done', '*');
-    return;
-  }
   window.location.href = LANDING_URL;
 }
 
@@ -1468,8 +1538,16 @@ fitStage();
 addEventListener('resize', fitStage);
 
 if(reducedMotion){
-  // Skip intro entirely — signal done so the host page is revealed
-  if (window.parent !== window) window.parent.postMessage('vx-intro-done', '*');
+  // Snap straight to handoff scene
+  $('#stageInner').classList.add('lit');
+  setTab('hq');
+  const scene = document.querySelector('.scene[data-scene="5"]');
+  scene.classList.add('on');
+  document.getElementById('s5').classList.add('run');
+  const nav = document.querySelector('.appnav'); if(nav) nav.classList.add('show');
+  activeIndex = 4;
+  $('#prog').style.width = '100%';
+  $('#replay').classList.add('on');
 } else {
   start();
 }

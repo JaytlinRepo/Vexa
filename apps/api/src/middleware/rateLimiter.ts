@@ -4,11 +4,22 @@ import { readSession } from './auth'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
-// Identify users by session userId, fall back to IP for unauthenticated requests.
+// App Runner forwards the real client IP in X-Forwarded-For. We trust the
+// first (leftmost) address, which is the actual client, not the load balancer.
+function clientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for']
+  if (forwarded) {
+    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(',')[0].trim()
+    if (first) return first
+  }
+  return req.ip ?? 'unknown'
+}
+
+// Identify users by session userId, fall back to real IP for unauthenticated requests.
 async function keyGenerator(req: Request): Promise<string> {
   const session = await readSession(req)
   if (session) return `user:${session.userId}`
-  return `ip:${req.ip ?? 'unknown'}`
+  return `ip:${clientIp(req)}`
 }
 
 // Skip rate limiting entirely in dev
@@ -28,13 +39,13 @@ export const apiLimiter = rateLimit({
   message: { error: 'rate_limited', message: 'Too many requests. Please slow down.' },
 })
 
-// Auth endpoints — 30 attempts per 15 minutes per IP (production only)
+// Auth endpoints — 30 attempts per 15 minutes per real client IP (production only)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req: Request) => req.ip ?? 'unknown',
+  keyGenerator: (req: Request) => clientIp(req),
   skip: skipInDev,
   validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { error: 'rate_limited', message: 'Too many login attempts. Try again later.' },
