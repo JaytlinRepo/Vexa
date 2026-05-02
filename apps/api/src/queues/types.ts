@@ -50,4 +50,3 @@ export type PlatformSyncJobData =
   | { kind: 'tiktok-sync'; companyId: string }
   | { kind: 'post-sync-analysis'; companyId: string }
   | { kind: 'daily-sync-all' }
-  | { kind: 'trial-emails' }

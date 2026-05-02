@@ -336,7 +336,7 @@ router.get('/callback', async (req, res) => {
     }
     // Fire-and-forget: plan-gated features on connect
     const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
-    const connectPlan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'starter']
+    const connectPlan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
     if (connectPlan.nicheDetection) {
       void detectNicheFromContent(prisma, companyId).catch((err) =>
         console.warn('[tiktok] niche detection failed (non-blocking)', err),

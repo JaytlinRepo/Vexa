@@ -74,7 +74,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // Plan-based enforcement
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
-    const plan = PLAN_LIMITS[user?.plan ?? 'starter']
+    const plan = PLAN_LIMITS[user?.plan ?? 'free']
 
     // Cooldown: plan-based minutes between briefs per agent (Redis-backed)
     const cooldownMs = plan.briefCooldownMin * 60 * 1000

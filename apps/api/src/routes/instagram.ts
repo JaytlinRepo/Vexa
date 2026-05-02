@@ -369,7 +369,7 @@ router.get('/auth/callback', async (req, res) => {
 
     // Fire-and-forget: plan-gated features
     const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
-    const plan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'starter']
+    const plan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
     if (plan.nicheDetection) {
       void detectNicheFromContent(prisma, companyId).catch(() => {})
     }

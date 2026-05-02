@@ -101,11 +101,6 @@
       return
     }
 
-    if (n.type === 'trial_ending') {
-      goSettingsBilling()
-      return
-    }
-
     if (/\/db-team/.test(url) || /\bthought=/.test(url)) {
       if (typeof window.navigate === 'function') window.navigate('db-team')
       return
@@ -395,8 +390,15 @@
   }
 
   // Session restore + HQ v3 skip enterDashboard chain — bell had no listener.
+  // Debounce: vx-dash-ready fires twice from dashboard-v2; navigate + multiple
+  // hooks can queue several microtasks — one init is enough.
+  var kickTimer = null
   function kickFromAppShell () {
-    setTimeout(init, 0)
+    clearTimeout(kickTimer)
+    kickTimer = setTimeout(function () {
+      kickTimer = null
+      init()
+    }, 50)
   }
   window.addEventListener('vx-dash-ready', kickFromAppShell)
   window.addEventListener('vx-dashboard-ready', kickFromAppShell)

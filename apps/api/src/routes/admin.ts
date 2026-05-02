@@ -83,7 +83,6 @@ router.get('/users', async (req, res, next) => {
           fullName: true,
           plan: true,
           subscriptionStatus: true,
-          trialEndsAt: true,
           stripeCustomerId: true,
           createdAt: true,
           updatedAt: true,

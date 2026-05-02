@@ -278,12 +278,20 @@
       // Clear the flag so it doesn't persist after session expiry, but
       // note: the login flow re-sets it before calling location.reload().
       try { localStorage.removeItem('vx-authed') } catch {}
-      const dashView = document.getElementById('view-db-dashboard')
-      if (dashView?.classList.contains('active')) {
-        dashView.classList.remove('active')
-        const homeView = document.getElementById('view-home')
-        if (homeView) homeView.classList.add('active')
-        if (typeof window.currentView !== 'undefined') window.currentView = 'home'
+      try { document.documentElement.removeAttribute('data-vxAuthed') } catch {}
+      const gate = document.getElementById('vx-auth-gate')
+      if (gate) gate.remove()
+      try { history.replaceState(null, '', '#home') } catch {}
+      if (typeof window.navigate === 'function') {
+        window.navigate('home')
+      } else {
+        const dashView = document.getElementById('view-db-dashboard')
+        if (dashView?.classList.contains('active')) {
+          dashView.classList.remove('active')
+          const homeView = document.getElementById('view-home')
+          if (homeView) homeView.classList.add('active')
+          if (typeof window.currentView !== 'undefined') window.currentView = 'home'
+        }
       }
       return
     }

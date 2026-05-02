@@ -149,6 +149,33 @@ window.addEventListener('hashchange',function(){
   try{navigate(h)}finally{window.__vxNavFromHash=false}
 })
 
+// First paint: URL hash and DOM often disagree — static HTML defaults to
+// view-home.active while location may be #db-studio from a prior session.
+// Also block deep-link app routes when logged out (avoid marketing page + wrong hash).
+function vxSyncInitialHashRoute(){
+  try{
+    var h=(location.hash||'').replace(/^#/,'')
+    if(!h||!/^[a-z0-9-]+$/.test(h))return
+    if(!document.getElementById('view-'+h))return
+    var appView=/^db-/.test(h)
+    var authed=false
+    try{authed=localStorage.getItem('vx-authed')==='1'}catch(e){}
+    if(appView && !authed){
+      try{history.replaceState(null,'','#home')}catch(e){}
+      navigate('home')
+      return
+    }
+    var next=document.getElementById('view-'+h)
+    if(next && next.classList.contains('active') && currentView===h)return
+    navigate(h)
+  }catch(e){}
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',vxSyncInitialHashRoute)
+}else{
+  vxSyncInitialHashRoute()
+}
+
 /* ── NAV COLLAPSE ───────────────────────────────────── */
 function toggleNav(){
   const nav=document.getElementById('sidenav')
@@ -361,12 +388,13 @@ function filterFeed(gridSel,attr,type){
 
 /* ── PRICING TOGGLE ─────────────────────────────────── */
 var annual=false
-var pp={starter:[19,15],pro:[59,47],agency:[149,119]}
+var pp={pro:[59,47],agency:[149,119]}
 function togglePrice(){
   annual=!annual
   document.getElementById('priceToggle').classList.toggle('on',annual)
   const fmt=p=>`<sup>$</sup>${Number.isInteger(p)?p:p.toFixed(2)}<span class="mo">/mo</span>`
-  document.getElementById('ps-starter').innerHTML=fmt(annual?pp.starter[1]:pp.starter[0])
+  var freeEl=document.getElementById('ps-free')
+  if(freeEl)freeEl.innerHTML='<sup>$</sup>0<span class="mo">/mo</span>'
   document.getElementById('ps-pro').innerHTML=fmt(annual?pp.pro[1]:pp.pro[0])
   document.getElementById('ps-agency').innerHTML=fmt(annual?pp.agency[1]:pp.agency[0])
 }
@@ -409,7 +437,8 @@ function switchSettings(btn,panel){
   document.querySelectorAll('.settings-nav-item').forEach(b=>b.classList.remove('active'))
   document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'))
   btn.classList.add('active')
-  document.getElementById('settings-'+panel).classList.add('active')
+  const panelEl=document.getElementById('settings-'+panel)
+  if(panelEl) panelEl.classList.add('active')
 }
 
 /* ── CALENDAR ENGINE ─────────────────────────────────── */

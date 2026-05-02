@@ -223,11 +223,6 @@ export const RATE_LIMITS = {
     meetingsPerDay:  0,
     apiCallsPerMin:  5,
   },
-  starter: {
-    tasksPerHour:    5,
-    meetingsPerDay:  0,   // deprecated plan, kept for existing subscribers
-    apiCallsPerMin:  10,
-  },
   pro: {
     tasksPerHour:    20,
     meetingsPerDay:  10,

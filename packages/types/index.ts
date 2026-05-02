@@ -1,7 +1,7 @@
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
 
-export type SubscriptionStatus = 'trial' | 'active' | 'canceled' | 'past_due'
-export type Plan = 'starter' | 'pro' | 'agency'
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due'
+export type Plan = 'free' | 'pro' | 'agency'
 export type Platform = 'instagram'
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
@@ -725,7 +725,6 @@ export type NotificationType =
   | 'trend_report_ready'
   | 'plan_ready'
   | 'video_ready'
-  | 'trial_ending'
   | 'payment_failed'
   | 'team_update'
   | 'connected'

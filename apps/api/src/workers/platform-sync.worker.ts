@@ -93,10 +93,6 @@ export function createPlatformSyncWorker(): Worker {
           break
         }
 
-        case 'trial-emails':
-          // No-op: trial model replaced by freemium free plan.
-          break
-
         default:
           console.warn(`[worker:sync] unknown kind: ${(data as PlatformSyncJobData).kind}`)
       }

@@ -8,7 +8,6 @@ import {
   sendWelcomeEmail,
   sendOutputDeliveredEmail,
   sendMeetingSummaryEmail,
-  sendTrialEndingEmail,
   sendPaymentFailedEmail,
 } from '../services/email/email.service'
 import { EMPLOYEE_CONFIGS, EmployeeRole } from '@vexa/types'
@@ -108,7 +107,3 @@ export function triggerPaymentFailedEmail(userId: string): void {
   })
 }
 
-// Trial ending emails removed — freemium replaced the trial model.
-export async function checkTrialEndingEmails(): Promise<{ sent: number }> {
-  return { sent: 0 }
-}

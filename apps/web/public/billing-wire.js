@@ -1,7 +1,7 @@
 /* Sovexa — billing & usage UI
  *
  * Adds a Plan + Usage card to the dashboard (renders under quick stats) and
- * surfaces trial countdown / auto-renew status. Reads GET /api/usage.
+ * surfaces plan status / usage. Reads GET /api/usage.
  * Also exposes window.vxAssignTask(companyId, employeeId, title, type, description)
  * which is used by the team page's Assign-task modal; surfaces a friendly
  * upgrade prompt on a 402.
@@ -36,7 +36,7 @@
     if (!stats) return
     document.getElementById('vx-plan-card')?.remove()
 
-    const trialLine =
+    const planSubtitle =
       usage.subscriptionStatus === 'active' && usage.plan === 'free'
         ? 'Free plan — upgrade anytime for meetings, video, and brand memory'
         : usage.subscriptionStatus === 'active'
@@ -59,7 +59,7 @@
         <div>
           <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px">Plan</div>
           <div style="font-size:14px;font-weight:600;color:${accent(usage.subscriptionStatus)}">${planLabel(usage.plan, usage.subscriptionStatus)}</div>
-          <div style="font-size:12px;color:var(--t2);margin-top:2px">${trialLine}</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">${planSubtitle}</div>
         </div>
         <button id="vx-plan-manage" style="background:var(--s2);border:none;color:var(--t2);font-size:11px;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit">Manage</button>
       </div>

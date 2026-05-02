@@ -165,16 +165,6 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
   })
   console.log('[scheduler] registered daily proactive cycle (14:00 UTC)')
 
-  // ── Daily 08:00 UTC — Trial ending emails ──
-  cron.schedule('0 8 * * *', async () => {
-    try {
-      const { checkTrialEndingEmails } = require('./lib/emailTriggers')
-      const result = await checkTrialEndingEmails()
-      if (result.sent > 0) console.log(`[scheduler] trial emails: ${result.sent} sent`)
-    } catch {}
-  })
-  console.log('[scheduler] registered trial ending email check (daily 08:00 UTC)')
-
   // ── Daily 12:00 UTC — Keep-alive ──
   cron.schedule(process.env.VEXA_KEEPALIVE_CRON || '0 12 * * *', async () => {
     try {

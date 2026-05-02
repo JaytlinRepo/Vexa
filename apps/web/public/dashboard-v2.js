@@ -122,7 +122,7 @@
     var planEl = document.getElementById('nav-userplan')
     var avatarEl = document.getElementById('nav-avatar')
     if (nameEl) nameEl.textContent = company?.name || 'My Company'
-    if (planEl) planEl.textContent = ({ free: 'Free', starter: 'Solo', pro: 'Pro', agency: 'Agency' }[me.user.plan] || 'Free') + ' plan'
+    if (planEl) planEl.textContent = ({ free: 'Free', pro: 'Pro', agency: 'Agency' }[me.user.plan] || 'Free') + ' plan'
     if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
     try {
       window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))

@@ -162,6 +162,11 @@
     return id.charAt(0).toUpperCase() + id.slice(1)
   }
 
+  function subscriptionIsLive (sub) {
+    if (!sub) return false
+    return ['active', 'past_due'].indexOf(sub.status) !== -1
+  }
+
   function formatResetDate (iso) {
     if (!iso) return ''
     try {
@@ -172,7 +177,7 @@
   /** Plan matches and subscription still authorizes paid features */
   function isOnPlan (sub, planId) {
     if (!sub || sub.plan !== planId) return false
-    return ['active','past_due'].indexOf(sub.status) !== -1
+    return ['active', 'past_due'].indexOf(sub.status) !== -1
   }
 
   async function loadBilling() {
@@ -197,9 +202,10 @@
         return
       }
 
-      var isActive = sub.status === 'active'
-      var isCanceled = sub.status === 'canceled'
-      var isPastDue = sub.status === 'past_due'
+      var st = sub.status
+      var isCanceled = st === 'canceled'
+      var isPastDue = st === 'past_due'
+      var isActive = st === 'active'
       var tierName = planDisplayName(sub.plan)
 
       if (isPastDue) {
@@ -224,7 +230,7 @@
 
       var tk = sub.usage && sub.usage.tasks
       if (usageEl && tk) {
-        var taskPeriod = (sub.resetWindow || sub.usage.resetWindow) === 'daily' ? 'today' : 'this month'
+        var taskPeriod = (sub.usage && sub.usage.resetWindow) === 'daily' ? 'today' : 'this month'
         var parts = ['Tasks · ' + tk.used + ' / ' + tk.limit + ' ' + taskPeriod]
         if (sub.usage.videos && sub.usage.videos.limit > 0) {
           parts.push('Videos · ' + sub.usage.videos.used + ' / ' + sub.usage.videos.limit)
@@ -253,7 +259,7 @@
       cardsEl.style.gap = '12px'
       cardsEl.style.marginTop = '20px'
       cardsEl.innerHTML = PLANS.map(function (p) {
-        var subscriptionLive = ['active','past_due'].indexOf(sub.status) !== -1
+        var subscriptionLive = subscriptionIsLive(sub)
         var onThis = subscriptionLive && isOnPlan(sub, p.id)
         var borderCol = p.popular ? 'var(--accent)' : 'var(--b1)'
         var emphasis = onThis ? 'box-shadow:0 0 0 2px rgba(192,138,62,.55);' : ''

@@ -41,7 +41,7 @@
             <a href="#" data-vx-nav="pricing">Pricing</a>
             <a href="#" data-vx-nav="faq">FAQ</a>
             <a href="#" data-vx-action="login">Sign in</a>
-            <a href="#" data-vx-action="signup">Start free trial</a>
+            <a href="#" data-vx-action="signup">Start free</a>
           </div>
 
           <div class="vx-footer-col">

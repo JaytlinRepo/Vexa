@@ -22,14 +22,6 @@ export const SCHEDULES: ScheduleDefinition[] = [
     pattern: '0 9 * * *',
     description: 'Daily platform sync (9 AM UTC)',
   },
-  {
-    queue: 'platform-sync',
-    name: 'trial-emails',
-    data: { kind: 'trial-emails' },
-    pattern: '0 8 * * *',
-    description: 'Trial expiry check (8 AM UTC)',
-  },
-
   // ── Agent Tasks ──
   {
     queue: 'agent-tasks',

@@ -36,23 +36,6 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
     revisionsPerOutput: 0,
   },
-  // Deprecated — no new users land here. Kept so existing subscribers still resolve limits.
-  starter: {
-    tasksPerMonth: 50,
-    resetWindow: 'monthly',
-    videosPerMonth: 0,
-    workspaces: 1,
-    meetingFeature: false,
-    brandMemory: false,
-    bedrockCallsPerMonth: 200,
-    briefCooldownMin: 5,
-    proactiveAnalysis: true,
-    weeklyPulse: false,
-    nicheDetection: true,
-    syncOnLogin: true,
-    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
-    revisionsPerOutput: 2,
-  },
   pro: {
     tasksPerMonth: 200,
     resetWindow: 'monthly',

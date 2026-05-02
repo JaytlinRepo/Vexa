@@ -8,11 +8,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 // ─── PRICE IDS ────────────────────────────────────────────────────────────────
 
+/** Legacy Stripe Solo price IDs → treat subscriptions as Pro after webhook */
+const LEGACY_SOLO_PRICE_IDS = new Set(
+  [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID, process.env.STRIPE_STARTER_ANNUAL_PRICE_ID].filter(Boolean),
+)
+
 const PRICE_IDS = {
-  starter: {
-    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || '',
-    annual: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID || '',
-  },
   pro: {
     monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || '',
     annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || '',
@@ -119,7 +120,7 @@ export async function handleStripeWebhook(payload: Buffer, signature: string): P
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId
-  const plan = session.metadata?.plan as 'starter' | 'pro' | 'agency' // starter kept for legacy sessions
+  const plan = session.metadata?.plan as 'pro' | 'agency'
   if (!userId || !plan) return
 
   await prisma.user.update({
@@ -180,21 +181,20 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 // ─── PLAN HELPERS ─────────────────────────────────────────────────────────────
 
-// Returns starter for legacy subscribers whose price ID pre-dates the deprecation.
-function getPlanFromPriceId(priceId?: string): 'starter' | 'pro' | 'agency' | null {
+/** Maps Stripe price ID → internal plan. Legacy Solo prices resolve to Pro. */
+function getPlanFromPriceId(priceId?: string): 'pro' | 'agency' | null {
   if (!priceId) return null
+  if (LEGACY_SOLO_PRICE_IDS.has(priceId)) return 'pro'
   for (const [plan, prices] of Object.entries(PRICE_IDS)) {
     if (Object.values(prices).includes(priceId)) {
-      return plan as 'starter' | 'pro' | 'agency'
+      return plan as 'pro' | 'agency'
     }
   }
   return null
 }
 
 /**
- * Quality parity across all tiers: every plan (free / starter / pro / agency) gets
- * all 4 employees active. Differentiation is volume + features, not employee access.
- * Volume caps live in plans.ts (tasksPerMonth, bedrockCallsPerMonth, etc.).
+ * Every paid tier gets all four employees active; differentiation is volume + features.
  */
 async function unlockEmployeesForPlan(userId: string, _plan: string): Promise<void> {
   const companies = await prisma.company.findMany({ where: { userId } })

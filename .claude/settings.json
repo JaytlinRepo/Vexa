@@ -146,7 +146,22 @@
       "Bash(dig TXT www.sovexa.ai +short)",
       "Bash(dig A www.sovexa.ai +short)",
       "Bash(dig TXT www.sovexa.ai @8.8.8.8 +short)",
-      "Bash(dig TXT sovexa.ai @8.8.8.8 +short)"
+      "Bash(dig TXT sovexa.ai @8.8.8.8 +short)",
+      "Bash(AWS_ACCESS_KEY_ID=AKIAUWF2TALE2NVBR3XA AWS_SECRET_ACCESS_KEY=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 AWS_DEFAULT_REGION=us-east-1 aws amplify list-apps --query 'apps[*].{name:name,appId:appId}' --output json)",
+      "Bash(AWS_ACCESS_KEY_ID=AKIAUWF2TALE2NVBR3XA AWS_SECRET_ACCESS_KEY=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 AWS_DEFAULT_REGION=us-east-1 aws amplify list-branches --app-id d1y8b9qw8l1748 --query 'branches[*].{branch:branchName,env:environmentVariables.NEXT_PUBLIC_ENV}' --output json)",
+      "Bash(curl -s https://www.sovexa.ai/tiktok-developers-site-verification.html)",
+      "Bash(dig TXT www.sovexa.ai @1.1.1.1 +short)",
+      "Bash(curl -sI https://www.sovexa.ai/tiktok-developers-site-verification.html)",
+      "Bash(curl -s https://www.sovexa.ai/)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('OK - products:', len\\(d.get\\('data',[]\\)\\)\\) if 'data' in d else print\\('ERROR:', d.get\\('error',{}\\).get\\('message','unknown'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('ID:', d.get\\('id'\\)\\); print\\('SECRET:', d.get\\('secret'\\)\\); print\\('ERROR:', d.get\\('error',{}\\).get\\('message',''\\)\\) if 'error' in d else None\")",
+      "Bash(AWS_ACCESS_KEY_ID=AKIAUWF2TALE2NVBR3XA AWS_SECRET_ACCESS_KEY=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 AWS_DEFAULT_REGION=us-east-1 aws apprunner list-services --query 'ServiceSummaryList[*].{name:ServiceName,arn:ServiceArn}' --output json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
+      "Bash(aws elasticache *)",
+      "Bash(export AK=AKIAUWF2TALE2NVBR3XA SK=wKmGUjVknQnrSpUTSCNpLR5KwhPoZ7tna21nrWgd REG=us-east-1)",
+      "Bash(export AK=AKIAUWF2TALE6YMSXDPO SK=\"XOq+5VB/1MHr1oskLLZ+7YPZdTEVyg9/k/9RiT5R\" REG=us-east-1)",
+      "Bash(echo \"Build started \\(PID $!\\)\")",
+      "Bash(curl -s https://api.sovexa.ai/api/auth/me)"
     ],
     "additionalDirectories": [
       "/Users/jaytlinaskew/Documents/Personal/Vexa-prod-3004/apps/web"
