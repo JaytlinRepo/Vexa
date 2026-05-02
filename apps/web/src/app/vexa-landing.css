@@ -513,7 +513,7 @@ section.blk{padding:140px 44px;position:relative;z-index:1}
 .stat .l{font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3)}
 
 /* ═══ PRICING ═══ */
-.prices{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--b1);border-radius:16px;overflow:hidden}
+.prices{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--b1);border-radius:16px;overflow:hidden}
 .plan{padding:40px 36px;background:var(--s1);border-right:1px solid var(--b1);position:relative}
 .plan:last-child{border-right:0}
 .plan.feat{background:linear-gradient(180deg,var(--s2),var(--bg));z-index:2}

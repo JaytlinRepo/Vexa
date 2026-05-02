@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 // ─── PRICE IDS ────────────────────────────────────────────────────────────────
 
-/** Legacy Stripe Solo price IDs → treat subscriptions as Pro after webhook */
+/** Legacy Stripe Starter/Solo price IDs → entry paid tier (Pro) */
 const LEGACY_SOLO_PRICE_IDS = new Set(
   [process.env.STRIPE_STARTER_MONTHLY_PRICE_ID, process.env.STRIPE_STARTER_ANNUAL_PRICE_ID].filter(Boolean),
 )
@@ -18,11 +18,17 @@ const PRICE_IDS = {
     monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || '',
     annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || '',
   },
+  max: {
+    monthly: process.env.STRIPE_MAX_MONTHLY_PRICE_ID || '',
+    annual: process.env.STRIPE_MAX_ANNUAL_PRICE_ID || '',
+  },
   agency: {
     monthly: process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID || '',
     annual: process.env.STRIPE_AGENCY_ANNUAL_PRICE_ID || '',
   },
 }
+
+export type CheckoutPlan = keyof typeof PRICE_IDS
 
 // ─── CREATE CHECKOUT SESSION ──────────────────────────────────────────────────
 
@@ -34,7 +40,7 @@ export async function createCheckoutSession({
   cancelUrl,
 }: {
   userId: string
-  plan: 'pro' | 'agency'
+  plan: CheckoutPlan
   billing: 'monthly' | 'annual'
   successUrl: string
   cancelUrl: string
@@ -118,10 +124,12 @@ export async function handleStripeWebhook(payload: Buffer, signature: string): P
 
 // ─── WEBHOOK HANDLERS ─────────────────────────────────────────────────────────
 
+const CHECKOUT_PAID_PLANS: CheckoutPlan[] = ['pro', 'max', 'agency']
+
 async function handleCheckoutComplete(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId
-  const plan = session.metadata?.plan as 'pro' | 'agency'
-  if (!userId || !plan) return
+  const plan = session.metadata?.plan as CheckoutPlan | undefined
+  if (!userId || !plan || !CHECKOUT_PAID_PLANS.includes(plan)) return
 
   await prisma.user.update({
     where: { id: userId },
@@ -181,13 +189,13 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
 
 // ─── PLAN HELPERS ─────────────────────────────────────────────────────────────
 
-/** Maps Stripe price ID → internal plan. Legacy Solo prices resolve to Pro. */
-function getPlanFromPriceId(priceId?: string): 'pro' | 'agency' | null {
+/** Maps Stripe price ID → internal plan. Legacy Solo/Starter prices → Pro. */
+function getPlanFromPriceId(priceId?: string): CheckoutPlan | null {
   if (!priceId) return null
   if (LEGACY_SOLO_PRICE_IDS.has(priceId)) return 'pro'
   for (const [plan, prices] of Object.entries(PRICE_IDS)) {
     if (Object.values(prices).includes(priceId)) {
-      return plan as 'pro' | 'agency'
+      return plan as CheckoutPlan
     }
   }
   return null

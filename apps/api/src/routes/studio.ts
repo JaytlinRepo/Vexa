@@ -168,7 +168,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'invalid_input', issues: err.issues })
       }
       console.error('[studio] approve-visual failed:', err)
-      res.status(500).json({ error: 'Failed to process visual approval', message: err instanceof Error ? err.message : 'Unknown error' })
+      res.status(500).json({ error: 'Failed to process visual approval', message: 'Something went wrong. Please try again.' })
     }
   })
 
@@ -273,7 +273,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'invalid_input', issues: err.issues })
       }
       console.error('[studio] approve-copy failed:', err)
-      res.status(500).json({ error: 'Failed to process copy approval', message: err instanceof Error ? err.message : 'Unknown error' })
+      res.status(500).json({ error: 'Failed to process copy approval', message: 'Something went wrong. Please try again.' })
     }
   })
 
@@ -725,7 +725,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'invalid_input', issues: err.issues })
       }
       console.error('[studio] schedule failed:', err)
-      res.status(500).json({ error: 'Failed to schedule clip', message: err instanceof Error ? err.message : 'Unknown error' })
+      res.status(500).json({ error: 'Failed to schedule clip', message: 'Something went wrong. Please try again.' })
     }
   })
 

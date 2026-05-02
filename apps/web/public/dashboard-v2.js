@@ -122,7 +122,10 @@
     var planEl = document.getElementById('nav-userplan')
     var avatarEl = document.getElementById('nav-avatar')
     if (nameEl) nameEl.textContent = company?.name || 'My Company'
-    if (planEl) planEl.textContent = ({ free: 'Free', pro: 'Pro', agency: 'Agency' }[me.user.plan] || 'Free') + ' plan'
+    if (planEl) {
+      var _plLabels = { free: 'Free', pro: 'Pro', max: 'Max', agency: 'Agency' }
+      planEl.textContent = (_plLabels[me.user.plan] || String(me.user.plan || 'free').replace(/^./, function (c) { return c.toUpperCase() })) + ' plan'
+    }
     if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
     try {
       window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
@@ -600,9 +603,13 @@
       const headline = hasAccounts
         ? 'Your team is standing by.'
         : 'Connect a platform to get started.'
+      const tiktokGateOff =
+        typeof window !== 'undefined' && window.__VX_TIKTOK_INTEGRATION_ENABLED !== true
       const sub = hasAccounts
         ? 'Brief an agent or wait for the next proactive report.'
-        : 'Once your TikTok or Instagram is connected, Maya will analyze your content automatically.'
+        : tiktokGateOff
+          ? 'Once Instagram is connected, Maya will analyze your content automatically.'
+          : 'Once your TikTok or Instagram is connected, Maya will analyze your content automatically.'
       return `
         <section style="margin-bottom:22px">
           <div style="border:1px solid var(--b1);border-radius:14px;padding:22px 24px;background:var(--s1)">
@@ -1456,8 +1463,13 @@
   // in sandbox, so we surface what we CAN derive: identity + the four
   // aggregate counts + engagement + top 3 videos by views.
   function sectionTiktok() {
+    const tiktokIntegrationEnabled =
+      typeof window !== 'undefined' && window.__VX_TIKTOK_INTEGRATION_ENABLED === true
     const companyId = STATE.me?.companies?.[0]?.id || ''
     const tt = STATE.tiktok
+    if (!tt && !tiktokIntegrationEnabled) {
+      return ''
+    }
     if (!tt) {
       const href = companyId
         ? `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
@@ -2082,7 +2094,11 @@
       var avatarEl = document.getElementById('nav-avatar')
       var company = STATE.me.companies?.[0]
       if (nameEl) nameEl.textContent = company?.name || 'My Company'
-      if (planEl) planEl.textContent = (STATE.me.user.plan || 'free') + ' plan'
+      if (planEl) {
+        var _pv2Labels = { free: 'Free', pro: 'Pro', max: 'Max', agency: 'Agency' }
+        var _pv2 = STATE.me.user.plan || 'free'
+        planEl.textContent = (_pv2Labels[_pv2] || String(_pv2).replace(/^./, function (c) { return c.toUpperCase() })) + ' plan'
+      }
       if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
       try {
         window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))

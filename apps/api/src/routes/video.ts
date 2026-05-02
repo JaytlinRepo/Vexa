@@ -30,28 +30,26 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Upload Video ───────────────────────────────────────────────────────────
 
-  // Single uploads use memoryStorage (small enough to be fine in RAM).
-  // Batch uploads use diskStorage so 7×100MB doesn't pin 700MB of heap
-  // for the duration of the request — that pressure was breaking the
-  // proxy connection mid-upload (ECONNRESET) and dropping the response
-  // before the frontend could see it.
-  const upload = multer({ storage: multer.memoryStorage() })
+  // All uploads land on disk so a multi-hundred-MB body never pins the
+  // request handler's heap. memoryStorage was OOM-prone for large clips
+  // and broke the proxy connection mid-upload on big iPhone videos.
+  const safeFilename = (_req: Request, file: Express.Multer.File, cb: (err: Error | null, name: string) => void): void => {
+    const safe = file.originalname.replace(/[^A-Za-z0-9._-]/g, '_')
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`)
+  }
+
+  const singleUploadTmp = path.join(os.tmpdir(), 'sovexa-single-uploads')
+  fs.mkdirSync(singleUploadTmp, { recursive: true })
+  const upload = multer({
+    storage: multer.diskStorage({ destination: singleUploadTmp, filename: safeFilename }),
+    limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 1 },
+  })
 
   const batchUploadTmp = path.join(os.tmpdir(), 'sovexa-batch-uploads')
   fs.mkdirSync(batchUploadTmp, { recursive: true })
   const uploadBatch = multer({
-    storage: multer.diskStorage({
-      destination: batchUploadTmp,
-      filename: (_req, file, cb) => {
-        // Random prefix avoids collisions across concurrent uploads.
-        const safe = file.originalname.replace(/[^A-Za-z0-9._-]/g, '_')
-        cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`)
-      },
-    }),
-    limits: {
-      fileSize: 2 * 1024 * 1024 * 1024, // 2GB per file
-      files: 12,
-    },
+    storage: multer.diskStorage({ destination: batchUploadTmp, filename: safeFilename }),
+    limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 12 },
   })
 
   /**
@@ -81,40 +79,115 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'No video file provided' })
       }
 
-      // Upload to S3
-      const s3Key = buildUploadKey(companyId, file.originalname)
-      await uploadFile({
-        key: s3Key,
-        body: file.buffer,
-        contentType: file.mimetype,
-      })
-      const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
+      // Stream from disk → S3. Always free the temp file when we're done.
+      let videoUpload: { id: string } | null = null
+      try {
+        const s3Key = buildUploadKey(companyId, file.originalname)
+        await uploadFile({
+          key: s3Key,
+          body: fs.createReadStream(file.path),
+          contentType: file.mimetype,
+        })
+        const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
 
-      // Create upload record
-      const videoUpload = await prisma.videoUpload.create({
-        data: {
-          companyId,
-          sourceVideoUrl: videoUrl,
-          fileName: file.originalname
+        videoUpload = await prisma.videoUpload.create({
+          data: { companyId, sourceVideoUrl: videoUrl, fileName: file.originalname },
+        })
+        console.log(`[video] Upload created: ${videoUpload.id}`)
+
+        // Return immediately so the client unblocks before processing starts.
+        res.json({
+          uploadId: videoUpload.id,
+          status: 'processing',
+          message: 'Video processing started',
+        })
+
+        // Map upload → user for SSE event routing, identical to the batch path.
+        const { registerUploadUser } = await import('../lib/videoProcessing.service')
+        registerUploadUser(videoUpload.id, userId)
+
+        // Prefer BullMQ so an API restart doesn't lose the job. Fall back to
+        // inline processing only when Redis is unreachable, mirroring the
+        // batch route's resilience.
+        const { isRedisHealthy } = await import('../queues/connection')
+        if (await isRedisHealthy()) {
+          try {
+            const { videoQueue } = await import('../queues')
+            await videoQueue.add('single', {
+              uploadId: videoUpload.id,
+              videoUrl,
+              userId,
+              companyId,
+              s3Key,
+            })
+            console.log(`[video] single ${videoUpload.id} enqueued`)
+          } catch (err) {
+            console.warn(`[video] enqueue failed despite healthy Redis — falling back inline:`, (err as Error).message)
+            processingService.processVideo(videoUpload.id, videoUrl, userId).catch((e) => {
+              console.error('[video] Background processing failed:', e)
+            })
+          }
+        } else {
+          console.warn(`[video] Redis unavailable — processing single ${videoUpload.id} inline`)
+          processingService.processVideo(videoUpload.id, videoUrl, userId).catch((e) => {
+            console.error('[video] Background processing failed:', e)
+          })
         }
-      })
-
-      console.log(`[video] Upload created: ${videoUpload.id}`)
-
-      // Return immediately
-      res.json({
-        uploadId: videoUpload.id,
-        status: 'processing',
-        message: 'Video processing started'
-      })
-
-      // Process in background
-      processingService.processVideo(videoUpload.id, videoUrl, userId).catch(err => {
-        console.error(`[video] Background processing failed:`, err)
-      })
+      } finally {
+        // Always remove the disk-buffered upload — the worker reads from S3.
+        try { fs.unlinkSync(file.path) } catch {}
+      }
     } catch (err) {
       console.error('[video] Upload failed:', err)
       res.status(500).json({ error: 'Upload failed' })
+    }
+  })
+
+  // ── Job existence check ───────────────────────────────────────────────────
+  // Used by the Studio frontend on tab init to decide whether to resurrect a
+  // saved progress card. Returns 404 if the upload/compilation no longer
+  // exists (e.g. after an admin truncate or aborted run), so the client can
+  // discard the stale sessionStorage entry instead of showing a ghost bar.
+  router.get('/job/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const id = req.params.id
+      const ownedCompanyIds = (await prisma.company.findMany({
+        where: { userId },
+        select: { id: true },
+      })).map((c) => c.id)
+      if (ownedCompanyIds.length === 0) { res.status(404).json({ error: 'not_found' }); return }
+
+      // Compilation path: if we have a finished/failed compilation, tell the
+      // client to drop the resume. A linked clip means the whole pipeline ran
+      // (compilation → Riley → output) and the user shouldn't see a ghost
+      // progress bar even if they already approved/rejected the clip.
+      const compilation = await prisma.videoCompilation.findFirst({
+        where: { id, companyId: { in: ownedCompanyIds } },
+        select: { id: true, status: true },
+      })
+      if (compilation) {
+        const done = compilation.status === 'completed' || compilation.status === 'failed'
+        res.json({ kind: 'compilation', id: compilation.id, status: compilation.status, done })
+        return
+      }
+
+      // Single-upload path: a clip linked to the upload means processing is
+      // done. Otherwise the worker is still running it.
+      const upload = await prisma.videoUpload.findFirst({
+        where: { id, companyId: { in: ownedCompanyIds } },
+        select: { id: true },
+      })
+      if (upload) {
+        const clip = await prisma.videoClip.findFirst({ where: { uploadId: upload.id }, select: { id: true } })
+        res.json({ kind: 'upload', id: upload.id, done: !!clip })
+        return
+      }
+
+      res.status(404).json({ error: 'not_found' })
+    } catch (err) {
+      console.error('[video] job lookup failed:', err)
+      res.status(500).json({ error: 'lookup_failed' })
     }
   })
 

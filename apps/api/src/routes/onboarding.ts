@@ -6,6 +6,10 @@ import { requireAuth, AuthedRequest, createSession, readSession } from '../middl
 import { readPendingSignup, clearPendingSignup } from './auth'
 import { seedStarterTasks } from '../lib/seedStarterTasks'
 import { createNotification } from '../services/notifications/notification.service'
+import {
+  containsBlockedLanguage,
+  DISALLOWED_LANGUAGE_MESSAGE,
+} from '../lib/badLanguage'
 
 const router = Router()
 
@@ -16,15 +20,32 @@ const EMPLOYEE_SEED: Array<{ role: EmployeeRole; name: string }> = [
   { role: 'creative_director', name: 'Riley' },
 ]
 
-const companySchema = z.object({
-  name: z.string().min(1).max(120),
-  niche: z.string().min(1),
-  subNiche: z.string().max(200).optional(),
-  brandVoice: z.record(z.any()).optional(),
-  audience: z.record(z.any()).optional(),
-  goals: z.record(z.any()).optional(),
-  agentTools: z.record(z.any()).optional(),
-})
+const companySchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    niche: z.string().trim().min(1).max(2000),
+    subNiche: z.string().max(200).optional(),
+    brandVoice: z.record(z.any()).optional(),
+    audience: z.record(z.any()).optional(),
+    goals: z.record(z.any()).optional(),
+    agentTools: z.record(z.any()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (containsBlockedLanguage(data.name)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['name'],
+      })
+    }
+    if (containsBlockedLanguage(data.niche)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['niche'],
+      })
+    }
+  })
 
 router.post('/company', async (req, res, next) => {
   try {

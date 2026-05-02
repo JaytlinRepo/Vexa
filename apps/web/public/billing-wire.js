@@ -104,7 +104,7 @@
         <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 8px">Your team is at the monthly limit</h3>
         <p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 18px">
           You have used all ${usage?.tasks?.limit ?? '—'} tasks on the ${usage?.plan ?? 'free'} plan ${usage?.tasks?.resetWindow === 'daily' ? 'today' : 'this month'}.
-          Upgrade to Pro for 200 tasks/month, video generation, and meeting access.
+          Upgrade to Max for 200 tasks/month, video generation, and meeting access — or Pro for a lighter paid runway.
         </p>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button id="vx-up-cancel" style="background:none;border:1px solid var(--b2);color:var(--t2);padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">Close</button>

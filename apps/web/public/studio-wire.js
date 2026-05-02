@@ -26,19 +26,29 @@
   function processingErrDetail (raw) {
     const s = String(raw || '').trim()
     if (!s || /^unknown error$/i.test(s)) return 'Please try again, or try a shorter clip.'
-    if (s.length > 100 || (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1)) return 'Please try again in a moment.'
+    if (s.length > 200 || (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1)) return 'Please try again in a moment.'
+    if (/(arn:aws|aws |iam:|s3:|accessdenied|access denied|x-amz|presigned|signature|status code \d{3}|\bforbidden\b|\bunauthorized\b)/i.test(s)) {
+      return 'Please try again in a moment.'
+    }
     return s
   }
 
   function processingErrToast (raw) {
     const s = String(raw || '').trim()
-    if (!s || /^unknown error$/i.test(s) || s.length > 120) {
+    if (!s || /^unknown error$/i.test(s) || s.length > 200) {
       return 'We couldn\'t finish editing your reel. Try again, or use a shorter clip.'
     }
+    // snake_case codes ("storage_unavailable") never reach the user
     if (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1) {
       return 'We couldn\'t finish editing your reel. Please try again.'
     }
-    return 'We couldn\'t finish editing: ' + s
+    // Defense in depth: never echo AWS/IAM/HTTP-stack chatter even if a new
+    // backend code path forgets to sanitize.
+    if (/(arn:aws|aws |iam:|s3:|accessdenied|access denied|x-amz|presigned|signature|status code \d{3}|\bforbidden\b|\bunauthorized\b)/i.test(s)) {
+      return 'We couldn\'t finish editing your reel. Please try again.'
+    }
+    // Backend now sends a curated user-facing message — show it as-is.
+    return s
   }
 
   // ── Init CSS ─────────────────────────────────────────────────────
@@ -68,6 +78,37 @@
   let studioUploadDomWired = false
   /** Hard cap on a single batch upload — anything more rejects the whole submit */
   const MAX_BATCH_FILES = 12
+  /** Hard cap on per-file size (matches the API's 2GB multer limit). */
+  const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024
+  /**
+   * fetch() can't stream an upload progress event, so we wrap an XHR with
+   * an onprogress callback. The progress band is 5%-14% (the "upload" phase
+   * window) so the bar visibly moves while bytes are on the wire instead
+   * of sitting frozen at 5% for tens of seconds on big videos.
+   */
+  function xhrUpload(url, formData, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', url, true)
+      xhr.withCredentials = true
+      xhr.upload.addEventListener('progress', function (e) {
+        if (!e.lengthComputable || !onProgress) return
+        onProgress(e.loaded / e.total)
+      })
+      xhr.addEventListener('load', function () {
+        let body = null
+        try { body = JSON.parse(xhr.responseText || 'null') } catch {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ ok: true, status: xhr.status, body })
+        } else {
+          resolve({ ok: false, status: xhr.status, body })
+        }
+      })
+      xhr.addEventListener('error', function () { reject(new Error('Network error during upload')) })
+      xhr.addEventListener('abort', function () { reject(new Error('Upload aborted')) })
+      xhr.send(formData)
+    })
+  }
 
   // ── Processing UI helpers ─────────────────────────────────────────
   // Phases: 'upload' (0-15%) → 'combine' (15-45%) → 'edit' (45-95%) → 'done' (100%).
@@ -131,8 +172,10 @@
     const detailEl = document.getElementById('processing-detail')
     if (typeof pct === 'number' && Number.isFinite(pct)) {
       const clamped = Math.max(0, Math.min(100, pct))
-      // Set the target; the tick handles the smooth animation.
-      progressTarget = clamped
+      // Monotonic: never let the target slide backwards. A late stage_start
+      // event landing below the current drift target shouldn't yank the bar
+      // backwards on the user. Reset is only allowed via showProcessing().
+      if (clamped > progressTarget) progressTarget = clamped
       startProgressTick()
     }
     if (statusEl && statusText != null) statusEl.textContent = statusText
@@ -243,6 +286,23 @@
   async function resumeActiveJobIfPresent() {
     const job = loadActiveJob()
     if (!job) return
+    // Verify the job still exists AND is still in flight before resurrecting
+    // the processing card. The backend returns done=true for any job that
+    // already finished — pending approval, approved, or rejected — so we
+    // never zombie-ize a card for work that already wrapped while the tab
+    // was disconnected.
+    try {
+      const id = job.compilationId || job.uploadId
+      if (id) {
+        const r = await fetch(`${API}/api/video/job/${encodeURIComponent(id)}`, { credentials: 'include' })
+        if (r.status === 404) { clearActiveJob(); return }
+        if (!r.ok) { clearActiveJob(); return }
+        const body = await r.json().catch(() => null)
+        if (body && body.done) { clearActiveJob(); return }
+      }
+    } catch {
+      clearActiveJob(); return
+    }
     // First, see if the job already finished while we were away — common
     // when an HMR reload or tab refresh fires after the backend has
     // already saved the clip. If a clip exists newer than the job's
@@ -269,8 +329,8 @@
     // and re-attach SSE + polling. We don't know which stage we're at,
     // so use a heuristic progress estimate based on elapsed time.
     showProcessing(
-      job.isCompilation ? 'Riley is still working on your reel…' : 'Riley is still editing your video…',
-      'Reconnected to your in-flight job',
+      job.isCompilation ? 'Still working on your reel…' : 'Still editing your video…',
+      '',
     )
     setPhase('edit')
     const elapsed = (Date.now() - startedAt) / 1000
@@ -820,13 +880,20 @@
   }
 
   async function uploadBatch(files) {
+    if (!currentCompanyId) {
+      const company = await fetchUserCompany()
+      if (company) currentCompanyId = company.id
+    }
     if (!currentCompanyId) { showToast('Please sign in to use Studio.', 'error'); return }
 
+    const oversize = files.find((f) => f.size > MAX_FILE_BYTES)
+    if (oversize) {
+      showToast(`"${oversize.name}" is over 2GB — try a smaller file.`, 'error')
+      return
+    }
+
     showVideoPreviews(files)
-    showProcessing(
-      `Sending ${files.length} clips to Riley…`,
-      'This usually takes a moment for large videos',
-    )
+    showProcessing(`Uploading your videos…`, '')
 
     const form = new FormData()
     for (const file of files) form.append('videos', file)
@@ -834,24 +901,19 @@
     form.append('strategy', 'montage')
 
     try {
-      const res = await fetch(`${API}/api/video/upload-batch`, {
-        method: 'POST',
-        credentials: 'include',
-        body: form,
+      // Drive the bar from 5% → 14% based on actual bytes-on-the-wire so the
+      // user sees motion during the slowest user-visible step (file transfer).
+      const res = await xhrUpload(`${API}/api/video/upload-batch`, form, function (frac) {
+        setProgress(5 + Math.round(frac * 9), null, `${Math.round(frac * 100)}%`)
       })
       if (!res.ok) {
-        let errMsg = 'Upload didn\'t go through'
-        try { const err = await res.json(); errMsg = err.error || errMsg } catch {}
+        const errMsg = (res.body && res.body.error) || 'Upload didn\'t go through'
         throw new Error(errMsg)
       }
-      const json = await res.json()
+      const json = res.body
       // Upload phase done → combine phase begins
       setPhase('combine')
-      setProgress(
-        18,
-        'Putting your clips together…',
-        `Joining ${files.length} clips into one source`,
-      )
+      setProgress(18, 'Putting your clips together…', '')
       showToast(`${files.length} clips received — Riley is starting now`, 'success')
       // Clear preview strip — files are uploaded, no longer relevant
       clearUploadPreviews()
@@ -861,9 +923,9 @@
       // blank Studio while the backend keeps processing.
       saveActiveJob({ compilationId: json.compilationId, isCompilation: true, fileCount: files.length, startedAt: Date.now() })
 
-      // Subscribe to SSE for live progress, plus poll as fallback safety net
+      // SSE drives progress; the polling fallback is started inside
+      // connectProcessingStream() only if the SSE channel goes silent.
       connectProcessingStream(json.compilationId, { isCompilation: true, fileCount: files.length })
-      pollUntilClipReady(json.compilationId)
     } catch (err) {
       // Large multi-video uploads (hundreds of MB) sometimes hit the dev
       // proxy's keep-alive timeout: the api accepts the body and starts
@@ -874,47 +936,55 @@
       console.warn('[studio] upload-batch fetch errored; entering recovery poll mode:', err)
       showToast('Connection dropped — checking if upload completed in background', 'info')
       setPhase('edit')
-      setProgress(45, 'Reconnecting…', 'Your reel may still be on its way')
+      setProgress(45, 'Reconnecting…', '')
       clearUploadPreviews()
       pollUntilClipReady('__recovery__', { fileCount: files.length, recovery: true })
     }
   }
 
   async function uploadVideo(file) {
+    if (!currentCompanyId) {
+      const company = await fetchUserCompany()
+      if (company) currentCompanyId = company.id
+    }
     if (!currentCompanyId) { showToast('Please sign in to use Studio.', 'error'); return }
 
+    if (file.size > MAX_FILE_BYTES) {
+      showToast(`"${file.name}" is over 2GB — try a smaller file.`, 'error')
+      return
+    }
+
     showVideoPreviews([file])
-    showProcessing('Sending your video to Riley…', 'This usually takes a moment for large clips')
+    showProcessing('Uploading your video…', '')
 
     const form = new FormData()
     form.append('video', file)
     form.append('companyId', currentCompanyId)
 
     try {
-      const res = await fetch(`${API}/api/video/upload`, {
-        method: 'POST',
-        credentials: 'include',
-        body: form,
+      const res = await xhrUpload(`${API}/api/video/upload`, form, function (frac) {
+        setProgress(5 + Math.round(frac * 9), null, `${Math.round(frac * 100)}%`)
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Upload didn\'t go through')
+        const errMsg = (res.body && res.body.error) || 'Upload didn\'t go through'
+        throw new Error(errMsg)
       }
-      const json = await res.json()
+      const json = res.body
       // Single upload skips the combine phase entirely
       setPhase('edit')
-      setProgress(45, 'Riley is editing your video…', 'Picking the best moments and cutting the reel')
+      setProgress(45, 'Editing your video…', '')
       showToast('Uploaded — Riley is editing now', 'success')
       clearUploadPreviews()
 
       saveActiveJob({ uploadId: json.uploadId, isCompilation: false, fileCount: 1, startedAt: Date.now() })
+      // SSE drives progress; the polling fallback is started inside
+      // connectProcessingStream() only if the SSE channel goes silent.
       connectProcessingStream(json.uploadId)
-      pollUntilClipReady(json.uploadId)
     } catch (err) {
       console.warn('[studio] upload fetch errored; entering recovery poll mode:', err)
       showToast('Connection dropped — checking if upload completed in background', 'info')
       setPhase('edit')
-      setProgress(45, 'Reconnecting…', 'Your clip may still be on its way')
+      setProgress(45, 'Reconnecting…', '')
       clearUploadPreviews()
       pollUntilClipReady('__recovery__', { fileCount: 1, recovery: true })
     }
@@ -922,28 +992,22 @@
 
   // ── SSE Processing Stream ─────────────────────────────────────────
 
-  // User-friendly stage labels — no AWS / FFmpeg / S3 jargon. Backend
-  // event names on the left, what the user sees on the right.
+  // User-friendly stage labels — short, plain-language, no jargon.
+  // Multiple back-end stages collapse into one user-visible headline so the
+  // status doesn't flicker every few seconds with new technical names.
   const stageLabels = {
     'Download + probe': 'Reading your video…',
     'Get video duration': 'Reading your video…',
-    'Transcribe (AWS)': 'Listening for speech…',
-    'Detect scenes (FFmpeg)': 'Finding scene changes…',
-    'Extract keyframes': 'Looking through frames…',
-    'Analyze video': 'Watching your video…',
-    'Analyze clip (Riley)': 'Riley is picking the best moments…',
-    'Build reel (FFmpeg)': 'Cutting and stitching your reel…',
-    'Write captions (Alex)': 'Alex is writing your hook and caption…',
+    'Transcribe (AWS)': 'Reading your video…',
+    'Detect scenes (FFmpeg)': 'Reading your video…',
+    'Extract keyframes': 'Reading your video…',
+    'Analyze video': 'Reading your video…',
+    'Analyze clip (Riley)': 'Picking the best moments…',
+    'Build reel (FFmpeg)': 'Editing your reel…',
+    'Write captions (Alex)': 'Writing your caption…',
   }
-  // Friendly detail text shown under the stage label. Reuses the same
-  // event-name keys so the mapping stays in one place.
-  const stageDetails = {
-    'Download + probe': 'Loading the source so we can edit it',
-    'Analyze video': 'Reading audio, scenes, and motion in parallel',
-    'Analyze clip (Riley)': 'Choosing which moments make the cut',
-    'Build reel (FFmpeg)': 'Trimming the chosen moments into one reel',
-    'Write captions (Alex)': 'Drafting hooks and a caption to match the visual',
-  }
+  // No detail subtext — keep the card to a single short headline + percent.
+  const stageDetails = {}
   // Approximate duration in seconds for each Riley-pipeline stage. Used
   // by the smooth-progress drift so the bar keeps moving between stage
   // events on slow stages (vision call) instead of looking frozen.
@@ -1005,18 +1069,19 @@
         if (data.event === 'compilation_progress') {
           const i = (data.completed ?? 0)
           const n = (data.total ?? fileCount)
-          const pct = 18 + Math.round((i / Math.max(1, n)) * 22) // 18-40% range
           setPhase('combine')
-          setProgress(
-            pct,
-            'Putting your clips together…',
-            n > 1 ? `Loaded ${i} of ${n} clip${n === 1 ? '' : 's'}` : 'Loading your clip',
-          )
+          if (data.normalizing) {
+            const pct = data.pctHint ?? 40
+            setProgress(pct, 'Putting your clips together…', '')
+          } else {
+            const pct = 18 + Math.round((i / Math.max(1, n)) * 22) // 18-40% range
+            setProgress(pct, 'Putting your clips together…', '')
+          }
         }
         if (data.event === 'compilation_complete') {
           if (data.uploadId) resolvedUploadId = data.uploadId
           setPhase('edit')
-          setProgress(48, 'Riley is starting to edit…', 'Reading the combined footage')
+          setProgress(48, 'Editing your reel…', '')
           // Drift toward the next known checkpoint (Analyze video starts ~57%)
           // so the bar keeps moving while Riley spins up.
           startProgressDrift(54, 6)
@@ -1026,11 +1091,10 @@
         if (data.event === 'stage_start') {
           stopProgressDrift()
           const label = displayStageLabel(data.stage)
-          const detail = stageDetails[data.stage] || `Step ${data.stageIndex + 1} of ${data.totalStages}`
           // Map Riley's pipeline progress into the edit-phase band (48-95%)
           const editPct = 48 + Math.round(((data.progress ?? 0) / 100) * 47)
           setPhase('edit')
-          setProgress(editPct, label, detail)
+          setProgress(editPct, label, '')
           // Drift toward the stage's expected end (next stage's start) so the
           // bar visibly moves during the long stages (vision, motion, etc.)
           // rather than sitting frozen for 30-60 seconds.
@@ -1050,7 +1114,7 @@
         // ── DONE ────────────────────────────────────────────────────
         if (data.event === 'processing_complete') {
           setPhase('done')
-          setProgress(100, 'Done!', data.hook || 'Reel ready for review')
+          setProgress(100, 'Done!', '')
           evtSource.close()
           clearActiveJob()
           refreshClips()
@@ -1065,7 +1129,9 @@
 
         // ── ERROR ───────────────────────────────────────────────────
         if (data.event === 'processing_error') {
-          setProgress(0, 'Something went wrong', processingErrDetail(data.error))
+          // Allow the bar to "fall back" to red-state visually only by stopping
+        // forward motion — keep the monotonic guard intact, just update copy.
+        setProgress(progressTarget, 'Something went wrong', processingErrDetail(data.error))
           showToast(processingErrToast(data.error), 'error')
           evtSource.close()
           clearActiveJob()
@@ -1105,12 +1171,12 @@
     // delivering events. Mirrors the SSE-driven phases (combine: 18-40,
     // edit: 48-95) so the UI stays consistent.
     const progressSteps = [
-      { at: 1,  pct: 22, phase: 'combine', label: 'Putting your clips together…',          detail: 'Joining the source files' },
-      { at: 4,  pct: 50, phase: 'edit',    label: 'Riley is picking the best moments…',     detail: 'Reading motion and audio' },
-      { at: 8,  pct: 70, phase: 'edit',    label: 'Riley is cutting your reel…',            detail: 'Trimming the chosen moments' },
-      { at: 15, pct: 82, phase: 'edit',    label: 'Still working on it…',                  detail: 'Larger clips take a little longer' },
-      { at: 20, pct: 88, phase: 'edit',    label: 'Alex is writing your hook and caption…', detail: 'Drafting copy that matches the visual' },
-      { at: 25, pct: 92, phase: 'edit',    label: 'Almost done…',                          detail: 'Saving your reel' },
+      { at: 1,  pct: 22, phase: 'combine', label: 'Putting your clips together…', detail: '' },
+      { at: 4,  pct: 50, phase: 'edit',    label: 'Picking the best moments…',    detail: '' },
+      { at: 8,  pct: 70, phase: 'edit',    label: 'Editing your reel…',           detail: '' },
+      { at: 15, pct: 82, phase: 'edit',    label: 'Still working on it…',         detail: '' },
+      { at: 20, pct: 88, phase: 'edit',    label: 'Writing your caption…',        detail: '' },
+      { at: 25, pct: 92, phase: 'edit',    label: 'Almost done…',                 detail: '' },
     ]
 
     const poll = async () => {
@@ -1122,7 +1188,7 @@
         // New clip appeared — done. Show persistent completion banner.
         clearActiveJob()
         setPhase('done')
-        setProgress(100, 'Done!', 'Your reel is ready for review')
+        setProgress(100, 'Done!', '')
         const titleText = isRecovery && fileCount > 1
           ? `Your reel from ${fileCount} videos is ready`
           : fileCount > 1
@@ -1455,6 +1521,16 @@
       const completeDismiss = document.getElementById('studio-complete-dismiss')
       if (completeDismiss) {
         completeDismiss.addEventListener('click', () => hideCompletionBanner())
+      }
+
+      // Processing card dismiss — hides the card AND drops the resume token
+      // so the next Studio visit doesn't resurrect it.
+      const processingDismiss = document.getElementById('processing-dismiss')
+      if (processingDismiss) {
+        processingDismiss.addEventListener('click', () => {
+          clearActiveJob()
+          hideProcessing()
+        })
       }
 
       const studioNav = document.getElementById('nav-db-studio')

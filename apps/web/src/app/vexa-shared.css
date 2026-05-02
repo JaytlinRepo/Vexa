@@ -2127,7 +2127,10 @@ body::before{
   aspect-ratio:9/16;
   max-height:min(240px, 42vw);
   border-radius:10px;
-  object-fit:cover;
+  /* `contain` letterboxes anything that isn't a perfect 9:16 source. `cover`
+     was zooming in and clipping the edges, and the cropping was preserved in
+     the native fullscreen player too — users couldn't see the full frame. */
+  object-fit:contain;
   background:#000;
 }
 .studio-clip-visual .studio-clip-placeholder{

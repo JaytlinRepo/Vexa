@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest, readSession, createSession } from '../middleware/auth'
 import { readPendingSignup, clearPendingSignup } from './auth'
 import { storePendingByNonce, getPendingByNonce, deletePendingByNonce } from '../lib/pendingSignupStore'
@@ -348,7 +347,10 @@ router.get('/callback', async (req, res) => {
       )
     }
 
-    res.type('html').send(oauthSuccessPage(`${appUrl()}/?tiktokConnected=1#tiktok`))
+    // Redirect popup to the frontend /oauth-close page (same origin as the
+    // parent window) so the localStorage storage event fires correctly and
+    // window.close() is not blocked by cross-origin COOP restrictions.
+    res.redirect(302, `${appUrl()}/oauth-close`)
     return
   }
 

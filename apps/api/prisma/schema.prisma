@@ -24,6 +24,7 @@ enum SubscriptionStatus {
 enum Plan {
   free
   pro
+  max
   agency
 }
 

@@ -154,12 +154,21 @@ export class VideoProcessingService extends EventEmitter {
       // ── 1. Download source video ONCE ──────────────────────────────
       // The video was being downloaded 4 times (probe, scenes, keyframes, render).
       // Now we download once and reuse the local file for all stages.
+      // Stream → disk instead of buffering the full file in memory: a 500MB
+      // arraybuffer copy + write was ~3-5s slower on big clips and made the
+      // process resident size double.
       const videoDuration = await this.stage('Download + probe', async () => {
         const freshUrl = await getPresignedUrl(s3Key, 3600)
         const axios = (await import('axios')).default
-        const resp = await axios.get(freshUrl, { responseType: 'arraybuffer', timeout: 180000 })
-        fs.writeFileSync(localVideoPath, Buffer.from(resp.data))
-        const sizeMB = (resp.data.byteLength / 1024 / 1024).toFixed(1)
+        const resp = await axios.get(freshUrl, { responseType: 'stream', timeout: 180000 })
+        await new Promise<void>((resolve, reject) => {
+          const writer = fs.createWriteStream(localVideoPath)
+          resp.data.on('error', reject)
+          writer.on('error', reject)
+          writer.on('finish', () => resolve())
+          resp.data.pipe(writer)
+        })
+        const sizeMB = (fs.statSync(localVideoPath).size / 1024 / 1024).toFixed(1)
         console.log(`[video] Downloaded ${sizeMB}MB to ${localVideoPath}`)
 
         // Probe duration from local file (instant — no network)
@@ -543,9 +552,13 @@ export class VideoProcessingService extends EventEmitter {
       return { videoClip }
     } catch (err) {
       console.error(`[video] Processing failed:`, err)
+      // Curated user-facing message; raw error already in the log above.
+      const { clientSafeProcessingError } = await import('./clientSafeErrorMessage')
+      const safe = clientSafeProcessingError(err)
       broadcastProcessingEvent('processing_error', {
         uploadId,
-        error: err instanceof Error ? err.message : 'Unknown error',
+        code: safe.code,
+        error: safe.message,
       })
       this.emit('error', {
         uploadId,

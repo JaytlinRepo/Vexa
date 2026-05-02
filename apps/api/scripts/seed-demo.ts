@@ -37,7 +37,7 @@ async function main() {
       username: USERNAME,
       passwordHash,
       fullName: 'Demo CEO',
-      plan: 'pro',
+      plan: 'max',
       subscriptionStatus: 'active',
     },
   })
@@ -212,7 +212,7 @@ async function main() {
   console.log('  email    ', EMAIL)
   console.log('  username ', USERNAME)
   console.log('  password ', PASSWORD)
-  console.log('  plan     ', 'pro')
+      console.log('  plan     ', 'max')
   console.log('  open     ', 'http://localhost:3000 → Log in')
 }
 

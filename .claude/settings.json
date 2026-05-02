@@ -156,7 +156,10 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)\\)\")",
       "Bash(aws elasticache *)",
       "Bash(echo \"Build started \\(PID $!\\)\")",
-      "Bash(curl -s https://api.sovexa.ai/api/auth/me)"
+      "Bash(curl -s https://api.sovexa.ai/api/auth/me)",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\('Agency:',d.get\\('name'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\('prod_URWKUx8ObgzDTr →',d.get\\('name'\\)\\)\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/auth/signup -H 'Content-Type: application/json' -d '{\"fullName\":\"Test User\",\"email\":\"test@test.com\",\"username\":\"testuser\",\"password\":\"password123\"}')"
     ],
     "additionalDirectories": [
       "/Users/jaytlinaskew/Documents/Personal/Vexa-prod-3004/apps/web"

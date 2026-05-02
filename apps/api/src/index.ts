@@ -45,6 +45,7 @@ import { initSSEBridge } from './queues/sse-bridge'
 import { setupQueueDashboard } from './routes/admin-queues'
 import prisma from './lib/prisma'
 import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
+import { clientSafeApiMessage } from './lib/clientSafeErrorMessage'
 
 // ─── Required env vars — fail fast rather than silently misbehave ─────────────
 ;(function validateEnv() {
@@ -54,6 +55,8 @@ import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
     'STRIPE_WEBHOOK_SECRET',
     'STRIPE_PRO_MONTHLY_PRICE_ID',
     'STRIPE_PRO_ANNUAL_PRICE_ID',
+    'STRIPE_MAX_MONTHLY_PRICE_ID',
+    'STRIPE_MAX_ANNUAL_PRICE_ID',
     'STRIPE_AGENCY_MONTHLY_PRICE_ID',
     'STRIPE_AGENCY_ANNUAL_PRICE_ID',
   ]
@@ -210,9 +213,9 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res, next) => {
 })
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[api] request error:', err.message, err.stack?.split('\n').slice(0, 3).join(' '))
+  console.error('[api] request error:', err.message, err.stack?.split('\n').slice(0, 8).join(' '))
   if (res.headersSent) return
-  res.status(500).json({ error: 'internal_error', message: err.message })
+  res.status(500).json({ error: 'internal_error', message: clientSafeApiMessage(err) })
 })
 
 // Process-level error isolation — log and survive, never crash the whole server

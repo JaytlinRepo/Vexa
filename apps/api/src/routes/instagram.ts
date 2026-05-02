@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import crypto from 'crypto'
-import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest, readSession, createSession } from '../middleware/auth'
 import { readPendingSignup, clearPendingSignup } from './auth'
 import { storePendingByNonce, getPendingByNonce, deletePendingByNonce } from '../lib/pendingSignupStore'
@@ -423,10 +422,15 @@ router.get('/auth/callback', async (req, res) => {
 
     console.log('[instagram] connection saved', { companyId, handle: stub.username, followers: stub.followerCount, posts: stub.postCount })
 
-    res.type('html').send(oauthSuccessPage(companyId ? `${appUrl()}/?instagramConnected=1` : null))
+    // Redirect popup to the frontend /oauth-close page (same origin as the
+    // parent window) so the localStorage storage event fires correctly and
+    // window.close() is not blocked by cross-origin COOP restrictions.
+    res.redirect(302, `${appUrl()}/oauth-close`)
   } catch (err) {
     console.error('[instagram] callback error', err)
-    res.status(500).type('html').send(`<h1>Connection failed</h1><p>${(err as Error).message}</p>`)
+    // Never leak the raw error to the popup — full message stayed in the
+    // console.error above. Show a generic copy and let the user retry.
+    res.status(500).type('html').send('<h1>Connection failed</h1><p>We couldn\'t finish connecting Instagram. Close this window and try again in a moment.</p>')
   }
 })
 

@@ -72,41 +72,46 @@ export async function processCompilation(
       total: ordered.length,
     })
 
-    // Download each video
-    const localPaths: string[] = []
-    for (let i = 0; i < ordered.length; i++) {
-      const upload = ordered[i]
-      const localPath = path.join(workDir, `part-${String(i).padStart(3, '0')}.mp4`)
+    // Download all videos in parallel and stream each to disk so we never
+    // hold a multi-hundred-MB arraybuffer per file in memory. Each file
+    // emits its own compilation_progress event as it lands so the bar ticks
+    // smoothly even with parallel completion.
+    const localPaths: string[] = new Array(ordered.length)
+    let completedCount = 0
+    await Promise.all(
+      ordered.map(async (upload, i) => {
+        const localPath = path.join(workDir, `part-${String(i).padStart(3, '0')}.mp4`)
+        const s3Key = extractS3Key(upload.sourceVideoUrl)
+        const url = await getPresignedUrl(s3Key, 3600)
+        const resp = await axios.get(url, { responseType: 'stream', timeout: 180000 })
+        await new Promise<void>((resolve, reject) => {
+          const w = fs.createWriteStream(localPath)
+          resp.data.on('error', reject)
+          w.on('error', reject)
+          w.on('finish', () => resolve())
+          resp.data.pipe(w)
+        })
+        localPaths[i] = localPath
 
-      // Get fresh presigned URL
-      const s3Key = extractS3Key(upload.sourceVideoUrl)
-      const url = await getPresignedUrl(s3Key, 3600)
+        const sizeMB = (fs.statSync(localPath).size / 1024 / 1024).toFixed(1)
+        console.log(`[compilation]   ${i + 1}/${ordered.length}: ${upload.fileName || 'video'} (${sizeMB}MB)`)
 
-      const resp = await axios.get(url, { responseType: 'arraybuffer', timeout: 180000 })
-      fs.writeFileSync(localPath, Buffer.from(resp.data))
-      localPaths.push(localPath)
-
-      const sizeMB = (resp.data.byteLength / 1024 / 1024).toFixed(1)
-      console.log(`[compilation]   ${i + 1}/${ordered.length}: ${upload.fileName || 'video'} (${sizeMB}MB)`)
-
-      // Per-file progress event so the frontend can tick the percentage
-      broadcastProcessingEvent('compilation_progress', {
-        compilationId,
-        completed: i + 1,
-        total: ordered.length,
-        fileName: upload.fileName,
-      })
-    }
+        completedCount++
+        broadcastProcessingEvent('compilation_progress', {
+          compilationId,
+          completed: completedCount,
+          total: ordered.length,
+          fileName: upload.fileName,
+        })
+      }),
+    )
 
     // ── Probe each input's duration so we can verify the concat result
     //    didn't silently drop any source. The ffmpeg concat demuxer is
     //    notorious for accepting heterogeneous inputs and quietly emitting
     //    a shorter file when codecs/resolutions/audio differ.
-    const inputDurations: number[] = []
-    for (const p of localPaths) {
-      const dur = await ffprobeDuration(p)
-      inputDurations.push(dur)
-    }
+    // Probe all inputs in parallel — ffprobe is read-only, no contention.
+    const inputDurations: number[] = await Promise.all(localPaths.map(ffprobeDuration))
     const totalInputDuration = inputDurations.reduce((a, b) => a + b, 0)
     console.log(
       `[compilation] Input durations (s): ${inputDurations.map((d) => d.toFixed(1)).join(' + ')} = ${totalInputDuration.toFixed(1)}s`,
@@ -125,18 +130,19 @@ export async function processCompilation(
     //    Re-encode each to 1080p / 30fps / yuv420p / aac stereo 48kHz so
     //    the demuxer stage is bulletproof.
     console.log(`[compilation] Normalizing ${ordered.length} inputs to 1080p/30fps/aac...`)
-    const normalizedPaths: string[] = []
-    // Detect per-clip shakiness so we only apply stabilization where it
-    // actually helps. Running deshake on already-steady footage costs
-    // sharpness and adds the risk of micro-warping artifacts.
-    const shakiness: number[] = []
-    for (let i = 0; i < localPaths.length; i++) {
-      const score = await measureShakiness(localPaths[i])
-      shakiness.push(score)
-    }
-    const SHAKE_THRESHOLD = 0.012 // empirical: handheld iPhone walking ≈ 0.015–0.05; tripod < 0.005
-    console.log(`[compilation] Shakiness scores: ${shakiness.map((s, i) => `${ordered[i].fileName?.slice(0, 16)}=${s.toFixed(3)}${s > SHAKE_THRESHOLD ? '*' : ''}`).join(', ')} (* = will stabilize)`)
-    for (let i = 0; i < localPaths.length; i++) {
+    const normalizedPaths: string[] = new Array(localPaths.length)
+    // Stabilization is shelved — `deshake` doubled encode time on iPhone
+    // footage AND introduced micro-warping artifacts. Quality of the source
+    // is on the creator; we no longer pre-process for shakiness. The
+    // measureShakiness probe + deshake filter were removed from the pipeline.
+    // Run normalize in parallel with bounded concurrency. Each process is
+    // CPU-heavy; on Apple Silicon, h264_videotoolbox is hardware-accelerated
+    // and 2-way concurrency keeps the GPU pipeline saturated without
+    // thrashing. On x86/libx264 we still benefit because ffmpeg uses one
+    // process tree per video.
+    const NORMALIZE_CONCURRENCY = 2
+    let normalizedCompleted = 0
+    const normalizeOne = async (i: number): Promise<void> => {
       const inPath = localPaths[i]
       const outPath = path.join(workDir, `norm-${String(i).padStart(3, '0')}.mp4`)
       // Scale-and-pad to fit 1080x1920 (vertical reel). Order matters:
@@ -145,10 +151,6 @@ export async function processCompilation(
       // -af aresample=async=1 fixes timestamp drift from variable-rate audio.
       // -shortest is NOT used — we want full duration preserved.
       // anullsrc trick handles missing-audio inputs by mixing a silent track.
-      // Conditional stabilization: only deshake clips above threshold.
-      // edge=mirror hides the cropped border. rx/ry must be multiples of 16.
-      const stabilize = shakiness[i] > SHAKE_THRESHOLD
-      const stabilizationFilter = stabilize ? ',deshake=rx=16:ry=16:edge=mirror' : ''
       const ffArgs = [
         '-y',
         '-i', inPath,
@@ -158,7 +160,7 @@ export async function processCompilation(
         '-filter_complex',
         '[0:v]scale=w=1080:h=1920:force_original_aspect_ratio=decrease,' +
           'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,setsar=1' +
-          stabilizationFilter + '[v];' +
+          '[v];' +
           '[0:a?]aresample=async=1[a0];' +
           '[a0][1:a]amix=inputs=2:duration=first:dropout_transition=0[a]',
         '-map', '[v]',
@@ -182,7 +184,7 @@ export async function processCompilation(
           '-i', inPath,
           '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000',
           '-shortest',
-          '-vf', 'scale=w=1080:h=1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,setsar=1' + (stabilize ? ',deshake=rx=16:ry=16:edge=mirror' : ''),
+          '-vf', 'scale=w=1080:h=1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,setsar=1',
           '-map', '0:v:0',
           '-map', '1:a:0',
           '-c:v', codec, ...codecExtra,
@@ -196,7 +198,34 @@ export async function processCompilation(
       console.log(
         `[compilation]   norm ${i + 1}/${ordered.length}: ${inputDurations[i].toFixed(1)}s → ${normDur.toFixed(1)}s`,
       )
-      normalizedPaths.push(outPath)
+      normalizedPaths[i] = outPath
+      normalizedCompleted++
+      // Map normalize progress into the combine band (40%-46%) so the bar
+      // visibly moves through what used to be a multi-minute silent stretch.
+      const pct = 40 + Math.round((normalizedCompleted / localPaths.length) * 6)
+      broadcastProcessingEvent('compilation_progress', {
+        compilationId,
+        completed: localPaths.length, // downloads are done; we're past that
+        total: localPaths.length,
+        normalizing: true,
+        normalizedCount: normalizedCompleted,
+        pctHint: pct,
+      })
+    }
+    // Run with a small worker pool — bounded concurrency keeps memory + CPU
+    // steady. Promise.all over a chunked list gives us pool-of-N semantics
+    // without pulling in a dependency.
+    {
+      let next = 0
+      await Promise.all(
+        Array.from({ length: Math.min(NORMALIZE_CONCURRENCY, localPaths.length) }, async () => {
+          while (true) {
+            const idx = next++
+            if (idx >= localPaths.length) return
+            await normalizeOne(idx)
+          }
+        }),
+      )
     }
 
     // ── Phase 2: stream-copy concat. With identical inputs the concat
@@ -233,10 +262,10 @@ export async function processCompilation(
       )
     }
 
-    // Upload combined video to S3
-    const combinedBuffer = fs.readFileSync(combinedPath)
+    // Upload combined video to S3 by streaming from disk — buffering a
+    // multi-hundred-MB compilation into memory served no purpose.
     const s3Key = `studio/clips/${compilation.companyId}/${Date.now()}-combined.mp4`
-    await uploadFile({ key: s3Key, body: combinedBuffer, contentType: 'video/mp4' })
+    await uploadFile({ key: s3Key, body: fs.createReadStream(combinedPath), contentType: 'video/mp4' })
     const combinedUrl = await getPresignedUrl(s3Key, 86400)
 
     console.log(`[compilation] Uploaded combined video to S3`)
@@ -300,6 +329,16 @@ export async function processCompilation(
     await prisma.videoCompilation.update({
       where: { id: compilationId },
       data: { status: 'failed', error: (err as Error).message },
+    })
+    // Tell the connected client the job is dead so the progress bar stops
+    // pretending. Sanitize the message so AWS / IAM / 4xx-stack chatter
+    // never reaches end users — full error stays in the console.error above.
+    const { clientSafeProcessingError } = await import('./clientSafeErrorMessage')
+    const safe = clientSafeProcessingError(err)
+    broadcastProcessingEvent('processing_error', {
+      compilationId,
+      code: safe.code,
+      error: safe.message,
     })
     throw err
   } finally {

@@ -16,12 +16,12 @@ router.post('/checkout', requireAuth, async (req, res, next) => {
   try {
     const { userId } = (req as AuthedRequest).session
     const { plan, billing } = req.body as {
-      plan?: 'pro' | 'agency'
+      plan?: 'pro' | 'max' | 'agency'
       billing?: 'monthly' | 'annual'
     }
 
-    if (!plan || !['pro', 'agency'].includes(plan)) {
-      res.status(400).json({ error: 'Invalid plan. Must be pro or agency.' })
+    if (!plan || !['pro', 'max', 'agency'].includes(plan)) {
+      res.status(400).json({ error: 'Invalid plan. Must be pro, max, or agency.' })
       return
     }
 

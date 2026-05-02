@@ -8,10 +8,26 @@
   const IG_ID = 'instagram'
   const TT_ID = 'tiktok'
 
-  const DASH_CURATED = [
-    { id: IG_ID, name: 'Instagram' },
-    { id: TT_ID, name: 'TikTok' },
-  ]
+  function tiktokIntegrationEnabled() {
+    return typeof window !== 'undefined' && window.__VX_TIKTOK_INTEGRATION_ENABLED === true
+  }
+
+  /** HQ pills: TikTok omitted unless the feature flag is on. */
+  function dashCuratedPlatforms() {
+    if (tiktokIntegrationEnabled())
+      return [
+        { id: IG_ID, name: 'Instagram' },
+        { id: TT_ID, name: 'TikTok' },
+      ]
+    return [{ id: IG_ID, name: 'Instagram' }]
+  }
+
+  /** Settings rows: TikTok omitted unless flag on or an existing TikTok session needs management (disconnect / refresh). */
+  function integrationsCuratedPlatforms(ttConn) {
+    const list = [{ id: IG_ID, name: 'Instagram' }]
+    if (tiktokIntegrationEnabled() || ttConn) list.push({ id: TT_ID, name: 'TikTok' })
+    return list
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -99,7 +115,7 @@
         if (!byPlatform.has(a.platform)) byPlatform.set(a.platform, a)
       }
 
-      const pills = DASH_CURATED.map((p) => {
+      const pills = dashCuratedPlatforms().map((p) => {
         const acct = byPlatform.get(p.id)
         const connected = !!acct
         const handle = acct?.handle ? '@' + acct.handle : null
@@ -214,7 +230,7 @@
       if (!byPlatform.has(a.platform)) byPlatform.set(a.platform, a)
     }
 
-    const rows = DASH_CURATED.map((p) => platformRow(p, byPlatform.get(p.id), igConn, ttConn))
+    const rows = integrationsCuratedPlatforms(ttConn).map((p) => platformRow(p, byPlatform.get(p.id), igConn, ttConn))
     body.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px">${rows.join('')}</div>`
 
     // Toggle buttons (connect / disconnect)

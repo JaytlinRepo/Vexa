@@ -702,7 +702,7 @@ input,textarea{cursor:text}
 .feed-act.read:hover{color:var(--t2);border-color:var(--t2)}
 
 /* Pricing */
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:40px}
+.pricing-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:40px}
 .pc{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:40px 32px;position:relative;transition:all .3s}
 .pc:hover{transform:translateY(-3px);box-shadow:0 24px 60px var(--sh)}
 .pc.featured{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 20px 56px var(--accent-glow)}

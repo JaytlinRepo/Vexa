@@ -8,7 +8,7 @@ import {
 } from './plans'
 
 export interface UsageReport {
-  plan: 'free' | 'pro' | 'agency'
+  plan: 'free' | 'pro' | 'max' | 'agency'
   subscriptionStatus: 'active' | 'canceled' | 'past_due'
   tasks: { used: number; limit: number; resetAt: string; resetWindow: 'daily' | 'monthly' }
   videos: { used: number; limit: number; resetAt: string }

@@ -15,7 +15,7 @@
       <span class="ob-eyebrow">Step 1 of 3</span>
       <h2 class="ob-title">Name your company.</h2>
       <p class="ob-sub">This is the brand Sovexa will build content for. Your team will refer to this as they work.</p>
-      <input class="ob-input" id="ob-name-input" placeholder="e.g. Marcus Fitness, The Wealth Lab" autocomplete="off">
+      <input class="ob-input" id="ob-name-input" placeholder="e.g. Marcus Fitness, The Wealth Lab" maxlength="120" autocomplete="organization" autocapitalize="words">
       <p class="ob-hint">You can change this anytime in Settings.</p>
       <div class="ob-actions">
         <button class="btn-fill" onclick="obNext(1)" style="padding:13px 32px;font-size:12px">Continue</button>
@@ -208,7 +208,7 @@
               </div>
               <div class="vx-profile-info">
                 <div class="vx-profile-name" id="vx-profile-name">User</div>
-                <div class="vx-profile-plan" id="vx-profile-plan">Pro Plan</div>
+                <div class="vx-profile-plan" id="vx-profile-plan">Max Plan</div>
               </div>
             </div>
             <div class="vx-profile-divider"></div>
@@ -273,8 +273,7 @@
     </h1>
     <p class="sub">Sovexa gives you a team of four AI agents who <em>scout, plan, write, and ship</em> your content across every platform. You stay on voice. They stay on time. Your calendar is finally full.</p>
     <div class="cta-row">
-      <a href="#pricing" class="btn-primary">Start your company <span class="arr">→</span></a>
-      <a href="#how" class="btn-ghost"><span class="play">▶</span> See it work · 90s</a>
+      <a href="#" class="btn-primary" onclick="if (typeof window.showSignup === 'function') window.showSignup(); return false">Start your company <span class="arr">→</span></a>
     </div>
     <div class="proof">
       <div class="avs">
@@ -533,10 +532,22 @@
       </ul>
       <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Start free</a>
     </div>
+    <div class="plan">
+      <div class="ph"><div class="n">Pro</div><div class="bd">Entry paid</div></div>
+      <div class="px">$29<em>/mo</em></div>
+      <div class="pd">More runway than Free — upgrade when you want the full stack.</div>
+      <ul>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span>75 tasks / month · 5 videos</span></li>
+        <li><span class="c">✓</span><span>Brand voice · knowledge feed · outputs</span></li>
+        <li><span class="c">✓</span><span>Weekly review digest</span></li>
+      </ul>
+      <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Choose Pro →</a>
+    </div>
     <div class="plan feat">
-      <div class="ph"><div class="n"><em>Pro</em></div><div class="bd">Most hired</div></div>
+      <div class="ph"><div class="n"><em>Max</em></div><div class="bd">Most hired</div></div>
       <div class="px">$59<em>/mo</em></div>
-      <div class="pd">Your team, full-time.</div>
+      <div class="pd">Meetings, memory, video, and the runway working creators need.</div>
       <ul>
         <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
         <li><span class="c">✓</span><span>200 tasks / month</span></li>
@@ -545,14 +556,14 @@
         <li><span class="c">✓</span><span>Voice match · 95% SLA</span></li>
         <li><span class="c">✓</span><span>Live pipeline · CEO dashboard</span></li>
       </ul>
-      <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Hire the team →</a>
+      <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Choose Max →</a>
     </div>
     <div class="plan">
       <div class="ph"><div class="n">Agency</div><div class="bd"></div></div>
       <div class="px">$149<em>/mo</em></div>
       <div class="pd">For teams running 5+ creators.</div>
       <ul>
-        <li><span class="c">✓</span><span>Everything in Pro</span></li>
+        <li><span class="c">✓</span><span>Everything in Max</span></li>
         <li><span class="c">✓</span><span>Multi-seat · role-based access</span></li>
         <li><span class="c">✓</span><span>Private model fine-tune</span></li>
         <li><span class="c">✓</span><span>White-glove onboarding</span></li>
@@ -832,7 +843,7 @@
             <ul class="pc-feats">
               <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Niche + sub-niche specialization</li>
-              <li class="y">Up to 50 tasks/month</li>
+              <li class="y">5 tasks/month to start</li>
               <li class="y">Brand voice settings</li>
               <li class="y">Knowledge feed</li>
               <li class="y">Outputs library &mdash; 2 revisions</li>
@@ -843,11 +854,29 @@
             </ul>
             <button class="pc-btn ghost" onclick="startOnboarding()">Start free</button>
           </div>
+          <div class="pc">
+            <div class="pc-tier">Pro</div>
+            <div class="pc-price" id="ps-pro"><sup>$</sup>29<span class="mo">/mo</span></div>
+            <p class="pc-desc">More runway than Free &mdash; lighter than Max. Same four employees.</p>
+            <ul class="pc-feats">
+              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
+              <li class="y">Deep niche specialization</li>
+              <li class="y">75 tasks/month</li>
+              <li class="y">Brand voice · knowledge feed</li>
+              <li class="y">Outputs library &mdash; 5 revisions</li>
+              <li class="y">Weekly summary digests</li>
+              <li class="dim">Meeting feature</li>
+              <li class="dim">Brand memory &mdash; learns over time</li>
+              <li class="dim">Monday trend reports</li>
+              <li class="y">Video generation &mdash; 5/month</li>
+            </ul>
+            <button class="pc-btn ghost" onclick="startOnboarding()">Start with Pro</button>
+          </div>
           <div class="pc featured">
             <div class="pc-badge">Most popular</div>
-            <div class="pc-tier">Pro</div>
-            <div class="pc-price" id="ps-pro"><sup>$</sup>59<span class="mo">/mo</span></div>
-            <p class="pc-desc">Your team, full-time. Same full team — now with meetings, memory, video, and 4× the runway.</p>
+            <div class="pc-tier">Max</div>
+            <div class="pc-price" id="ps-max"><sup>$</sup>59<span class="mo">/mo</span></div>
+            <p class="pc-desc">The full creator stack &mdash; meetings, memory, video, and priority flow.</p>
             <ul class="pc-feats">
               <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Deep niche specialization</li>
@@ -860,7 +889,7 @@
               <li class="y">Monday trend reports</li>
               <li class="y">Video generation &mdash; 15/month</li>
             </ul>
-            <button class="pc-btn fill" onclick="startOnboarding()">Start with Pro</button>
+            <button class="pc-btn fill" onclick="startOnboarding()">Start with Max</button>
           </div>
           <div class="pc">
             <div class="pc-tier">Agency</div>
@@ -869,7 +898,7 @@
             <ul class="pc-feats">
               <li class="y">Up to 5 brand workspaces</li>
               <li class="y">Independent teams per brand</li>
-              <li class="y">Everything in Pro per workspace</li>
+              <li class="y">Everything in Max per workspace</li>
               <li class="y">Priority AI processing</li>
               <li class="y">Advanced analytics</li>
               <li class="y">75 video generations/month</li>
@@ -882,7 +911,7 @@
           </div>
         </div>
         <div class="trial-row">
-          <div><h4>Start free — no credit card.</h4><p>The Free plan gives you full access to your AI team with 3 tasks per day. Upgrade to Pro or Agency when you're ready for more volume.</p></div>
+          <div><h4>Start free — no credit card.</h4><p>The Free plan gives you full access to your AI team with 5 tasks per month to start. Upgrade to Pro, Max, or Agency when you're ready for more volume.</p></div>
           <div class="trial-checks">
             <div class="trial-check">All 4 employees from day one</div>
             <div class="trial-check">No credit card required</div>
@@ -907,7 +936,7 @@
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How is this different from Buffer or Jasper?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Buffer is a scheduling tool. Jasper is a writing assistant you prompt. Neither has an autonomous team, a self-running pipeline, a meeting feature, or a memory system. Sovexa is a workforce model — the difference is who does the thinking.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What does video generation produce?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Once Riley's shot list is approved, Sovexa renders an edited Reel — with text overlays, transitions, and pacing — that you can review, approve, and download. Stored in your Outputs library.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my brand data private?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. Your niche, brand voice, and outputs are private to your workspace. We do not use your data to train models. Encrypted at rest and in transit. Export or delete anytime.</div></div></div>
-          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">All 4 AI employees (Maya, Jordan, Alex, Riley) with 3 tasks per day. No credit card required — free forever. Upgrade to Pro or Agency when you need more volume, meetings, or video generation.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">All 4 AI employees (Maya, Jordan, Alex, Riley) with a starter task runway each month. No credit card required — free forever. Upgrade to Pro, Max, or Agency when you need more volume, meetings, or video generation.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Can I cancel or change my plan anytime?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. No contracts, no cancellation fees. Upgrade, downgrade, or cancel from your billing dashboard. You keep full access until the end of your current billing period.</div></div></div>
         </div>
       </div>
@@ -2213,9 +2242,13 @@
         <div class="lbl" id="processing-status">Processing...</div>
         <div class="sub" id="processing-detail">Preparing your videos</div>
       </div>
-      <div class="r">
-        <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
-        <div style="font-size:11px;color:var(--t3)" id="processing-elapsed">just now</div>
+      <div class="r" style="display:flex;align-items:center;gap:14px">
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
+          <div style="font-size:11px;color:var(--t3)" id="processing-elapsed">just now</div>
+        </div>
+        <button id="processing-dismiss" type="button" aria-label="Hide" title="Hide this card"
+          style="background:transparent;border:1px solid var(--b1);color:var(--t3);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button>
       </div>
     </div>
     <div style="background:var(--b1);height:4px;border-radius:2px;overflow:hidden;margin-top:16px">

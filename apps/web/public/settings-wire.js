@@ -148,11 +148,13 @@
   // ── Billing — cards + Stripe checkout (GET /api/stripe/subscription) ─────
   var PLANS = [
     { id:'free', name:'Free', price:'$0', billingNote:'Free forever · no card required',
-      features:['All four employees · quality parity','3 tasks/day','No meetings, videos, or memory','Great for proving fit'] },
-    { id:'pro', name:'Pro', price:'$59', billingNote:'Billed monthly · annual at checkout', popular:true,
+      features:['All four employees · quality parity','5 tasks/month','No meetings, brand memory, or heavy video','Great for proving fit'] },
+    { id:'pro', name:'Pro', price:'$29', billingNote:'Billed monthly · annual at checkout',
+      features:['75 tasks/month','5 videos/month','Brand voice · knowledge feed','No meetings or brand memory'] },
+    { id:'max', name:'Max', price:'$59', billingNote:'Billed monthly · annual at checkout', popular:true,
       features:['200 tasks/month','Meetings · brand memory','15 videos/month','Weekly trend pulse · priority flow'] },
     { id:'agency', name:'Agency', price:'$149', billingNote:'Billed monthly · annual at checkout',
-      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','Everything in Pro per workspace','Priority processing'] },
+      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','Everything in Max per workspace','Priority processing'] },
   ]
 
   function planDisplayName (id) {
@@ -214,11 +216,11 @@
           + 'We couldn\'t process your last payment. Update your card in <strong>Manage billing</strong> or pick a plan again.'
       } else if (isCanceled) {
         statusEl.innerHTML = '<span style="color:#e87a7a;font-weight:500">No active subscription</span> · '
-          + 'Choose Pro or Agency below to reconnect billing.'
+          + 'Choose Pro, Max, or Agency below to reconnect billing.'
       } else if (isActive && sub.plan === 'free') {
         statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">Free</strong>'
           + ' · <span style="color:#34d27a;font-weight:500">Active</span> · '
-          + 'Upgrade to Pro or Agency to unlock meetings, video, and brand memory.'
+          + 'Upgrade to Max or Agency to unlock meetings, full video volume, and brand memory.'
       } else if (isActive) {
         statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
           + ' · <span style="color:#34d27a;font-weight:500">Active</span> · '

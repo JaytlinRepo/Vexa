@@ -6,6 +6,16 @@ import { SignJWT, jwtVerify } from 'jose'
 import { createSession, clearSession, readSession } from '../middleware/auth'
 import { sendPasswordResetEmail } from '../services/email/email.service'
 import prisma from '../lib/prisma'
+import {
+  containsBlockedLanguage,
+  DISALLOWED_LANGUAGE_MESSAGE,
+} from '../lib/badLanguage'
+import {
+  EMAIL_DOMAIN_REJECT_MESSAGE,
+  isRejectedMailboxEmail,
+} from '../lib/emailMailbox'
+
+// Anti-abuse / quotas follow-up — see ../../../../memory.md (Auth / quotas — anti-abuse hardening).
 const router = Router()
 
 const PENDING_COOKIE = 'vx_pending_signup'
@@ -61,29 +71,83 @@ export function clearPendingSignup(res: import('express').Response): void {
   res.clearCookie(PENDING_COOKIE, { path: '/' })
 }
 
-const signupSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
-  username: z.string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(30, 'Username must be under 30 characters')
-    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(200)
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  fullName: z.string().min(1, 'Name is required').max(120).optional(),
-})
+/** Kept in sync with signup field hints in apps/web/public/auth-ui.js */
+const signupSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Enter a valid email address')
+      .refine((e) => !isRejectedMailboxEmail(e), EMAIL_DOMAIN_REJECT_MESSAGE),
+    username: z
+      .string()
+      .trim()
+      .min(3, 'Username must be at least 3 characters')
+      .max(30, 'Username must be under 30 characters')
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        'Username can only contain letters, numbers, and underscores'
+      ),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(200, 'Password must be under 200 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    /** Omit or leave blank until we require it in the modal; blanks fail min(1) if sent as "". */
+    fullName: z.string().trim().min(1).max(120).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.fullName && containsBlockedLanguage(data.fullName)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['fullName'],
+      })
+    }
+    if (containsBlockedLanguage(data.username)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['username'],
+      })
+    }
+  })
 
 const loginSchema = z.object({
-  identifier: z.string().min(1),
+  identifier: z.string().trim().min(1),
   password: z.string().min(1),
 })
+
+const pendingCompanySchema = z
+  .object({
+    companyName: z.string().trim().min(1, 'Company name is required').max(120),
+    niche: z.string().trim().min(1, 'Add at least one content tag').max(2000),
+  })
+  .superRefine((data, ctx) => {
+    if (containsBlockedLanguage(data.companyName)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['companyName'],
+      })
+    }
+    if (containsBlockedLanguage(data.niche)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: DISALLOWED_LANGUAGE_MESSAGE,
+        path: ['niche'],
+      })
+    }
+  })
 
 router.post('/signup', async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body)
-    const existingEmail = await prisma.user.findFirst({ where: { email: data.email } })
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: { equals: data.email, mode: 'insensitive' } },
+    })
     if (existingEmail) {
       res.status(409).json({ error: 'email_taken', message: 'An account with this email already exists.' })
       return
@@ -97,7 +161,12 @@ router.post('/signup', async (req, res, next) => {
     // Do NOT create the user yet — store pending data in a short-lived signed
     // cookie. The user+company row is created atomically with the first
     // platform connection so abandoned signups leave no orphan rows.
-    await writePendingSignup(res, { email: data.email, username: data.username, passwordHash, fullName: data.fullName })
+    await writePendingSignup(res, {
+      email: data.email,
+      username: data.username,
+      passwordHash,
+      ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+    })
     res.status(200).json({ status: 'pending' })
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -110,13 +179,23 @@ router.post('/signup', async (req, res, next) => {
 
 // Stores company name + niche into the pending signup cookie so the OAuth
 // callback can create user + company + connection all in one transaction.
-router.patch('/pending-company', async (req, res) => {
-  const pending = await readPendingSignup(req)
-  if (!pending) { res.status(401).json({ error: 'no_pending_signup' }); return }
-  const { companyName, niche } = req.body as { companyName?: string; niche?: string }
-  if (!companyName || !niche) { res.status(400).json({ error: 'missing_fields' }); return }
-  await writePendingSignup(res, { ...pending, companyName, niche })
-  res.json({ status: 'ok' })
+router.patch('/pending-company', async (req, res, next) => {
+  try {
+    const pending = await readPendingSignup(req)
+    if (!pending) {
+      res.status(401).json({ error: 'no_pending_signup' })
+      return
+    }
+    const { companyName, niche } = pendingCompanySchema.parse(req.body)
+    await writePendingSignup(res, { ...pending, companyName, niche })
+    res.json({ status: 'ok' })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: 'invalid_input', issues: err.issues })
+      return
+    }
+    next(err)
+  }
 })
 
 // Pre-computed bcrypt hash of the string "dummy". Used as a constant-time
@@ -127,8 +206,11 @@ const DUMMY_HASH = '$2a$10$dummyhashfortimingneutrality0000000000000000000000000
 router.post('/login', async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body)
+    const idRaw = data.identifier
     const user = await prisma.user.findFirst({
-      where: { OR: [{ email: data.identifier }, { username: data.identifier }] },
+      where: idRaw.includes('@')
+        ? { email: { equals: idRaw, mode: 'insensitive' } }
+        : { username: idRaw },
     })
     // Always run bcrypt — even when user not found — so response time is
     // identical whether the account exists or not. Early return would leak
@@ -261,9 +343,20 @@ router.get('/me', async (req, res, next) => {
 
 router.post('/forgot-password', async (req, res, next) => {
   try {
-    const { email } = z.object({ email: z.string().email() }).parse(req.body)
+    const { email } = z
+      .object({
+        email: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .email('Enter a valid email address')
+          .refine((e) => !isRejectedMailboxEmail(e), EMAIL_DOMAIN_REJECT_MESSAGE),
+      })
+      .parse(req.body)
 
-    const user = await prisma.user.findFirst({ where: { email } })
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    })
     if (user) {
       // Invalidate any existing unused tokens for this user
       await prisma.passwordResetToken.updateMany({

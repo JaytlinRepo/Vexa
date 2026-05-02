@@ -12,6 +12,11 @@ if (window.__vxPrototypeSideEffectsDone) {
 var __vxPrototypeBoot = !window.__vxPrototypeSideEffectsDone
 window.__vxPrototypeSideEffectsDone = true
 
+/** When false (default): hide TikTok connect flows until app review is cleared. Toggle to true during local testing. */
+if (typeof window.__VX_TIKTOK_INTEGRATION_ENABLED === 'undefined') {
+  window.__VX_TIKTOK_INTEGRATION_ENABLED = false
+}
+
 /* ── CURSOR ─────────────────────────────────────────── */
 var cd=document.getElementById('cd'),cr=document.getElementById('cr')
 var mx=0,my=0,rx=0,ry=0
@@ -151,7 +156,12 @@ window.addEventListener('hashchange',function(){
 
 // First paint: URL hash and DOM often disagree — static HTML defaults to
 // view-home.active while location may be #db-studio from a prior session.
-// Also block deep-link app routes when logged out (avoid marketing page + wrong hash).
+// Also block deep-link app routes when logged out (avoid marketing page +
+// wrong hash). The localStorage `vx-authed` flag is a fast hint, but it's
+// per-origin — accessing the same Studio under both `localhost:3000` and
+// `sovexa-dev-desktop:3000` would silently dump the user back to home even
+// with a valid session cookie. So when the flag is missing, ask the API
+// before redirecting away.
 function vxSyncInitialHashRoute(){
   try{
     var h=(location.hash||'').replace(/^#/,'')
@@ -160,14 +170,31 @@ function vxSyncInitialHashRoute(){
     var appView=/^db-/.test(h)
     var authed=false
     try{authed=localStorage.getItem('vx-authed')==='1'}catch(e){}
+
+    var doNavigate=function(){
+      var next=document.getElementById('view-'+h)
+      if(next && next.classList.contains('active') && currentView===h)return
+      navigate(h)
+    }
+
     if(appView && !authed){
-      try{history.replaceState(null,'','#home')}catch(e){}
-      navigate('home')
+      // Verify with the API before kicking to home — the flag may just be
+      // missing from localStorage (e.g. different host, cleared cache).
+      fetch('/api/auth/me',{credentials:'include'}).then(function(r){
+        if(r.ok){
+          try{localStorage.setItem('vx-authed','1')}catch(e){}
+          doNavigate()
+        }else{
+          try{history.replaceState(null,'','#home')}catch(e){}
+          navigate('home')
+        }
+      }).catch(function(){
+        try{history.replaceState(null,'','#home')}catch(e){}
+        navigate('home')
+      })
       return
     }
-    var next=document.getElementById('view-'+h)
-    if(next && next.classList.contains('active') && currentView===h)return
-    navigate(h)
+    doNavigate()
   }catch(e){}
 }
 if(document.readyState==='loading'){
@@ -339,7 +366,7 @@ function enterDashboard(){
 
   // Update user area
   document.getElementById('nav-username').textContent=companyName||'My Company'
-  document.getElementById('nav-userplan').textContent='Pro Plan'
+  document.getElementById('nav-userplan').textContent='Max plan'
   document.getElementById('nav-avatar').textContent=
     (companyName||'M')[0].toUpperCase()
 
@@ -388,15 +415,19 @@ function filterFeed(gridSel,attr,type){
 
 /* ── PRICING TOGGLE ─────────────────────────────────── */
 var annual=false
-var pp={pro:[59,47],agency:[149,119]}
+var pp={pro:[29,23],max:[59,47],agency:[149,119]}
 function togglePrice(){
   annual=!annual
   document.getElementById('priceToggle').classList.toggle('on',annual)
   const fmt=p=>`<sup>$</sup>${Number.isInteger(p)?p:p.toFixed(2)}<span class="mo">/mo</span>`
   var freeEl=document.getElementById('ps-free')
   if(freeEl)freeEl.innerHTML='<sup>$</sup>0<span class="mo">/mo</span>'
-  document.getElementById('ps-pro').innerHTML=fmt(annual?pp.pro[1]:pp.pro[0])
-  document.getElementById('ps-agency').innerHTML=fmt(annual?pp.agency[1]:pp.agency[0])
+  var proEl=document.getElementById('ps-pro')
+  if(proEl)proEl.innerHTML=fmt(annual?pp.pro[1]:pp.pro[0])
+  var maxEl=document.getElementById('ps-max')
+  if(maxEl)maxEl.innerHTML=fmt(annual?pp.max[1]:pp.max[0])
+  var agencyEl=document.getElementById('ps-agency')
+  if(agencyEl)agencyEl.innerHTML=fmt(annual?pp.agency[1]:pp.agency[0])
 }
 
 /* ── MEETING ROOM ───────────────────────────────────── */

@@ -55,7 +55,7 @@
     var nameEl = document.getElementById('nav-username')
     var planEl = document.getElementById('nav-userplan')
     var name = (nameEl && nameEl.textContent) || 'User'
-    var plan = (planEl && planEl.textContent) || 'Pro Plan'
+    var plan = (planEl && planEl.textContent) || 'Max Plan'
     var pName = document.getElementById('vx-profile-name')
     var pPlan = document.getElementById('vx-profile-plan')
     if (pName) pName.textContent = name
