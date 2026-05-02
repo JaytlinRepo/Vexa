@@ -140,7 +140,7 @@
     }
     if (!res.ok) {
       const json = await res.json().catch(() => null)
-      return { ok: false, error: json?.error || 'failed' }
+      return { ok: false, error: json?.error || 'Something went wrong. Please try again.' }
     }
     const json = await res.json()
     // Refresh usage panel + broadcast so every wire that shows tasks

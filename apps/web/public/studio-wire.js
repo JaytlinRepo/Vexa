@@ -12,6 +12,35 @@
 ;(function () {
   const API = ''
 
+  /** User-visible error text — avoid API snake_case and stack-ish blobs */
+  function studioErr (err, fallback) {
+    const fb = fallback || 'Something went wrong. Please try again.'
+    const m = String(err && err.message != null ? err.message : '').trim()
+    if (!m) return fb
+    if (m.length > 140) return fb
+    if (/^[a-z][a-z0-9_]*$/i.test(m) && m.indexOf('_') !== -1) return fb
+    if (/ECONN|ENOTFOUND|ETIMEDOUT|fetch failed/i.test(m)) return 'Can\'t connect right now. Check your internet and try again.'
+    return m
+  }
+
+  function processingErrDetail (raw) {
+    const s = String(raw || '').trim()
+    if (!s || /^unknown error$/i.test(s)) return 'Please try again, or try a shorter clip.'
+    if (s.length > 100 || (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1)) return 'Please try again in a moment.'
+    return s
+  }
+
+  function processingErrToast (raw) {
+    const s = String(raw || '').trim()
+    if (!s || /^unknown error$/i.test(s) || s.length > 120) {
+      return 'We couldn\'t finish editing your reel. Try again, or use a shorter clip.'
+    }
+    if (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1) {
+      return 'We couldn\'t finish editing your reel. Please try again.'
+    }
+    return 'We couldn\'t finish editing: ' + s
+  }
+
   // ── Init CSS ─────────────────────────────────────────────────────
 
   const style = document.createElement('style')
@@ -70,15 +99,69 @@
     })
   }
 
+  // Smooth-progress state: the bar always animates toward `progressTarget`
+  // at a steady cadence rather than snapping to whatever value setProgress
+  // last passed. This gives the user the feeling that something is
+  // continuously happening between stage events, not just at boundaries.
+  let progressCurrent = 0
+  let progressTarget = 0
+  let progressTickHandle = null
+  function startProgressTick() {
+    if (progressTickHandle) return
+    progressTickHandle = setInterval(() => {
+      const bar = document.getElementById('processing-bar')
+      const pctEl = document.getElementById('processing-progress')
+      // Ease 18% of the gap each tick → arrives smoothly without lurching
+      const gap = progressTarget - progressCurrent
+      if (Math.abs(gap) < 0.05) {
+        progressCurrent = progressTarget
+      } else {
+        progressCurrent += gap * 0.18
+      }
+      if (bar) bar.style.width = progressCurrent.toFixed(1) + '%'
+      if (pctEl) pctEl.textContent = Math.round(progressCurrent) + '%'
+    }, 120)
+  }
+  function stopProgressTick() {
+    if (progressTickHandle) { clearInterval(progressTickHandle); progressTickHandle = null }
+  }
+
   function setProgress(pct, statusText, detailText) {
-    const bar = document.getElementById('processing-bar')
-    const progressEl = document.getElementById('processing-progress')
     const statusEl = document.getElementById('processing-status')
     const detailEl = document.getElementById('processing-detail')
-    if (bar) bar.style.width = Math.max(0, Math.min(100, pct)) + '%'
-    if (progressEl) progressEl.textContent = Math.round(pct) + '%'
+    if (typeof pct === 'number' && Number.isFinite(pct)) {
+      const clamped = Math.max(0, Math.min(100, pct))
+      // Set the target; the tick handles the smooth animation.
+      progressTarget = clamped
+      startProgressTick()
+    }
     if (statusEl && statusText != null) statusEl.textContent = statusText
     if (detailEl && detailText != null) detailEl.textContent = detailText
+  }
+
+  // For long stages (Riley vision, motion analysis), drift the target
+  // slowly upward toward the next stage's start so the bar keeps moving
+  // even when no events are coming in. Caller passes the ceiling we
+  // should NOT pass (i.e. the next stage's known boundary).
+  let driftHandle = null
+  function startProgressDrift(ceilPct, durationSec) {
+    stopProgressDrift()
+    if (typeof ceilPct !== 'number' || ceilPct <= progressTarget) return
+    const start = progressTarget
+    const startedAt = Date.now()
+    driftHandle = setInterval(() => {
+      const elapsed = (Date.now() - startedAt) / 1000
+      const ratio = Math.min(1, elapsed / durationSec)
+      // Ease-out: most of the movement up front so the bar visibly
+      // progresses, then slows as it approaches the ceiling.
+      const eased = 1 - Math.pow(1 - ratio, 2)
+      const next = start + (ceilPct - start) * eased
+      if (next > progressTarget) progressTarget = next
+      if (ratio >= 1) stopProgressDrift()
+    }, 400)
+  }
+  function stopProgressDrift() {
+    if (driftHandle) { clearInterval(driftHandle); driftHandle = null }
   }
 
   function startElapsedTick() {
@@ -102,6 +185,9 @@
     if (el) el.style.display = 'block'
     hideCompletionBanner()
     setPhase('upload')
+    // Reset bar state so a previous run doesn't bleed into this one.
+    progressCurrent = 0
+    progressTarget = 0
     setProgress(5, initialStatus, initialDetail)
     startElapsedTick()
   }
@@ -109,6 +195,8 @@
     const el = document.getElementById('studio-processing')
     if (el) el.style.display = 'none'
     stopElapsedTick()
+    stopProgressDrift()
+    stopProgressTick()
   }
 
   function showCompletionBanner(titleText, detailText) {
@@ -124,6 +212,79 @@
     const banner = document.getElementById('studio-complete-banner')
     if (banner) banner.style.display = 'none'
   }
+  // ── Active-job persistence ────────────────────────────────────────
+  // The processing card lives only as long as the user stays on the
+  // Studio tab. When they navigate away and back — or refresh the
+  // page — the in-flight job is still running on the backend, but the
+  // UI would show nothing. saveActiveJob stashes the job descriptor
+  // in sessionStorage; resumeActiveJob picks it back up on init and
+  // re-attaches the SSE stream. clearActiveJob drops the record once
+  // the job has completed or aged out.
+  const ACTIVE_JOB_KEY = 'vxStudioActiveJob'
+  const ACTIVE_JOB_MAX_AGE_MS = 30 * 60 * 1000 // 30 min ceiling
+  function saveActiveJob(job) {
+    try { sessionStorage.setItem(ACTIVE_JOB_KEY, JSON.stringify(job)) } catch {}
+  }
+  function clearActiveJob() {
+    try { sessionStorage.removeItem(ACTIVE_JOB_KEY) } catch {}
+  }
+  function loadActiveJob() {
+    try {
+      const raw = sessionStorage.getItem(ACTIVE_JOB_KEY)
+      if (!raw) return null
+      const job = JSON.parse(raw)
+      if (!job?.startedAt || Date.now() - job.startedAt > ACTIVE_JOB_MAX_AGE_MS) {
+        clearActiveJob()
+        return null
+      }
+      return job
+    } catch { return null }
+  }
+  async function resumeActiveJobIfPresent() {
+    const job = loadActiveJob()
+    if (!job) return
+    // First, see if the job already finished while we were away — common
+    // when an HMR reload or tab refresh fires after the backend has
+    // already saved the clip. If a clip exists newer than the job's
+    // start time, surface the completion banner directly.
+    const startedAt = job.startedAt || 0
+    let alreadyDone = false
+    try {
+      await refreshClips()
+      const newest = pendingClips.reduce((latest, c) => {
+        const t = new Date(c.createdAt || 0).getTime()
+        return t > latest ? t : latest
+      }, 0)
+      if (newest > startedAt) alreadyDone = true
+    } catch {}
+    if (alreadyDone) {
+      clearActiveJob()
+      const titleText = job.isCompilation && job.fileCount > 1
+        ? `Your reel from ${job.fileCount} videos is ready`
+        : 'Your reel is ready'
+      showCompletionBanner(titleText, 'Review and approve below')
+      return
+    }
+    // Otherwise, the job is still in flight — show the processing card
+    // and re-attach SSE + polling. We don't know which stage we're at,
+    // so use a heuristic progress estimate based on elapsed time.
+    showProcessing(
+      job.isCompilation ? 'Riley is still working on your reel…' : 'Riley is still editing your video…',
+      'Reconnected to your in-flight job',
+    )
+    setPhase('edit')
+    const elapsed = (Date.now() - startedAt) / 1000
+    const est = Math.min(90, 30 + Math.round(elapsed / 3))
+    setProgress(est)
+    if (job.compilationId) {
+      connectProcessingStream(job.compilationId, { isCompilation: true, fileCount: job.fileCount || 1 })
+      pollUntilClipReady(job.compilationId)
+    } else if (job.uploadId) {
+      connectProcessingStream(job.uploadId)
+      pollUntilClipReady(job.uploadId)
+    }
+  }
+
   function clearUploadPreviews() {
     const previewsEl = document.getElementById('studio-previews')
     if (previewsEl) previewsEl.style.display = 'none'
@@ -203,7 +364,7 @@
       return result
     } catch (err) {
       console.error('[studio] approve-visual failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t save your approval. Please try again.'), 'error')
       return null
     }
   }
@@ -237,7 +398,7 @@
       return result
     } catch (err) {
       console.error('[studio] reject-visual failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t send your feedback. Please try again.'), 'error')
       return null
     }
   }
@@ -264,7 +425,7 @@
       return result
     } catch (err) {
       console.error('[studio] regenerate-visual failed:', err)
-      showToast(`✗ Failed to regenerate: ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t create a new cut. Please try again.'), 'error')
       return null
     }
   }
@@ -291,7 +452,7 @@
       return result
     } catch (err) {
       console.error('[studio] approve-copy failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t save your caption choice. Please try again.'), 'error')
       return null
     }
   }
@@ -325,7 +486,7 @@
       return result
     } catch (err) {
       console.error('[studio] reject-copy failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t send your feedback. Please try again.'), 'error')
       return null
     }
   }
@@ -352,7 +513,7 @@
       return result
     } catch (err) {
       console.error('[studio] regenerate-copy failed:', err)
-      showToast(`✗ Failed to regenerate: ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t rewrite the captions. Please try again.'), 'error')
       return null
     }
   }
@@ -374,7 +535,7 @@
       refreshClips()
     } catch (err) {
       console.error('[studio] discard failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t remove that reel. Please try again.'), 'error')
     }
   }
 
@@ -401,7 +562,7 @@
       return result
     } catch (err) {
       console.error('[studio] schedule failed:', err)
-      showToast(`✗ ${err.message}`, 'error')
+      showToast(studioErr(err, 'Couldn\'t schedule that post. Please try again.'), 'error')
       return null
     }
   }
@@ -659,10 +820,13 @@
   }
 
   async function uploadBatch(files) {
-    if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
+    if (!currentCompanyId) { showToast('Please sign in to use Studio.', 'error'); return }
 
     showVideoPreviews(files)
-    showProcessing(`Uploading ${files.length} videos...`, `Sending ${files.length} files to S3`)
+    showProcessing(
+      `Sending ${files.length} clips to Riley…`,
+      'This usually takes a moment for large videos',
+    )
 
     const form = new FormData()
     for (const file of files) form.append('videos', file)
@@ -676,17 +840,26 @@
         body: form,
       })
       if (!res.ok) {
-        let errMsg = 'Batch upload failed'
+        let errMsg = 'Upload didn\'t go through'
         try { const err = await res.json(); errMsg = err.error || errMsg } catch {}
         throw new Error(errMsg)
       }
       const json = await res.json()
       // Upload phase done → combine phase begins
       setPhase('combine')
-      setProgress(18, 'Combining your ' + files.length + ' videos…', 'Stitching clips into one source for Riley')
-      showToast(files.length + ' videos uploaded — combining now', 'success')
+      setProgress(
+        18,
+        'Putting your clips together…',
+        `Joining ${files.length} clips into one source`,
+      )
+      showToast(`${files.length} clips received — Riley is starting now`, 'success')
       // Clear preview strip — files are uploaded, no longer relevant
       clearUploadPreviews()
+
+      // Persist the in-flight job so a tab refresh / navigate-away can
+      // resume showing progress instead of dropping the user back to a
+      // blank Studio while the backend keeps processing.
+      saveActiveJob({ compilationId: json.compilationId, isCompilation: true, fileCount: files.length, startedAt: Date.now() })
 
       // Subscribe to SSE for live progress, plus poll as fallback safety net
       connectProcessingStream(json.compilationId, { isCompilation: true, fileCount: files.length })
@@ -701,17 +874,17 @@
       console.warn('[studio] upload-batch fetch errored; entering recovery poll mode:', err)
       showToast('Connection dropped — checking if upload completed in background', 'info')
       setPhase('edit')
-      setProgress(45, 'Connection hiccup — verifying server state…', 'Your reel may still be on its way')
+      setProgress(45, 'Reconnecting…', 'Your reel may still be on its way')
       clearUploadPreviews()
       pollUntilClipReady('__recovery__', { fileCount: files.length, recovery: true })
     }
   }
 
   async function uploadVideo(file) {
-    if (!currentCompanyId) { showToast('Not signed in', 'error'); return }
+    if (!currentCompanyId) { showToast('Please sign in to use Studio.', 'error'); return }
 
     showVideoPreviews([file])
-    showProcessing('Uploading…', 'Sending your video to S3')
+    showProcessing('Sending your video to Riley…', 'This usually takes a moment for large clips')
 
     const form = new FormData()
     form.append('video', file)
@@ -725,7 +898,7 @@
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Upload failed')
+        throw new Error(err.error || 'Upload didn\'t go through')
       }
       const json = await res.json()
       // Single upload skips the combine phase entirely
@@ -734,13 +907,14 @@
       showToast('Uploaded — Riley is editing now', 'success')
       clearUploadPreviews()
 
+      saveActiveJob({ uploadId: json.uploadId, isCompilation: false, fileCount: 1, startedAt: Date.now() })
       connectProcessingStream(json.uploadId)
       pollUntilClipReady(json.uploadId)
     } catch (err) {
       console.warn('[studio] upload fetch errored; entering recovery poll mode:', err)
       showToast('Connection dropped — checking if upload completed in background', 'info')
       setPhase('edit')
-      setProgress(45, 'Connection hiccup — verifying server state…', 'Your clip may still be on its way')
+      setProgress(45, 'Reconnecting…', 'Your clip may still be on its way')
       clearUploadPreviews()
       pollUntilClipReady('__recovery__', { fileCount: 1, recovery: true })
     }
@@ -748,14 +922,50 @@
 
   // ── SSE Processing Stream ─────────────────────────────────────────
 
+  // User-friendly stage labels — no AWS / FFmpeg / S3 jargon. Backend
+  // event names on the left, what the user sees on the right.
   const stageLabels = {
-    'Get video duration': 'Analyzing video...',
-    'Transcribe (AWS)': 'Transcribing audio...',
-    'Detect scenes (FFmpeg)': 'Scanning for visual activity...',
-    'Extract keyframes': 'Pulling frames for visual analysis...',
-    'Analyze clip (Riley)': 'Riley is watching your video and picking the best moments...',
-    'Build reel (FFmpeg)': 'Building reel from best moments...',
-    'Write captions (Alex)': 'Alex is writing captions...',
+    'Download + probe': 'Reading your video…',
+    'Get video duration': 'Reading your video…',
+    'Transcribe (AWS)': 'Listening for speech…',
+    'Detect scenes (FFmpeg)': 'Finding scene changes…',
+    'Extract keyframes': 'Looking through frames…',
+    'Analyze video': 'Watching your video…',
+    'Analyze clip (Riley)': 'Riley is picking the best moments…',
+    'Build reel (FFmpeg)': 'Cutting and stitching your reel…',
+    'Write captions (Alex)': 'Alex is writing your hook and caption…',
+  }
+  // Friendly detail text shown under the stage label. Reuses the same
+  // event-name keys so the mapping stays in one place.
+  const stageDetails = {
+    'Download + probe': 'Loading the source so we can edit it',
+    'Analyze video': 'Reading audio, scenes, and motion in parallel',
+    'Analyze clip (Riley)': 'Choosing which moments make the cut',
+    'Build reel (FFmpeg)': 'Trimming the chosen moments into one reel',
+    'Write captions (Alex)': 'Drafting hooks and a caption to match the visual',
+  }
+  // Approximate duration in seconds for each Riley-pipeline stage. Used
+  // by the smooth-progress drift so the bar keeps moving between stage
+  // events on slow stages (vision call) instead of looking frozen.
+  const stageDurations = {
+    'Download + probe': 5,
+    'Analyze video': 45,
+    'Analyze clip (Riley)': 60,
+    'Build reel (FFmpeg)': 15,
+    'Write captions (Alex)': 8,
+  }
+
+  /** If the pipeline sends a raw stage name, strip vendor/tool tokens before showing it */
+  function displayStageLabel (stage) {
+    if (!stage) return 'Working on your video…'
+    if (stageLabels[stage]) return stageLabels[stage]
+    let s = String(stage)
+      .replace(/\s*\(AWS\)/gi, '')
+      .replace(/\s*\(FFmpeg\)/gi, '')
+      .replace(/\bFFmpeg\b/gi, '')
+      .replace(/\bAWS\b/gi, '')
+      .trim()
+    return s || 'Working on your video…'
   }
 
   function connectProcessingStream(matchId, options) {
@@ -768,9 +978,22 @@
     const fileCount = options?.fileCount ?? 1
     let resolvedUploadId = isCompilation ? null : matchId
 
+    // Tracks the "no messages received recently" timer. Armed when the
+    // channel errors out, cleared whenever a message arrives. If it
+    // fires (i.e. 12s passed with no messages), we abandon SSE and
+    // switch to polling. EventSource auto-reconnects with backoff
+    // before this fires, so a transient drop heals itself silently.
+    let reconnectFallbackTimer = null
+
     const evtSource = new EventSource(`${API}/api/video/stream`, { withCredentials: true })
 
     evtSource.onmessage = (e) => {
+      // A message confirms the channel is healthy — clear any pending
+      // reconnect fallback timer so we don't spuriously switch to polling.
+      if (reconnectFallbackTimer) {
+        clearTimeout(reconnectFallbackTimer)
+        reconnectFallbackTimer = null
+      }
       try {
         const data = JSON.parse(e.data)
         const idMatches =
@@ -784,23 +1007,42 @@
           const n = (data.total ?? fileCount)
           const pct = 18 + Math.round((i / Math.max(1, n)) * 22) // 18-40% range
           setPhase('combine')
-          setProgress(pct, 'Combining your videos…', `${i} of ${n} downloaded`)
+          setProgress(
+            pct,
+            'Putting your clips together…',
+            n > 1 ? `Loaded ${i} of ${n} clip${n === 1 ? '' : 's'}` : 'Loading your clip',
+          )
         }
         if (data.event === 'compilation_complete') {
           if (data.uploadId) resolvedUploadId = data.uploadId
           setPhase('edit')
-          setProgress(48, 'Riley is editing your reel…', 'Analyzing motion, audio, and key moments')
+          setProgress(48, 'Riley is starting to edit…', 'Reading the combined footage')
+          // Drift toward the next known checkpoint (Analyze video starts ~57%)
+          // so the bar keeps moving while Riley spins up.
+          startProgressDrift(54, 6)
         }
 
         // ── RILEY EDIT PHASE EVENTS ────────────────────────────────
         if (data.event === 'stage_start') {
-          const label = stageLabels[data.stage] || data.stage
+          stopProgressDrift()
+          const label = displayStageLabel(data.stage)
+          const detail = stageDetails[data.stage] || `Step ${data.stageIndex + 1} of ${data.totalStages}`
           // Map Riley's pipeline progress into the edit-phase band (48-95%)
           const editPct = 48 + Math.round(((data.progress ?? 0) / 100) * 47)
           setPhase('edit')
-          setProgress(editPct, label, `Step ${data.stageIndex + 1} of ${data.totalStages}`)
+          setProgress(editPct, label, detail)
+          // Drift toward the stage's expected end (next stage's start) so the
+          // bar visibly moves during the long stages (vision, motion, etc.)
+          // rather than sitting frozen for 30-60 seconds.
+          const totalStages = data.totalStages || 7
+          const nextStageStart = 48 + Math.round(((data.stageIndex + 1) / totalStages) * 47)
+          // Stop ~1% short so stage_done has somewhere to land.
+          const driftCeiling = Math.max(editPct + 1, nextStageStart - 1)
+          const dur = stageDurations[data.stage] ?? 20
+          startProgressDrift(driftCeiling, dur)
         }
         if (data.event === 'stage_done') {
+          stopProgressDrift()
           const editPct = 48 + Math.round(((data.progress ?? 0) / 100) * 47)
           setProgress(editPct)
         }
@@ -810,6 +1052,7 @@
           setPhase('done')
           setProgress(100, 'Done!', data.hook || 'Reel ready for review')
           evtSource.close()
+          clearActiveJob()
           refreshClips()
           const titleText = isCompilation
             ? `Your reel from ${fileCount} videos is ready`
@@ -822,21 +1065,31 @@
 
         // ── ERROR ───────────────────────────────────────────────────
         if (data.event === 'processing_error') {
-          setProgress(0, 'Processing failed', data.error || 'Unknown error')
-          showToast(`Processing failed: ${data.error}`, 'error')
+          setProgress(0, 'Something went wrong', processingErrDetail(data.error))
+          showToast(processingErrToast(data.error), 'error')
           evtSource.close()
+          clearActiveJob()
           setTimeout(() => hideProcessing(), 5000)
         }
       } catch {}
     }
 
     evtSource.onerror = () => {
-      // SSE disconnected — fall back to polling. Don't tear down the
-      // progress UI; pollUntilClipReady will keep it updated.
-      evtSource.close()
+      // EventSource has built-in auto-reconnect with backoff (~3s default).
+      // Don't close the connection on the first error — the browser will
+      // retry automatically. Show a "reconnecting" hint to the user.
+      // Arm a polling fallback that fires only if we're STILL disconnected
+      // after a generous window (12s). A successful reconnect cancels
+      // the fallback because pollFallbackTimer is reset on every message.
       const detail = document.getElementById('processing-detail')
-      if (detail) detail.textContent = 'Connection lost — checking for results'
-      pollUntilClipReady(matchId)
+      if (detail) detail.textContent = 'Reconnecting — your reel is still being made'
+      if (!reconnectFallbackTimer) {
+        reconnectFallbackTimer = setTimeout(() => {
+          // 12s without a single message — give up on SSE, switch to polling.
+          evtSource.close()
+          pollUntilClipReady(resolvedUploadId || matchId)
+        }, 12000)
+      }
     }
   }
 
@@ -852,12 +1105,12 @@
     // delivering events. Mirrors the SSE-driven phases (combine: 18-40,
     // edit: 48-95) so the UI stays consistent.
     const progressSteps = [
-      { at: 1, pct: 22, phase: 'combine', label: 'Combining videos…', detail: 'Stitching source files' },
-      { at: 4, pct: 50, phase: 'edit', label: 'Riley is picking the best moments…', detail: 'Analyzing motion and audio' },
-      { at: 8, pct: 70, phase: 'edit', label: 'Riley is editing the reel…', detail: 'Cutting and encoding segments' },
-      { at: 15, pct: 82, phase: 'edit', label: 'Still encoding…', detail: 'Large files take a bit longer' },
-      { at: 20, pct: 88, phase: 'edit', label: 'Alex is writing captions…', detail: 'Generating hooks and copy' },
-      { at: 25, pct: 92, phase: 'edit', label: 'Almost done…', detail: 'Uploading to S3' },
+      { at: 1,  pct: 22, phase: 'combine', label: 'Putting your clips together…',          detail: 'Joining the source files' },
+      { at: 4,  pct: 50, phase: 'edit',    label: 'Riley is picking the best moments…',     detail: 'Reading motion and audio' },
+      { at: 8,  pct: 70, phase: 'edit',    label: 'Riley is cutting your reel…',            detail: 'Trimming the chosen moments' },
+      { at: 15, pct: 82, phase: 'edit',    label: 'Still working on it…',                  detail: 'Larger clips take a little longer' },
+      { at: 20, pct: 88, phase: 'edit',    label: 'Alex is writing your hook and caption…', detail: 'Drafting copy that matches the visual' },
+      { at: 25, pct: 92, phase: 'edit',    label: 'Almost done…',                          detail: 'Saving your reel' },
     ]
 
     const poll = async () => {
@@ -867,6 +1120,7 @@
       const hasNewClip = pendingClips.some(c => !startIds.has(c.id))
       if (hasNewClip) {
         // New clip appeared — done. Show persistent completion banner.
+        clearActiveJob()
         setPhase('done')
         setProgress(100, 'Done!', 'Your reel is ready for review')
         const titleText = isRecovery && fileCount > 1
@@ -947,9 +1201,9 @@
               <span>Riley's edit</span>
               <span class="studio-clip-ver" style="background:${scoreColor}">v${version}</span>
             </div>
-            ${adj.colorTemperature ? `<div class="studio-clip-toning">Temp: ${adj.colorTemperature} · Sat: ${adj.saturation || 0} · Warmth: ${adj.warmth || 0}</div>` : ''}
+            ${adj.colorTemperature ? `<div class="studio-clip-toning">Color: ${adj.colorTemperature} · Saturation: ${adj.saturation || 0} · Warmth: ${adj.warmth || 0}</div>` : ''}
             <div class="studio-clip-score" style="background:${scoreBg}">
-              <span style="color:${scoreColor}">Match ${(style.styleReplication || 0).toFixed(2)}</span>
+              <span style="color:${scoreColor}">Style match ${Math.round((style.styleReplication || 0) * 100)}%</span>
             </div>
           </div>
           <div class="studio-clip-actions">
@@ -1009,7 +1263,7 @@
     if (hour == null) return '—'
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
     const period = hour >= 12 ? 'PM' : 'AM'
-    return `${period === 'PM' ? hour - 12 || 12 : hour || 12} ${period} UTC`
+    return `${period === 'PM' ? hour - 12 || 12 : hour || 12} ${period} · typical peak`
   }
 
   function renderPostingStrategy(strategy) {
@@ -1018,7 +1272,7 @@
     if (!slotsEl) return
 
     if (!strategy) {
-      slotsEl.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">Could not load strategy — Jordan needs more data.</div>'
+      slotsEl.innerHTML = '<div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center;line-height:1.5">We need a bit more from your connected accounts to suggest posting times. Check back after your feeds sync.</div>'
       return
     }
 
@@ -1124,6 +1378,11 @@
 
     // Load Jordan's posting strategy (fire-and-forget, renders into sidebar)
     loadPostingStrategy()
+
+    // Resume an in-flight job if one was running when the user navigated
+    // away or refreshed. The backend keeps processing regardless of the
+    // tab; we just re-attach the SSE stream + polling fallback.
+    resumeActiveJobIfPresent()
 
     if (!studioUploadDomWired) {
       studioUploadDomWired = true

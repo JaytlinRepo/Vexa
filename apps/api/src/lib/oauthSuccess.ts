@@ -1,8 +1,16 @@
 /**
  * Returns a minimal HTML page for OAuth callbacks.
- * If opened in a popup (window.opener exists): closes itself so the parent
- * can poll for completion. If opened as a full navigation (direct or new tab):
- * redirects to fallbackUrl, or shows a plain success message if no URL given.
+ *
+ * The opener relationship is often severed by Facebook/TikTok's
+ * Cross-Origin-Opener-Policy headers during the redirect chain, so
+ * `window.opener` may be null even when this page is loaded inside a
+ * popup. We therefore:
+ *   1. Broadcast completion via localStorage so the parent tab can
+ *      detect it without needing an opener reference.
+ *   2. Try window.close() unconditionally — popups opened via
+ *      window.open() can close themselves regardless of opener state.
+ *   3. Only navigate to fallbackUrl if close() actually failed (real
+ *      full-page-nav case, e.g. mobile Safari with popup blocked).
  */
 export function oauthSuccessPage(fallbackUrl: string | null): string {
   const redirect = fallbackUrl ? JSON.stringify(fallbackUrl) : 'null'
@@ -13,11 +21,19 @@ export function oauthSuccessPage(fallbackUrl: string | null): string {
 <script>
 (function(){
   var fallback=${redirect};
-  if(window.opener&&!window.opener.closed){
-    window.close();
-  } else if(fallback){
-    window.location.replace(fallback);
-  }
+  // Signal the parent tab via localStorage (works even when COOP severed opener).
+  try{
+    localStorage.setItem('vx-oauth-complete', String(Date.now()));
+    localStorage.removeItem('vx-oauth-complete');
+  }catch(_){ }
+  // Try to refocus the opener if it's still reachable.
+  try{ if(window.opener&&!window.opener.closed) window.opener.focus(); }catch(_){ }
+  // Always attempt to close — popups opened via window.open() can self-close
+  // regardless of opener state. Detect failure and only then navigate.
+  window.close();
+  setTimeout(function(){
+    if(!window.closed && fallback){ window.location.replace(fallback); }
+  }, 300);
 })();
 </script>
 </body></html>`

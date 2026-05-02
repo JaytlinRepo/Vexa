@@ -33,6 +33,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Cursor/Claude local worktrees (nested repo — do not commit)
+.claude/worktrees/
+
 # editor
 .vscode/
 .idea/

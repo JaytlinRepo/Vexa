@@ -242,12 +242,12 @@ export async function getIGAccountInsights(igId: string, token: string): Promise
     dailyWebsiteClicks: [],
   }
 
-  // profile_views — period=day returns daily values
+  // profile_views — period=day returns daily values (Graph API v22 requires metric_type=total_value)
   try {
     const pvRes = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> }>(
       `/${igId}/insights`,
       token,
-      { metric: 'profile_views', period: 'day', since: daysAgoUnix(28), until: daysAgoUnix(0) },
+      { metric: 'profile_views', period: 'day', metric_type: 'total_value', since: daysAgoUnix(28), until: daysAgoUnix(0) },
     )
     const pvData = pvRes.data?.find(m => m.name === 'profile_views')
     if (pvData?.values) {
@@ -265,7 +265,7 @@ export async function getIGAccountInsights(igId: string, token: string): Promise
     const wcRes = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> }>(
       `/${igId}/insights`,
       token,
-      { metric: 'website_clicks', period: 'day', since: daysAgoUnix(28), until: daysAgoUnix(0) },
+      { metric: 'website_clicks', period: 'day', metric_type: 'total_value', since: daysAgoUnix(28), until: daysAgoUnix(0) },
     )
     const wcData = wcRes.data?.find(m => m.name === 'website_clicks')
     if (wcData?.values) {
@@ -287,6 +287,79 @@ export async function getIGAccountInsights(igId: string, token: string): Promise
 
 function daysAgoUnix(days: number): string {
   return String(Math.floor((Date.now() - days * 86400000) / 1000))
+}
+
+// ── Daily account history ───────────────────────────────────────────
+
+export interface IGDailyHistory {
+  date: string                 // YYYY-MM-DD (UTC)
+  followerCount: number        // total followers as-of end of day (0 if unknown)
+  reach: number                // unique accounts reached that day
+  impressions: number          // total impressions that day
+  profileViews: number
+  websiteClicks: number
+}
+
+/**
+ * Pulls last `days` days of daily account-level metrics so a fresh signup
+ * has a populated trend chart immediately. Each metric is best-effort —
+ * Meta deprecates / scope-gates these constantly. Empty/missing days are
+ * filled in zero so the renderer always sees a contiguous series.
+ */
+export async function getIGAccountHistory(igId: string, token: string, days = 30): Promise<IGDailyHistory[]> {
+  const since = daysAgoUnix(days)
+  const until = daysAgoUnix(0)
+
+  // Meta is fussy about metric_type per metric:
+  //   - follower_count: time_series (or omit) — total_value is rejected
+  //   - reach: total_value
+  //   - profile_views, website_clicks: total_value (Graph v22+)
+  //   - impressions: removed at account level entirely
+  const fetchDaily = async (metric: string, metricType: 'total_value' | 'time_series' | null): Promise<Map<string, number>> => {
+    const map = new Map<string, number>()
+    try {
+      const params: Record<string, string> = { metric, period: 'day', since, until }
+      if (metricType) params.metric_type = metricType
+      const res = await graphGet<{ data: Array<{ name: string; values: Array<{ value: number; end_time: string }> }> }>(
+        `/${igId}/insights`,
+        token,
+        params,
+      )
+      const series = res.data?.find(m => m.name === metric)
+      if (series?.values) {
+        for (const v of series.values) {
+          map.set(v.end_time.slice(0, 10), Number(v.value) || 0)
+        }
+      }
+    } catch (e) {
+      console.warn(`[meta] ${metric} daily history failed:`, (e as Error).message?.slice(0, 120))
+    }
+    return map
+  }
+
+  const [followerMap, reachMap, pvMap, wcMap] = await Promise.all([
+    fetchDaily('follower_count', 'time_series'),
+    fetchDaily('reach', 'total_value'),
+    fetchDaily('profile_views', 'total_value'),
+    fetchDaily('website_clicks', 'total_value'),
+  ])
+  const impressionsMap = new Map<string, number>() // deprecated at account level
+
+  // Build a contiguous date list from `days` ago → today.
+  const out: IGDailyHistory[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000)
+    const date = d.toISOString().slice(0, 10)
+    out.push({
+      date,
+      followerCount: followerMap.get(date) || 0,
+      reach: reachMap.get(date) || 0,
+      impressions: impressionsMap.get(date) || 0,
+      profileViews: pvMap.get(date) || 0,
+      websiteClicks: wcMap.get(date) || 0,
+    })
+  }
+  return out
 }
 
 // ── Stories ─────────────────────────────────────────────────────────

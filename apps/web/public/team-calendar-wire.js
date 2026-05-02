@@ -6,6 +6,15 @@
 
   var get = function (u) { return fetch(u, { credentials: 'include' }).then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null }) }
 
+  /** Surface API errors only when they look like human sentences */
+  function friendlyAssignMsg (raw) {
+    if (raw == null || raw === '') return 'Couldn\'t assign that. Try again.'
+    var s = String(raw).trim()
+    if (s.length > 100) return 'Couldn\'t assign that. Try again.'
+    if (/^[a-z][a-z0-9_]*$/i.test(s) && s.indexOf('_') !== -1) return 'Couldn\'t assign that. Try again.'
+    return s
+  }
+
   var AGENTS = {
     analyst:           { css: 'var(--ig)',     initial: 'M', label: 'Maya' },
     strategist:        { css: 'var(--tt)',     initial: 'J', label: 'Jordan' },
@@ -426,6 +435,32 @@
     return ''
   }
 
+  /** Readable labels for task status (avoid raw enum strings in the UI). */
+  function friendlyTaskStatus(s) {
+    var raw = String(s || 'pending').trim()
+    if (!raw) return 'Pending'
+    var map = {
+      pending: 'Pending',
+      in_progress: 'In progress',
+      delivered: 'Delivered',
+      approved: 'Approved',
+      failed: 'Needs attention',
+      cancelled: 'Cancelled',
+      canceled: 'Cancelled',
+      queued: 'Queued',
+      completed: 'Completed',
+      ready: 'Ready',
+      blocked: 'Blocked',
+    }
+    if (map[raw]) return map[raw]
+    if (/^[a-z][a-z0-9_]*$/i.test(raw) && raw.indexOf('_') !== -1) {
+      return raw.split('_').map(function (w) {
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+      }).join(' ')
+    }
+    return raw.charAt(0).toUpperCase() + raw.slice(1)
+  }
+
   function timeShort(iso) {
     if (!iso) return ''
     var d = new Date(iso)
@@ -828,6 +863,7 @@
         var ag = AGENTS[roleKey] || AGENTS.strategist
         var typeLabel = TYPE_LABEL[t.type] || t.type
         var status = t.status || 'pending'
+        var statusLabel = friendlyTaskStatus(status)
         var sc = statusClass(status)
 
         // Build detail content from task outputs
@@ -854,7 +890,7 @@
           + '<div class="sb-task-meta">' + ag.label + ' · ' + typeLabel + '</div>'
           + '</div>'
           + '</div></td>'
-          + '<td class="r"><span class="sb-status' + (sc ? ' ' + sc : '') + '">' + status + '</span></td>'
+          + '<td class="r"><span class="sb-status' + (sc ? ' ' + sc : '') + '">' + escHtml(statusLabel) + '</span></td>'
           + '</tr>'
       }
       html += '</tbody></table></div>'
@@ -1040,6 +1076,7 @@
         var ag = AGENTS[roleKey] || AGENTS.strategist
         var typeLabel = TYPE_LABEL[t.type] || t.type
         var status = t.status || 'pending'
+        var statusLabel = friendlyTaskStatus(status)
         var sc = statusClass(status)
         bodyHtml += '<button class="dm-task" data-task-id="' + escHtml(t.id) + '">'
           + '<div class="ops-port" style="border-color:' + ag.css + '">' + ag.initial + '</div>'
@@ -1047,7 +1084,7 @@
           + '<div class="dm-task-title">' + escHtml(t.title || typeLabel) + '</div>'
           + '<div class="dm-task-meta">' + ag.label + ' \u00b7 ' + typeLabel + '</div>'
           + '</div>'
-          + '<span class="sb-status ' + sc + '">' + status + '</span>'
+          + '<span class="sb-status ' + sc + '">' + escHtml(statusLabel) + '</span>'
           + '</button>'
       }
       bodyHtml += '</div>'
@@ -1204,7 +1241,7 @@
       submitTaskFromModal(assignSelectedRole, taskType, text, closeOverlay, function (msg) {
         submit.disabled = false
         submit.textContent = 'Assign'
-        if (err) err.textContent = msg || 'Could not assign. Try again.'
+        if (err) err.textContent = msg || 'Couldn\'t assign that. Try again.'
       })
     })
   }
@@ -1219,7 +1256,7 @@
         if (companyId && emp2) {
           submitTaskFromModal(role, type, description, onSuccess, onFailure)
         } else {
-          onFailure('Team identity unavailable. Reload and try again.')
+          onFailure('We couldn\'t load your team. Refresh the page and try again.')
         }
       })
       return
@@ -1252,9 +1289,9 @@
         renderOpsSidebar()
         onSuccess()
       } else {
-        onFailure((result && result.error) ? String(result.error) : 'Could not assign.')
+        onFailure((result && result.error) ? friendlyAssignMsg(result.error) : 'Couldn\'t assign that. Try again.')
       }
-    }).catch(function () { onFailure('Network error.') })
+    }).catch(function () { onFailure('Can\'t connect right now. Try again.') })
   }
 
   function openTaskModal(task) {
@@ -1265,6 +1302,7 @@
     var ag = AGENTS[roleKey] || AGENTS.strategist
     var typeLabel = TYPE_LABEL[task.type] || task.type
     var status = task.status || 'pending'
+    var statusLabel = friendlyTaskStatus(status)
     var sc = statusClass(status)
     var created = task.createdAt ? new Date(task.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
     var completed = task.completedAt ? new Date(task.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
@@ -1279,7 +1317,7 @@
       if (out.content) detailHtml += renderOutputContent(out.content, task.type, ag)
     }
     if (!detailHtml) {
-      detailHtml = '<div class="sb-detail-empty">No output yet — task is ' + status + '</div>'
+      detailHtml = '<div class="sb-detail-empty">No output yet. Current step: ' + escHtml(statusLabel) + '</div>'
     }
 
     var overlay = document.createElement('div')
@@ -1292,7 +1330,7 @@
       + '<div class="sb-port" style="border-color:' + ag.css + ';width:36px;height:36px;font-size:14px">' + ag.initial + '</div>'
       + '<div>'
       + '<div class="tm-title">' + escHtml(task.title || typeLabel) + '</div>'
-      + '<div class="tm-meta">' + ag.label + ' · ' + typeLabel + ' · <span class="sb-status ' + sc + '">' + status + '</span></div>'
+      + '<div class="tm-meta">' + ag.label + ' · ' + typeLabel + ' · <span class="sb-status ' + sc + '">' + escHtml(statusLabel) + '</span></div>'
       + '</div>'
       + '</div>'
       + '<button class="tm-close">&times;</button>'
@@ -1380,13 +1418,24 @@
         if (btn) {
           btn.disabled = false
           if (result && result.error) {
-            btn.textContent = String(result.error).slice(0, 40)
+            var raw = String(result.error)
+            var friendly = /^[a-z][a-z0-9_]*$/i.test(raw.trim()) || raw.length > 80
+              ? 'Couldn\'t assign — try again.'
+              : raw.slice(0, 56)
+            btn.textContent = friendly
+            setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 2200)
+          } else {
+            btn.textContent = 'Couldn\'t assign — try again.'
             setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 2200)
           }
         }
       }
     }).catch(function () {
-      if (btn) btn.disabled = false
+      if (btn) {
+        btn.disabled = false
+        btn.textContent = 'Can\'t connect — try again'
+        setTimeout(function () { if (btn) btn.textContent = 'Assign' }, 2200)
+      }
     })
   }
 

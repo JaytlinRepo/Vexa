@@ -74,11 +74,11 @@
   // ── GROWTH CARD ─────────────────────────────────────────────────────────
   function growthCard(snapshots) {
     if (!snapshots || snapshots.length === 0) {
-      return cardShell('Growth', null, emptyBody('First snapshot lands in 24h — Maya runs her sync at 9am UTC and builds your history from there.'))
+      return cardShell('Growth', null, emptyBody('First snapshot lands within about a day — Maya refreshes your metrics each morning and builds your history from there.'))
     }
     if (snapshots.length === 1) {
       const s = snapshots[0]
-      return cardShell('Growth', fmtInt(s.followerCount), emptyBody(`${fmtInt(s.followerCount)} followers captured on ${fmtDate(s.capturedAt)}. Growth tracking starts on the next sync.`))
+      return cardShell('Growth', fmtInt(s.followerCount), emptyBody(`${fmtInt(s.followerCount)} followers captured on ${fmtDate(s.capturedAt)}. Growth tracking picks up on the next refresh.`))
     }
 
     const ys = snapshots.map((s) => s.followerCount)
@@ -150,7 +150,7 @@
     const body = `
       <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:10px">
         <span style="color:var(--t1);font-size:14px;font-weight:600">${label}</span>
-        <span style="color:var(--t3);font-size:11px">avg ${avg >= 0 ? '+' : ''}${avg.toFixed(1)}/day · σ ${stddev.toFixed(1)}</span>
+        <span style="color:var(--t3);font-size:11px">about ${avg >= 0 ? '+' : ''}${avg.toFixed(1)} followers/day · varies ~${stddev.toFixed(1)}</span>
       </div>
       <div style="position:relative">
         <div style="display:flex;gap:2px;align-items:center;height:${H}px">${bars}</div>
@@ -167,7 +167,7 @@
   // Linear regression on follower count over time → direction + projection.
   function trendCard(snapshots) {
     if (!snapshots || snapshots.length < 3) {
-      return cardShell('Trend', null, emptyBody(`${(snapshots || []).length} of 3 snapshots. Trend projection unlocks once Maya has three daily syncs to regress against.`))
+      return cardShell('Trend', null, emptyBody(`${(snapshots || []).length} of 3 snapshots. Trend projection unlocks once Maya has three daily refreshes to compare.`))
     }
     const ys = snapshots.map((s) => s.followerCount)
     const xs = snapshots.map((s) => new Date(s.capturedAt).getTime() / 86400000)  // in days

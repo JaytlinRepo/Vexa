@@ -910,6 +910,11 @@ window.briefEvent = async function (action, context) {
 }
 
 window.navigateTo = function (brief) {
+  if (brief === 'weekly-briefs') {
+    if (typeof window.navigate === 'function') window.navigate('db-studio')
+    return
+  }
+
   var cid = window.__vxCompany?.id || ''
   if (!cid) return
 
@@ -917,7 +922,6 @@ window.navigateTo = function (brief) {
     'weekly-plan': '/api/weekly/jordan-plan',
     'weekly-pulse': '/api/weekly/maya-pulse',
     'weekly-hooks': '/api/weekly/alex-hooks',
-    'weekly-briefs': '/api/studio/weekly-status',
     'trends': '/api/briefs/morning',
     'evening-recap': '/api/briefs/evening',
   }
@@ -925,7 +929,6 @@ window.navigateTo = function (brief) {
     'weekly-plan': "Jordan's Content Plan",
     'weekly-pulse': "Maya's Weekly Pulse",
     'weekly-hooks': "Alex's Hooks",
-    'weekly-briefs': "Riley's Production Briefs",
     'trends': 'Morning Brief',
     'evening-recap': 'Evening Recap',
   }
@@ -955,21 +958,19 @@ window.navigateTo = function (brief) {
     .then(function (data) {
       var bodyEl = document.getElementById('vx-brief-body')
       if (!bodyEl) return
-      if (!data) { bodyEl.textContent = 'No data available yet.'; return }
+      if (!data) { bodyEl.textContent = 'Nothing here yet — check back soon.'; return }
 
-      var html = brief === 'weekly-briefs'
-        ? formatRileyStatus(data)
-        : formatBriefOutput(data.output || data, brief)
+      var html = formatBriefOutput(data.output || data, brief)
 
-      if (brief !== 'weekly-briefs' && brief !== 'trends' && data.employee) {
-        html = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.t3 + ';margin-bottom:12px">From ' + esc(data.employee) + ' &middot; ' + (data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '') + '</div>' + html
+      if (brief !== 'trends' && data.employee) {
+        html = '<div style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:' + C.t3 + ';margin-bottom:12px">From ' + esc(data.employee) + ' · ' + (data.createdAt ? new Date(data.createdAt).toLocaleDateString() : '') + '</div>' + html
       }
 
       bodyEl.innerHTML = html
     })
     .catch(function () {
       var bodyEl = document.getElementById('vx-brief-body')
-      if (bodyEl) bodyEl.textContent = 'Failed to load.'
+      if (bodyEl) bodyEl.textContent = 'We couldn\'t load this brief. Try again in a moment.'
     })
 
   function esc(s) { return String(s || '').replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] }) }
@@ -1167,71 +1168,6 @@ window.navigateTo = function (brief) {
     return String(n)
   }
 
-  function formatRileyStatus(data) {
-    var done = data.doneThisWeek || []
-    var queue = data.needsApproval || []
-    var ready = data.readyToPost || []
-    var parts = []
-
-    function clipLine(c) {
-      var description = c.description || null
-      var hook = c.hook || c.caption || 'Untitled clip'
-      var dur = c.duration ? ' &middot; ' + c.duration + 's' : ''
-      var when = c.updatedAt ? ' &middot; ' + new Date(c.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
-      return '<div style="padding:8px 0;border-bottom:1px solid rgba(20,16,10,.07);line-height:1.4">'
-        + (description
-          ? '<div style="font-size:13px;color:' + C.t1 + ';font-style:italic">' + esc(description) + '</div>'
-            + '<div style="font-size:11px;color:' + C.t3 + ';margin-top:2px">' + esc(hook.substring(0, 80)) + '<span style="font-family:\'JetBrains Mono\',monospace">' + dur + when + '</span></div>'
-          : '<div style="font-size:13px;color:' + C.t1 + '">' + esc(hook)
-            + '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.t3 + '">' + dur + when + '</span></div>')
-        + '</div>'
-    }
-
-    function queueLine(c) {
-      var description = c.description || null
-      var hook = c.hook || c.caption || 'Untitled clip'
-      var missing = []
-      if (c.visualApprovalStatus === 'pending') missing.push('visual')
-      if (c.copyApprovalStatus === 'pending') missing.push('copy')
-      var tag = missing.length ? 'needs ' + missing.join(' + ') : ''
-      return '<div style="padding:8px 0;border-bottom:1px solid rgba(20,16,10,.07);line-height:1.4">'
-        + (description
-          ? '<div style="font-size:13px;color:' + C.t1 + ';font-style:italic">' + esc(description) + '</div>'
-            + '<div style="font-size:11px;color:' + C.t3 + ';margin-top:2px">' + esc(hook.substring(0, 80))
-              + (tag ? ' &middot; <span style="color:' + C.accent + ';font-family:\'JetBrains Mono\',monospace">' + tag + '</span>' : '') + '</div>'
-          : '<div style="font-size:13px;color:' + C.t1 + '">' + esc(hook)
-            + (tag ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:' + C.accent + '"> &middot; ' + tag + '</span>' : '') + '</div>')
-        + '</div>'
-    }
-
-    // Done this week
-    if (done.length) {
-      parts.push(sec('Done this week (' + done.length + ')'))
-      parts.push(done.map(clipLine).join(''))
-    } else {
-      parts.push(sec('Done this week'))
-      parts.push('<div style="font-size:13px;color:' + C.t3 + ';font-style:italic;padding:6px 0">No clips approved this week yet.</div>')
-    }
-
-    // Needs approval
-    if (queue.length) {
-      parts.push(sec('Needs your approval (' + queue.length + ')'))
-      parts.push(queue.map(queueLine).join(''))
-    }
-
-    // Ready to post
-    if (ready.length) {
-      parts.push(sec('Ready to post (' + ready.length + ')'))
-      parts.push(ready.map(clipLine).join(''))
-      parts.push('<div style="margin-top:12px"><button onclick="window.navigate(\'db-studio\');document.getElementById(\'vx-brief-modal\')&&document.getElementById(\'vx-brief-modal\').remove()" style="background:' + C.accent + ';color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif">Go to Studio →</button></div>')
-    } else if (!queue.length) {
-      parts.push(sec('Ready to post'))
-      parts.push('<div style="font-size:13px;color:' + C.t3 + ';font-style:italic;padding:6px 0">Nothing staged yet.</div>')
-    }
-
-    return parts.join('') || '<div style="color:' + C.t3 + ';font-style:italic">Nothing to report this week.</div>'
-  }
-
   // Hard-coded colors — the modal overlay sits outside the scoped CSS tokens,
   // so var(--t1) etc. don't resolve. Use explicit hex values instead.
   var C = { t1: '#1a1a1a', t2: '#5a5856', t3: '#8a8682', accent: '#c08a3e', hair: 'rgba(20,16,10,.10)' }
@@ -1266,74 +1202,6 @@ window.navigateTo = function (brief) {
       // audio / note
       + (audio ? '<div style="font-size:11px;color:' + C.t3 + ';font-style:italic;line-height:1.4">' + esc(audio) + '</div>' : '')
     + '</div>'
-  }
-
-  function formatRileyBrief(o) {
-    var kind = o.kind || ''
-    var parts = []
-
-    if (kind === 'reel_shot_list' || Array.isArray(o.shots)) {
-      if (o.reelTitle) parts.push(body(o.reelTitle + (o.duration ? ' · ' + o.duration : '') + (o.framework ? ' · ' + o.framework : '')))
-      if (Array.isArray(o.shots) && o.shots.length) {
-        parts.push(sec('Shots'))
-        parts.push(o.shots.map(shotRow).join(''))
-      }
-      if (o.soundNote) { parts.push(sec('Sound')); parts.push(body(o.soundNote)) }
-      if (o.editorNote) { parts.push(sec('Editor note')); parts.push(body(o.editorNote)) }
-
-    } else if (kind === 'pacing_notes') {
-      if (Array.isArray(o.sections)) {
-        o.sections.forEach(function (s) {
-          parts.push(sec(s.heading || ''))
-          if (s.body) parts.push(body(s.body))
-          if (Array.isArray(s.items)) parts.push(s.items.map(function (it) {
-            return '<div style="padding:3px 0 3px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(it) + '</div>'
-          }).join(''))
-        })
-      }
-      if (o.oneFixThisWeek) { parts.push(sec('This week')); parts.push(body(o.oneFixThisWeek)) }
-
-    } else if (kind === 'visual_direction') {
-      if (o.headline) parts.push(body(o.headline))
-      if (Array.isArray(o.sections)) {
-        o.sections.forEach(function (s) {
-          parts.push(sec(s.heading || ''))
-          if (s.body) parts.push(body(s.body))
-          if (Array.isArray(s.items)) parts.push(s.items.map(function (it) {
-            return '<div style="padding:3px 0 3px 10px;border-left:2px solid var(--b2);margin-bottom:4px;font-size:12px;color:var(--t2)">' + esc(it) + '</div>'
-          }).join(''))
-        })
-      }
-      if (o.testShot) { parts.push(sec('Test shot')); parts.push(body(o.testShot)) }
-
-    } else if (kind === 'thumbnail_brief') {
-      if (o.headline) parts.push(body(o.headline))
-      if (o.spec) {
-        parts.push(sec('Spec'))
-        var specKeys = { typeTreatment: 'Type', color: 'Colour', focalSubject: 'Subject', negativeSpace: 'Negative space', compositionRule: 'Composition' }
-        for (var k in specKeys) {
-          if (o.spec[k]) parts.push('<div style="display:flex;gap:12px;padding:4px 0;border-bottom:1px dashed var(--b1);font-size:12px"><span style="color:var(--t3);min-width:110px">' + specKeys[k] + '</span><span style="color:var(--t1)">' + esc(o.spec[k]) + '</span></div>')
-        }
-      }
-      if (o.dontDo) { parts.push(sec("Don't")); parts.push(body(o.dontDo)) }
-      if (o.testAgainst) { parts.push(sec('Test against')); parts.push(body(o.testAgainst)) }
-
-    } else if (kind === 'fix_weak_reel') {
-      if (o.headline) parts.push(body(o.headline))
-      if (o.diagnosis && o.diagnosis.body) { parts.push(sec('What went wrong')); parts.push(body(o.diagnosis.body)) }
-      if (o.proposedFix && Array.isArray(o.proposedFix.shots)) {
-        parts.push(sec('New open'))
-        parts.push(o.proposedFix.shots.map(shotRow).join(''))
-      }
-      if (o.whyItWorks) { parts.push(sec('Why it works')); parts.push(body(o.whyItWorks)) }
-      if (o.reshoot) { parts.push(sec('Reshoot')); parts.push(body(o.reshoot)) }
-
-    } else {
-      // Unknown kind — fall back to generic
-      return formatGenericBrief(o)
-    }
-
-    return parts.join('') || '<div style="color:var(--t3)">No details available</div>'
   }
 
   function formatGenericBrief(o) {
@@ -1381,11 +1249,11 @@ window.postNow = async function (postId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
-    if (!response.ok) throw new Error('Failed')
-    window.showNotification('🚀 Posted!', 'success')
+    if (!response.ok) throw new Error('post_failed')
+    window.showNotification('Posted!', 'success')
     await window.refreshQueue()
   } catch (err) {
-    window.showNotification('Failed', 'error')
+    window.showNotification('Couldn\'t post — try again.', 'error')
   } finally {
     window.briefState.loading = false
   }

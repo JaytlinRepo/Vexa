@@ -339,3 +339,52 @@ export async function persistSnapshotAndPosts(
     websiteClicks: stub.websiteClicks ?? 0,
   }).catch((e) => console.warn('[platformSync] derived metrics failed:', e))
 }
+
+/**
+ * Backfills daily PlatformSnapshot rows from Meta Graph daily insights so a
+ * fresh signup sees ~30 days of trend data immediately. Skips days that
+ * already have a row. Latest follower count is carried back as the best
+ * available approximation (Meta only exposes daily *change* via follower_count).
+ */
+export async function backfillIGDailySnapshots(
+  prisma: PrismaClient,
+  accountId: string,
+  history: Array<{ date: string; followerCount: number; reach: number; impressions: number; profileViews: number; websiteClicks: number }>,
+  currentFollowers: number,
+): Promise<void> {
+  if (!history.length) return
+
+  const dates = history.map((h) => h.date)
+  const minDate = new Date(dates[0] + 'T00:00:00Z')
+  const existing = await prisma.platformSnapshot.findMany({
+    where: { accountId, capturedAt: { gte: minDate } },
+    select: { capturedAt: true },
+  })
+  const existingDays = new Set(existing.map((e) => e.capturedAt.toISOString().slice(0, 10)))
+
+  // Walk newest → oldest, carrying followerCount backward from `currentFollowers`
+  // by subtracting each day's net follower_count delta. Meta returns follower_count
+  // as a daily *change* in v20+, so day_total[i] = day_total[i+1] - delta[i+1].
+  let runningFollowers = currentFollowers
+  const reversed = [...history].reverse()
+  for (const day of reversed) {
+    if (existingDays.has(day.date)) {
+      // Still subtract delta so the carry stays correct.
+      runningFollowers = Math.max(0, runningFollowers - (day.followerCount || 0))
+      continue
+    }
+    const captured = new Date(day.date + 'T12:00:00Z') // mid-day so it sorts cleanly
+    await prisma.platformSnapshot.create({
+      data: {
+        accountId,
+        capturedAt: captured,
+        followerCount: runningFollowers,
+        avgReach: day.reach,
+        avgImpressions: day.impressions,
+        profileViews: day.profileViews,
+        websiteClicks: day.websiteClicks,
+      },
+    }).catch((e: unknown) => console.warn('[platformSync] backfill snapshot failed:', day.date, (e as Error).message))
+    runningFollowers = Math.max(0, runningFollowers - (day.followerCount || 0))
+  }
+}

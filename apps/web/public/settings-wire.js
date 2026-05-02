@@ -1,5 +1,5 @@
 /* Sovexa — settings page: prefill inputs from /api/company/me, wire save
- * buttons to PATCH /api/company/:id (plus user-level email/name fields).
+ * buttons to PATCH /api/company/:id (profile, niche; brand voice UI removed).
  */
 ;(function () {
   let state = { user: null, company: null }
@@ -22,20 +22,6 @@
     const profInputs = document.querySelectorAll('#settings-profile .settings-input')
     if (profInputs[0]) profInputs[0].value = u?.fullName ?? ''
     if (profInputs[1]) profInputs[1].value = u?.email ?? ''
-
-    // Brand Voice tab — unhide when company exists, then prefill
-    const brandPanel = document.getElementById('settings-brand')
-    const brandTab = document.getElementById('vx-settings-brand-tab')
-    if (c && brandPanel) {
-      brandPanel.hidden = false
-      if (brandTab) brandTab.hidden = false
-      const brandInputs = document.querySelectorAll('#settings-brand .settings-input')
-      const bv = c?.brandVoice || {}
-      if (brandInputs[0]) brandInputs[0].value = Array.isArray(bv.tone) ? bv.tone.join(', ') : (bv.tone ?? '')
-      if (brandInputs[1]) brandInputs[1].value = Array.isArray(bv.avoid) ? bv.avoid.join(', ') : (bv.avoid ?? '')
-      const aud = c?.audience || {}
-      if (brandInputs[2]) brandInputs[2].value = aud.description || ''
-    }
 
     // Niche tab — unhide when company exists, then prefill
     const nichePanel = document.getElementById('settings-niche')
@@ -96,23 +82,6 @@
     flashButton(btn, 'Saved ✓', 1400, 'Save changes')
   }
 
-  async function saveBrand(btn) {
-    const inputs = document.querySelectorAll('#settings-brand .settings-input')
-    const toneRaw = inputs[0]?.value || ''
-    const avoidRaw = inputs[1]?.value || ''
-    const audienceRaw = inputs[2]?.value || ''
-    const payload = {
-      brandVoice: {
-        tone: toneRaw.split(',').map((s) => s.trim()).filter(Boolean),
-        avoid: avoidRaw.split(',').map((s) => s.trim()).filter(Boolean),
-      },
-      audience: { description: audienceRaw },
-    }
-    flashButton(btn, 'Saving…')
-    await patchCompany(payload)
-    flashButton(btn, 'Saved ✓', 1400, 'Save changes')
-  }
-
   async function saveNiche(btn) {
     const inputs = document.querySelectorAll('#settings-niche .settings-input')
     const payload = { niche: inputs[0]?.value || undefined, subNiche: inputs[1]?.value || null }
@@ -136,18 +105,12 @@
 
   function wireSaveButtons() {
     const profileBtn = document.querySelector('#settings-profile .settings-save')
-    const brandPanelEl = document.getElementById('settings-brand')
-    const brandBtn = brandPanelEl && !brandPanelEl.hidden ? document.querySelector('#settings-brand .settings-save') : null
     const nichePanelEl = document.getElementById('settings-niche')
     const nicheBtn =
       nichePanelEl && !nichePanelEl.hidden ? document.querySelector('#settings-niche .settings-save') : null
     if (profileBtn && !profileBtn.dataset.vxWired) {
       profileBtn.addEventListener('click', () => saveProfile(profileBtn))
       profileBtn.dataset.vxWired = '1'
-    }
-    if (brandBtn && !brandBtn.dataset.vxWired) {
-      brandBtn.addEventListener('click', () => saveBrand(brandBtn))
-      brandBtn.dataset.vxWired = '1'
     }
     if (nicheBtn && !nicheBtn.dataset.vxWired) {
       nicheBtn.addEventListener('click', () => saveNiche(nicheBtn))
@@ -242,7 +205,7 @@
       if (isPastDue) {
         statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
           + ' · <span style="color:#e87a7a;font-weight:500">payment issue</span> — '
-          + 'Stripe could not charge your card. Update payment in <strong>Manage billing</strong> or pick a fresh plan.'
+          + 'We couldn\'t process your last payment. Update your card in <strong>Manage billing</strong> or pick a plan again.'
       } else if (isCanceled) {
         statusEl.innerHTML = '<span style="color:#e87a7a;font-weight:500">No active subscription</span> · '
           + 'Choose Pro or Agency below to reconnect billing.'
@@ -253,7 +216,7 @@
       } else if (isActive) {
         statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
           + ' · <span style="color:#34d27a;font-weight:500">Active</span> · '
-          + 'Renewals and invoices stay in Stripe — use Manage billing anytime.'
+          + 'Renewals and receipts stay in your billing portal — use Manage billing anytime.'
       } else {
         statusEl.innerHTML = '<strong style="font-weight:600;color:var(--t1)">' + tierName + '</strong>'
           + ' · Subscription status unavailable — refresh or contact support.'
@@ -278,7 +241,7 @@
           manageBtn.textContent = 'Opening…'
           var r = await fetch('/api/stripe/portal', { method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' }, body:'{}' })
           if (r.ok) { var d = await r.json(); window.open(d.url, '_blank') }
-          else { var errBody = await r.json().catch(function () { return {} }); alert(errBody.error || 'Could not open billing portal.') }
+          else { var errBody = await r.json().catch(function () { return {} }); alert(errBody.error && typeof errBody.error === 'string' && errBody.error.length < 140 ? errBody.error : 'We couldn\'t open billing management. Try again in a moment or contact support.') }
           manageBtn.textContent = 'Manage billing'
         }
       } else if (manageBtn) {
@@ -334,20 +297,22 @@
             var d = await r.json()
             if (d.url) window.location.href = d.url
             else {
-              alert('Stripe did not return a checkout URL. Is Stripe configured?')
+              alert('Checkout isn\'t available right now. Please try again in a few minutes.')
               btn.textContent = 'Choose ' + labelAfter
               btn.disabled = false
             }
           } else {
             var err = await r.json().catch(function () { return {} })
-            alert('Checkout error: ' + (err.error || ('HTTP ' + r.status)))
+            alert(err.error && typeof err.error === 'string' && err.error.length < 140 && err.error.indexOf('HTTP') !== 0
+              ? err.error
+              : 'We couldn\'t start checkout. Please try again in a few minutes.')
             btn.textContent = 'Choose ' + labelAfter
             btn.disabled = false
           }
         })
       })
     } catch (e) {
-      statusEl.textContent = 'Error loading subscription.'
+      statusEl.textContent = 'We couldn\'t load your plan details. Refresh the page or try again shortly.'
       cardsEl.innerHTML = ''
       clearUsage()
       if (manageBtn) manageBtn.style.display = 'none'

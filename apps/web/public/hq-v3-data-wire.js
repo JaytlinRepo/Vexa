@@ -35,6 +35,24 @@
     })
   }
 
+  /** Task/workflow status for labels — avoid raw snake_case */
+  function friendlyStatusLabel (raw) {
+    var s = String(raw || '').trim()
+    if (!s) return ''
+    var map = {
+      in_progress: 'In progress',
+      pending: 'Queued',
+      delivered: 'Done',
+      approved: 'Approved',
+      rejected: 'Needs attention',
+      cancelled: 'Cancelled',
+      blocked: 'Waiting',
+      failed: 'Needs attention',
+    }
+    if (map[s]) return map[s]
+    return s.replace(/_/g, ' ').replace(/\b\w/g, function (ch) { return ch.toUpperCase() })
+  }
+
   // The 12 known bad-reach IG posts have engagementRate exactly 1.0 (eng/reach
   // where reach == likes). After API normalization fields are 0–1, so this is
   // also the right fence for engagementRate7d / engagementRate28d.
@@ -512,6 +530,26 @@
     el.textContent = days[d.getDay()] + ' · ' + months[d.getMonth()] + ' ' + d.getDate()
   }
 
+  var HQ3_TS_NOTICE_ID = 'hq3-ts-unavailable'
+  function setHqMetricsDataNotice (root, show) {
+    if (!root) return
+    var el = document.getElementById(HQ3_TS_NOTICE_ID)
+    if (!el) {
+      el = document.createElement('div')
+      el.id = HQ3_TS_NOTICE_ID
+      el.setAttribute('role', 'status')
+      el.style.cssText = 'margin:0 40px 20px;max-width:min(720px,92vw);padding:14px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:12px;color:var(--t2);font-size:13px;line-height:1.55;display:none;font-family:inherit'
+      el.textContent = 'We couldn\u2019t refresh the detailed charts (audience, posts, reach). Check your connection and reload this page.'
+      var strip = root.querySelector('.eyebrow-strip')
+      if (strip && strip.parentNode) {
+        strip.parentNode.insertBefore(el, strip.nextSibling)
+      } else {
+        root.insertBefore(el, root.firstChild)
+      }
+    }
+    el.style.display = show ? 'block' : 'none'
+  }
+
   // ───── render: hero greeting (H1 + sub-line) ──────────────────────
   // The hardcoded "Your team shipped 4 posts overnight" gets replaced with
   // a count keyed off real task activity, falling back to a quiet message
@@ -617,27 +655,6 @@
       if (v2) v2.textContent = fmtShort(d.followers)
       if (del2) del2.textContent = (d.followersDelta != null ? fmtDelta(d.followersDelta) : '')
     }
-    if (rows[2]) {
-      // Was "Bedrock quota" (in-memory, resets on restart — not viable).
-      // Now shows persistent monthly task usage from /api/usage.
-      var lbl3 = rows[2].querySelector('.lbl')
-      var v3 = rows[2].querySelector('.v')
-      var del3 = rows[2].querySelector('.d')
-      if (lbl3) lbl3.textContent = 'Tasks · this month'
-      if (v3 && d.tasksUsed != null && d.tasksLimit != null) {
-        v3.innerHTML = String(d.tasksUsed) + '<span style="color:var(--t3);font-size:18px;font-family:\'Inter\',sans-serif">/' + d.tasksLimit + '</span>'
-      } else if (v3) {
-        v3.textContent = '—'
-      }
-      if (del3 && d.tasksUsed != null && d.tasksLimit) {
-        var pct = Math.round((d.tasksUsed / d.tasksLimit) * 100)
-        var planLabel = (d.plan || 'pro')
-        planLabel = planLabel.charAt(0).toUpperCase() + planLabel.slice(1).toLowerCase()
-        del3.textContent = pct + '% · ' + planLabel
-      } else if (del3) {
-        del3.textContent = ''
-      }
-    }
   }
 
   // ───── render: forecast chart past-line ───────────────────────────
@@ -647,7 +664,10 @@
   function renderForecastChart (root, d) {
     var svg = root.querySelector('#hq3-fc-chart svg')
     var series = d.scopedSparkline && d.scopedSparkline.length >= 2 ? d.scopedSparkline : d.sparkline
-    if (!svg || !series || series.length < 2) return
+    if (!svg || !series || series.length < 1) return
+    // Fresh accounts only have one snapshot — synthesize a second point at the
+    // same value so the renderer draws a flat line instead of bailing out.
+    if (series.length === 1) series = [series[0], series[0]]
     var pastLine = svg.querySelector('path.past-line')
     var pastFill = svg.querySelector('path.past-fill')
     if (!pastLine) return
@@ -1098,8 +1118,47 @@
     if (!buttons.length) return
     var WINDOW_BY_LABEL = { '7D': 7, '30D': 30, '90D': 90, '1Y': 365 }
 
+    // Disable tabs whose window exceeds available data. Meta caps daily
+    // insights at ~30 days, so longer windows only become meaningful as
+    // we accumulate fresh daily snapshots over time.
+    var available = (d.sparkline && d.sparkline.length) || 0
+    var activeBtn = null
+    buttons.forEach(function (btn) {
+      var label = (btn.textContent || '').trim().toUpperCase()
+      var windowDays = WINDOW_BY_LABEL[label] || 30
+      var insufficient = windowDays > available
+      if (insufficient) {
+        btn.disabled = true
+        btn.classList.add('hq3-tab-locked')
+        btn.classList.remove('on')
+        btn.title = available > 0
+          ? 'Only ' + available + ' day' + (available === 1 ? '' : 's') + ' of data so far — fills in over time'
+          : 'Connect a platform to start collecting data'
+      } else {
+        btn.disabled = false
+        btn.classList.remove('hq3-tab-locked')
+        btn.title = ''
+        if (btn.classList.contains('on')) activeBtn = btn
+      }
+    })
+    // If the previously-active tab got disabled, fall back to the longest
+    // enabled window so the chart still shows something meaningful.
+    if (!activeBtn) {
+      var fallback = null
+      buttons.forEach(function (btn) {
+        if (btn.disabled) return
+        var w = WINDOW_BY_LABEL[(btn.textContent || '').trim().toUpperCase()] || 0
+        if (!fallback || w > (WINDOW_BY_LABEL[(fallback.textContent || '').trim().toUpperCase()] || 0)) fallback = btn
+      })
+      if (fallback) {
+        buttons.forEach(function (b) { b.classList.remove('on') })
+        fallback.classList.add('on')
+      }
+    }
+
     buttons.forEach(function (btn) {
       btn.onclick = function () {
+        if (btn.disabled) return
         buttons.forEach(function (b) { b.classList.remove('on') })
         btn.classList.add('on')
         var label = (btn.textContent || '').trim().toUpperCase()
@@ -1134,9 +1193,10 @@
       var prog = node.querySelector('.hq3-node-prog > span')
       var eta = node.querySelector('.hq3-node-eta')
 
-      var statusLabel = (task.status || 'in_progress').replace(/_/g, ' ')
+      var typePretty = task.type ? friendlyStatusLabel(task.type) : ''
+      var statusPretty = friendlyStatusLabel(task.status || 'in_progress')
       if (status) {
-        status.innerHTML = '<span class="dt"></span>' + (task.type || statusLabel) + ' · ' + statusLabel
+        status.innerHTML = '<span class="dt"></span>' + (typePretty ? typePretty + ' · ' + statusPretty : statusPretty)
       }
       if (taskEl && task.title) {
         // Set the task title from real data. enhancePipelineNodes() may
@@ -1225,18 +1285,16 @@
       },
       {
         role: 'riley',
-        url: '/api/weekly/riley-briefs?' + q,
+        url: '/api/studio/weekly-status?' + q + '&lite=1',
         extract: function (r) {
-          var o = r && r.output
-          if (!o) return null
-          if (o.kind === 'reel_shot_list' || Array.isArray(o.shots)) {
-            var sc = Array.isArray(o.shots) ? o.shots.length : null
-            return (o.reelTitle ? o.reelTitle.slice(0, 50) : 'Shot list') + (sc ? ' \u00b7 ' + sc + ' shots' : '')
-          }
-          if (o.kind === 'pacing_notes') return o.headline || 'Pacing audit ready'
-          if (o.kind === 'visual_direction') return o.headline || 'Visual direction ready'
-          if (o.kind === 'thumbnail_brief') return o.headline || 'Thumbnail brief staged'
-          return o.rileyNote ? o.rileyNote.slice(0, 70) + (o.rileyNote.length > 70 ? '\u2026' : '') : null
+          if (!r) return null
+          var na = (r.needsApproval && r.needsApproval.length) || 0
+          var rp = (r.readyToPost && r.readyToPost.length) || 0
+          if (na === 0 && rp === 0) return 'Nothing waiting in Studio'
+          var parts = []
+          if (na > 0) parts.push(na + (na === 1 ? ' needs your approval' : ' need your approval'))
+          if (rp > 0) parts.push(rp + ' ready to post')
+          return parts.join(' \u00b7 ')
         },
       },
     ]
@@ -1334,6 +1392,13 @@
     document.body.appendChild(d)
 
     d.addEventListener('click', function (e) {
+      var navBtn = e.target.closest('[data-navigate]')
+      if (navBtn && navBtn.getAttribute('data-navigate')) {
+        var dest = navBtn.getAttribute('data-navigate')
+        closePipelineDrawer()
+        if (typeof window.navigate === 'function') window.navigate(dest)
+        return
+      }
       if (e.target.closest('[data-drawer-close]')) {
         closePipelineDrawer()
         return
@@ -1354,7 +1419,76 @@
     d.setAttribute('aria-hidden', 'true')
   }
 
+  function clipLineFromStudio (c) {
+    var desc = c && c.description && String(c.description).trim()
+    var hook = c && c.hook && String(c.hook).trim()
+    var cap = c && c.caption && String(c.caption).trim()
+    var line = desc || hook || cap || 'Video clip'
+    return line.length > 100 ? line.slice(0, 97) + '\u2026' : line
+  }
+
+  function studioPendingLabel (c) {
+    var v = c && c.visualApprovalStatus === 'pending'
+    var cp = c && c.copyApprovalStatus === 'pending'
+    if (v && cp) return 'Visual + caption'
+    if (v) return 'Visual edit'
+    if (cp) return 'Caption'
+    return 'Review'
+  }
+
+  function studioVideoHtml (c) {
+    var url = c && c.previewUrl && String(c.previewUrl).trim()
+    if (!url) {
+      return '<div class="hq3-drawer-studio-video hq3-drawer-studio-video--missing">No preview available</div>'
+    }
+    return '<div class="hq3-drawer-studio-video">'
+      + '<video controls playsinline preload="metadata" '
+      + 'src="' + escHtml(url) + '" '
+      + 'aria-label="Edited clip preview"></video>'
+      + '</div>'
+  }
+
+  function renderRileyStudioQueueBody (payload) {
+    var needs = Array.isArray(payload.needsApproval) ? payload.needsApproval : []
+    var ready = Array.isArray(payload.readyToPost) ? payload.readyToPost : []
+    if (needs.length === 0 && ready.length === 0) {
+      return '<p class="hq3-drawer-empty">Nothing is waiting in Studio. Upload or finish an edit to see it here.</p>'
+        + '<p class="hq3-drawer-studio-cta"><button type="button" class="hq3-drawer-btn hq3-drawer-btn--primary" data-navigate="db-studio">Open Studio</button></p>'
+    }
+    var blocks = []
+    if (needs.length > 0) {
+      var rows = needs.map(function (c) {
+        var dur = c.duration != null && !isNaN(c.duration) ? Math.round(Number(c.duration)) + 's' : ''
+        return '<div class="hq3-drawer-studio-row">'
+          + studioVideoHtml(c)
+          + '<div class="hq3-drawer-studio-main">' + escHtml(clipLineFromStudio(c)) + '</div>'
+          + '<div class="hq3-drawer-studio-meta">' + escHtml(studioPendingLabel(c)) + (dur ? ' \u00b7 ' + dur : '') + '</div>'
+          + '</div>'
+      }).join('')
+      blocks.push('<div class="hq3-drawer-row"><div class="hq3-drawer-k">Needs your approval</div><div class="hq3-drawer-v"><div class="hq3-drawer-studio-list">' + rows + '</div></div></div>')
+    }
+    if (ready.length > 0) {
+      var rows2 = ready.map(function (c) {
+        var dur = c.duration != null && !isNaN(c.duration) ? Math.round(Number(c.duration)) + 's \u00b7 ' : ''
+        return '<div class="hq3-drawer-studio-row">'
+          + studioVideoHtml(c)
+          + '<div class="hq3-drawer-studio-main">' + escHtml(clipLineFromStudio(c)) + '</div>'
+          + '<div class="hq3-drawer-studio-meta">' + dur + 'Ready to publish</div>'
+          + '</div>'
+      }).join('')
+      blocks.push('<div class="hq3-drawer-row"><div class="hq3-drawer-k">Ready to post</div><div class="hq3-drawer-v"><div class="hq3-drawer-studio-list">' + rows2 + '</div></div></div>')
+    }
+    blocks.push('<p class="hq3-drawer-studio-cta"><button type="button" class="hq3-drawer-btn hq3-drawer-btn--primary" data-navigate="db-studio">Open Studio</button></p>')
+    return blocks.join('')
+  }
+
   function renderDrawerBody (role, payload) {
+    // Riley: Studio queue (pending / ready to post) — no weekly brief `output`
+    if (role === 'riley' && payload && !payload.output
+      && (Array.isArray(payload.needsApproval) || Array.isArray(payload.readyToPost))) {
+      return renderRileyStudioQueueBody(payload)
+    }
+
     var o = payload && payload.output
     if (!o) return '<p class="hq3-drawer-empty">This brief hasn’t produced output yet. Once the agent ships, you’ll see the details here.</p>'
     var rows = []
@@ -1487,10 +1621,21 @@
     d.querySelector('.hq3-drawer-name').textContent = meta.name
     d.querySelector('.hq3-drawer-role').textContent = meta.role
     var statusEl = d.querySelector('.hq3-drawer-status')
-    statusEl.textContent = status ? ('Status · ' + status) : 'No active brief'
-    var title = (payload && payload.output && (payload.output.title || payload.output.briefTitle)) || (entry ? meta.name + '’s latest brief' : meta.name + ' has nothing in flight')
-    d.querySelector('.hq3-drawer-title').textContent = title
+    var rileyStudio = role === 'riley' && payload && !payload.output
+      && (Array.isArray(payload.needsApproval) || Array.isArray(payload.readyToPost))
+    if (rileyStudio) {
+      var nNeed = (payload.needsApproval && payload.needsApproval.length) || 0
+      var nReady = (payload.readyToPost && payload.readyToPost.length) || 0
+      statusEl.textContent = nNeed + ' to review \u00b7 ' + nReady + ' ready to post'
+      d.querySelector('.hq3-drawer-title').textContent = 'What’s waiting in Studio'
+    } else {
+      statusEl.textContent = status ? ('Status · ' + friendlyStatusLabel(status)) : 'Nothing in progress right now'
+      var title = (payload && payload.output && (payload.output.title || payload.output.briefTitle)) || (entry ? meta.name + '’s latest brief' : meta.name + ' has nothing in flight')
+      d.querySelector('.hq3-drawer-title').textContent = title
+    }
     d.querySelector('.hq3-drawer-body').innerHTML = renderDrawerBody(role, payload)
+    if (rileyStudio) d.classList.add('hq3-drawer--studio-queue')
+    else d.classList.remove('hq3-drawer--studio-queue')
     var actionable = !!taskId && status !== 'approved' && status !== 'rejected'
     d.querySelectorAll('[data-drawer-action]').forEach(function (b) {
       b.disabled = !actionable
@@ -1543,7 +1688,7 @@
       if (node) node.setAttribute('data-task-status', action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'revision')
       setTimeout(closePipelineDrawer, 1400)
     } catch (e) {
-      msgEl.textContent = 'Couldn’t reach the API. Try again.'
+      msgEl.textContent = 'Couldn’t save that. Check your connection and try again.'
       msgEl.classList.add('is-error')
       btns.forEach(function (b) { b.disabled = false })
     }
@@ -1564,7 +1709,7 @@
       btn.setAttribute('aria-expanded', 'true')
     }
     try {
-      localStorage.setItem('hq3.pipelineCollapsed', '0')
+      localStorage.setItem('hq3.pipelineCollapsed.v2', '0')
     } catch (_) { /* noop */ }
   }
 
@@ -2543,13 +2688,7 @@
   // dressed up. That's the kind of mirror creators tune into.
   function renderCalendarTile (root, d, ts) {
     var bodyEl = root.querySelector('#hq3-cal-body')
-    var openBtn = root.querySelector('[data-open-calendar]')
     if (!bodyEl) return
-    if (openBtn) {
-      openBtn.onclick = function () {
-        if (typeof window.navigate === 'function') window.navigate('db-team')
-      }
-    }
 
     var posts = (ts && ts.posts) || []
     if (posts.length === 0) {
@@ -2614,21 +2753,20 @@
       headline = '<div class="status">No published posts yet.</div>'
     }
 
-    // 14-day cadence bar — most recent on the right. Segments per platform
+    // 7-day cadence bar — most recent on the right. Segments per platform
     // are stacked, sorted by registry order so the visual is stable.
     var bars = []
     var dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-    // Which platforms actually have posts in the 14-day window?
     var connectedThisWindow = (ts && ts.accounts) ? connectedPlatforms(ts.accounts) : []
     connectedThisWindow.sort(function (a, b) { return platformInfo(a).sort - platformInfo(b).sort })
     var maxCount = 1
-    for (var i = 13; i >= 0; i--) {
+    for (var i = 6; i >= 0; i--) {
       var dayDate = new Date(todayMid.getTime() - i * 86400000)
       var key = dayDate.toISOString().slice(0, 10)
       var entry = byDate[key] || { total: 0 }
       if (entry.total > maxCount) maxCount = entry.total
     }
-    for (var j = 13; j >= 0; j--) {
+    for (var j = 6; j >= 0; j--) {
       var dayDate2 = new Date(todayMid.getTime() - j * 86400000)
       var key2 = dayDate2.toISOString().slice(0, 10)
       var entry2 = byDate[key2] || { total: 0 }
@@ -2658,7 +2796,7 @@
 
     bodyEl.innerHTML = headline
       + '<div class="hq3-cadence">' + bars.join('') + '</div>'
-      + '<div class="hq3-cad-legend">' + legend + '<span class="leg meta">past 14 days</span></div>'
+      + '<div class="hq3-cad-legend">' + legend + '<span class="leg meta">past 7 days</span></div>'
   }
 
   // ───── render: anomaly callouts ───────────────────────────────────
@@ -2759,18 +2897,26 @@
   function renderPlaybook (root) {
     var playbookEl = root.querySelector('.playbook ul')
     if (!playbookEl) return
+    var emptyState = '<li>Maya is reviewing your account. Her first daily playbook lands within 24 hours of your first sync.</li>'
     return get('/api/platform/maya-playbook').then(function (pb) {
-      if (!pb || !pb.message) return
-      // Split by sentence-ending punctuation, preserve sentences with em.
+      if (!pb || !pb.message) {
+        playbookEl.innerHTML = emptyState
+        return
+      }
       var sentences = pb.message
         .split(/(?<=[.!?])\s+/)
         .map(function (s) { return s.trim() })
         .filter(function (s) { return s.length > 5 })
         .slice(0, 4)
-      if (sentences.length === 0) return
+      if (sentences.length === 0) {
+        playbookEl.innerHTML = emptyState
+        return
+      }
       playbookEl.innerHTML = sentences.map(function (s) {
         return '<li>' + escHtml(s) + '</li>'
       }).join('')
+    }).catch(function () {
+      playbookEl.innerHTML = emptyState
     })
   }
 
@@ -2799,6 +2945,7 @@
     // Posts/snapshots are scoped to the active platform; audience tiles and
     // forecast legend stay tied to the raw response (already source-labeled).
     getTimeseries().then(function (ts) {
+      try { setHqMetricsDataNotice(root, !ts) } catch (e) { console.error('[hq-v3] metrics notice', e) }
       if (!ts) return
       var tsScoped = scopeTimeseriesToPlatform(ts)
       try { renderReach7dFromSnapshots(root, tsScoped) } catch (e) { console.error('[hq-v3] reach7d', e) }

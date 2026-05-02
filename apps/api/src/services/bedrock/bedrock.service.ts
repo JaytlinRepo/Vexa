@@ -188,41 +188,111 @@ export async function invokeTitanEmbed(
 
 // ─── STRUCTURED OUTPUT PARSER ─────────────────────────────────────────────────
 
+function isEscapedDoubleQuote(input: string, quoteIndex: number): boolean {
+  let bs = 0
+  for (let k = quoteIndex - 1; k >= 0 && input[k] === '\\'; k--) bs++
+  return bs % 2 === 1
+}
+
+type JsonFrame = { k: 'obj'; needKey: boolean } | { k: 'arr' }
+
 /**
- * Escape inner double-quotes inside JSON string values. Walks the input
- * tracking whether we're inside a string; any `"` we encounter while
- * already inside a string AND not followed by a JSON-delimiter token is
- * treated as an unescaped inner quote and replaced with `\"`.
+ * Escape inner double-quotes inside JSON string values. Tracks object/array
+ * structure outside strings so we know whether a quoted segment is a **key**
+ * (may close before `:`) or a **value** (closes only before `,` `}` `]` or
+ * EOF). Treating `:` as a value-string closer was wrong for text like
+ * `"hook": "she said "perfect": story"` — the colon after `perfect` is still
+ * inside the value.
  */
 function escapeInnerQuotes(input: string): string {
+  const stack: JsonFrame[] = []
   let out = ''
+  let i = 0
   let inString = false
-  let prev = ''
-  for (let i = 0; i < input.length; i++) {
+  let stringIsKey = false
+
+  const peekNonWs = (from: number) => {
+    let j = from
+    while (j < input.length && /\s/.test(input[j])) j++
+    return { j, ch: input[j] ?? '' }
+  }
+
+  while (i < input.length) {
     const c = input[i]
-    if (c === '"' && prev !== '\\') {
-      if (!inString) {
+    if (!inString) {
+      if (c === '{') {
+        stack.push({ k: 'obj', needKey: true })
+        out += c
+        i++
+        continue
+      }
+      if (c === '}') {
+        stack.pop()
+        out += c
+        i++
+        continue
+      }
+      if (c === '[') {
+        stack.push({ k: 'arr' })
+        out += c
+        i++
+        continue
+      }
+      if (c === ']') {
+        stack.pop()
+        out += c
+        i++
+        continue
+      }
+      if (c === ',') {
+        const top = stack[stack.length - 1]
+        if (top?.k === 'obj') top.needKey = true
+        out += c
+        i++
+        continue
+      }
+      if (c === ':') {
+        const top = stack[stack.length - 1]
+        if (top?.k === 'obj') top.needKey = false
+        out += c
+        i++
+        continue
+      }
+      if (c === '"') {
+        const top = stack[stack.length - 1]
+        stringIsKey = top?.k === 'obj' && top.needKey === true
         inString = true
         out += c
-      } else {
-        // Look ahead for what comes after, ignoring whitespace
-        let j = i + 1
-        while (j < input.length && /\s/.test(input[j])) j++
-        const next = input[j] || ''
-        if (next === ',' || next === '}' || next === ']' || next === ':' || j >= input.length) {
-          // Closing quote of the string
-          inString = false
-          out += c
-        } else {
-          // Inner quote — escape it
-          out += '\\"'
-        }
+        i++
+        continue
       }
-    } else {
       out += c
+      i++
+      continue
     }
-    prev = c
+
+    // Inside a JSON string
+    if (c === '"' && !isEscapedDoubleQuote(input, i)) {
+      const { j, ch } = peekNonWs(i + 1)
+      let closesString = false
+      if (stringIsKey) {
+        closesString = ch === ':'
+      } else {
+        closesString = ch === ',' || ch === '}' || ch === ']' || j >= input.length
+      }
+      if (closesString) {
+        inString = false
+        out += c
+      } else {
+        out += '\\"'
+      }
+      i++
+      continue
+    }
+    out += c
+    i++
   }
+
   return out
 }
 

@@ -34,6 +34,34 @@
     return String(name || '?').replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '?'
   }
 
+  // ── OAuth popup helper ───────────────────────────────────────────────
+
+  function openOAuthPopup(url, onComplete) {
+    var w = 520, h = 640
+    var left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2))
+    var top = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2))
+    var popup = window.open(url, 'vx_oauth', 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes')
+    if (!popup) { window.location.href = url; return }
+    var done = false
+    var finish = function () {
+      if (done) return
+      done = true
+      try { window.removeEventListener('storage', onStorage) } catch (_) {}
+      clearInterval(poll)
+      try { window.focus() } catch (_) {}
+      try { if (popup && !popup.closed) popup.close() } catch (_) {}
+      cachedAccounts = null
+      if (typeof onComplete === 'function') onComplete()
+    }
+    // Listen for the popup's localStorage signal — resilient to COOP-severed
+    // opener references during the Facebook/TikTok OAuth redirect chain.
+    var onStorage = function (e) { if (e.key === 'vx-oauth-complete') finish() }
+    window.addEventListener('storage', onStorage)
+    var poll = setInterval(function () {
+      try { if (popup.closed) finish() } catch (_) { finish() }
+    }, 500)
+  }
+
   // ── Shared state ─────────────────────────────────────────────────────
 
   let cachedAccounts = null
@@ -112,9 +140,9 @@
         pill.addEventListener('click', () => {
           const pid = pill.dataset.pid
           if (pid === IG_ID) {
-            window.location.href = `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
+            openOAuthPopup(`/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
           } else if (pid === TT_ID) {
-            window.location.href = `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+            openOAuthPopup(`/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
           }
         })
       })
@@ -199,10 +227,10 @@
 
         if (platformId === TT_ID) {
           if (!connected) {
-            window.location.href = `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+            openOAuthPopup(`/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
             return
           }
-          if (!confirm('Disconnect TikTok?')) return
+          if (!confirm('Disconnect TikTok? We\'ll remove the connection and stop pulling fresh stats.')) return
           btn.disabled = true
           await fetch(`/api/tiktok/connections/${companyId}`, { method: 'DELETE', credentials: 'include' })
           renderIntegrationsState()
@@ -211,10 +239,10 @@
 
         if (platformId === IG_ID) {
           if (!connected) {
-            window.location.href = `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
+            openOAuthPopup(`/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
             return
           }
-          if (!confirm('Disconnect Instagram?')) return
+          if (!confirm('Disconnect Instagram? We\'ll remove the connection and stop pulling fresh stats.')) return
           btn.disabled = true
           await fetch('/api/instagram', { method: 'DELETE', credentials: 'include' })
           renderIntegrationsState()
@@ -230,9 +258,9 @@
         if (!companyId) return
         const platformId = btn.dataset.connect
         if (platformId === IG_ID) {
-          window.location.href = `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
+          openOAuthPopup(`/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
         } else if (platformId === TT_ID) {
-          window.location.href = `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+          openOAuthPopup(`/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`, () => renderIntegrationsState())
         }
       })
     })
@@ -243,7 +271,7 @@
         const companyId = getCompanyId()
         if (!companyId) return
         btn.disabled = true
-        btn.textContent = 'Resyncing…'
+        btn.textContent = 'Updating…'
         const platform = btn.dataset.resync
         if (platform === IG_ID) {
           await fetch('/api/instagram/sync', {
@@ -304,15 +332,18 @@
       if (isTiktok) {
         const parts = [ttConn.handle || 'Active']
         if (Number(ttConn.followerCount) > 0) parts.push(`${Number(ttConn.followerCount).toLocaleString()} followers`)
-        parts.push(`synced ${timeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)}`)
+        parts.push(`updated ${timeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)}`)
         detail = parts.map(escapeHtml).join(' · ')
       } else if (isIG && igConn) {
-        const parts = [`@${igConn.handle || acct?.handle || 'unknown'}`]
+        const h = igConn.handle || acct?.handle
+        const parts = []
+        if (h) parts.push('@' + h)
+        else parts.push('Instagram connected')
         if (Number(igConn.followerCount) > 0) parts.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
-        parts.push(`synced ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}`)
+        parts.push(`updated ${timeAgo(igConn.lastSyncedAt || igConn.connectedAt)}`)
         detail = parts.map(escapeHtml).join(' · ')
       } else if (acct) {
-        detail = escapeHtml(`@${acct.handle} · synced ${timeAgo(acct.lastSyncedAt)}`)
+        detail = escapeHtml(`@${acct.handle} · updated ${timeAgo(acct.lastSyncedAt)}`)
       }
     } else {
       detail = 'Click the toggle to connect'
@@ -334,7 +365,7 @@
     `
 
     const resyncBtn = isConnected
-      ? `<button data-resync="${platform.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Resync</button>`
+      ? `<button data-resync="${platform.id}" style="background:transparent;border:1px solid var(--b2);color:var(--t2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Refresh data</button>`
       : ''
     const reconnectBtn = isConnected
       ? `<button data-connect="${platform.id}" style="background:transparent;color:var(--t2);border:1px solid var(--b2);padding:6px 12px;border-radius:6px;font-size:10px;font-family:inherit;cursor:pointer">Reconnect</button>`

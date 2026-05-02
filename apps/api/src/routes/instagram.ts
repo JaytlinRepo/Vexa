@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest, readSession, createSession } from '../middleware/auth'
 import { readPendingSignup, clearPendingSignup } from './auth'
+import { storePendingByNonce, getPendingByNonce, deletePendingByNonce } from '../lib/pendingSignupStore'
 import * as meta from '../lib/metaGraph'
 import type { IGStory, IGStoryInsight } from '../lib/metaGraph'
 import { mapMetaToStub } from '../lib/metaMapper'
@@ -82,6 +83,14 @@ router.get('/auth/start', async (req, res) => {
   const nonce = crypto.randomBytes(16).toString('hex')
   const state = encodeState({ n: nonce, c: companyId, ts: Date.now() })
 
+  // For pending signups: cookies won't survive the cross-site OAuth redirect
+  // (SameSite=Lax blocks them). Store pending data server-side by nonce now,
+  // while cookies are still accessible through the Next.js proxy.
+  if (!session && pending) {
+    storePendingByNonce(nonce, pending)
+    console.log('[instagram] stored pending signup by nonce for', pending.email)
+  }
+
   const params = new URLSearchParams({
     client_id: fbAppId,
     redirect_uri: uri,
@@ -112,7 +121,10 @@ router.get('/auth/callback', async (req, res) => {
 
   // Pending signup path: companyId is empty — create user+company atomically now.
   if (!companyId) {
-    const pending = await readPendingSignup(req)
+    // Look up by nonce (stored at /auth/start time, survives cross-site redirect).
+    // Fall back to cookie for same-origin flows.
+    const pending = getPendingByNonce(decoded.n) ?? await readPendingSignup(req)
+    console.log('[instagram] pending data:', pending ? `email=${pending.email} company=${pending.companyName} niche=${pending.niche}` : 'null')
     if (!pending?.companyName || !pending?.niche) {
       res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
       return
@@ -136,6 +148,7 @@ router.get('/auth/callback', async (req, res) => {
     })
     companyId = created.company.id
     clearPendingSignup(res)
+    deletePendingByNonce(decoded.n)
     await createSession(res, { userId: created.user.id, email: created.user.email })
     // Seed tasks + welcome notification fire-and-forget
     const { seedStarterTasks } = await import('../lib/seedStarterTasks')
@@ -301,10 +314,26 @@ router.get('/auth/callback', async (req, res) => {
       })
 
       // Write a snapshot + posts via persistPhylloSync's post-upsert logic
-      const { persistSnapshotAndPosts } = await import('../lib/platformSync')
+      const { persistSnapshotAndPosts, backfillIGDailySnapshots } = await import('../lib/platformSync')
       await persistSnapshotAndPosts(prisma, acct.id, stub).catch((e: unknown) =>
         console.warn('[instagram] snapshot/posts write failed', e),
       )
+
+      // Backfill ~30 days of daily snapshots so the trend chart populates
+      // immediately on first connect / login instead of waiting for fresh data.
+      try {
+        const { getIGAccountHistory } = await import('../lib/metaGraph')
+        const igUserId = stub.igUserId
+        if (igUserId) {
+          const history = await getIGAccountHistory(igUserId, accessToken, 30)
+          if (history.length > 0) {
+            await backfillIGDailySnapshots(prisma, acct.id, history, stub.followerCount)
+            console.log('[instagram] backfilled', history.length, 'daily snapshots')
+          }
+        }
+      } catch (e) {
+        console.warn('[instagram] daily history backfill failed:', (e as Error).message)
+      }
     } catch (e) {
       console.warn('[instagram] platform-account write failed', e)
     }
@@ -347,6 +376,50 @@ router.get('/auth/callback', async (req, res) => {
     if (plan.proactiveAnalysis) {
       void triggerFirstConnectBatch(prisma, companyId).catch(() => {})
     }
+    // Heuristic content tags so the Content-mix tile populates immediately
+    // (Bedrock-based tagger is rate-limited; this fills the gap for free tier).
+    void (async () => {
+      try {
+        const { heuristicTagAllPosts } = await import('../lib/heuristicTagger')
+        const n = await heuristicTagAllPosts(prisma, companyId)
+        if (n > 0) console.log('[instagram] heuristic-tagged', n, 'posts')
+      } catch (e) {
+        console.warn('[instagram] heuristic tagging failed:', (e as Error).message?.slice(0, 120))
+      }
+    })()
+
+    // Maya's daily playbook — runs once on first connect for every plan,
+    // including free, so the dashboard's playbook tile populates immediately
+    // instead of staying empty until the scheduled daily run.
+    void (async () => {
+      try {
+        const { generateMayaPlaybook } = await import('../lib/metricTracking')
+        await generateMayaPlaybook(prisma, companyId)
+      } catch (e) {
+        console.warn('[instagram] first-connect Maya playbook failed:', (e as Error).message?.slice(0, 120))
+      }
+    })()
+
+    // Jordan picks an opening goal so the dashboard's goal tile shows a
+    // concrete target on first dashboard load instead of an empty state.
+    void (async () => {
+      try {
+        const fresh = await prisma.company.findUnique({ where: { id: companyId }, select: { goals: true } })
+        const existing = (fresh?.goals as { active?: unknown } | null) || {}
+        if (existing.active) return
+        const { generateJordanGoal } = await import('./company')
+        const result = await generateJordanGoal(prisma, companyId)
+        if (result) {
+          await prisma.company.update({
+            where: { id: companyId },
+            data: { goals: { ...existing, active: result.goal } as unknown as object },
+          })
+          console.log('[instagram] Jordan opening goal set:', result.goal.type, '→', result.goal.target)
+        }
+      } catch (e) {
+        console.warn('[instagram] first-connect Jordan goal failed:', (e as Error).message?.slice(0, 120))
+      }
+    })()
 
     console.log('[instagram] connection saved', { companyId, handle: stub.username, followers: stub.followerCount, posts: stub.postCount })
 
@@ -386,7 +459,79 @@ router.post('/sync', requireAuth, async (req, res) => {
   const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true } } } })
   if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
   const plan = PLAN_LIMITS[company.user.plan]
-  if (!plan.syncOnLogin) { res.json({ synced: false, reason: 'plan_locked' }); return }
+
+  // One-time history backfill bypasses the plan gate so the trend chart
+  // populates on first login even for free users. Uses < 5 snapshots as
+  // the "needs bootstrap" signal.
+  if (!plan.syncOnLogin) {
+    try {
+      const acct = await prisma.platformAccount.findFirst({
+        where: { companyId, platform: 'instagram' },
+        select: { id: true },
+      })
+      if (acct) {
+        const snapshotCount = await prisma.platformSnapshot.count({ where: { accountId: acct.id } })
+        if (snapshotCount < 5) {
+          const conn = await prisma.instagramConnection.findUnique({ where: { companyId } })
+          const igUserId = conn?.igBusinessId || conn?.igUserId
+          if (conn?.accessToken && igUserId) {
+            const { getIGAccountHistory, getIGProfile } = await import('../lib/metaGraph')
+            const { backfillIGDailySnapshots } = await import('../lib/platformSync')
+            const profile = await getIGProfile(igUserId, conn.accessToken).catch(() => null)
+            const followers = profile?.followers_count ?? conn.followerCount ?? 0
+            const history = await getIGAccountHistory(igUserId, conn.accessToken, 30)
+            if (history.length > 0) {
+              await backfillIGDailySnapshots(prisma, acct.id, history, followers)
+              console.log('[instagram] login bootstrap: backfilled', history.length, 'daily snapshots')
+            }
+            // Heuristic-tag any posts missing communityTags so the Content-mix
+            // tile populates regardless of the throttled Bedrock tagger.
+            try {
+              const { heuristicTagAllPosts } = await import('../lib/heuristicTagger')
+              const tagged = await heuristicTagAllPosts(prisma, companyId)
+              if (tagged > 0) console.log('[instagram] bootstrap heuristic-tagged', tagged, 'posts')
+            } catch (e) {
+              console.warn('[instagram] bootstrap heuristic tagging failed:', (e as Error).message?.slice(0, 120))
+            }
+            // Generate Maya's playbook if it doesn't exist yet
+            const existingPb = await prisma.brandMemory.findFirst({
+              where: { companyId, content: { path: ['tags'], array_contains: 'maya_playbook' } },
+              select: { id: true },
+            })
+            if (!existingPb) {
+              const { generateMayaPlaybook } = await import('../lib/metricTracking')
+              generateMayaPlaybook(prisma, companyId).catch((e: unknown) =>
+                console.warn('[instagram] bootstrap Maya playbook failed:', (e as Error).message?.slice(0, 120)),
+              )
+            }
+            // Set Jordan's opening goal if none exists yet
+            const existingGoal = (company.goals as { active?: unknown } | null) || {}
+            if (!existingGoal.active) {
+              try {
+                const { generateJordanGoal } = await import('./company')
+                const goalResult = await generateJordanGoal(prisma, companyId)
+                if (goalResult) {
+                  await prisma.company.update({
+                    where: { id: companyId },
+                    data: { goals: { ...existingGoal, active: goalResult.goal } as unknown as object },
+                  })
+                  console.log('[instagram] bootstrap Jordan goal set:', goalResult.goal.type, '→', goalResult.goal.target)
+                }
+              } catch (e) {
+                console.warn('[instagram] bootstrap Jordan goal failed:', (e as Error).message?.slice(0, 120))
+              }
+            }
+            res.json({ synced: true, bootstrap: true, days: history.length })
+            return
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[instagram] login bootstrap failed:', (e as Error).message)
+    }
+    res.json({ synced: false, reason: 'plan_locked' })
+    return
+  }
 
   try {
     const { syncInstagramAccount } = await import('../lib/instagramSync')

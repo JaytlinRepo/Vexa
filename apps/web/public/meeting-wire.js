@@ -1242,7 +1242,7 @@
             } else if (evt.done) {
               history.push({ role: 'assistant', content: assistantText })
             } else if (evt.error) {
-              bubble.textContent = '(Stream error: ' + evt.error + ')'
+              bubble.textContent = 'Something went wrong while loading this reply. Please try sending your message again.'
             } else if (typeof evt.knowledgeCount === 'number') {
               renderKnowledgeBadge(evt.knowledgeCount, evt.niche, evt.memoryCount)
             }
@@ -1252,7 +1252,7 @@
         }
       }
     } catch (e) {
-      bubble.textContent = '(Network error — try again.)'
+      bubble.textContent = 'Couldn\'t send — check your connection and try again.'
     } finally {
       streaming = false
     }

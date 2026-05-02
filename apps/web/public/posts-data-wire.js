@@ -38,7 +38,8 @@
     view: 'grid',        // grid | table
     top5: 'all',         // all | instagram | tiktok
     top5Sort: 'reach',   // reach | likes | views
-    fetched: false
+    fetched: false,
+    loadError: false,   // true when /platform/timeseries failed (network / auth)
   }
 
   /* ── normalise mediaType labels ───────────────────── */
@@ -257,10 +258,31 @@
       + '</tr>'
   }
 
+  function renderPostsLoadFailure (view) {
+    var msg = '<div style="text-align:center;padding:56px 24px;color:var(--t2);font-size:14px;line-height:1.6;max-width:420px;margin:0 auto">We couldn\'t load your posts. Check your connection and open <strong>Posts</strong> again to retry.</div>'
+    var gridEl = view.querySelector('.grid')
+    var tableWrap = view.querySelector('.tbl-wrap')
+    if (gridEl) {
+      gridEl.style.display = ''
+      gridEl.innerHTML = '<div style="grid-column:1/-1">' + msg + '</div>'
+    }
+    if (tableWrap) {
+      tableWrap.style.display = ''
+      tableWrap.innerHTML = msg
+    }
+    var countEl = view.querySelector('.list-head .c')
+    if (countEl) countEl.textContent = '—'
+  }
+
   /* ── render: full grid or table ───────────────────── */
   function render() {
     var view = document.getElementById('view-db-posts')
     if (!view) return
+
+    if (state.loadError && allPosts.length === 0) {
+      renderPostsLoadFailure(view)
+      return
+    }
 
     var list = filtered()
     var visible = list
@@ -534,6 +556,7 @@
 
   /* ── apply timeseries data to UI ─────────────────── */
   function applyTimeseries(ts, view) {
+    state.loadError = false
     if (!ts || !ts.posts || ts.posts.length === 0) {
       var gridEl = view.querySelector('.grid')
       if (gridEl && allPosts.length === 0) gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px 0;color:var(--t3);font-size:14px">No posts synced yet. Connect a platform to see your content here.</div>'
@@ -582,8 +605,7 @@
     if (!view) return
     wireFilters()
 
-    // If already fetched, render existing data immediately
-    if (state.fetched) { render(); return }
+    if (state.fetched && !state.loadError) { render(); return }
 
     fetchFresh(view)
   }
@@ -591,13 +613,21 @@
   function fetchFresh(view) {
     if (fetchInFlight) return
     fetchInFlight = true
-    state.fetched = true
 
     get('/api/platform/timeseries').then(function (ts) {
       fetchInFlight = false
-      if (!ts) return
-      // server cache handles freshness
       if (!view) view = document.getElementById('view-db-posts')
+      if (!ts) {
+        state.loadError = true
+        state.fetched = false
+        if (view) {
+          wireFilters()
+          renderPostsLoadFailure(view)
+        }
+        return
+      }
+      state.loadError = false
+      state.fetched = true
       if (view) applyTimeseries(ts, view)
     })
   }
@@ -610,7 +640,7 @@
     get('/api/platform/timeseries').then(function (ts) {
       fetchInFlight = false
       if (!ts) return
-      // server cache handles freshness
+      state.loadError = false
       applyTimeseries(ts, view)
     })
   }

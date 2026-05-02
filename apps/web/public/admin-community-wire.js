@@ -16,6 +16,12 @@
       return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]
     })
   }
+  function friendlyReportReason (reason) {
+    var s = String(reason || '').trim()
+    if (!s) return 'Report'
+    return s.replace(/_/g, ' ').replace(/\b\w/g, function (ch) { return ch.toUpperCase() })
+  }
+
   function timeAgo(d) {
     if (!d) return ''
     var diff = Date.now() - new Date(d).getTime()
@@ -34,18 +40,18 @@
     if (!list) return
     if (counter) counter.textContent = reports.length
     if (reports.length === 0) {
-      list.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--t3);font-family:\'JetBrains Mono\',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase">No pending reports</div>'
+      list.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--t3);font-size:13px;line-height:1.5;font-family:\'DM Sans\',sans-serif">Nothing waiting for review.</div>'
       return
     }
     list.innerHTML = reports.map(function (r) {
       var thumb = r.post && r.post.thumbnailUrl ? r.post.thumbnailUrl : ''
       var caption = (r.post && r.post.caption) || '(no caption)'
       var handle = r.post && r.post.account && r.post.account.handle ? '@' + r.post.account.handle : ''
-      var reporter = r.reporter && r.reporter.email ? r.reporter.email : 'unknown'
+      var reporter = r.reporter && r.reporter.email ? r.reporter.email : 'Anonymous reporter'
       return '<div class="admin-report-tile" data-report-id="' + esc(r.id) + '">'
         + (thumb ? '<img class="thumb" src="' + esc(thumb) + '" referrerpolicy="no-referrer" />' : '<div class="thumb"></div>')
         + '<div>'
-        + '<div class="eyebrow">PENDING · ' + esc((r.reason || '').toUpperCase()) + '</div>'
+        + '<div class="eyebrow">Awaiting review · ' + esc(friendlyReportReason(r.reason)) + '</div>'
         + '<h3>' + esc(caption.slice(0, 140)) + '</h3>'
         + '<div class="meta">By ' + esc(handle) + ' · Reported by ' + esc(reporter) + ' · ' + esc(timeAgo(r.createdAt)) + (r.notes ? ' · "' + esc(r.notes.slice(0, 80)) + '"' : '') + '</div>'
         + '</div>'
@@ -63,10 +69,10 @@
       if (!d || d.__err) {
         var list = document.getElementById('admin-community-reports-list')
         if (list) {
-          list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--t3);font-size:13px">'
+          list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--t3);font-size:13px;line-height:1.5">'
             + (d && (d.__err === 401 || d.__err === 403)
-              ? 'Admin access required.'
-              : 'Could not load reports.')
+              ? 'You need admin access to view this queue.'
+              : 'We couldn\'t load the queue. Refresh the page or try again shortly.')
             + '</div>'
         }
         return
@@ -118,7 +124,12 @@
         btn.disabled = true
         resolve(rid, action).then(function (ok) {
           if (ok) load()
-          else btn.disabled = false
+          else {
+            btn.disabled = false
+            var prev = btn.textContent
+            btn.textContent = 'Couldn\'t update — try again'
+            setTimeout(function () { btn.textContent = prev }, 2600)
+          }
         })
       })
     }

@@ -13,7 +13,7 @@ const CHANNEL = 'sovexa:video-progress'
 
 let subscriber: IORedis | null = null
 
-type BroadcastFn = (event: string, data: unknown) => void
+type BroadcastFn = (event: string, data: unknown, userId?: string) => void
 
 export function initSSEBridge(broadcastFn: BroadcastFn): void {
   if (subscriber) return
@@ -38,8 +38,8 @@ export function initSSEBridge(broadcastFn: BroadcastFn): void {
 
   subscriber.on('message', (_channel: string, message: string) => {
     try {
-      const { event, data } = JSON.parse(message)
-      broadcastFn(event, data)
+      const { event, data, userId } = JSON.parse(message)
+      broadcastFn(event, data, userId)
     } catch {}
   })
 }

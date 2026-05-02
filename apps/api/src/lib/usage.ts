@@ -39,7 +39,7 @@ export async function computeUsage(prisma: PrismaClient, userId: string): Promis
   const [taskCount, videoCount] = await Promise.all([
     companyIds.length
       ? prisma.task.count({
-          where: { companyId: { in: companyIds }, createdAt: { gte: windowStart, lt: windowEnd } },
+          where: { companyId: { in: companyIds }, createdAt: { gte: windowStart, lt: windowEnd }, isSeeded: false },
         })
       : 0,
     companyIds.length

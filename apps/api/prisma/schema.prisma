@@ -222,6 +222,7 @@ model Task {
   description String?
   type        String
   status      TaskStatus @default(pending)
+  isSeeded    Boolean    @default(false) @map("is_seeded")
   userAction  Json?      @map("user_action")
   createdAt   DateTime   @default(now()) @map("created_at")
   completedAt DateTime?  @map("completed_at")

@@ -13,6 +13,7 @@ import IORedis from 'ioredis'
 import { createRedisConnection } from '../queues/connection'
 import type { VideoProcessingJobData } from '../queues/types'
 import prisma from '../lib/prisma'
+import { videoProcessingAsyncLocal } from '../lib/videoProcessing.service'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
@@ -28,29 +29,28 @@ export function createVideoProcessingWorker(): Worker {
       try {
         const isCompilation = job.name === 'compilation'
 
-        // Both branches need the Redis-pubsub broadcaster: events emitted
-        // inside the worker process must be relayed to the SSE bridge in
-        // the API process. The broadcaster carries the resolved id with
-        // each event so the frontend can match it.
-        const { setBroadcastFn } = await import('../lib/videoProcessing.service')
-        setBroadcastFn((event: string, data: unknown) => {
-          pubClient.publish('sovexa:video-progress', JSON.stringify({ event, data, uploadId }))
+        // AsyncLocalStorage per job so concurrency: 2 never shares one global
+        // broadcast closure (wrong Bull job / quit Redis client).
+        const broadcast = (event: string, data: unknown) => {
+          pubClient.publish('sovexa:video-progress', JSON.stringify({ event, data, uploadId, userId }))
           const progress = (data as { progress?: number })?.progress
-          if (progress != null) job.updateProgress(progress)
-        })
-
-        if (isCompilation) {
-          console.log(`[worker:video] compilation ${uploadId} — joining videos then editing`)
-          const { processCompilation } = await import('../lib/videoCompilation.service')
-          await processCompilation(prisma, uploadId)
-          console.log(`[worker:video] compilation done ${uploadId}`)
-        } else {
-          console.log(`[worker:video] single video ${uploadId}`)
-          const VideoProcessingService = (await import('../lib/videoProcessing.service')).default
-          const svc = new VideoProcessingService(prisma)
-          await svc.processVideo(uploadId, videoUrl, userId)
-          console.log(`[worker:video] done ${uploadId} in ${((Date.now() - job.timestamp) / 1000).toFixed(1)}s`)
+          if (progress != null) void job.updateProgress(progress)
         }
+
+        await videoProcessingAsyncLocal.run({ broadcast }, async () => {
+          if (isCompilation) {
+            console.log(`[worker:video] compilation ${uploadId} — joining videos then editing`)
+            const { processCompilation } = await import('../lib/videoCompilation.service')
+            await processCompilation(prisma, uploadId)
+            console.log(`[worker:video] compilation done ${uploadId}`)
+          } else {
+            console.log(`[worker:video] single video ${uploadId}`)
+            const VideoProcessingService = (await import('../lib/videoProcessing.service')).default
+            const svc = new VideoProcessingService(prisma)
+            await svc.processVideo(uploadId, videoUrl, userId)
+            console.log(`[worker:video] done ${uploadId} in ${((Date.now() - job.timestamp) / 1000).toFixed(1)}s`)
+          }
+        })
       } finally {
         await pubClient.quit()
       }
@@ -59,6 +59,20 @@ export function createVideoProcessingWorker(): Worker {
       connection,
       concurrency: 2,
       limiter: undefined, // no rate limit — naturally limited by compute
+      // ── Long-job tuning ──────────────────────────────────────────────
+      // Compilation jobs download 7+ videos, ffmpeg-normalize each, then
+      // run the full Riley pipeline (transcribe → scenes → vision →
+      // build). Easily 5-10 minutes for a 7-video batch of large iPhone
+      // clips. Defaults (30s lock / 30s stall) repeatedly marked these
+      // jobs as stalled, causing them to fail OR be processed twice.
+      // - lockDuration: how long the worker holds its job lock; renewed
+      //   automatically every lockDuration/2 ms while the job runs.
+      // - stalledInterval: how often the queue scans for stalled jobs.
+      // Both bumped to 15 minutes so even the slowest 12-video upload
+      // can complete without false-stall recovery.
+      lockDuration: 15 * 60 * 1000,
+      stalledInterval: 60 * 1000,
+      maxStalledCount: 1,
     },
   )
 

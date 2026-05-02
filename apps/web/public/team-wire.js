@@ -178,7 +178,7 @@
       const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => r.ok ? r.json() : null).catch(() => null)
       const company = me?.companies?.[0]
       const employee = company?.employees?.find((e) => e.role === role)
-      if (!company || !employee) { err.textContent = 'No company/employee found.'; return }
+      if (!company || !employee) { err.textContent = 'Finish setup or refresh the page, then try again.'; return }
 
       el.querySelector('#vx-assign-send').disabled = true
       el.querySelector('#vx-assign-send').textContent = 'Sending…'
@@ -189,7 +189,7 @@
         title: text.slice(0, 80),
         description: text,
         type: DEFAULT_TYPE_BY_ROLE[role] || 'hooks',
-      }) : { ok: false, error: 'not_ready' })
+      }) : { ok: false, error: 'still_loading' })
 
       if (result.ok) {
         el.remove()
@@ -212,7 +212,13 @@
       } else if (result.limitReached) {
         el.remove()
       } else {
-        err.textContent = result.error || 'Something went wrong'
+        var assignErr = result.error
+        err.textContent =
+          assignErr === 'still_loading' || assignErr === 'not_ready'
+            ? 'One moment — still loading. Try again shortly.'
+            : (assignErr && typeof assignErr === 'string' && assignErr.length < 120 && assignErr.indexOf('_') === -1)
+              ? assignErr
+              : 'Something went wrong. Please try again.'
         el.querySelector('#vx-assign-send').disabled = false
         el.querySelector('#vx-assign-send').textContent = 'Send'
       }

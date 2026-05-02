@@ -3,6 +3,42 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
+type ResetPasswordJson = {
+  error?: string
+  message?: string
+  issues?: Array<{ message?: string }>
+}
+
+/** Never surface raw error codes or stack fragments from the API. */
+function friendlyResetPasswordError(body: unknown): string {
+  const invalidLink =
+    'This reset link is invalid or has expired. Please request a new one from the login page.'
+  const tryAgain =
+    'Something went wrong. Please try again or request a new reset link from the login page.'
+
+  if (body && typeof body === 'object') {
+    const o = body as ResetPasswordJson
+    const issues = o.issues
+    if (Array.isArray(issues) && issues.length > 0) {
+      const first = issues[0]
+      if (first && typeof first.message === 'string') {
+        const m = first.message.trim()
+        if (m.length > 0 && m.length < 220) return m
+      }
+    }
+    if (typeof o.message === 'string') {
+      const m = o.message.trim()
+      if (!m) return invalidLink
+      if (m.length > 220) return tryAgain
+      if (/internal server error|database|ECONNREFUSED|timeout/i.test(m)) return tryAgain
+      if (/^[a-z][a-z0-9_]*$/i.test(m) && m.includes('_')) return invalidLink
+      return m
+    }
+    if (o.error === 'invalid_or_expired_token') return invalidLink
+  }
+  return invalidLink
+}
+
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -46,7 +82,7 @@ function ResetPasswordForm() {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
         setStatus('error')
-        setMessage(json.message || 'This reset link is invalid or has expired. Please request a new one.')
+        setMessage(friendlyResetPasswordError(json))
         return
       }
       setStatus('success')
@@ -54,7 +90,7 @@ function ResetPasswordForm() {
       setTimeout(() => router.push('/'), 2500)
     } catch {
       setStatus('error')
-      setMessage('Network error. Check your connection and try again.')
+      setMessage('Can’t connect right now. Check your connection and try again.')
     }
   }
 

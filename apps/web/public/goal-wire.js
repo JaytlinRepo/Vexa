@@ -128,7 +128,7 @@
         if (r.ok) inject()
         else {
           var el = document.getElementById('vx-goal-autogen')
-          if (el) el.textContent = 'Jordan couldn\'t set a goal yet — try again after the next sync.'
+          if (el) el.textContent = 'Jordan couldn\'t set a goal yet — try again after your accounts refresh.'
         }
       })
     }

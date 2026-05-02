@@ -100,7 +100,7 @@
       var etaEl = node.querySelector('.node-eta')
 
       if (!latest) {
-        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>IDLE'
+        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>Waiting'
         node.className = node.className.replace(/\b(done|working|queued)\b/g, '') + ' queued'
         return
       }
@@ -108,15 +108,17 @@
       var status = latest.status
       if (status === 'delivered') {
         node.className = node.className.replace(/\b(done|working|queued)\b/g, '') + ' done'
-        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>DELIVERED · ' + timeAgo(latest.completedAt || latest.createdAt)
+        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>Done · ' + timeAgo(latest.completedAt || latest.createdAt)
         if (progEl) progEl.style.width = '100%'
       } else if (status === 'in_progress') {
         node.className = node.className.replace(/\b(done|working|queued)\b/g, '') + ' working'
-        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>WORKING · ' + timeAgo(latest.createdAt)
+        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>In progress · ' + timeAgo(latest.createdAt)
         if (progEl) progEl.style.width = '50%'
       } else {
         node.className = node.className.replace(/\b(done|working|queued)\b/g, '') + ' queued'
-        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>' + status.toUpperCase()
+        var pendingLabel = ({ pending: 'Queued', approved: 'Approved', rejected: 'Needs attention', cancelled: 'Cancelled', blocked: 'Waiting', failed: 'Needs attention' })[status]
+          || String(status || '').replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase() })
+        if (statusEl) statusEl.innerHTML = '<span class="dt"></span>' + pendingLabel
       }
       if (taskEl) taskEl.textContent = latest.title || ''
       if (etaEl && latest.completedAt) etaEl.innerHTML = '<span>' + timeAgo(latest.completedAt) + '</span>'

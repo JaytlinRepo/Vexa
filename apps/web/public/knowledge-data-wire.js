@@ -48,8 +48,8 @@
     get('/api/feed?limit=' + PAGE_SIZE + '&offset=0').then(function (data) {
       if (data && data.__err) {
         var msg = data.__err === 401 || data.__err === 403
-          ? 'Sign-in required to load the feed.'
-          : 'Could not load feed (error ' + data.__err + '). Try refreshing.'
+          ? 'Please sign in to see your feed.'
+          : 'We couldn\'t load your feed. Try refreshing in a moment.'
         if (reelsGrid) reelsGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);font-size:13px">' + msg + '</div>'
         return
       }

@@ -523,6 +523,7 @@ export async function seedStarterTasks(prisma: PrismaClient, input: SeedInput): 
         // the CEO opens the dashboard to real outputs to approve, not empty
         // "warming up" cards.
         status: 'delivered',
+        isSeeded: true,
         outputs: {
           create: {
             companyId: input.companyId,

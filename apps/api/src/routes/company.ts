@@ -195,7 +195,7 @@ interface GoalCandidate {
  *  - avoidType: when Jordan is picking a replacement after the CEO asked
  *    for "another one," skip the same metric so we get variety.
  */
-async function generateJordanGoal(
+export async function generateJordanGoal(
   prisma: PrismaClient,
   companyId: string,
   avoidType?: MetricType,

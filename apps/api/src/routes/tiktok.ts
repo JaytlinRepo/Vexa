@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { oauthSuccessPage } from '../lib/oauthSuccess'
 import { requireAuth, AuthedRequest, readSession, createSession } from '../middleware/auth'
 import { readPendingSignup, clearPendingSignup } from './auth'
+import { storePendingByNonce, getPendingByNonce, deletePendingByNonce } from '../lib/pendingSignupStore'
 import { persistTiktokSnapshot } from '../lib/tiktokSync'
 import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
@@ -140,6 +141,11 @@ router.get('/auth/start', async (req, res) => {
   const codeChallenge = codeChallengeFor(codeVerifier)
   const state = encodeState({ nonce, v: codeVerifier, c: companyId, ts: Date.now() })
 
+  if (!session && pending) {
+    storePendingByNonce(nonce, pending)
+    console.log('[tiktok] stored pending signup by nonce for', pending.email)
+  }
+
   const params = new URLSearchParams({
     client_key: clientKey,
     response_type: 'code',
@@ -184,7 +190,7 @@ router.get('/callback', async (req, res) => {
 
   // Pending signup path: companyId is empty — create user+company atomically now.
   if (!stateCompanyId) {
-    const pending = await readPendingSignup(req)
+    const pending = getPendingByNonce(decoded.nonce) ?? await readPendingSignup(req)
     if (!pending?.companyName || !pending?.niche) {
       res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
       return
@@ -208,6 +214,7 @@ router.get('/callback', async (req, res) => {
     })
     stateCompanyId = created.company.id
     clearPendingSignup(res)
+    deletePendingByNonce(decoded.nonce)
     await createSession(res, { userId: created.user.id, email: created.user.email })
     const { seedStarterTasks } = await import('../lib/seedStarterTasks')
     seedStarterTasks(prisma, { companyId: stateCompanyId, niche: pending.niche! }).catch(() => {})

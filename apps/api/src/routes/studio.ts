@@ -24,6 +24,19 @@ let visualEditingService: StudioVisualEditingService
 let copywritingService: StudioCopywritingService
 let postingStrategyService: StudioPostingStrategyService
 
+/** Fresh HTTPS URL for clip playback (HQ Riley drawer, lite weekly-status). */
+async function resolveClipPreviewUrl(clippedUrl: string | null | undefined): Promise<string | null> {
+  if (!clippedUrl || typeof clippedUrl !== 'string') return null
+  try {
+    if (clippedUrl.startsWith('s3://')) {
+      return await getPresignedUrl(clippedUrl.replace('s3://', ''), 3600)
+    }
+    return clippedUrl
+  } catch {
+    return null
+  }
+}
+
 export function initStudioRoutes(_prisma: PrismaClient) {
   prisma = _prisma
   visualEditingService = new StudioVisualEditingService(prisma)
@@ -372,6 +385,77 @@ export function initStudioRoutes(_prisma: PrismaClient) {
       if (!companyId) return res.status(400).json({ error: 'companyId required' })
       const company = await prisma.company.findFirst({ where: { id: companyId as string, userId } })
       if (!company) return res.status(403).json({ error: 'not found' })
+
+      const lite =
+        req.query.lite === '1' ||
+        req.query.lite === 'true' ||
+        (Array.isArray(req.query.lite) && req.query.lite[0] === '1')
+
+      if (lite) {
+        const [needsApproval, readyToPost] = await Promise.all([
+          prisma.videoClip.findMany({
+            where: {
+              companyId: company.id,
+              status: { not: 'archived' },
+              OR: [{ visualApprovalStatus: 'pending' }, { copyApprovalStatus: 'pending' }],
+            },
+            select: {
+              id: true,
+              clippedUrl: true,
+              hook: true,
+              caption: true,
+              duration: true,
+              visualApprovalStatus: true,
+              copyApprovalStatus: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          }),
+          prisma.videoClip.findMany({
+            where: {
+              companyId: company.id,
+              status: 'ready_to_post',
+              visualApprovalStatus: 'approved',
+              copyApprovalStatus: 'approved',
+            },
+            select: { id: true, clippedUrl: true, hook: true, caption: true, duration: true, updatedAt: true },
+            orderBy: { updatedAt: 'desc' },
+            take: 20,
+          }),
+        ])
+        const [needsOut, readyOut] = await Promise.all([
+          Promise.all(
+            needsApproval.map(async (c) => ({
+              id: c.id,
+              hook: c.hook,
+              caption: c.caption,
+              duration: c.duration,
+              visualApprovalStatus: c.visualApprovalStatus,
+              copyApprovalStatus: c.copyApprovalStatus,
+              createdAt: c.createdAt,
+              description: null as string | null,
+              previewUrl: await resolveClipPreviewUrl(c.clippedUrl),
+            }))
+          ),
+          Promise.all(
+            readyToPost.map(async (c) => ({
+              id: c.id,
+              hook: c.hook,
+              caption: c.caption,
+              duration: c.duration,
+              updatedAt: c.updatedAt,
+              description: null as string | null,
+              previewUrl: await resolveClipPreviewUrl(c.clippedUrl),
+            }))
+          ),
+        ])
+        res.json({
+          needsApproval: needsOut,
+          readyToPost: readyOut,
+        })
+        return
+      }
 
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 

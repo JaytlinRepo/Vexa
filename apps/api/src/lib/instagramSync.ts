@@ -8,7 +8,7 @@
 import { PrismaClient } from '@prisma/client'
 import * as meta from './metaGraph'
 import { mapMetaToStub } from './metaMapper'
-import { persistSnapshotAndPosts } from './platformSync'
+import { persistSnapshotAndPosts, backfillIGDailySnapshots } from './platformSync'
 
 const THROTTLE_MS = 5 * 60 * 1000
 const TOKEN_REFRESH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000 // refresh 7 days before expiry
@@ -167,6 +167,20 @@ export async function syncInstagramAccount(
         },
       })
       await persistSnapshotAndPosts(prisma, acct.id, stub)
+
+      // Backfill daily snapshot history (skips days that already have a row).
+      try {
+        const igUserId = conn.igBusinessId || conn.igUserId
+        if (igUserId) {
+          const history = await meta.getIGAccountHistory(igUserId, token, 30)
+          if (history.length > 0) {
+            await backfillIGDailySnapshots(prisma, acct.id, history, stub.followerCount)
+            console.log('[ig-sync] backfilled', history.length, 'daily snapshots')
+          }
+        }
+      } catch (e) {
+        console.warn('[ig-sync] daily history backfill failed:', (e as Error).message)
+      }
     } catch (e) {
       console.warn('[ig-sync] platform-account write failed', e)
     }

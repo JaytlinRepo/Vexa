@@ -258,15 +258,17 @@
       case 'email_or_username_in_use': return 'That email or username is already taken. Try a different one.'
       case 'invalid_input': return 'Please fill in all required fields correctly.'
       case 'rate_limited': return 'Too many attempts. Please wait a few minutes before trying again.'
-      case 'network_error': return 'Can\'t reach the server. Check your internet connection and try again.'
+      case 'network_error': return 'Can\'t connect right now. Check your internet connection and try again.'
       case 'login_failed': return 'Login failed. Please check your credentials and try again.'
       case 'signup_failed': return 'Sign up failed. Please try again.'
       case 'unauthorized': return 'Session expired. Please log in again.'
-      case 'internal_error': return 'Server error. Please try again in a moment.'
+      case 'internal_error': return 'Something went wrong on our side. Please try again in a moment.'
       case 'invalid_or_expired_token': return 'This reset link has expired or already been used. Request a new one.'
       default:
-        if (code && code.length < 100) return code.replace(/_/g, ' ')
-        return 'Something went wrong. Please try again.'
+        if (!code || typeof code !== 'string') return 'Something went wrong. Please try again.'
+        if (code.length > 100) return 'Something went wrong. Please try again.'
+        if (/^[a-z][a-z0-9_]*$/i.test(code.trim())) return 'Something went wrong. Please try again.'
+        return code.replace(/_/g, ' ')
     }
   }
 
@@ -309,21 +311,30 @@
       window.open(url, '_blank')
       return null
     }
+    var done = false
+    var finish = function () {
+      if (done) return
+      done = true
+      try { window.removeEventListener('storage', onStorage) } catch (_) {}
+      clearInterval(poll)
+      try { window.focus() } catch (_) {}
+      try { if (popup && !popup.closed) popup.close() } catch (_) {}
+      // After OAuth completes, verify session + refresh onboarding state.
+      fetchMe().then(function (me) {
+        if (me && me.user) {
+          authedUser = me.user
+          if (me.companies && me.companies.length > 0) currentCompany = me.companies[0]
+          try { localStorage.setItem('vx-authed', '1') } catch (_) {}
+        }
+        if (typeof window.__vxObRefreshPlatforms === 'function') window.__vxObRefreshPlatforms()
+      })
+    }
+    // The popup signals completion via localStorage (resilient to COOP-severed
+    // opener). Polling popup.closed is the secondary signal.
+    var onStorage = function (e) { if (e.key === 'vx-oauth-complete') finish() }
+    window.addEventListener('storage', onStorage)
     var poll = setInterval(function () {
-      try {
-        if (!popup.closed) return
-        clearInterval(poll)
-        // After popup closes, check if user is now authenticated (new signup
-        // path — account was created atomically with the OAuth connection).
-        fetchMe().then(function (me) {
-          if (me && me.user) {
-            authedUser = me.user
-            if (me.companies && me.companies.length > 0) currentCompany = me.companies[0]
-            try { localStorage.setItem('vx-authed', '1') } catch (_) {}
-          }
-          if (typeof window.__vxObRefreshPlatforms === 'function') window.__vxObRefreshPlatforms()
-        })
-      } catch (_) { clearInterval(poll) }
+      try { if (popup.closed) finish() } catch (_) { finish() }
     }, 500)
     return popup
   }
@@ -405,18 +416,18 @@
         if (igOk && igConn) {
           var p = [`@${obEscapeHtml(igConn.handle || st.igAcct?.handle || '')}`]
           if (Number(igConn.followerCount) > 0) p.push(`${Number(igConn.followerCount).toLocaleString()} followers`)
-          p.push(`synced ${obEscapeHtml(obTimeAgo(igConn.lastSyncedAt || igConn.connectedAt))}`)
+          p.push(`updated ${obEscapeHtml(obTimeAgo(igConn.lastSyncedAt || igConn.connectedAt))}`)
           return p.join(' · ')
         }
         if (st.igAcct) {
-          return '@' + obEscapeHtml(st.igAcct.handle) + ' · synced ' + obEscapeHtml(obTimeAgo(st.igAcct.lastSyncedAt))
+          return '@' + obEscapeHtml(st.igAcct.handle) + ' · updated ' + obEscapeHtml(obTimeAgo(st.igAcct.lastSyncedAt))
         }
-        return obEscapeHtml('Read-only OAuth — follower & post analytics')
+        return obEscapeHtml('Read-only access — follower & post analytics')
       }
-      if (!ttOk) return obEscapeHtml('Read-only OAuth — audience & performance data')
+      if (!ttOk) return obEscapeHtml('Read-only access — audience & performance data')
       const parts = [obEscapeHtml(ttConn.handle ? '@' + ttConn.handle : 'Active')]
       if (Number(ttConn.followerCount) > 0) parts.push(`${Number(ttConn.followerCount).toLocaleString()} followers`)
-      parts.push('synced ' + obEscapeHtml(obTimeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)))
+      parts.push('updated ' + obEscapeHtml(obTimeAgo(ttConn.lastSyncedAt || ttConn.connectedAt)))
       return parts.join(' · ')
     }
 
@@ -469,17 +480,20 @@
 
     body.querySelectorAll('[data-obplat]').forEach(function (toggleBtn) {
       toggleBtn.addEventListener('click', async function () {
-        if (!companyId) return
         const pid = toggleBtn.getAttribute('data-obplat')
         const conn = toggleBtn.getAttribute('data-ob-connected') === '1'
         if (!conn) {
-          obMarkOAuthLeavingForOnboarding()
+          // New pending users have no companyId yet — use '' as sentinel;
+          // the OAuth callback creates user+company atomically.
+          var effectiveCompanyId = companyId || ''
+          try { sessionStorage.setItem('vx-ob-await-connect', '1') } catch (_) {}
           var oauthUrl = pid === OB_IG_ID
-            ? API + `/api/instagram/auth/start?companyId=${encodeURIComponent(companyId)}`
-            : API + `/api/tiktok/auth/start?companyId=${encodeURIComponent(companyId)}`
+            ? API + `/api/instagram/auth/start?companyId=${encodeURIComponent(effectiveCompanyId)}`
+            : API + `/api/tiktok/auth/start?companyId=${encodeURIComponent(effectiveCompanyId)}`
           obOpenOAuthPopup(oauthUrl)
           return
         }
+        if (!companyId) return
         var st2 = await obPlatformConnectionFlags()
         var onlyIg = st2.ig && !st2.tt
         var onlyTt = st2.tt && !st2.ig
@@ -567,7 +581,7 @@
     platStep.innerHTML = `
       <span class="ob-eyebrow">Step 3 of 3</span>
       <h2 class="ob-title">Connect a platform.</h2>
-      <p class="ob-sub">Link <strong style="font-weight:600;color:var(--t2)">Instagram</strong> or <strong style="font-weight:600;color:var(--t2)">TikTok</strong> (or both). We need at least one so your team can pull real audience and performance data. Same controls as <strong style="font-weight:600;color:var(--t2)">Settings → Integrations</strong> — read-only OAuth, disconnect anytime.</p>
+      <p class="ob-sub">Link <strong style="font-weight:600;color:var(--t2)">Instagram</strong> or <strong style="font-weight:600;color:var(--t2)">TikTok</strong> (or both). We need at least one so your team can pull real audience and performance data. Same controls as <strong style="font-weight:600;color:var(--t2)">Settings → Integrations</strong> — read-only access, disconnect anytime.</p>
       <div id="ob-platform-rows"></div>
       <p class="ob-hint" id="ob-connect-hint" style="margin-top:12px;font-size:12px;color:var(--t3)"></p>
       <div class="ob-actions">
@@ -655,20 +669,40 @@
       obState.niche = window.selectedNiche || ''
       if (!obState.niche) return
       const btn = document.getElementById('ob-niche-btn')
+      const ob2Hint = document.querySelector('#ob-2 .ob-hint')
       if (btn) { btn.disabled = true; btn.textContent = 'Setting up your team…' }
-      // Store company details in the pending cookie — account created only
-      // when the first platform connects (OAuth callback, atomically).
       try {
-        const r = await fetch(API + '/api/auth/pending-company', {
-          method: 'PATCH', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ companyName: obState.companyName, niche: obState.niche }),
-        })
-        if (!r.ok) throw new Error('pending-company failed')
-      } catch {
+        if (authedUser) {
+          // Existing session user — create company directly.
+          const r = await fetch(API + '/api/onboarding/company', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: obState.companyName, niche: obState.niche }),
+          })
+          if (!r.ok) throw new Error('setup_failed')
+          const j = await r.json()
+          currentCompany = j.company
+        } else {
+          // New pending user — store in signed cookie; account created at OAuth.
+          const r = await fetch(API + '/api/auth/pending-company', {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyName: obState.companyName, niche: obState.niche }),
+          })
+          if (!r.ok) {
+            if (r.status === 401) throw new Error('Session expired — please sign up again.')
+            throw new Error('Something went wrong. Please try again.')
+          }
+        }
+      } catch (err) {
         if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
+        var hint = 'Something went wrong. Please try again.'
+        if (err && err.message && String(err.message).indexOf('Session expired') === 0) hint = err.message
+        if (err && err.message === 'setup_failed') hint = 'We couldn\'t finish setup. Try again in a moment.'
+        if (ob2Hint) { ob2Hint.textContent = hint; ob2Hint.style.color = 'var(--accent)' }
         return
       }
+      if (ob2Hint) { ob2Hint.textContent = ''; ob2Hint.style.color = '' }
       if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
       document.getElementById('ob-2').classList.remove('active')
       document.getElementById('ob-8').classList.add('active')

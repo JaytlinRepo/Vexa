@@ -4,7 +4,7 @@
  * Maya gets: morning brief + weekly pulse
  * Jordan gets: weekly plan
  * Alex gets: weekly hooks
- * Riley gets: weekly production briefs
+ * Riley: no injected brief chip (Studio queue is on the HQ Riley drawer).
  *
  * Each brief renders as a clickable summary below the node-task.
  * Clicking opens the full brief in a modal (via window.navigateTo).
@@ -34,7 +34,6 @@
         get('/api/weekly/maya-pulse'),
         get('/api/weekly/jordan-plan'),
         get('/api/weekly/alex-hooks'),
-        get('/api/weekly/riley-briefs'),
       ])
 
       var morning = results[0]
@@ -42,7 +41,6 @@
       var pulse   = results[2]
       var plan    = results[3]
       var hooks   = results[4]
-      var briefs  = results[5]
 
       // Maya node — morning brief + pulse
       var mayaNode = document.querySelector('[data-node="maya"]')
@@ -95,14 +93,6 @@
         injectBriefs(alexNode, briefChip('weekly-hooks', 'WEEKLY HOOKS', count + ' days of hooks ready', null, [
           btn('View', "window.navigateTo('weekly-hooks')"),
         ], hooks.informedBy))
-      }
-
-      // Riley node — production briefs
-      var rileyNode = document.querySelector('[data-node="riley"]')
-      if (rileyNode && briefs && briefs.output) {
-        injectBriefs(rileyNode, briefChip('weekly-briefs', 'PRODUCTION', 'Weekly direction ready', null, [
-          btn('View', "window.navigateTo('weekly-briefs')"),
-        ], briefs.informedBy))
       }
 
       console.log('[briefs-loader] briefs injected into pipeline')

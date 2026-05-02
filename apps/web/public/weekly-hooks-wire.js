@@ -25,6 +25,6 @@ window.renderWeeklyHooks = function (d) {
     (hooksHtml ? '<div style="margin-top:10px">' + hooksHtml + '</div>' : '') +
     '<div class="acts">' +
       '<button class="btn" onclick="window.briefEvent(\'dismiss\',\'weekly-hooks\')">DONE</button>' +
-      '<button class="btn primary" onclick="window.navigateTo(\'weekly-briefs\')">SEE RILEY\'S BRIEFS</button>' +
+      '<button class="btn primary" onclick="typeof window.navigate===\'function\'&&window.navigate(\'db-studio\')">OPEN STUDIO</button>' +
     '</div></div>'
 }

@@ -6,6 +6,7 @@
  * Typical processing time: 30-60 seconds for a 5-minute video.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { PrismaClient } from '@prisma/client'
 import { EventEmitter } from 'events'
 import * as fs from 'fs'
@@ -29,11 +30,16 @@ import StudioCopywritingService from './studioCopywriting.service'
 import { getPresignedUrl } from '../services/storage/s3.service'
 import { broadcastProcessingEvent as _defaultBroadcast } from '../routes/video'
 
-// Allow workers to override the broadcast function (for Redis Pub/Sub relay)
+// Allow workers to override the broadcast function (for Redis Pub/Sub relay).
+// Concurrent BullMQ jobs must not share one global — use runVideoJobBroadcast instead.
 let _broadcastFn: (event: string, data: unknown, userId?: string) => void = _defaultBroadcast
 export function setBroadcastFn(fn: (event: string, data: unknown, userId?: string) => void): void {
   _broadcastFn = fn
 }
+
+/** Per-job broadcast (Redis publish + Bull progress) — avoids races when worker concurrency > 1 */
+type WorkerBroadcastFn = (event: string, data: unknown) => void
+export const videoProcessingAsyncLocal = new AsyncLocalStorage<{ broadcast: WorkerBroadcastFn }>()
 // uploadId → userId registry so all broadcast calls inside a processing job
 // reach only the owning user without threading userId through every call site.
 const _uploadUserMap = new Map<string, string>()
@@ -43,20 +49,31 @@ export function registerUploadUser(uploadId: string, userId: string): void {
 export function unregisterUploadUser(uploadId: string): void {
   _uploadUserMap.delete(uploadId)
 }
+function resolveUid(data: Record<string, unknown>): string | undefined {
+  const uploadId = data.uploadId as string | undefined
+  const compilationId = data.compilationId as string | undefined
+  return (
+    (uploadId && _uploadUserMap.get(uploadId)) ||
+    (compilationId && _uploadUserMap.get(compilationId)) ||
+    undefined
+  )
+}
+function dispatchProcessingEvent(event: string, data: unknown): void {
+  const st = videoProcessingAsyncLocal.getStore()
+  if (st?.broadcast) {
+    st.broadcast(event, data)
+    return
+  }
+  _broadcastFn(event, data, resolveUid(data as Record<string, unknown>))
+}
+
 function broadcastProcessingEvent(event: string, data: Record<string, unknown>): void {
-  const uid = (data as Record<string, unknown>).uploadId
-    ? _uploadUserMap.get((data as Record<string, unknown>).uploadId as string)
-    : undefined
-  _broadcastFn(event, data, uid)
+  dispatchProcessingEvent(event, data)
 }
 // Exported alias so other services (e.g. videoCompilation.service) can share
-// the same indirection — when a worker calls setBroadcastFn() the override
-// applies to events emitted from the compilation pipeline as well.
+// the same indirection — worker jobs should use videoProcessingAsyncLocal.run.
 export function emitProcessingEvent(event: string, data: unknown): void {
-  const uid = (data as Record<string, unknown>).uploadId
-    ? _uploadUserMap.get((data as Record<string, unknown>).uploadId as string)
-    : undefined
-  _broadcastFn(event, data, uid)
+  dispatchProcessingEvent(event, data)
 }
 
 export interface ProcessingStage {

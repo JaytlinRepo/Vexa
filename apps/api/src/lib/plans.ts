@@ -21,9 +21,8 @@ export interface PlanLimits {
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
-    // 3 tasks per day — reset at midnight UTC
-    tasksPerMonth: 3,
-    resetWindow: 'daily',
+    tasksPerMonth: 5,
+    resetWindow: 'monthly',
     videosPerMonth: 0,
     workspaces: 1,
     meetingFeature: false,

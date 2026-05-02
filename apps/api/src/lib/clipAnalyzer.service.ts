@@ -574,7 +574,8 @@ PACING MATH:
 - This creator averages ~${avgCutSpeed.toFixed(1)}s per segment.
 - Source video is ${videoDuration.toFixed(0)}s long.
 - Cut boring/dead footage, keep everything interesting.
-- IMPORTANT: each individual segment must be ≤ ${Math.max(3, Math.round(avgCutSpeed * 1.6))}s. Long single shots feel like uncut footage.
+- IMPORTANT: each individual segment must be ≤ ${Math.max(3, Math.round(avgCutSpeed * 1.5))}s. Long single shots feel like uncut footage.
+- Reference reels for this niche run 1.0–3.3s/cut. Most of YOUR segments should fall in that range. A 5s segment is only justified for a complete, unbroken action that has clear story beats start→middle→end. Don't pad medium-energy moments past 3.5s.
 
 LENGTH TIER — pick the tier that fits the CONTENT:
 You must pick exactly ONE tier in your JSON output as "lengthTier". Pick based on what the video actually contains, not on source duration alone. Your segments must total within the picked tier's range.
@@ -855,7 +856,12 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
       // avgCutDuration. For segments anchored on a specific action, the
       // SUBJECT KIND (real-person, screen, other) overrides this with a
       // tighter range. Screens get short cuts; real people get longer dwell.
-      const DEFAULT_MAX_SEG_LEN = Math.max(3.0, Math.min(8.0, avgCutSpeed * 1.8))
+      // Cap segment length more conservatively. Reference reels for this
+      // niche show 1.0–3.3s/cut; the previous 8.0s ceiling let Riley pick
+      // 5+ second segments that read as slow. avgCutSpeed × 1.5 keeps
+      // long shots possible (real-person poses, full-action arcs) while
+      // pulling typical segments back into reference range.
+      const DEFAULT_MAX_SEG_LEN = Math.max(3.0, Math.min(5.5, avgCutSpeed * 1.5))
 
       // Find the action that this segment OVERLAPS MOST. We use majority
       // overlap rather than first-match because pre-snap may not catch every
@@ -1381,7 +1387,10 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
     // floor — those don't need cushion.
     if (beatAnalysis && beatAnalysis.actions.length > 0) {
       const SCENE_JUMP_GAP = 8.0  // source seconds between segments → likely different scene
-      const TRANSITION_MIN_LEN = 3.0
+      // Lower cushion floor — 2.5s reads cleanly across scene jumps and
+      // keeps overall pacing tight. The previous 3.0s consistently
+      // pushed average segment length past the 1.0–3.3s reference range.
+      const TRANSITION_MIN_LEN = 2.5
       const sceneCuts = sceneData?.cutTimestamps ?? []
 
       const isJumpBetween = (a: ReelSegment, b: ReelSegment): boolean => {
@@ -1524,7 +1533,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
         const newLen = s.endTime - newStart
         // If trimming would drop below the 2.0s floor, push the end
         // forward to preserve length (action.endTime is a natural cap).
-        if (newLen < 2.0) {
+        if (newLen < 2.5) {
           let extendCap = Math.max(s.endTime + trimmedAmount, firstAction.endTime + 0.3)
           const next = segments[segIdx + 1]
           if (next) extendCap = Math.min(extendCap, next.startTime - 0.05)
@@ -1532,9 +1541,9 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
             const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
             if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
           }
-          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          const desiredEnd = Math.max(newStart + 2.5, s.endTime + trimmedAmount)
           if (desiredEnd <= extendCap) newEnd = desiredEnd
-          else if (extendCap - newStart >= 2.0) newEnd = extendCap
+          else if (extendCap - newStart >= 2.5) newEnd = extendCap
           else continue
         }
         const oldStart = s.startTime
@@ -1589,7 +1598,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
         // trim amount — preserves segment length AND captures more action.
         // But: don't push past the next segment's start (avoid overlap)
         // and don't push past the source-clip boundary if we know it.
-        if (newLen < 2.0) {
+        if (newLen < 2.5) {
           let extendCap = s.endTime + trimmedAmount + 0.5 // small buffer for trim+stretch combos
           // Cap at next segment's start
           const next = segments[segIdx + 1]
@@ -1599,10 +1608,10 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
             const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
             if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
           }
-          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          const desiredEnd = Math.max(newStart + 2.5, s.endTime + trimmedAmount)
           if (desiredEnd <= extendCap) {
             newEnd = desiredEnd
-          } else if (extendCap - newStart >= 2.0) {
+          } else if (extendCap - newStart >= 2.5) {
             newEnd = extendCap
           } else {
             continue // can't make it work — leave segment alone
@@ -1764,7 +1773,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
         const trimmedAmount = newStart - s.startTime
         let newEnd = s.endTime
         const newLen = s.endTime - newStart
-        if (newLen < 2.0) {
+        if (newLen < 2.5) {
           let extendCap = s.endTime + trimmedAmount + 0.5
           const next = segments[segIdx + 1]
           if (next) extendCap = Math.min(extendCap, next.startTime - 0.05)
@@ -1772,9 +1781,9 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
             const idx = sourceBoundaries.findIndex((b) => s.startTime >= b.start && s.startTime < b.end)
             if (idx >= 0) extendCap = Math.min(extendCap, sourceBoundaries[idx].end - 0.1)
           }
-          const desiredEnd = Math.max(newStart + 2.0, s.endTime + trimmedAmount)
+          const desiredEnd = Math.max(newStart + 2.5, s.endTime + trimmedAmount)
           if (desiredEnd <= extendCap) newEnd = desiredEnd
-          else if (extendCap - newStart >= 2.0) newEnd = extendCap
+          else if (extendCap - newStart >= 2.5) newEnd = extendCap
           else continue
         }
         const oldStart = s.startTime

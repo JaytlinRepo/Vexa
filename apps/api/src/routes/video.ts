@@ -283,6 +283,12 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         },
       })
 
+      // Register compilationId → userId so SSE events from the compilation
+      // pipeline reach the right tab. Without this, broadcast calls drop
+      // every progress event ("called without userId — event dropped").
+      const { registerUploadUser } = await import('../lib/videoProcessing.service')
+      registerUploadUser(compilation.id, userId)
+
       // Enqueue for background processing — but only if Redis is actually
       // reachable. `videoQueue.add()` does NOT reject when Redis is down;
       // BullMQ buffers the job in memory and retries forever, so a try/catch
@@ -339,7 +345,15 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 export function broadcastProcessingEvent(event: string, data: any, userId?: string) {
   const message = `data: ${JSON.stringify({ event, ...data })}\n\n`
   if (userId) {
-    sseClients.get(userId)?.forEach((client) => client.write(message))
+    const tabs = sseClients.get(userId)
+    if (tabs && tabs.size > 0) {
+      tabs.forEach((client) => client.write(message))
+    } else {
+      // We have a userId but no tabs are listening — probably the user's
+      // SSE client hasn't connected yet (race) or already closed. Log
+      // once per event-type to make debugging easier.
+      console.warn(`[video] event '${event}' for user ${userId.slice(0, 8)}… dropped (no listeners)`)
+    }
   } else {
     // Legacy callers without userId — skip rather than broadcasting to everyone.
     console.warn('[video] broadcastProcessingEvent called without userId — event dropped:', event)

@@ -1019,14 +1019,14 @@
         <section style="margin-bottom:32px">
           ${sectionLabel('Instagram')}
           <div style="padding:24px 20px;border:1px solid var(--b1);border-radius:12px;background:var(--s1)">
-            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — insights are syncing</div>
+            <div style="color:var(--t1);font-size:14px;font-weight:500;margin-bottom:8px">@${esc(ig.handle)} connected — your detailed metrics are on the way</div>
             <div style="color:var(--t2);font-size:12px;line-height:1.55;margin-bottom:4px">
               ${esc(platform)} shows <strong>${ig.followerCount?.toLocaleString() || 0} followers</strong> but detailed metrics (engagement, reach, post performance) aren't available yet.
             </div>
             <ul style="color:var(--t3);font-size:11px;line-height:1.7;margin:12px 0 0;padding-left:18px">
               <li>Make sure your Instagram is a <strong>Professional</strong> account (Creator or Business) — personal accounts don't expose insights.</li>
               <li>If you just switched to Professional, Meta takes 24-48 hours to start reporting data.</li>
-              <li>Try resyncing from Settings → Integrations once you've confirmed.</li>
+              <li>Refresh the connection under Settings → Integrations once you’ve confirmed.</li>
             </ul>
           </div>
         </section>
@@ -1818,7 +1818,7 @@
       const ttDisc = e.target.closest('[data-v2-tiktok-disconnect]')
       if (ttDisc) {
         e.preventDefault()
-        if (!window.confirm('Disconnect TikTok? We\'ll drop the token and stop syncing.')) return
+        if (!window.confirm('Disconnect TikTok? We\'ll remove the connection and stop pulling new stats.')) return
         const companyId = STATE.me?.companies?.[0]?.id
         if (!companyId) return
         ttDisc.disabled = true
