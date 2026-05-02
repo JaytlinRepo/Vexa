@@ -7,6 +7,9 @@ import './mobile.css'  // phone Safari / Chrome — scoped to html[data-vx-devic
 export const metadata: Metadata = {
   title: 'Sovexa — Your AI Content Team',
   description: 'AI employees. Zero management overhead. Your content team starts working the moment you sign up.',
+  other: {
+    'tiktok-developers-site-verification': 'YxEKSs7yeoviYb5pXrt4vZ3gK',
+  },
 }
 
 export const viewport: Viewport = {
