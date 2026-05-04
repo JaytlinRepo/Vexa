@@ -66,7 +66,10 @@ WORKDIR /repo/apps/api
 
 EXPOSE 4000
 
-# Apply schema (db push) then start. db push is idempotent and safe
-# for our schema-first dev flow. For migrations later, swap to
-# `prisma migrate deploy`.
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/index.js"]
+# Skip prisma db push at boot. The runtime container's introspection was
+# generating phantom enum diffs (claiming it wanted to drop `free`/`max`
+# and create `starter`) even when schema.prisma + DB were already aligned
+# with the new enum shape. Schema changes ship via committed migrations
+# now (apps/api/prisma/migrations/*), applied out-of-band before deploy.
+# If you need it back: `RUN_DB_PUSH=1` on the App Runner service.
+CMD ["sh", "-c", "if [ \"$RUN_DB_PUSH\" = \"1\" ]; then npx prisma db push --skip-generate --accept-data-loss; fi && node dist/index.js"]
