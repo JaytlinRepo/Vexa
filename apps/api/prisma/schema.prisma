@@ -817,7 +817,7 @@ model VideoClip {
   // User-trim feature ────────────────────────────────────────────────────
   // Per-segment poster frames (S3 keys) so the approval UI can show a
   // strip of segment thumbnails without re-extracting frames per page view.
-  segmentThumbnails Json? // string[] — S3 keys, one per segment in adjustments.segments order
+  segmentThumbnails  Json? // string[] — S3 keys, one per segment in adjustments.segments order
   // The user's final segment list after they used the trim UI to drop /
   // re-cut segments. Same shape as adjustments.segments (ReelSegment[]).
   // NULL = user accepted Riley's first cut as-is.
