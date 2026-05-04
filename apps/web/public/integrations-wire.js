@@ -54,6 +54,18 @@
     return window.__vxCompany?.id || ''
   }
 
+  // Async version — falls back to /api/auth/me if __vxCompany not yet populated
+  async function resolveCompanyId() {
+    const cached = getCompanyId()
+    if (cached) return cached
+    try {
+      const me = await fetch('/api/auth/me', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null))
+      return me?.companies?.[0]?.id || ''
+    } catch {
+      return ''
+    }
+  }
+
   // ── Dashboard connection pills ───────────────────────────────────────
 
   async function injectDashboardConnectButton() {
@@ -62,7 +74,7 @@
       if (!main) return
       const overview = main.querySelector('section:nth-of-type(2)')
       if (!overview) return
-      const companyId = getCompanyId()
+      const companyId = await resolveCompanyId()
       if (!companyId) return
 
       const accounts = await fetchAccounts()
@@ -194,7 +206,7 @@
       btn.addEventListener('click', async () => {
         const connected = btn.dataset.connected === '1'
         const platformId = btn.dataset.toggle
-        const companyId = getCompanyId()
+        const companyId = await resolveCompanyId()
         if (!companyId) return
 
         if (platformId === TT_ID) {
@@ -225,8 +237,8 @@
 
     // Reconnect buttons
     body.querySelectorAll('[data-connect]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const companyId = getCompanyId()
+      btn.addEventListener('click', async () => {
+        const companyId = await resolveCompanyId()
         if (!companyId) return
         const platformId = btn.dataset.connect
         if (platformId === IG_ID) {
@@ -240,7 +252,7 @@
     // Resync buttons
     body.querySelectorAll('[data-resync]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const companyId = getCompanyId()
+        const companyId = await resolveCompanyId()
         if (!companyId) return
         btn.disabled = true
         btn.textContent = 'Resyncing…'
