@@ -45,7 +45,7 @@ import { registerBullMQSchedules } from './scheduler2'
 import { initSSEBridge } from './queues/sse-bridge'
 import { setupQueueDashboard } from './routes/admin-queues'
 import prisma from './lib/prisma'
-import { apiLimiter, authLimiter, agentLimiter } from './middleware/rateLimiter'
+import { apiLimiter, agentLimiter } from './middleware/rateLimiter'
 import { clientSafeApiMessage } from './lib/clientSafeErrorMessage'
 
 // ─── Required env vars — fail fast rather than silently misbehave ─────────────
@@ -144,8 +144,9 @@ app.get('/api/mode', (_req, res) => {
   res.json({ mode: getMode() })
 })
 
-// Rate limiting — applied per-user (session) or per-IP (unauthenticated)
-app.use('/api/auth', authLimiter)
+// Rate limiting — applied per-user (session) or per-IP (unauthenticated).
+// Auth credential routes use authLimiter inline in routes/auth.ts so /me and
+// other session checks do not consume the login attempt budget per IP.
 app.use('/api/tasks', agentLimiter)
 app.use('/api/meeting', agentLimiter)
 app.use('/api/', apiLimiter)

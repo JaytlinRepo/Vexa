@@ -6,6 +6,7 @@ import { SignJWT, jwtVerify } from 'jose'
 import { createSession, clearSession, readSession } from '../middleware/auth'
 import { sendPasswordResetEmail } from '../services/email/email.service'
 import prisma from '../lib/prisma'
+import { authLimiter } from '../middleware/rateLimiter'
 import {
   containsBlockedLanguage,
   DISALLOWED_LANGUAGE_MESSAGE,
@@ -142,7 +143,7 @@ const pendingCompanySchema = z
     }
   })
 
-router.post('/signup', async (req, res, next) => {
+router.post('/signup', authLimiter, async (req, res, next) => {
   try {
     const data = signupSchema.parse(req.body)
     const existingEmail = await prisma.user.findFirst({
@@ -203,7 +204,7 @@ router.patch('/pending-company', async (req, res, next) => {
 // whether an email/username is registered.
 const DUMMY_HASH = '$2a$10$dummyhashfortimingneutrality000000000000000000000000000'
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const data = loginSchema.parse(req.body)
     const idRaw = data.identifier
@@ -341,7 +342,7 @@ router.get('/me', async (req, res, next) => {
 // ─── POST /forgot-password ────────────────────────────────────────────────────
 // Always returns 200 — never reveal whether the email exists.
 
-router.post('/forgot-password', async (req, res, next) => {
+router.post('/forgot-password', authLimiter, async (req, res, next) => {
   try {
     const { email } = z
       .object({
@@ -403,7 +404,7 @@ const resetPasswordSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number'),
 })
 
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password', authLimiter, async (req, res, next) => {
   try {
     const { token, password } = resetPasswordSchema.parse(req.body)
 

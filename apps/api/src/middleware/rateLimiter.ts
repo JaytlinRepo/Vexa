@@ -36,18 +36,30 @@ function skipInDev(_req: Request): boolean {
 // Keep the list short and obviously non-production. Adding a real
 // customer here defeats the brute-force protection for that account.
 const AUTH_LIMITER_BYPASS_IDENTIFIERS = new Set<string>([
-  'jaytlin',           // test account — repeated login flows
-  // add more usernames or emails as needed
+  'jaytlin', // test account — repeated login flows (matches username or jaytlin@…)
+  // add more usernames or full emails as needed (username entries also match email local-part)
 ])
+
+function bodyValueMatchesBypassList(raw: string): boolean {
+  const v = raw.trim().toLowerCase()
+  if (!v) return false
+  for (const allowed of AUTH_LIMITER_BYPASS_IDENTIFIERS) {
+    if (allowed.includes('@')) {
+      if (v === allowed) return true
+      continue
+    }
+    if (v === allowed) return true
+    const at = v.indexOf('@')
+    if (at > 0 && v.slice(0, at) === allowed) return true
+  }
+  return false
+}
 
 function isAuthLimiterBypassed(req: Request): boolean {
   const body = (req.body ?? {}) as Record<string, unknown>
   for (const field of ['identifier', 'email', 'username']) {
     const v = body[field]
-    if (typeof v === 'string' && v.trim().length > 0
-        && AUTH_LIMITER_BYPASS_IDENTIFIERS.has(v.trim().toLowerCase())) {
-      return true
-    }
+    if (typeof v === 'string' && bodyValueMatchesBypassList(v)) return true
   }
   return false
 }
