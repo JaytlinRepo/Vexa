@@ -106,10 +106,27 @@ export async function buildReel(params: {
 
       console.log(`[ffmpeg]   ${i + 1}/${segments.length}: ${seg.startTime.toFixed(1)}s - ${seg.endTime.toFixed(1)}s (${duration.toFixed(1)}s) — ${seg.label}`)
 
+      // Frame-accurate hybrid seek. Pure input-seek (`-ss BEFORE -i`)
+      // is fast but on stitched-compilation inputs with non-monotonic
+      // PTS (our case after the concat normalize step), and on macOS
+      // h264_videotoolbox, it can include extra frames BEFORE the
+      // requested startTime — those frames render as a "glitch repeat"
+      // at the concat join with the prior segment. Pure output-seek
+      // (`-ss AFTER -i`) is frame-accurate but decodes from byte 0,
+      // adding seconds of overhead per cut.
+      //
+      // Hybrid: input-seek to a 2s buffer BEFORE the target (lands on a
+      // keyframe ≤ that time, fast), then output-seek the remainder
+      // for exact frame alignment. Cost is decoding ~2s per segment,
+      // not the full video.
+      const SEEK_BUFFER = 2.0
+      const inputSeek = Math.max(0, seg.startTime - SEEK_BUFFER)
+      const outputSeek = seg.startTime - inputSeek
       const args = [
         '-y',
-        '-ss', String(seg.startTime),
+        '-ss', String(inputSeek),
         '-i', inputPath,
+        '-ss', String(outputSeek),
         '-t', String(duration),
         '-c:v', VIDEO_CODEC, ...VIDEO_CODEC_EXTRA,
         '-c:a', 'aac', '-b:a', '128k',
