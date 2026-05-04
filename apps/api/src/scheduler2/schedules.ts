@@ -86,13 +86,8 @@ export const SCHEDULES: ScheduleDefinition[] = [
     pattern: '30 18 * * 0',
     description: 'Weekly Jordan plan (Sun 6:30 PM UTC)',
   },
-  {
-    queue: 'agent-tasks',
-    name: 'weekly-alex-hooks',
-    data: { kind: 'weekly-alex-hooks' },
-    pattern: '0 19 * * 0',
-    description: 'Weekly Alex hooks (Sun 7 PM UTC)',
-  },
+  // weekly-alex-hooks removed — Alex (copywriter) was retired. Riley
+  // picks up from Jordan directly via the auto-chain.
   {
     queue: 'agent-tasks',
     name: 'weekly-riley-briefs',
@@ -122,5 +117,15 @@ export const SCHEDULES: ScheduleDefinition[] = [
     data: { kind: 'style-analysis', companyId: '__fan-out__' },
     pattern: '0 10 * * *',
     description: 'Daily video style analysis (10 AM UTC)',
+  },
+  {
+    // Aggregate user-trim signals into Riley's preference profile.
+    // Runs at 11:00 UTC so it lands AFTER style-analysis (10:00) — that
+    // way Riley's next reel uses the freshest combined signal.
+    queue: 'content-analysis',
+    name: 'daily-trim-learning',
+    data: { kind: 'trim-learning', companyId: '__fan-out__' },
+    pattern: '0 11 * * *',
+    description: 'Aggregate user-edited segments into preference profile (11 AM UTC)',
   },
 ]

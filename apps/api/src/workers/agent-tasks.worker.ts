@@ -106,14 +106,9 @@ async function handleScheduledJob(data: ScheduledAgentJobData): Promise<void> {
       break
     }
 
-    case 'weekly-alex-hooks': {
-      const { triggerWeeklyAlexHooks } = await import('../lib/proactiveAnalysis')
-      const companies = await prisma.company.findMany({ select: { id: true } })
-      for (const { id } of companies) {
-        try { await triggerWeeklyAlexHooks(prisma, id) } catch {}
-      }
-      break
-    }
+    // 'weekly-alex-hooks' is intentionally not handled. Alex (copywriter)
+    // was retired. Old enqueued jobs of that kind hit the `default` clause
+    // below and are acked as no-ops while the queue drains.
 
     case 'weekly-riley-briefs': {
       const { triggerWeeklyRileyBriefs } = await import('../lib/proactiveAnalysis')

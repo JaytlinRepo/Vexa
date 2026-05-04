@@ -283,11 +283,11 @@
   const ROLE = {
     analyst: { name: 'Maya', title: 'Trend Analyst', init: 'M' },
     strategist: { name: 'Jordan', title: 'Content Strategist', init: 'J' },
-    copywriter: { name: 'Alex', title: 'Copywriter', init: 'A' },
     creative_director: { name: 'Riley', title: 'Creative Director', init: 'R' },
   }
 
-  const EMPLOYEE_ROLES = ['strategist', 'analyst', 'copywriter', 'creative_director']
+  // Three-employee team. Copywriter (Alex) was retired.
+  const EMPLOYEE_ROLES = ['strategist', 'analyst', 'creative_director']
 
   /** When there is no open task, rotate slow “always working” copy per role. */
   const AMBIENT_BY_ROLE = {
@@ -301,13 +301,7 @@
       'Reconciling pillars with live trends Maya flagged.',
       'Pulling next-week slots against growth signals.',
       'Tuning cadence to when your audience peaks.',
-      'Stress-testing captions Alex will write.',
-    ],
-    copywriter: [
-      "Drafting variants against Jordan's plan.",
-      'Sharpening saves and CTAs for your voice.',
-      'Pulling caption patterns from top performers.',
-      'Aligning captions with what Riley can shoot.',
+      'Stress-testing this week\'s plan against what worked.',
     ],
     creative_director: [
       'Storyboarding shots that match the script.',
@@ -564,7 +558,7 @@
         } else if (daysAgo === 1) {
           postingNote = 'Last post was yesterday.'
         } else if (daysAgo >= 3) {
-          postingNote = `You haven\u2019t posted in ${daysAgo} days. Brief Alex for a quick caption?`
+          postingNote = `You haven\u2019t posted in ${daysAgo} days. Brief Riley for a quick production?`
         }
       }
     }
@@ -922,9 +916,9 @@
     // Check if this role is locked on the current plan
     const userPlan = STATE.me?.user?.plan || 'free'
     const planEmployees = {
-      free: ['analyst', 'strategist', 'copywriter', 'creative_director'],
-      pro: ['analyst', 'strategist', 'copywriter', 'creative_director'],
-      agency: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+      free:   ['analyst', 'strategist', 'creative_director'],
+      pro:    ['analyst', 'strategist', 'creative_director'],
+      agency: ['analyst', 'strategist', 'creative_director'],
     }
     const isLocked = !(planEmployees[userPlan] || planEmployees.free).includes(role)
     if (isLocked) {

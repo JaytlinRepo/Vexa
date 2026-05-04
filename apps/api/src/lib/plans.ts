@@ -1,13 +1,17 @@
 import { Plan } from '@prisma/client'
 
 export interface PlanLimits {
-  tasksPerMonth: number        // for daily-reset plans, this is the per-day cap
+  /** For daily-reset plans this is the per-DAY cap; for monthly-reset plans
+   *  it is the per-MONTH cap. Field name is historical; usage.ts respects
+   *  resetWindow when picking the time slice it counts against. */
+  tasksPerMonth: number
   resetWindow: 'daily' | 'monthly'
   videosPerMonth: number
   workspaces: number
   meetingFeature: boolean
   brandMemory: boolean
-  // Agent capabilities
+  // Agent capabilities — bedrockCallsPerMonth is also bucketed by resetWindow:
+  // for daily-reset plans the counter rolls over every UTC midnight.
   bedrockCallsPerMonth: number
   briefCooldownMin: number
   proactiveAnalysis: boolean
@@ -15,25 +19,28 @@ export interface PlanLimits {
   nicheDetection: boolean
   syncOnLogin: boolean
   // Employee access
-  employees: ('analyst' | 'strategist' | 'copywriter' | 'creative_director')[]
+  employees: ('analyst' | 'strategist' | 'creative_director')[]
   revisionsPerOutput: number
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
+  // Freemium with daily resets — no trial, no upfront cost, light per-day
+  // cap. Resets at 00:00 UTC so users get a fresh runway each day; this is
+  // the upgrade nudge instead of a 7-day countdown.
   free: {
-    tasksPerMonth: 5,
-    resetWindow: 'monthly',
+    tasksPerMonth: 3, // per-DAY cap (resetWindow: 'daily')
+    resetWindow: 'daily',
     videosPerMonth: 0,
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
-    bedrockCallsPerMonth: 25,
+    bedrockCallsPerMonth: 15, // per-DAY (resetWindow: 'daily')
     briefCooldownMin: 60,
     proactiveAnalysis: false,
     weeklyPulse: false,
     nicheDetection: true,
     syncOnLogin: false,
-    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 0,
   },
   pro: {
@@ -49,7 +56,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     weeklyPulse: false,
     nicheDetection: true,
     syncOnLogin: true,
-    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 5,
   },
   max: {
@@ -65,7 +72,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     weeklyPulse: true,
     nicheDetection: true,
     syncOnLogin: true,
-    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 10,
   },
   agency: {
@@ -81,7 +88,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     weeklyPulse: true,
     nicheDetection: true,
     syncOnLogin: true,
-    employees: ['analyst', 'strategist', 'copywriter', 'creative_director'],
+    employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 999,
   },
 }

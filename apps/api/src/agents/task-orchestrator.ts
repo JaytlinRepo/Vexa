@@ -57,7 +57,7 @@ export async function orchestrateTask(taskId: string): Promise<void> {
     })
 
     // Auto-chain: approve this task and trigger the next agent in the pipeline.
-    // The pipeline flows: Maya (analyst) → Jordan (strategist) → Alex (copywriter) → Riley (creative_director).
+    // The pipeline flows: Maya (analyst) → Jordan (strategist) → Riley (creative_director).
     // Each delivery auto-approves and kicks off the next agent without CEO intervention.
     try {
       const freshTask = await prisma.task.findUnique({
@@ -968,9 +968,13 @@ async function regenerateWithFeedback(
 
 // ─── PIPELINE TRIGGERS ────────────────────────────────────────────────────────
 
+// Pipeline output types for each downstream role. Alex (copywriter) was
+// removed from the chain — Jordan now hands directly to Riley. The
+// 'copywriter' key is intentionally absent so any stale callers that look
+// up a copywriter chain target return undefined and bail with bad_config
+// instead of silently spawning an Alex task.
 const PIPELINE_OUTPUT_TYPE: Record<string, PrismaOutputType> = {
   strategist: 'content_plan',
-  copywriter: 'hooks',
   creative_director: 'shot_list',
 }
 
@@ -995,10 +999,13 @@ export async function triggerNextAgentAfterApproval(
   db: PrismaClient,
   task: { companyId: string; employee: { role: string }; id?: string },
 ): Promise<AgentPipelineChainResult> {
+  // Three-employee pipeline: Maya (analyst) → Jordan (strategist) →
+  // Riley (creative_director). Alex (copywriter) was retired. Approving
+  // a legacy Alex output still bails cleanly via end_of_pipeline.
   const nextRoleMap: Record<string, string | null> = {
     analyst: 'strategist',
-    strategist: 'copywriter',
-    copywriter: 'creative_director',
+    strategist: 'creative_director',
+    copywriter: null,
     creative_director: null,
   }
 
@@ -1267,8 +1274,11 @@ function buildHandoffContext(fromRole: string, toRole: string, content: Record<s
     lines.push('Build the content plan around these insights. Anchor slots on what\'s working and the trends Maya flagged.')
   }
 
-  if (fromRole === 'strategist' && toRole === 'copywriter') {
-    // Jordan → Alex: pass the content plan with specific days/topics
+  if (fromRole === 'strategist' && toRole === 'creative_director') {
+    // Jordan → Riley: pass the content plan with specific days/topics so
+    // Riley turns the plan directly into shot lists. The intermediate
+    // copywriter (Alex) hop was removed — Riley now shapes the visual
+    // brief straight off Jordan's strategy.
     const days = content.days as Array<{ day?: string; topic?: string; format?: string; angle?: string }> | undefined
     if (days?.length) {
       lines.push('Jordan\'s approved content plan:')
@@ -1278,26 +1288,7 @@ function buildHandoffContext(fromRole: string, toRole: string, content: Record<s
     }
     if (content.strategyNote) lines.push('Strategy note: ' + String(content.strategyNote))
     lines.push('')
-    lines.push('Write hooks and captions for each post in this plan. Match the format Jordan specified. Your copy should be ready to post.')
-  }
-
-  if (fromRole === 'copywriter' && toRole === 'creative_director') {
-    // Alex → Riley: pass the hooks/script
-    const hooks = content.hooks as Array<{ text?: string; hook?: string }> | undefined
-    if (hooks?.length) {
-      lines.push('Alex\'s approved hooks:')
-      for (const h of hooks.slice(0, 5)) lines.push(`  - "${h.text || h.hook || ''}"`)
-    }
-    if (content.script) {
-      lines.push('Alex\'s approved script:')
-      const script = content.script as { scenes?: Array<{ dialogue?: string }> }
-      if (script.scenes) {
-        for (const s of script.scenes.slice(0, 3)) lines.push(`  - ${s.dialogue || ''}`)
-      }
-    }
-    if (content.alexNote) lines.push('Alex\'s note: ' + String(content.alexNote))
-    lines.push('')
-    lines.push('Create the shot list and production brief based on Alex\'s copy. Match the energy and pacing to the hooks.')
+    lines.push('Build the shot list and production brief from this plan. Match the format Jordan specified. Your direction should be ready to shoot.')
   }
 
   // Fallback if no specific handoff
@@ -1313,7 +1304,6 @@ function buildHandoffContext(fromRole: string, toRole: string, content: Record<s
 function getAutoTaskTitle(role: string): string {
   const map: Record<string, string> = {
     strategist: 'Build this week\'s posting schedule',
-    copywriter: 'Write captions and scripts for the schedule',
     creative_director: 'Create visual brief',
   }
   return map[role] || 'New task'

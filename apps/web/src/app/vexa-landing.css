@@ -340,7 +340,9 @@ section.blk{padding:140px 44px;position:relative;z-index:1}
 .reveal.d4{transition-delay:.32s}
 
 /* ═══ TEAM SECTION ═══ */
-.team-wrap{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+/* Three-column grid (Maya / Jordan / Riley). Was repeat(4,1fr) when Alex
+   was on the team — the 4th column would otherwise leave a gap. */
+.team-wrap{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
 .t-card{
   position:relative;padding:32px 28px;border:1px solid var(--b1);border-radius:14px;
   background:linear-gradient(180deg,var(--s1),var(--bg));overflow:hidden;

@@ -39,6 +39,6 @@ window.renderWeeklyPlan = function (d) {
     '<div class="t">Content strategy \u2014 next 7 days</div>' +
     '<div class="p">' + esc(goal || 'Next week\'s content informed by this week\'s data') + '</div>' +
     (planHtml ? '<div style="margin-top:10px">' + planHtml + '</div>' : '') +
-    (status !== 'approved' ? '<div class="p" style="margin-top:10px;font-size:11px;color:var(--t3)">Once approved, Alex and Riley will get their tasks</div>' : '') +
+    (status !== 'approved' ? '<div class="p" style="margin-top:10px;font-size:11px;color:var(--t3)">Once approved, Riley will get the production brief</div>' : '') +
     '<div class="acts">' + buttons + '</div></div>'
 }

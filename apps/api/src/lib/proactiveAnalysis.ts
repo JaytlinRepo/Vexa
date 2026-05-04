@@ -186,21 +186,15 @@ export async function triggerWeeklyPlan(
 }
 
 /**
- * Alex's proactive hooks — triggered mid-week if no hooks exist.
- * Writes hooks for the most relevant upcoming content.
+ * Alex's proactive hooks — RETIRED. Alex (copywriter) was removed from the
+ * team. The export remains as a no-op so any straggler callers don't crash;
+ * delete this once nothing imports it.
  */
 export async function triggerProactiveHooks(
-  prisma: PrismaClient,
-  companyId: string,
+  _prisma: PrismaClient,
+  _companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerAgentTask(prisma, companyId, 'copywriter', {
-    type: 'hooks',
-    title: 'Captions — this week\'s top angle',
-    description: 'Scroll-stopping captions for the strongest content opportunity this week.',
-    notifTitle: 'Alex delivered captions',
-    notifBody: 'Fresh captions are ready — pick one and film.',
-    dedupDays: 5,
-  })
+  return { triggered: false, reason: 'role_retired' }
 }
 
 /**
@@ -320,23 +314,17 @@ export async function triggerPlanAdjustment(
 }
 
 /**
- * Alex's trend hooks — triggered when Maya delivers a trend report.
- * Writes hooks specifically for the top trending topic.
+ * Alex's trend hooks — RETIRED. Alex (copywriter) was removed. Maya's
+ * trend report no longer fans out to a hook-writer; Riley picks up
+ * production direction instead. Kept as a no-op until callers are gone.
  */
 export async function triggerTrendHooks(
-  prisma: PrismaClient,
-  companyId: string,
-  trendTopic: string,
-  trendContext: string,
+  _prisma: PrismaClient,
+  _companyId: string,
+  _trendTopic: string,
+  _trendContext: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerAgentTask(prisma, companyId, 'copywriter', {
-    type: 'trend_hooks',
-    title: 'Hooks for: ' + trendTopic.slice(0, 60),
-    description: JSON.stringify({ trendTopic, trendContext }),
-    notifTitle: 'Alex wrote hooks for a trend',
-    notifBody: 'Maya spotted "' + trendTopic.slice(0, 40) + '" — Alex wrote 5 hooks for it.',
-    dedupDays: 3,
-  })
+  return { triggered: false, reason: 'role_retired' }
 }
 
 // ─── RILEY PROACTIVE DELIVERABLES ────────────────────────────────────────────
@@ -465,10 +453,10 @@ export async function triggerKeepAlive(
       } else if (!types.includes('plan_adjustment')) {
         await triggerPlanAdjustment(prisma, companyId)
         triggered++
-      } else if (!types.includes('hooks') && !types.includes('trend_hooks')) {
-        await triggerProactiveHooks(prisma, companyId)
-        triggered++
       }
+      // Alex (copywriter) was retired — the keep-alive used to fall back
+      // on triggerProactiveHooks here. Removed so the keep-alive doesn't
+      // sit on a no-op every cycle.
     } catch (err) {
       console.error(`[keep-alive] failed for company ${companyId}`, err)
     }
@@ -596,20 +584,16 @@ export async function triggerWeeklyJordanPlan(
 }
 
 /**
- * Sunday 7:00 PM UTC — Alex's weekly hooks
+ * Alex's weekly hooks — RETIRED. Alex (copywriter) was removed; the
+ * scheduler no longer calls this. Kept as a no-op export until all
+ * callers have been pruned, so an imported reference doesn't break the
+ * build during the transition.
  */
 export async function triggerWeeklyAlexHooks(
-  prisma: PrismaClient,
-  companyId: string,
+  _prisma: PrismaClient,
+  _companyId: string,
 ): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return triggerAgentTask(prisma, companyId, 'copywriter' as EmployeeRole, {
-    type: 'hooks',
-    title: 'Weekly hooks — 3 per content piece',
-    description: "Alex generates hooks for this week's content, informed by hook performance data.",
-    notifTitle: "Alex's weekly hooks are ready",
-    notifBody: "Hooks for this week's content, ranked by predicted performance.",
-    dedupDays: 6,
-  })
+  return { triggered: false, reason: 'role_retired' }
 }
 
 /**

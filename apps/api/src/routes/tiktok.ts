@@ -336,15 +336,36 @@ router.get('/callback', async (req, res) => {
     // Fire-and-forget: plan-gated features on connect
     const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
     const connectPlan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
+
+    // Initialize bootstrap state so the dashboard can show a "preparing"
+    // loader. We mark backfill as ready (TikTok has no equivalent of the
+    // Meta history endpoint right now), and track Maya / Jordan via the
+    // proactive batch + niche detection wrappers.
+    const { startBootstrap, setStep } = await import('../lib/firstConnectBootstrap')
+    await startBootstrap(companyId)
+    void setStep(companyId, 'backfill', 'skipped')
+
     if (connectPlan.nicheDetection) {
       void detectNicheFromContent(prisma, companyId).catch((err) =>
         console.warn('[tiktok] niche detection failed (non-blocking)', err),
       )
     }
     if (connectPlan.proactiveAnalysis) {
-      void triggerFirstConnectBatch(prisma, companyId).catch((err) =>
-        console.warn('[tiktok] first-connect batch failed (non-blocking)', err),
-      )
+      void triggerFirstConnectBatch(prisma, companyId)
+        .then(() => Promise.all([
+          setStep(companyId, 'maya', 'ready'),
+          setStep(companyId, 'goal', 'ready'),
+        ]))
+        .catch((err) => {
+          const msg = (err as Error).message?.slice(0, 120)
+          console.warn('[tiktok] first-connect batch failed (non-blocking)', msg)
+          void setStep(companyId, 'maya', 'failed', msg)
+          void setStep(companyId, 'goal', 'failed', msg)
+        })
+    } else {
+      // Plans without proactiveAnalysis (Free) skip the agent batch entirely.
+      void setStep(companyId, 'maya', 'skipped')
+      void setStep(companyId, 'goal', 'skipped')
     }
 
     // Redirect popup to the frontend /oauth-close page (same origin as the

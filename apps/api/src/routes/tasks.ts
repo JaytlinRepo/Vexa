@@ -86,10 +86,15 @@ router.post('/', requireAuth, async (req, res, next) => {
       return
     }
 
-    // Bedrock monthly cap
-    const bedrockUsage = await getBedrockUsage(company.id)
+    // Bedrock cap — bucketed by the plan's resetWindow so the Free tier
+    // (daily resets) doesn't share a counter with the paid monthly tiers.
+    const bedrockUsage = await getBedrockUsage(company.id, plan.resetWindow)
     if (bedrockUsage.count >= plan.bedrockCallsPerMonth) {
-      res.status(402).json({ error: 'bedrock_limit_reached', message: `Your ${user?.plan} plan allows ${plan.bedrockCallsPerMonth} AI calls per month. Upgrade for more.` })
+      const period = plan.resetWindow === 'daily' ? 'day' : 'month'
+      res.status(402).json({
+        error: 'bedrock_limit_reached',
+        message: `Your ${user?.plan} plan allows ${plan.bedrockCallsPerMonth} AI calls per ${period}. Upgrade for more.`,
+      })
       return
     }
 

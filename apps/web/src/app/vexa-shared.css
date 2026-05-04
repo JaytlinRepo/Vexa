@@ -34,6 +34,11 @@
   --ok:#9fb38a; --down:#c48a8a;
   /* platform tints */
   --ig:#e879a2; --tt:#6fd0cc; --yt:#d68a8a;
+  /* employee identity — derived from existing palette anchors so we don't
+     bolt on disconnected brand hexes. Hierarchy is: Maya reads strongest
+     (high-contrast neutral), Jordan reads quieter (muted neutral), Riley
+     is the warm brand amber. */
+  --vx-maya:var(--t1); --vx-jordan:var(--t2); --vx-riley:var(--accent);
 }
 [data-theme="light"]{
   --bg:#f5f3ee; --s1:#eceae4; --s2:#e4e2db; --s3:#dbd9d1;
@@ -44,6 +49,7 @@
   --accent-soft:rgba(184,131,74,.12); --accent-glow:rgba(184,131,74,.2);
   --ok:#5d7a4b; --down:#a85858;
   --ig:#b94e7c; --tt:#3f908c; --yt:#a05a5a;
+  --vx-maya:var(--t1); --vx-jordan:var(--t2); --vx-riley:var(--accent);
 }
 [data-accent="emerald"]{ --accent:#7ea37a; --accent-hov:#8db388; --accent-text:#0d1a0c; --accent-soft:rgba(126,163,122,.14); --accent-glow:rgba(126,163,122,.22);}
 [data-accent="cobalt"]{  --accent:#8ba3c4; --accent-hov:#9bb3d4; --accent-text:#0b1220; --accent-soft:rgba(139,163,196,.14); --accent-glow:rgba(139,163,196,.22);}
@@ -2479,4 +2485,171 @@ body::before{
 }
 #view-db-posts ::-webkit-scrollbar-thumb:hover{
   background:linear-gradient(180deg,var(--t3),var(--t2));
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TEAM IDENTITY LAYER
+   ════════════════════════════════════════════════════════════════════════
+   Surfaces Maya / Jordan / Riley through name typography + color +
+   spatial placement. No avatars, no illustrations, no chat-style UI.
+   Per the design brief: identity is signaled, not announced. */
+
+.vx-employee-name{
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  /* Color is set inline per row so the same class drops onto a Maya tile,
+     a Jordan toast, or a Riley header without rewriting CSS — see brief. */
+}
+
+.vx-status-dot{
+  width:6px; height:6px; border-radius:50%;
+  display:inline-block;
+  flex-shrink:0;
+  /* No animation. Static state changes only — animation reads as consumer. */
+}
+.vx-status-dot.is-working{ background:currentColor }
+.vx-status-dot.is-idle   { background:transparent; border:1px solid var(--t3) }
+.vx-status-dot.is-done   { background:var(--ok) }
+
+/* — Signed tile ───────────────────────────────────────────────────────── */
+/* Apply alongside an existing tile. The 2px left border + a metadata row
+   communicate ownership; tile content stays unchanged. */
+.vx-tile--signed{
+  position:relative;
+  border-left:2px solid currentColor;
+  padding-left:16px;
+}
+.vx-tile--signed[data-employee="maya"]  { color:var(--vx-maya) }
+.vx-tile--signed[data-employee="jordan"]{ color:var(--vx-jordan) }
+.vx-tile--signed[data-employee="riley"] { color:var(--vx-riley) }
+.vx-tile__meta{
+  display:flex; align-items:center; gap:8px;
+  margin-top:2px; margin-bottom:14px;
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+}
+.vx-tile__separator{
+  color:var(--t3); font-size:11px; line-height:1;
+}
+.vx-tile__time{
+  color:var(--t2); font-size:11px; font-weight:400; letter-spacing:0;
+  text-transform:none;
+}
+.vx-tile__body{ color:var(--t1) }
+
+/* — Team status bar ───────────────────────────────────────────────────── */
+.vx-team-bar{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:0;
+  padding:12px 0;
+  border-top:1px solid var(--b1);
+  border-bottom:1px solid var(--b1);
+}
+.vx-team-bar__row{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 18px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:background .15s ease;
+  min-width:0;
+}
+.vx-team-bar__row + .vx-team-bar__row{
+  border-left:1px solid var(--b1);
+}
+.vx-team-bar__row:hover{ background:var(--s1) }
+.vx-team-bar__row[data-employee="maya"]  { color:var(--vx-maya) }
+.vx-team-bar__row[data-employee="jordan"]{ color:var(--vx-jordan) }
+.vx-team-bar__row[data-employee="riley"] { color:var(--vx-riley) }
+.vx-team-bar__status{
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+  font-size:13px; font-weight:400;
+  color:var(--t2);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  min-width:0; flex:1;
+}
+.vx-team-bar__row.is-waiting .vx-team-bar__status{
+  color:currentColor; /* lit up in the employee's accent when action needed */
+}
+.vx-team-bar__row.is-waiting::after{
+  content:'\2192'; /* → */
+  color:currentColor;
+  font-size:13px;
+  margin-left:4px;
+}
+@media (max-width:768px){
+  .vx-team-bar{
+    grid-template-columns:1fr;
+    gap:0;
+  }
+  .vx-team-bar__row + .vx-team-bar__row{
+    border-left:none;
+    border-top:1px solid var(--b1);
+  }
+}
+
+/* — Notification (speaking as employee) ───────────────────────────────── */
+.vx-notif{
+  background:var(--s1);
+  border:1px solid var(--b1);
+  border-left:2px solid currentColor;
+  border-radius:10px;
+  padding:14px 16px;
+  box-shadow:0 8px 24px var(--sh);
+  max-width:420px;
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+}
+.vx-notif[data-employee="maya"]  { color:var(--vx-maya) }
+.vx-notif[data-employee="jordan"]{ color:var(--vx-jordan) }
+.vx-notif[data-employee="riley"] { color:var(--vx-riley) }
+.vx-notif__from{
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:6px;
+}
+.vx-notif__body{
+  margin:0;
+  font-size:13px;
+  line-height:1.55;
+  color:var(--t1);
+}
+
+/* — Studio header band (Riley owns Studio) ──────────────────────────── */
+.vx-studio-band{
+  display:flex; align-items:center; gap:10px;
+  padding:14px 40px;
+  border-bottom:1px solid var(--b1);
+  background:var(--bg);
+}
+.vx-studio-band[data-employee="riley"]{ color:var(--vx-riley) }
+.vx-studio-band__role{
+  color:var(--t2);
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+  font-size:11px; font-weight:400; letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+/* — Riley bridge strip on HQ ──────────────────────────────────────────── */
+.vx-riley-bridge{
+  display:flex; align-items:center; gap:12px;
+  padding:14px 18px;
+  border-top:2px solid var(--vx-riley);
+  background:var(--s1);
+  border-radius:0 0 10px 10px;
+  color:var(--vx-riley);
+  cursor:pointer;
+  transition:background .15s ease;
+}
+.vx-riley-bridge:hover{ background:var(--s2) }
+.vx-riley-bridge__msg{
+  flex:1;
+  color:var(--t1);
+  font-family:'DM Sans','Inter',system-ui,sans-serif;
+  font-size:13px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.vx-riley-bridge__arrow{
+  color:currentColor;
+  font-size:14px;
 }

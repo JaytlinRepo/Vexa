@@ -49,6 +49,29 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
   )
 }
 
+/**
+ * Generate a presigned GET URL with `Content-Disposition: attachment` so
+ * the browser saves the file instead of streaming it inline. The filename
+ * shown to the user is whatever `downloadFilename` is set to.
+ */
+export async function getPresignedDownloadUrl(opts: {
+  key: string
+  downloadFilename: string
+  expiresIn?: number
+}): Promise<string> {
+  // Strip characters that aren't safe for either filesystems or HTTP headers.
+  const safe = opts.downloadFilename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'video.mp4'
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: opts.key,
+      ResponseContentDisposition: `attachment; filename="${safe}"`,
+    }),
+    { expiresIn: opts.expiresIn ?? 600 },
+  )
+}
+
 // ─── PRESIGNED UPLOAD URL ────────────────────────────────────────────────────
 
 /**

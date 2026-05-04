@@ -18,6 +18,7 @@ import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
 import tasksRouter from './routes/tasks'
 import employeesRouter from './routes/employees'
+import teamRouter from './routes/team'
 import { getMode } from './lib/mode'
 import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
@@ -155,6 +156,7 @@ app.use('/api/instagram', instagramRouter)
 app.use('/api/meeting', meetingRouter)
 app.use('/api/tasks', tasksRouter)
 app.use('/api/employees', employeesRouter)
+app.use('/api/team', teamRouter)
 app.use('/api/feed', feedRouter)
 app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)

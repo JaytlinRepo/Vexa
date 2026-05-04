@@ -802,6 +802,19 @@ model VideoClip {
   styleMetrics      Json? // {styleReplication: 0.87, colorAccuracy: 0.92, ...}
   editorialFeedback Json? // [{type: 'visual'|'copy', reason, timestamp, version}]
 
+  // User-trim feature ────────────────────────────────────────────────────
+  // Per-segment poster frames (S3 keys) so the approval UI can show a
+  // strip of segment thumbnails without re-extracting frames per page view.
+  segmentThumbnails Json? // string[] — S3 keys, one per segment in adjustments.segments order
+  // The user's final segment list after they used the trim UI to drop /
+  // re-cut segments. Same shape as adjustments.segments (ReelSegment[]).
+  // NULL = user accepted Riley's first cut as-is.
+  userEditedSegments Json?
+  userEditedAt       DateTime? @map("user_edited_at")
+  // Bumped each time the user re-cuts the reel — drives "edit distance"
+  // tracking in the learning aggregator. 0 = never edited.
+  editVersion        Int       @default(0) @map("edit_version")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

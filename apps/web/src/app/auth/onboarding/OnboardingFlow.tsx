@@ -97,11 +97,28 @@ export default function OnboardingFlow() {
   async function submitOnboarding() {
     setIsSubmitting(true)
     try {
-      await fetch('/api/onboarding/company', {
+      // Map the local form shape onto the API contract. The route expects
+      // `name`, `brandVoice` (object), `audience` (object), `goals` (object) —
+      // not `companyName`, raw `tone`/`avoid` arrays, or scalar `goal`. Without
+      // this mapping the agents start with empty brandVoice / audience / goals
+      // and answer in default voice instead of the creator's.
+      const payload = {
+        name: data.companyName,
+        niche: data.niche,
+        subNiche: data.subNiche || undefined,
+        brandVoice: { tone: data.tone, avoid: data.avoid },
+        audience: { description: data.audience },
+        goals: { primary: data.goal },
+      }
+      const res = await fetch('/api/onboarding/company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       })
+      if (!res.ok) {
+        console.error('Onboarding submit failed with status', res.status)
+      }
     } catch (err) {
       console.error('Onboarding submit failed:', err)
     } finally {

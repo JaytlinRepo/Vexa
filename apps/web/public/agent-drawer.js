@@ -40,28 +40,14 @@
         { kind: 'slot_audit', label: 'Slot Audit', desc: 'Find your 2 weakest content slots and replace them with higher-performing formats.', type: 'content_planning', requires: 'posts' },
       ],
     },
-    copywriter: {
-      name: 'Alex',
-      title: 'Copywriter & Script Writer',
-      init: 'A',
-      color: '#e8c87a',
-      personality: 'Creative, punchy, and opinionated. Pushes back on weak briefs. Tells you which hook is the one.',
-      schedule: 'Auto-briefed when Jordan\'s plan is approved. Delivers hooks, scripts, and captions on demand.',
-      services: [
-        { kind: 'top_trend_hooks', label: 'Trend Hooks', desc: '5 scroll-stopping hooks for what\'s trending right now. Includes Alex\'s pick.', type: 'hook_writing', requires: 'none' },
-        { kind: 'reel_script_30s', label: '30s Reel Script', desc: 'Beat-by-beat script: hook, tension, reframe, payoff. Ready to film.', type: 'script_writing', requires: 'none' },
-        { kind: 'caption_next_post', label: 'Caption', desc: 'Full ready-to-paste caption with CTA and line break strategy.', type: 'caption_writing', requires: 'none' },
-        { kind: 'carousel_opening_lines', label: 'Carousel Openers', desc: '3 opening lines for slide 1. Alex tells you which one wins and why.', type: 'hook_writing', requires: 'none' },
-        { kind: 'bio_rewrite', label: 'Bio Rewrite', desc: '3 bio options — outcome-first, identity-first, and punchy. With a recommendation.', type: 'caption_writing', requires: 'platform' },
-      ],
-    },
+    // copywriter (Alex) was retired from the team.
     creative_director: {
       name: 'Riley',
       title: 'Creative Director',
       init: 'R',
       color: '#b482ff',
       personality: 'Visual thinker, detail-obsessed. Speaks in shots and scenes. Makes sure your content looks as good as it reads.',
-      schedule: 'Auto-briefed when Alex\'s copy is approved. Audits your feed and format performance bi-weekly.',
+      schedule: 'Auto-briefed when Jordan\'s plan is approved. Audits your feed and format performance bi-weekly.',
       services: [
         { kind: 'reel_shot_list', label: 'Shot List', desc: 'Exactly what to film — shots, duration, camera angles, audio notes, and pacing.', type: 'shot_list', requires: 'none' },
         { kind: 'pacing_notes', label: 'Pacing Notes', desc: 'Frame-by-frame timing so your video holds attention from start to finish.', type: 'shot_list', requires: 'none' },
@@ -75,7 +61,6 @@
   var AGENT_SCHEDULES = {
     analyst: ['maya_pulse'],
     strategist: ['jordan_plan', 'jordan_audit', 'jordan_adjustment', 'jordan_growth'],
-    copywriter: [],
     creative_director: ['riley_feed_audit', 'riley_format', 'riley_competitor'],
   }
 

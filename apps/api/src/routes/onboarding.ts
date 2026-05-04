@@ -13,10 +13,13 @@ import {
 
 const router = Router()
 
+// Three-employee team: Alex (copywriter) was retired. New companies seed
+// Maya / Jordan / Riley only. Existing companies that already have an Alex
+// row are unaffected — the enum value still exists in the schema for
+// backward compat, we just don't create new ones.
 const EMPLOYEE_SEED: Array<{ role: EmployeeRole; name: string }> = [
   { role: 'analyst', name: 'Maya' },
   { role: 'strategist', name: 'Jordan' },
-  { role: 'copywriter', name: 'Alex' },
   { role: 'creative_director', name: 'Riley' },
 ]
 
@@ -125,6 +128,31 @@ router.post('/company', async (req, res, next) => {
       res.status(400).json({ error: 'invalid_input', issues: err.issues })
       return
     }
+    next(err)
+  }
+})
+
+// ── First-connect bootstrap status ──────────────────────────────────
+// Returns whether Maya / Jordan / backfill have finished running for the
+// user's first company. Frontend polls this on dashboard mount so it can
+// show a "preparing your dashboard" loader instead of empty cards while
+// Bedrock is busy, and a real failure banner if any step errored.
+router.get('/bootstrap-status', requireAuth, async (req, res, next) => {
+  try {
+    const { userId } = (req as AuthedRequest).session
+    const company = await prisma.company.findFirst({
+      where: { userId },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!company) {
+      res.json({ status: 'pending', steps: { backfill: 'pending', maya: 'pending', goal: 'pending' }, postCount: null, startedAt: null, finishedAt: null, error: null })
+      return
+    }
+    const { getBootstrapState } = await import('../lib/firstConnectBootstrap')
+    const state = await getBootstrapState(company.id)
+    res.json(state)
+  } catch (err) {
     next(err)
   }
 })

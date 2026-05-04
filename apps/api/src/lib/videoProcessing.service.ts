@@ -27,7 +27,10 @@ import { classifySubjects, type SubjectKind } from './subjectClassifier.service'
 // Local alias for span.subjectKind values
 type ActionSpanSubject = SubjectKind
 import StudioCopywritingService from './studioCopywriting.service'
-import { getPresignedUrl } from '../services/storage/s3.service'
+import { getPresignedUrl, uploadFile } from '../services/storage/s3.service'
+import { execFile as _execFile } from 'child_process'
+import { promisify as _promisify } from 'util'
+const _execFileAsync = _promisify(_execFile)
 import { broadcastProcessingEvent as _defaultBroadcast } from '../routes/video'
 
 // Allow workers to override the broadcast function (for Redis Pub/Sub relay).
@@ -189,22 +192,25 @@ export class VideoProcessingService extends EventEmitter {
       const analysisStart = Date.now()
 
       // Load creator profile (fast DB query)
-      let creatorProfile: { style: Record<string, unknown> | null; retention: Record<string, unknown> | null } | null = null
+      let creatorProfile: { style: Record<string, unknown> | null; retention: Record<string, unknown> | null; trimLearning?: Record<string, unknown> | null } | null = null
       let creatorFilters: import('./ffmpegFilterBuilder').CreatorFilters | null = null
 
       const profilePromise = (async () => {
         try {
           const { getStyleProfile } = await import('../services/videoStyleAnalyzer.service')
           const { getRetentionProfile } = await import('../services/intelligence/retentionIntelligence')
+          const { getTrimLearning } = await import('../services/trimLearning.service')
           const { buildCreatorFilters } = await import('./ffmpegFilterBuilder')
-          const [styleProfile, retentionProfile] = await Promise.all([
+          const [styleProfile, retentionProfile, trimLearning] = await Promise.all([
             getStyleProfile(company.id),
             getRetentionProfile(this.prisma, company.id),
+            getTrimLearning(this.prisma, company.id),
           ])
-          if (styleProfile || retentionProfile) {
-            creatorProfile = { style: styleProfile as any, retention: retentionProfile as any }
+          if (styleProfile || retentionProfile || trimLearning) {
+            creatorProfile = { style: styleProfile as any, retention: retentionProfile as any, trimLearning: trimLearning as any }
             creatorFilters = buildCreatorFilters(styleProfile, retentionProfile, videoDuration)
-            console.log(`[video] Creator profile loaded: ${creatorFilters.targetDuration}s target, ${creatorFilters.maxSegments} max segments`)
+            const trimNote = trimLearning ? `, trim-learning loaded (${trimLearning.editedClipCount} edited clips, ${trimLearning.dropPatterns.length} drop patterns)` : ''
+            console.log(`[video] Creator profile loaded: ${creatorFilters.targetDuration}s target, ${creatorFilters.maxSegments} max segments${trimNote}`)
           }
         } catch (err) {
           console.warn('[video] Could not load creator profile:', (err as Error).message)
@@ -477,6 +483,59 @@ export class VideoProcessingService extends EventEmitter {
 
       console.log(`[video] Reel saved to S3: ${clipResult.s3Key} (${clipResult.segmentCount} cuts, ${clipResult.duration}s)`)
 
+      // ── 4b. Per-segment thumbnails for the trim/re-cut UI ──────────
+      // Extract one frame from each segment so the approval card can
+      // render a visual segment strip without re-decoding the reel on
+      // every page view. Costs ~0.3s per segment; runs in parallel so
+      // a 10-segment reel adds ~1s wall-clock. Failures are non-fatal —
+      // the trim UI degrades to label-only thumbnails if upload fails.
+      const segmentThumbnails: string[] = []
+      try {
+        const segs = clipDecision.segments
+        const tmpDir = path.join(os.tmpdir(), `sovexa-thumbs-${uploadId}`)
+        fs.mkdirSync(tmpDir, { recursive: true })
+        const thumbKeys: (string | null)[] = await Promise.all(
+          segs.map(async (seg, i) => {
+            try {
+              // Sample 0.3s into the segment to avoid the cut's first
+              // frame (often mid-motion or a tiny crossfade artifact).
+              const sampleAt = Math.min(seg.startTime + 0.3, seg.endTime - 0.05)
+              const localPath = path.join(tmpDir, `seg-${String(i).padStart(2, '0')}.jpg`)
+              await _execFileAsync(
+                'ffmpeg',
+                [
+                  '-y',
+                  '-ss', String(sampleAt),
+                  '-i', localVideoPath,
+                  '-frames:v', '1',
+                  // 240x426 keeps the strip light (~10-15KB per thumb)
+                  // while still showing composition clearly. -q:v 5 ≈ 75% jpeg.
+                  '-vf', 'scale=240:-2',
+                  '-q:v', '5',
+                  localPath,
+                ],
+                { timeout: 8000 },
+              )
+              const buf = fs.readFileSync(localPath)
+              const s3Key = `studio/thumbs/${company.id}/${Date.now()}-${uploadId}-seg${String(i).padStart(2, '0')}.jpg`
+              await uploadFile({ key: s3Key, body: buf, contentType: 'image/jpeg' })
+              return s3Key
+            } catch (err) {
+              console.warn(`[video] thumbnail seg ${i} failed:`, (err as Error).message?.slice(0, 100))
+              return null
+            }
+          }),
+        )
+        // Drop nulls so the array length stays in sync with successful
+        // thumbnails. The frontend handles `null` gracefully too, but
+        // returning a clean array keeps downstream code simpler.
+        for (const k of thumbKeys) if (k) segmentThumbnails.push(k)
+        console.log(`[video] Segment thumbnails: ${segmentThumbnails.length}/${segs.length} uploaded`)
+        try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch {}
+      } catch (err) {
+        console.warn(`[video] segment thumbnail batch failed:`, (err as Error).message?.slice(0, 200))
+      }
+
       // ── 5. Alex writes captions using Riley's visual descriptions ──
       const visualDescription = clipDecision.segments
         .map(s => `[${s.energy}] ${s.label}`)
@@ -522,6 +581,10 @@ export class VideoProcessingService extends EventEmitter {
             clipDuration: clipResult.duration,
             segmentCount: clipResult.segmentCount,
           },
+          // Per-segment poster frames keyed for the trim UI. Empty
+          // array (rather than null) when the batch failed entirely so
+          // the frontend doesn't have to special-case nulls.
+          segmentThumbnails: segmentThumbnails.length > 0 ? segmentThumbnails : [],
         },
       })
 

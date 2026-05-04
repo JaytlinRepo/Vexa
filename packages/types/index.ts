@@ -3,7 +3,15 @@
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due'
 export type Plan = 'free' | 'pro' | 'max' | 'agency'
 export type Platform = 'instagram'
+/**
+ * Active employee roles. The `copywriter` value (Alex) is intentionally kept
+ * as a recognised type so existing rows / outputs stay valid, but the role
+ * is no longer offered: new accounts seed Maya/Jordan/Riley only and Alex's
+ * pipeline step has been removed (Jordan now hands directly to Riley).
+ */
 export type EmployeeRole = 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
+export type ActiveEmployeeRole = 'analyst' | 'strategist' | 'creative_director'
+export const ACTIVE_EMPLOYEE_ROLES: ActiveEmployeeRole[] = ['analyst', 'strategist', 'creative_director']
 export type TaskStatus = 'pending' | 'in_progress' | 'delivered' | 'approved' | 'rejected' | 'revision'
 export type OutputType = 'trend_report' | 'content_plan' | 'hooks' | 'caption' | 'script' | 'shot_list' | 'video' | 'performance_review' | 'weekly_pulse' | 'upload_review' | 'content_audit' | 'growth_strategy' | 'feed_audit' | 'format_analysis' | 'trend_hooks' | 'plan_adjustment' | 'competitor_analysis'
 export type OutputStatus = 'draft' | 'approved' | 'rejected'

@@ -32,6 +32,8 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />
       <Script src={v('/auth-ui.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/bootstrap-status-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/team-status-wire.js')} strategy="afterInteractive" />
       {/* tutorial-wire.js — legacy modal walkthrough, superseded by the
           spotlight tour (tour-engine.js + tour-steps.js). Kept on disk so
           we can revive a step if needed; not loaded so it doesn't double-

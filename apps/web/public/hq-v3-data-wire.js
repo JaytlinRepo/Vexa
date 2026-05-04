@@ -363,7 +363,9 @@
     data.tasksRaw = tasks
 
     // Most recent task per role
-    var roleMap = { analyst: 'maya', strategist: 'jordan', copywriter: 'alex', creative_director: 'riley' }
+    // Three-employee team. `copywriter` (Alex) is no longer mapped — any
+    // legacy task with that role is excluded from the live pipeline view.
+    var roleMap = { analyst: 'maya', strategist: 'jordan', creative_director: 'riley' }
     tasks.forEach(function (t) {
       var role = roleMap[t.employee && t.employee.role]
       if (!role) return
@@ -451,19 +453,30 @@
     // Tasks needing CEO action: status='delivered' (output is in, awaiting
     // approve / reject). 'pending' = queued, 'approved' = done — neither
     // needs review.
-    var delivered = ((d && d.tasksRaw) || []).filter(function (t) { return t.status === 'delivered' })
-    // Group by role so chips read as "Approve · 5 hooks from Alex" not
-    // "Approve · output #abc-123"
+    // Active-role allowlist — Alex (copywriter) was retired, but legacy
+    // delivered tasks of that role still exist in some DBs. Skipping them
+    // here keeps the headline ("N things need your review") aligned with
+    // what we actually render in chips, and avoids a phantom "+1 more".
+    var ACTIVE_ROLES = { analyst: 1, strategist: 1, creative_director: 1 }
+    var delivered = ((d && d.tasksRaw) || [])
+      .filter(function (t) { return t.status === 'delivered' })
+      .filter(function (t) {
+        var r = (t.employee && t.employee.role) || ''
+        return ACTIVE_ROLES[r] === 1
+      })
+    // Group by role so chips read as "Review · 3 plans from Jordan" not
+    // "Review · output #abc-123"
     var byRole = {}
     delivered.forEach(function (t) {
       var role = (t.employee && t.employee.role) || 'unknown'
       if (!byRole[role]) byRole[role] = []
       byRole[role].push(t)
     })
+    // Three-employee team (Alex retired). Legacy `copywriter` rows fall
+    // through to the Team default below.
     var roleLabels = {
       analyst: { who: 'Maya', what: 'brief', what_pl: 'briefs' },
       strategist: { who: 'Jordan', what: 'plan', what_pl: 'plans' },
-      copywriter: { who: 'Alex', what: 'output', what_pl: 'outputs' },
       creative_director: { who: 'Riley', what: 'brief', what_pl: 'briefs' },
     }
 
@@ -478,9 +491,12 @@
     var n = delivered.length
     summary.innerHTML = '<em>' + n + '</em> ' + (n === 1 ? 'thing needs' : 'things need') + ' your review.'
 
-    // Build up to 3 role-grouped chips, then "+N more" if there's overflow
-    var roleOrder = ['analyst', 'strategist', 'copywriter', 'creative_director']
+    // Build up to 3 role-grouped chips, then "+N more" only when tasks
+    // remain that aren't covered. tasksChipped sums bucket lengths so a
+    // single chip standing in for 3 tasks subtracts 3, not 1.
+    var roleOrder = ['analyst', 'strategist', 'creative_director']
     var rendered = 0
+    var tasksChipped = 0
     roleOrder.forEach(function (role) {
       var bucket = byRole[role]
       if (!bucket || bucket.length === 0 || rendered >= 3) return
@@ -491,7 +507,6 @@
       var btn = document.createElement('button')
       btn.className = 'hq3-cockpit-chip' + (rendered === 0 ? ' primary' : '')
       btn.textContent = label
-      // Deep-link to the Tasks tab when prototype.js exposes navigateTo
       btn.onclick = function () {
         var firstId = bucket[0] && bucket[0].id
         if (typeof window.dispatchEvent === 'function') {
@@ -500,13 +515,13 @@
       }
       chips.appendChild(btn)
       rendered++
+      tasksChipped += bucket.length
     })
-    var totalRolesShown = Math.min(3, Object.keys(byRole).length)
-    if (rendered < Object.keys(byRole).length || delivered.length > rendered) {
+    if (delivered.length > tasksChipped) {
       var more = document.createElement('button')
       more.className = 'hq3-cockpit-chip muted'
-      var remaining = delivered.length - rendered
-      more.textContent = remaining > 0 ? '+' + remaining + ' more' : 'View all'
+      var remaining = delivered.length - tasksChipped
+      more.textContent = '+' + remaining + ' more'
       more.onclick = function () {
         var firstDelivered = delivered[0] && delivered[0].id
         if (typeof window.dispatchEvent === 'function') {
@@ -577,9 +592,9 @@
       // Sub-line: ONLY show roles that did something net-new. If nothing's
       // new, give an honest status pinned to the lastSeen window — never
       // recycle yesterday's boilerplate.
-      var roleNames = { maya: 'Maya', jordan: 'Jordan', alex: 'Alex', riley: 'Riley' }
+      var roleNames = { maya: 'Maya', jordan: 'Jordan', riley: 'Riley' }
       var parts = []
-      ;['maya', 'jordan', 'alex', 'riley'].forEach(function (role) {
+      ;['maya', 'jordan', 'riley'].forEach(function (role) {
         var t = (d.netNewTasksByRole || {})[role]
         if (!t) return
         var title = (t.title || '').slice(0, 60).replace(/[<>&]/g, '')
@@ -1183,7 +1198,7 @@
 
   // ───── render: pipeline nodes ─────────────────────────────────────
   function renderPipelineNodes (root, d) {
-    ['maya', 'jordan', 'alex', 'riley'].forEach(function (role) {
+    ['maya', 'jordan', 'riley'].forEach(function (role) {
       var node = root.querySelector('[data-node="' + role + '"]')
       if (!node) return
       var task = d.tasksByRole[role]
@@ -1264,25 +1279,7 @@
           return null
         },
       },
-      {
-        role: 'alex',
-        url: '/api/weekly/alex-hooks?' + q,
-        extract: function (r) {
-          var o = r && r.output
-          if (!o) return null
-          // Alex's output is a hook list. Surface the first hook's copy
-          // (truncated) — that's the actual creative output, not the
-          // generic "Write captions" task title.
-          var hooks = o.hooks || o.weeklyHooks || o.weekly_hooks
-          if (Array.isArray(hooks) && hooks.length > 0) {
-            var first = hooks[0]
-            var copy = (first && (first.copy || first.text || first.hook)) || null
-            if (copy) return copy.length > 70 ? copy.slice(0, 70) + '\u2026' : copy
-            return hooks.length + ' hooks staged'
-          }
-          return null
-        },
-      },
+      // Alex (copywriter) retired — the alex-hooks fetch entry was removed.
       {
         role: 'riley',
         url: '/api/studio/weekly-status?' + q + '&lite=1',
@@ -1357,10 +1354,11 @@
   // Cache populated by enhancePipelineNodes() above. The drawer renders
   // off this cache so a click is instantaneous — no second fetch.
   var PIPELINE_DRAWER_CACHE = {}
+  // Three-employee team after Alex (copywriter) was retired. Lookups for
+  // `alex` will return undefined — drawer rendering bails cleanly.
   var ROLE_META = {
     maya:   { name: 'Maya',   role: 'Trend & Insights Analyst', letter: 'M' },
     jordan: { name: 'Jordan', role: 'Content Strategist',       letter: 'J' },
-    alex:   { name: 'Alex',   role: 'Copywriter & Script Writer', letter: 'A' },
     riley:  { name: 'Riley',  role: 'Creative Director',        letter: 'R' },
   }
 
@@ -1482,6 +1480,99 @@
     return blocks.join('')
   }
 
+  // Render the same posting-strategy panel Studio shows under "When to
+  // post" — three ranked slots (primary / alternative / testing) plus
+  // the audience-peak headline. Fetched on demand when Jordan's drawer
+  // opens so the cost is paid only when the user actually clicks.
+  function fmtStrategyTime (isoOrDate) {
+    var d = new Date(isoOrDate)
+    if (isNaN(d.getTime())) return ''
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    var h = d.getUTCHours()
+    var period = h >= 12 ? 'PM' : 'AM'
+    var display = (h % 12 || 12) + ':00 ' + period
+    return days[d.getUTCDay()] + ', ' + months[d.getUTCMonth()] + ' ' + d.getUTCDate() + ' · ' + display
+  }
+  function fmtPeakHour (hour) {
+    if (hour == null) return '—'
+    var period = hour >= 12 ? 'PM' : 'AM'
+    var hr12 = period === 'PM' ? hour - 12 || 12 : hour || 12
+    return hr12 + ' ' + period + ' · typical peak'
+  }
+  function jordanStrategyHtml (strategy) {
+    if (!strategy) {
+      return '<p class="hq3-drawer-empty">Once your connected account has a few weeks of activity, Jordan calls your peak posting windows here.</p>'
+    }
+    var ctx = strategy.context || {}
+    var dayPart = ctx.bestDayOfWeek ? ctx.bestDayOfWeek.slice(0, 3) + ' ' : ''
+    var peak = ctx.audiencePeakHour != null ? (dayPart + fmtPeakHour(ctx.audiencePeakHour)) : '—'
+    var SLOTS = [
+      { key: 'primary',   label: 'Primary' },
+      { key: 'secondary', label: 'Alternative' },
+      { key: 'tertiary',  label: 'Testing window' },
+    ]
+    var slotHtml = SLOTS.map(function (slot) {
+      var rec = strategy[slot.key]
+      if (!rec) return ''
+      var pct = Math.round((rec.confidence || 0) * 100) + '%'
+      var timeStr = fmtStrategyTime(rec.recommendedTime)
+      var tags = [
+        rec.audiencePeak ? '<span class="hq3-drawer-pill">Audience peak</span>' : '',
+        rec.formatPerformance ? '<span class="hq3-drawer-pill">' + escHtml(rec.formatPerformance) + '</span>' : '',
+      ].filter(Boolean).join('')
+      return ''
+        + '<div class="hq3-drawer-slot">'
+        +   '<div class="hq3-drawer-slot-head">'
+        +     '<div>'
+        +       '<div class="hq3-drawer-slot-label">' + slot.label + '</div>'
+        +       '<div class="hq3-drawer-slot-time">' + escHtml(timeStr) + '</div>'
+        +     '</div>'
+        +     '<span class="hq3-drawer-slot-conf">' + pct + '</span>'
+        +   '</div>'
+        +   (rec.rationale ? '<div class="hq3-drawer-slot-rationale">' + escHtml(rec.rationale) + '</div>' : '')
+        +   (tags ? '<div class="hq3-drawer-slot-tags">' + tags + '</div>' : '')
+        + '</div>'
+    }).join('')
+    return ''
+      + '<div class="hq3-drawer-row"><div class="hq3-drawer-k">Audience peak</div><div class="hq3-drawer-v">' + escHtml(peak) + '</div></div>'
+      + slotHtml
+  }
+  function hydrateJordanStrategy () {
+    var slot = document.getElementById('hq3-jordan-strategy')
+    if (!slot) return
+    // Resolve company id via /api/auth/me — the local `state` IIFE-closure
+    // var was the wrong scope here. Single round-trip; cheap.
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null })
+      .then(function (me) {
+        var company = me && me.companies && me.companies[0]
+        if (!company || !company.id) {
+          var slotA = document.getElementById('hq3-jordan-strategy')
+          if (slotA) slotA.innerHTML = '<p class="hq3-drawer-empty">Connect your account to see Jordan’s strategy.</p>'
+          return
+        }
+        return fetch('/api/studio/posting-strategy', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: company.id, contentType: 'video' }),
+        }).then(function (r) { return r.ok ? r.json() : null })
+      })
+      .then(function (strategy) {
+        // Drawer might already be closed by now (user moved on). Don't
+        // overwrite stale DOM.
+        var still = document.getElementById('hq3-jordan-strategy')
+        if (!still) return
+        if (strategy === undefined) return // already handled the no-company branch
+        still.innerHTML = jordanStrategyHtml(strategy)
+      })
+      .catch(function () {
+        var still = document.getElementById('hq3-jordan-strategy')
+        if (still) still.innerHTML = '<p class="hq3-drawer-empty">Couldn’t load Jordan’s strategy right now. Refresh in a moment.</p>'
+      })
+  }
+
   function renderDrawerBody (role, payload) {
     // Riley: Studio queue (pending / ready to post) — no weekly brief `output`
     if (role === 'riley' && payload && !payload.output
@@ -1503,20 +1594,11 @@
         row('Signals', o.signals.slice(0, 4).map(function (s) { return '<span class="hq3-drawer-pill">' + escHtml(typeof s === 'string' ? s : (s.label || s.title || '')) + '</span>' }).join(''))
       }
     } else if (role === 'jordan') {
-      var plan = o.content_plan || o
-      row('Weekly goal', plan.weeklyGoal || plan.weekly_goal ? escHtml(plan.weeklyGoal || plan.weekly_goal) : null)
-      if (Array.isArray(plan.formats) && plan.formats.length) {
-        row('Formats', plan.formats.slice(0, 4).map(function (fmt) { return '<span class="hq3-drawer-pill">' + escHtml(fmt.name || fmt) + '</span>' }).join(''))
-      }
-      if (plan.cadence && plan.cadence.feed_posts) row('Cadence', escHtml(plan.cadence.feed_posts + ' posts/wk'))
-    } else if (role === 'alex') {
-      var hooks = o.hooks || o.weeklyHooks || o.weekly_hooks
-      if (Array.isArray(hooks) && hooks.length) {
-        row('Hooks (' + hooks.length + ')', hooks.slice(0, 5).map(function (h) {
-          var copy = (h && (h.copy || h.text || h.hook)) || ''
-          return '<div class="hq3-drawer-line">' + escHtml(copy) + '</div>'
-        }).join(''))
-      }
+      // Jordan's drawer mirrors the Studio "When to Post" panel — that's
+      // the actual deliverable surface for him now (audience peaks +
+      // ranked posting windows). The hydration is async; we return a
+      // placeholder here and openPipelineDrawer fills it after fetch.
+      rows.push('<div id="hq3-jordan-strategy" class="hq3-drawer-strategy"><div class="hq3-drawer-empty">Loading Jordan’s strategy…</div></div>')
     } else if (role === 'riley') {
       if (o.kind === 'reel_shot_list' || (Array.isArray(o.shots) && !o.proposedFix)) {
         // ── Shot list ───────────────────────────────────────────────
@@ -1636,12 +1718,68 @@
     d.querySelector('.hq3-drawer-body').innerHTML = renderDrawerBody(role, payload)
     if (rileyStudio) d.classList.add('hq3-drawer--studio-queue')
     else d.classList.remove('hq3-drawer--studio-queue')
-    var actionable = !!taskId && status !== 'approved' && status !== 'rejected'
-    d.querySelectorAll('[data-drawer-action]').forEach(function (b) {
-      b.disabled = !actionable
-      b.classList.toggle('is-disabled', !actionable)
-    })
-    d.querySelector('[data-drawer-msg]').textContent = ''
+
+    // Jordan's drawer body renders the same posting-strategy data that
+    // lives in Studio's "When to Post" sidebar. The fetch is async, so
+    // we hydrate the placeholder div right after the body innerHTML is
+    // installed. Override drawer title + status to read like a strategy
+    // surface, not a one-shot brief.
+    if (role === 'jordan' && !rileyStudio) {
+      d.querySelector('.hq3-drawer-title').textContent = 'When to post'
+      statusEl.textContent = 'Strategy · audience peaks + ranked windows'
+      hydrateJordanStrategy()
+    }
+
+    // Decide whether Approve / Reconsider / Reject make sense here, and if
+    // not, *explain why*. Three buttons greying out with no copy looks like
+    // the product is broken. Hide the row entirely for cases where action
+    // would be nonsensical (Riley's studio-queue view) and surface a short
+    // explanation in the msg slot for the others.
+    var footerEl = d.querySelector('.hq3-drawer-actions')
+    var msgEl = d.querySelector('[data-drawer-msg]')
+    var reason = null
+    if (rileyStudio) {
+      reason = 'hidden' // queue view — actions belong inside Studio, not here
+    } else if (role === 'jordan') {
+      // Jordan's drawer is a strategy surface (When to post). Approve /
+      // reject don't apply — the body itself is the deliverable. Hide
+      // the footer entirely; no info banner needed.
+      reason = 'hidden'
+    } else if (!taskId) {
+      reason = entry
+        ? 'Nothing here needs your call right now. New work shows up the moment ' + meta.name + ' has a draft for you.'
+        : meta.name + ' is between briefs. We’ll surface the next one as soon as it’s ready.'
+    } else if (status === 'approved') {
+      reason = 'You already approved this. ' + meta.name + ' has moved on to the next step.'
+    } else if (status === 'rejected') {
+      reason = 'You rejected this one. ' + meta.name + ' will deliver a fresh take soon.'
+    }
+
+    if (reason === 'hidden') {
+      if (footerEl) footerEl.style.display = 'none'
+      if (msgEl) {
+        msgEl.textContent = ''
+        msgEl.classList.remove('is-error', 'is-info')
+      }
+    } else if (reason) {
+      if (footerEl) footerEl.style.display = 'none' // disabled buttons are dead UI; remove them
+      if (msgEl) {
+        msgEl.textContent = reason
+        msgEl.classList.add('is-info')
+        msgEl.classList.remove('is-error')
+      }
+    } else {
+      if (footerEl) footerEl.style.display = ''
+      d.querySelectorAll('[data-drawer-action]').forEach(function (b) {
+        b.disabled = false
+        b.classList.remove('is-disabled')
+      })
+      if (msgEl) {
+        msgEl.textContent = ''
+        msgEl.classList.remove('is-error', 'is-info')
+      }
+    }
+
     d.classList.add('is-open')
     d.setAttribute('aria-hidden', 'false')
   }
@@ -1958,12 +2096,54 @@
   // each. Cells already have data-pct attributes — we'll overwrite both pct
   // text/title-style and CSS opacity (used for the heat color via opacity:.X
   // on a fixed accent fill in hq-v3.css).
+
+  // Empty-state copy for the heatmap. Without this, when the schedule
+  // fields aren't populated the placeholder grid sits there looking like
+  // real (worthless) data and users assume the product is broken.
+  function renderHeatmapEmpty (root, kind) {
+    var hmWrap = root.querySelector('.hm-wrap')
+    if (hmWrap) hmWrap.style.display = 'none'
+    var hmFoot = root.querySelector('.hm-foot')
+    if (hmFoot) hmFoot.style.display = 'none'
+
+    var tile = root.querySelector('.tile:nth-of-type(2)')
+    if (!tile) return
+    var holder = tile.querySelector('.hq3-empty-heatmap')
+    if (!holder) {
+      holder = document.createElement('div')
+      holder.className = 'hq3-empty-heatmap'
+      holder.style.cssText = 'padding:24px 16px;border:1px dashed var(--b1);border-radius:10px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.6;text-align:center'
+      var ref = tile.querySelector('.hq3-maya-take')
+      tile.insertBefore(holder, ref || tile.firstChild)
+    }
+    holder.innerHTML = kind === 'no_posts'
+      ? '<strong style="color:var(--t1);font-size:13px">No posts to chart yet</strong><br>Your best-time heatmap fills in once you have a few published Reels. The first chart appears after 2-3 posts.'
+      : '<strong style="color:var(--t1);font-size:13px">Still pulling your post times</strong><br>Your posts are connected, but the publish-time metadata hasn\'t synced yet. This usually finishes within a few minutes — refresh in a moment.'
+
+    var take = root.querySelector('.tile:nth-of-type(2) .hq3-maya-take .body')
+    if (take) {
+      take.textContent = kind === 'no_posts'
+        ? 'Once you have a couple of posts in the same time window, I can call your sweet spot.'
+        : 'I can\'t read your post times yet — they\'ll appear once the next sync finishes.'
+    }
+  }
+
   function renderHeatmap (root, ts) {
     if (!ts || !ts.posts) return
-    var posts = ts.posts.filter(function (p) {
-      return p.publishedAt && isValidEngPost(p) && p.publishHour != null && p.publishDayOfWeek != null
-    })
-    if (posts.length === 0) return
+
+    var allPosts = (ts.posts || []).filter(function (p) { return p.publishedAt && isValidEngPost(p) })
+    var posts = allPosts.filter(function (p) { return p.publishHour != null && p.publishDayOfWeek != null })
+
+    // Distinguish three empty states so users aren't staring at a blank
+    // grid wondering if the product is broken:
+    //   (a) zero published posts → "post a Reel"
+    //   (b) posts exist but publishHour/publishDayOfWeek aren't populated
+    //       → sync hasn't filled the schedule fields; tell them it'll fill in
+    //   (c) only 1-2 posts in same window → keep going (rendered below by peakKey logic)
+    if (posts.length === 0) {
+      renderHeatmapEmpty(root, allPosts.length === 0 ? 'no_posts' : 'no_metadata')
+      return
+    }
 
     // Bucket: dayOfWeek (0=Sun..6=Sat) × hour-band index (0..5 corresponding to 6/9/12/15/18/21)
     // The markup grid is Mon..Sun (col order), so we remap. Day 1=Mon → col 0, ..., Day 0=Sun → col 6.
@@ -2000,6 +2180,16 @@
     // Markup pattern: each row = 1 .lab + 7 .hm-cell siblings.
     var hmWrap = root.querySelector('.hm-wrap')
     if (!hmWrap) return
+    // Restore the grid + footer if a previous empty-state render hid them
+    // (e.g. user comes back after a sync filled in publishHour).
+    hmWrap.style.display = ''
+    var hmFootEl = root.querySelector('.hm-foot')
+    if (hmFootEl) hmFootEl.style.display = ''
+    var hmTile = root.querySelector('.tile:nth-of-type(2)')
+    if (hmTile) {
+      var staleEmpty = hmTile.querySelector('.hq3-empty-heatmap')
+      if (staleEmpty) staleEmpty.remove()
+    }
     // Find all rows by .lab elements (in order). For each lab, the next 7
     // .hm-cell siblings are the cells.
     var cellsByRow = []
@@ -2072,12 +2262,68 @@
   // with real correlations between communityTags categorical attributes and
   // engagement rate. We use a lift-vs-baseline measure (avg of category /
   // overall avg − 1) since Pearson on one-hot binaries is lossy.
+  // Empty-state for the correlation tile. Same rationale as the heatmap —
+  // without this, the static placeholder rows ("Hook length <3s" etc.) read
+  // as real data when the underlying communityTags fields haven't been
+  // populated yet, and users have no idea what's going on.
+  function renderCorrelationEmpty (root, kind, postCount) {
+    var tile = root.querySelector('.tile:nth-of-type(3)')
+    if (!tile) return
+    var corr = tile.querySelector('.corr')
+    if (corr) corr.style.display = 'none'
+
+    var holder = tile.querySelector('.hq3-empty-correlation')
+    if (!holder) {
+      holder = document.createElement('div')
+      holder.className = 'hq3-empty-correlation'
+      holder.style.cssText = 'padding:24px 16px;border:1px dashed var(--b1);border-radius:10px;background:var(--s1);color:var(--t2);font-size:12px;line-height:1.6;text-align:center'
+      var ref = tile.querySelector('.hq3-maya-take')
+      tile.insertBefore(holder, ref || tile.firstChild)
+    }
+    if (kind === 'no_posts') {
+      holder.innerHTML = '<strong style="color:var(--t1);font-size:13px">No posts to compare yet</strong><br>Maya needs at least 5 published posts to spot what\'s driving your engagement. Keep posting and this fills in.'
+    } else if (kind === 'few_posts') {
+      var n = postCount || 0
+      holder.innerHTML = '<strong style="color:var(--t1);font-size:13px">Need a few more posts</strong><br>You have ' + n + ' tagged post' + (n === 1 ? '' : 's') + '. Maya needs at least 5 to call patterns reliably.'
+    } else if (kind === 'no_tags') {
+      holder.innerHTML = '<strong style="color:var(--t1);font-size:13px">Still tagging your posts</strong><br>Your posts are connected but their content categories haven\'t been classified yet. This finishes a few minutes after you connect — refresh in a moment.'
+    } else {
+      holder.innerHTML = '<strong style="color:var(--t1);font-size:13px">Not enough variety yet</strong><br>Your posts so far have similar attributes, so there\'s nothing strong to call out. Once you mix in different formats, hooks, or moods, Maya can show what\'s working.'
+    }
+
+    var take = root.querySelector('.tile:nth-of-type(3) .hq3-maya-take .body')
+    if (take) {
+      take.textContent = kind === 'no_posts' || kind === 'few_posts'
+        ? 'I\'ll call out what\'s working as soon as you have enough posts to compare.'
+        : kind === 'no_tags'
+          ? 'I can\'t read your post categories yet — they\'ll appear once tagging finishes.'
+          : 'Mix in different formats and I\'ll call out what\'s pulling its weight.'
+    }
+  }
+
   function renderCorrelation (root, ts) {
     if (!ts || !ts.posts) return
-    var validPosts = (ts.posts || []).filter(function (p) {
-      return isValidEngPost(p) && p.communityTags
-    })
-    if (validPosts.length < 5) return // need at least 5 valid posts for stable lift
+    var allPosts = (ts.posts || []).filter(function (p) { return isValidEngPost(p) })
+    var taggedPosts = allPosts.filter(function (p) { return p.communityTags })
+    var validPosts = taggedPosts
+
+    // Three failure modes, three messages:
+    //   (a) no posts at all → "post a Reel"
+    //   (b) posts exist but communityTags hasn't been populated by the
+    //       heuristicTagger / Bedrock pipeline → "still tagging"
+    //   (c) we have tagged posts but fewer than 5 → "need a few more"
+    if (allPosts.length === 0) {
+      renderCorrelationEmpty(root, 'no_posts')
+      return
+    }
+    if (taggedPosts.length === 0) {
+      renderCorrelationEmpty(root, 'no_tags')
+      return
+    }
+    if (validPosts.length < 5) {
+      renderCorrelationEmpty(root, 'few_posts', validPosts.length)
+      return
+    }
 
     var overallAvg = validPosts.reduce(function (a, p) { return a + p.engagementRate }, 0) / validPosts.length
 
@@ -2128,7 +2374,19 @@
     liftRows.sort(function (a, b) { return Math.abs(b.lift) - Math.abs(a.lift) })
     liftRows = liftRows.slice(0, 6)
 
-    if (liftRows.length === 0) return
+    if (liftRows.length === 0) {
+      renderCorrelationEmpty(root, 'low_variety')
+      return
+    }
+    // We have data — make sure the static placeholder isn't still hiding
+    // the real chart from a previous empty render and tear down our tile.
+    var tile = root.querySelector('.tile:nth-of-type(3)')
+    if (tile) {
+      var stale = tile.querySelector('.hq3-empty-correlation')
+      if (stale) stale.remove()
+      var corrEl = tile.querySelector('.corr')
+      if (corrEl) corrEl.style.display = ''
+    }
     var maxAbs = Math.max.apply(null, liftRows.map(function (r) { return Math.abs(r.lift) }))
 
     // Render into the existing .corr-row markup. Re-build innerHTML of .corr.
@@ -2561,7 +2819,7 @@
         + '<svg viewBox="0 0 100 100" class="hq3-loc-svg" aria-hidden="true">' + arcs + '</svg>'
         + '<div class="hq3-loc-center">'
           + '<div class="hq3-loc-pct">' + top.display + '</div>'
-          + '<div class="hq3-loc-cap">from ' + escHtml(top.label) + '</div>'
+          + '<div class="hq3-loc-cap">' + escHtml(top.label) + '</div>'
         + '</div>'
       + '</div>'
       + '<div class="hq3-loc-legend">' + legend + '</div>'

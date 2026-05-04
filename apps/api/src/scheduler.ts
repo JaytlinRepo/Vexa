@@ -2,7 +2,7 @@ import cron from 'node-cron'
 import { PrismaClient } from '@prisma/client'
 import { syncTiktokAccount } from './lib/tiktokRefreshSync'
 import { syncInstagramAccount } from './lib/instagramSync'
-import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap, triggerWeeklyMayaPulse, triggerWeeklyJordanPlan, triggerWeeklyAlexHooks, triggerWeeklyRileyBriefs } from './lib/proactiveAnalysis'
+import { triggerWeeklyPulse, triggerWeeklyPulses, triggerKeepAlive, triggerContentAudit, triggerGrowthStrategy, triggerFeedAudit, triggerFormatAnalysis, triggerPlanAdjustment, triggerCompetitorAnalysis, triggerMorningBrief, triggerMidayCheck, triggerEveningRecap, triggerWeeklyMayaPulse, triggerWeeklyJordanPlan, triggerWeeklyRileyBriefs } from './lib/proactiveAnalysis'
 import { isTestMode } from './lib/mode'
 import { getScheduleForCompany, shouldRunNow } from './lib/schedulePrefs'
 import { processThoughtResponses } from './services/thoughts/thoughtResponse.service'
@@ -135,7 +135,7 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
 
   // ── Daily 14:00 UTC — Proactive agent cycle ──
   // Triggers idle agents to produce work. Maya scans, Jordan plans,
-  // Alex drafts, Riley analyzes. Auto-chain handles the rest.
+  // Maya scouts, Jordan plans, Riley directs. Auto-chain handles the rest.
   cron.schedule('0 14 * * *', async () => {
     try {
       const companies = await prisma.company.findMany({
@@ -152,7 +152,7 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
           },
         })
         if (!recentMaya) {
-          // Maya is idle — kick off a pulse. Auto-chain will flow to Jordan → Alex → Riley.
+          // Maya is idle — kick off a pulse. Auto-chain will flow to Jordan → Riley.
           try {
             await triggerWeeklyPulse(prisma, company.id)
             console.log(`[scheduler] daily cycle: started Maya pulse for ${company.id}`)
@@ -343,25 +343,8 @@ export function registerScheduledJobs(prisma: PrismaClient): void {
   })
   console.log('[scheduler] registered weekly Jordan plan at Sunday 18:30 UTC')
 
-  // Sunday 7:00 PM UTC — Alex's weekly hooks
-  cron.schedule('0 19 * * 0', async () => {
-    try {
-      const companies = await prisma.company.findMany({ select: { id: true } })
-      let triggered = 0
-      for (const { id } of companies) {
-        try {
-          const result = await triggerWeeklyAlexHooks(prisma, id)
-          if (result.triggered) triggered++
-        } catch (e) {
-          console.error(`[scheduler] weekly Alex hooks failed for company ${id}:`, (e as Error).message)
-        }
-      }
-      console.log(`[scheduler] weekly Alex hooks: ${triggered}/${companies.length} triggered`)
-    } catch (e) {
-      console.error('[scheduler] weekly Alex hooks batch failed:', e)
-    }
-  })
-  console.log('[scheduler] registered weekly Alex hooks at Sunday 19:00 UTC')
+  // Alex's weekly hooks schedule was removed when Alex (copywriter) was
+  // retired from the team. Riley now picks up immediately after Jordan.
 
   // Sunday 7:30 PM UTC — Riley's weekly production briefs
   cron.schedule('30 19 * * 0', async () => {

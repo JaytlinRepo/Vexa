@@ -46,7 +46,6 @@ async function main() {
   const employees: Array<{ role: EmployeeRole; name: string }> = [
     { role: 'analyst', name: 'Maya' },
     { role: 'strategist', name: 'Jordan' },
-    { role: 'copywriter', name: 'Alex' },
     { role: 'creative_director', name: 'Riley' },
   ]
 
@@ -105,20 +104,7 @@ async function main() {
         ],
       },
     },
-    {
-      role: 'copywriter',
-      title: 'Captions — 3 Jan posts',
-      type: 'caption',
-      status: 'approved',
-      description: '3 captions queued for this week. Each with CTA + save trigger.',
-      content: {
-        captions: [
-          { day: 'Mon', text: 'You are not lazy. You are untrained in recovery. Save this.' },
-          { day: 'Wed', text: 'The workout that replaced my 45-min cardio session. One kettlebell.' },
-          { day: 'Fri', text: 'If you have 12 minutes and 1 dumbbell, I have a plan for you.' },
-        ],
-      },
-    },
+    // Alex's seed task removed — copywriter role retired from the team.
     {
       role: 'creative_director',
       title: 'Production brief — kettlebell Reel',

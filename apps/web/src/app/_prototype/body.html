@@ -66,20 +66,11 @@
           <div class="ob-emp-status"></div>
         </div>
         <div class="ob-emp-card" id="ob-emp-2">
-          <div class="ob-emp-init">A</div>
-          <div style="flex:1">
-            <div class="ob-emp-name">Alex</div>
-            <div class="ob-emp-role">Copywriter &amp; Script Writer</div>
-            <div class="ob-emp-msg">"Once Jordan's plan is approved I will start writing hooks and scripts. Fair warning — I have strong opinions."</div>
-          </div>
-          <div class="ob-emp-status"></div>
-        </div>
-        <div class="ob-emp-card" id="ob-emp-3">
           <div class="ob-emp-init">R</div>
           <div style="flex:1">
             <div class="ob-emp-name">Riley</div>
             <div class="ob-emp-role">Creative Director</div>
-            <div class="ob-emp-msg">"I will turn everything into production-ready direction. Your first shot list comes after Alex delivers the script."</div>
+            <div class="ob-emp-msg">"I will turn Jordan's plan into production-ready direction. Your first shot list will be ready right after the plan is approved."</div>
           </div>
           <div class="ob-emp-status"></div>
         </div>
@@ -97,8 +88,8 @@
     <div class="mr-emp">
       <div class="mr-emp-init" id="mr-init">A</div>
       <div>
-        <div class="mr-emp-name" id="mr-name">Alex</div>
-        <div class="mr-emp-role" id="mr-role">Copywriter &amp; Script Writer</div>
+        <div class="mr-emp-name" id="mr-name">Riley</div>
+        <div class="mr-emp-role" id="mr-role">Creative Director</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -119,7 +110,7 @@
   </div>
   <div style="padding:0 40px 24px;max-width:800px;width:100%;margin:0 auto">
     <div class="mr-input-wrap">
-      <input class="mr-input" placeholder="Reply to Alex..." id="mr-input-field" onkeydown="mrSend(event)">
+      <input class="mr-input" placeholder="Reply..." id="mr-input-field" onkeydown="mrSend(event)">
       <button class="mr-send" onclick="mrSendBtn()">Send</button>
     </div>
     <p class="mr-note">This is the only place in Sovexa where you type freely. Everything else is structured.</p>
@@ -142,11 +133,16 @@
        referencing #sidenav / #collapseBtn doesn't crash. Nav items have
        moved into the horizontal top nav below. -->
   <nav id="sidenav" aria-hidden="true">
+    <!-- Defaults intentionally blank. JS (dashboard-wire `populateNav`,
+         dashboard-v2, profile-wire) writes the real name + plan after
+         /api/auth/me resolves. If that JS hasn't run yet we'd rather
+         render an empty pill than fake "Guest / Marketing" copy that
+         looked like a real signed-in state. -->
     <div class="nav-user" id="nav-user-area">
-      <div class="nav-user-avatar" id="nav-avatar">V</div>
+      <div class="nav-user-avatar" id="nav-avatar"></div>
       <div class="nav-user-info">
-        <div class="nav-user-name" id="nav-username">Guest</div>
-        <div class="nav-user-plan" id="nav-userplan">Marketing</div>
+        <div class="nav-user-name" id="nav-username"></div>
+        <div class="nav-user-plan" id="nav-userplan"></div>
       </div>
     </div>
   </nav>
@@ -264,7 +260,7 @@
 <section class="hero" id="top">
   <div class="hero-left">
     <div class="eyebrow-row">
-      <span class="pill"><span class="g"></span>Now hiring · <em>4 agents</em></span>
+      <span class="pill"><span class="g"></span>Now hiring · <em>3 agents</em></span>
     </div>
     <h1>
       <span class="line"><span>Run your content</span></span>
@@ -303,13 +299,6 @@
         <div class="agent" data-k="jordan">
           <div class="av">J</div>
           <div class="mid"><div class="nm">Jordan · Content Strategist</div><div class="task" data-tasks='["drafting brief #213","mapping to <em>pillar 2</em>","angle: boundary · not to-do"]'>drafting brief #213</div></div>
-          <div class="rt"><span class="sdot"></span><span>IDLE</span></div>
-          <div class="bar"></div>
-        </div>
-        <div class="agent-connector"><div></div></div>
-        <div class="agent" data-k="alex">
-          <div class="av">A</div>
-          <div class="mid"><div class="nm">Alex · Copywriter</div><div class="task" data-tasks='["writing Reel caption","voice match <em>96%</em>","draft 2 of 2"]'>writing Reel caption</div></div>
           <div class="rt"><span class="sdot"></span><span>IDLE</span></div>
           <div class="bar"></div>
         </div>
@@ -353,8 +342,8 @@
 <section class="blk" id="team">
   <div class="sec-head reveal">
     <span class="eyebrow">01 · Meet the team</span>
-    <h2>Four agents. <em>One voice.</em> Yours.</h2>
-    <p class="lede">Not one mega-bot doing everything badly. Four specialists, each with their own lane, their own personality, and permissions they earn. You manage them like a team — because that’s what they are.</p>
+    <h2>Three agents. <em>One voice.</em> Yours.</h2>
+    <p class="lede">Not one mega-bot doing everything badly. Three specialists, each with their own lane, their own personality, and permissions they earn. You manage them like a team — because that’s what they are.</p>
   </div>
   <div class="team-wrap">
     <div class="t-card reveal d1">
@@ -372,18 +361,11 @@
       <div class="skills"><span>pillars</span><span>briefs</span><span>cadence</span></div>
     </div>
     <div class="t-card reveal d3">
-      <div class="av">A</div>
-      <div class="nm"><em>Alex</em></div>
-      <div class="rl">Copywriter & Script Writer</div>
-      <div class="bio">"Less <em>ought-to</em>, more <em>felt</em>."</div>
-      <div class="skills"><span>voice-locked</span><span>captions</span><span>shot lists</span></div>
-    </div>
-    <div class="t-card reveal d4">
       <div class="av">R</div>
       <div class="nm"><em>Riley</em></div>
       <div class="rl">Creative Director</div>
       <div class="bio">"Right post. Right minute. Right <em>feed</em>."</div>
-      <div class="skills"><span>IG · TT · YT</span><span>auto-reply</span><span>cross-post</span></div>
+      <div class="skills"><span>shot lists</span><span>IG · TT · YT</span><span>auto-reply</span></div>
     </div>
   </div>
 </section>
@@ -399,8 +381,7 @@
     <div class="how-steps" id="steps">
       <div class="how-step on" data-f="1"><div class="n">01 · MONDAY 06:00</div><h4>Maya <em>finds</em> the story</h4></div>
       <div class="how-step" data-f="2"><div class="n">02 · MONDAY 09:00</div><h4>Jordan <em>plans</em> the week</h4></div>
-      <div class="how-step" data-f="3"><div class="n">03 · WEEKDAYS</div><h4>Alex <em>writes</em> in your voice</h4></div>
-      <div class="how-step" data-f="4"><div class="n">04 · ALWAYS</div><h4>Riley <em>ships</em> on time</h4></div>
+      <div class="how-step" data-f="4"><div class="n">03 · ALWAYS</div><h4>Riley <em>ships</em> on time</h4></div>
     </div>
     <div class="how-stage" id="stage">
       <!-- Frame 1 -->
@@ -525,7 +506,7 @@
       <div class="px">$0<em>/mo</em></div>
       <div class="pd">The full team — start without a card.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
         <li><span class="c">✓</span><span>Generous monthly task runway</span></li>
         <li><span class="c">✓</span><span>Voice match · 90% SLA</span></li>
         <li><span class="c">✓</span><span>Weekly review digest</span></li>
@@ -537,7 +518,7 @@
       <div class="px">$29<em>/mo</em></div>
       <div class="pd">More runway than Free — upgrade when you want the full stack.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
         <li><span class="c">✓</span><span>75 tasks / month · 5 videos</span></li>
         <li><span class="c">✓</span><span>Brand voice · knowledge feed · outputs</span></li>
         <li><span class="c">✓</span><span>Weekly review digest</span></li>
@@ -549,7 +530,7 @@
       <div class="px">$59<em>/mo</em></div>
       <div class="pd">Meetings, memory, video, and the runway working creators need.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
         <li><span class="c">✓</span><span>200 tasks / month</span></li>
         <li><span class="c">✓</span><span>Meetings · brand memory · weekly pulse</span></li>
         <li><span class="c">✓</span><span>Video generation · 15 / month</span></li>
@@ -621,7 +602,7 @@
             <div class="team-row-main">
               <div class="team-role">Content Strategist</div>
               <div class="team-name">Jordan</div>
-              <div class="team-desc">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Adjusts based on what performs. Briefs Alex automatically once you approve the plan — so the pipeline runs itself without you managing it.</div>
+              <div class="team-desc">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Adjusts based on what performs. Briefs Riley automatically once you approve the plan — so the pipeline runs itself without you managing it.</div>
               <div class="team-tags"><span class="team-tag">Content calendar</span><span class="team-tag">Content Strategist</span><span class="team-tag">Audience analysis</span><span class="team-tag">Pipeline</span></div>
             </div>
             <div class="team-row-meta"><span class="team-schedule">Delivers Sunday 7pm</span></div>
@@ -629,22 +610,12 @@
           <div class="team-row">
             <div class="team-row-num"><span class="team-num-txt">03</span></div>
             <div class="team-row-main">
-              <div class="team-role">Copywriter &amp; Script Writer</div>
-              <div class="team-name">Alex</div>
-              <div class="team-desc">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Gets sharper with every revision you request. Has strong opinions about which hook is the right one and will tell you directly.</div>
-              <div class="team-tags"><span class="team-tag">Hooks</span><span class="team-tag">Reel scripts</span><span class="team-tag">Captions</span><span class="team-tag">Carousel copy</span></div>
-            </div>
-            <div class="team-row-meta"><span class="team-schedule">After Jordan approves</span></div>
-          </div>
-          <div class="team-row">
-            <div class="team-row-num"><span class="team-num-txt">04</span></div>
-            <div class="team-row-main">
               <div class="team-role">Creative Director</div>
               <div class="team-name">Riley</div>
-              <div class="team-desc">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use. Then sends the brief to video generation automatically.</div>
+              <div class="team-desc">Turns Jordan's plan into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use. Then sends the brief to video generation automatically.</div>
               <div class="team-tags"><span class="team-tag">Shot lists</span><span class="team-tag">Visual direction</span><span class="team-tag">Pacing</span><span class="team-tag">Video generation</span></div>
             </div>
-            <div class="team-row-meta"><span class="team-schedule">After Alex delivers</span></div>
+            <div class="team-row-meta"><span class="team-schedule">After Jordan approves</span></div>
           </div>
         </div>
       </div>
@@ -666,20 +637,20 @@
         </div>
         <div class="meeting-block" style="margin-top:48px">
           <div class="mtg-top">
-            <div class="mtg-who"><div class="mtg-name">Alex</div><div class="mtg-role">Copywriter &amp; Script Writer</div></div>
+            <div class="mtg-who"><div class="mtg-name">Riley</div><div class="mtg-role">Creative Director</div></div>
             <div style="display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)"><div class="mtg-dot"></div>Meeting in progress</div>
           </div>
           <div class="mtg-msgs">
             <div class="mtg-col">
-              <div class="mtg-bubble">"Before we start — I pulled up your last 12 approved hooks. I'm noticing you consistently approve hooks that open with a specific number or timeframe. I will keep that in mind. What did you want to discuss?"</div>
+              <div class="mtg-bubble">"Before we start — I pulled up your last 12 approved Reels. The ones that ran best opened with a tight close-up and no on-screen text for the first beat. I'll keep that pattern. What did you want to discuss?"</div>
             </div>
             <div class="mtg-col right">
-              <div class="mtg-bubble user">The weighted walking hook feels safe. Can we go more edgy?</div>
-              <div class="mtg-bubble" style="margin-top:10px">"I agree it plays safer than usual. But there is a middle ground — lead with the identity challenge instead of the benefit. 'You have been doing cardio wrong and nobody profits from telling you.' Want three in that direction?"</div>
+              <div class="mtg-bubble user">The weighted walking shoot feels safe. Can we make it look more cinematic?</div>
+              <div class="mtg-bubble" style="margin-top:10px">"I agree it plays safer than usual. There's a middle ground — open low-angle on the shoes for two beats, then cut to the body in motion. We keep the edit tight; the shot reads premium without changing the message. Want me to re-brief the shoot?"</div>
             </div>
           </div>
           <div class="mtg-foot">
-            <input class="mtg-input" placeholder="Reply to Alex...">
+            <input class="mtg-input" placeholder="Reply to Riley...">
             <button class="mtg-end">End Meeting</button>
           </div>
           <div class="mtg-note">Meetings are the only place in Sovexa where you type freely. Decisions are auto-summarized and converted to tasks when you end.</div>
@@ -697,7 +668,6 @@
         </div>
         <div class="out-nav">
           <button class="out-btn active" onclick="switchOut(this,'trend')">Maya &mdash; Trend Report</button>
-          <button class="out-btn" onclick="switchOut(this,'hooks')">Alex &mdash; Hooks</button>
           <button class="out-btn" onclick="switchOut(this,'cal')">Jordan &mdash; Content Plan</button>
         </div>
         <div id="out-trend">
@@ -719,27 +689,7 @@
             </div>
           </div>
         </div>
-        <div id="out-hooks" style="display:none">
-          <div class="out-card">
-            <div class="out-head"><span class="out-from">Alex &middot; Hook variations &middot; Weighted walking</span><span class="out-when">Monday 12:11pm</span></div>
-            <div class="out-body">
-              <div class="hook-list">
-                <div class="hook-row"><span class="h-n">01</span><span class="h-t">I walked 20 minutes a day for 30 days with a 20lb vest. Here's what nobody tells you about what happens to your body.</span><span class="h-l">Story opener</span></div>
-                <div class="hook-row"><span class="h-n">02</span><span class="h-t">The laziest cardio you've never tried burns more calories than a 45-minute run. And you can do it in work clothes.</span><span class="h-l h-s">Alex's pick</span></div>
-                <div class="hook-row"><span class="h-n">03</span><span class="h-t">Gym culture will never tell you this because it doesn't require a gym membership.</span><span class="h-l">Controversial</span></div>
-                <div class="hook-row"><span class="h-n">04</span><span class="h-t">If you hate running, this is the thing you've been looking for.</span><span class="h-l">Empathy opener</span></div>
-                <div class="hook-row"><span class="h-n">05</span><span class="h-t">What happens to your body when you add 20lbs to a daily walk? Week-by-week breakdown.</span><span class="h-l">Curiosity loop</span></div>
-              </div>
-              <p class="out-aside">"02 is the one. 'In work clothes' is a detail that makes it feel real. 01 is safe if you want safe." — Alex</p>
-            </div>
-            <div class="out-foot">
-              <button class="ab approve">Use hook 02</button>
-              <button class="ab recon">Too safe — bolder</button>
-              <button class="ab rej">5 more</button>
-              <span class="out-note">No typing required</span>
-            </div>
-          </div>
-        </div>
+        <!-- Alex's hook variations demo removed — copywriter retired. -->
         <div id="out-cal" style="display:none">
           <div class="out-card">
             <div class="out-head"><span class="out-from">Jordan &middot; Weekly Content Plan &middot; Jan 13</span><span class="out-when">Sunday 7:44pm</span></div>
@@ -754,13 +704,13 @@
                 <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span><p class="cal-t">Algo rest day</p></div>
                 <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
               </div>
-              <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts for Monday and Thursday." — Jordan</p>
+              <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Riley on production for Monday and Thursday." — Jordan</p>
             </div>
             <div class="out-foot">
-              <button class="ab approve">Approve &mdash; brief Alex</button>
+              <button class="ab approve">Approve &mdash; brief Riley</button>
               <button class="ab recon">Adjust timing</button>
               <button class="ab rej">Rethink angle</button>
-              <span class="out-note">Approval triggers Alex</span>
+              <span class="out-note">Approval triggers Riley</span>
             </div>
           </div>
         </div>
@@ -841,7 +791,7 @@
             <div class="pc-price" id="ps-free"><sup>$</sup>0<span class="mo">/mo</span></div>
             <p class="pc-desc">All four employees from day one — upgrade when you need more volume.</p>
             <ul class="pc-feats">
-              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
+              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
               <li class="y">Niche + sub-niche specialization</li>
               <li class="y">5 tasks/month to start</li>
               <li class="y">Brand voice settings</li>
@@ -859,7 +809,7 @@
             <div class="pc-price" id="ps-pro"><sup>$</sup>29<span class="mo">/mo</span></div>
             <p class="pc-desc">More runway than Free &mdash; lighter than Max. Same four employees.</p>
             <ul class="pc-feats">
-              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
+              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
               <li class="y">Deep niche specialization</li>
               <li class="y">75 tasks/month</li>
               <li class="y">Brand voice · knowledge feed</li>
@@ -878,7 +828,7 @@
             <div class="pc-price" id="ps-max"><sup>$</sup>59<span class="mo">/mo</span></div>
             <p class="pc-desc">The full creator stack &mdash; meetings, memory, video, and priority flow.</p>
             <ul class="pc-feats">
-              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
+              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
               <li class="y">Deep niche specialization</li>
               <li class="y">200 tasks/month</li>
               <li class="y">Advanced brand voice + memory</li>
@@ -911,9 +861,9 @@
           </div>
         </div>
         <div class="trial-row">
-          <div><h4>Start free — no credit card.</h4><p>The Free plan gives you full access to your AI team with 5 tasks per month to start. Upgrade to Pro, Max, or Agency when you're ready for more volume.</p></div>
+          <div><h4>Start free — no credit card.</h4><p>The Free plan gives you full access to your AI team with a fresh 3 tasks every day. No trial countdown, no card, no expiry. Upgrade to Pro, Max, or Agency when you're ready for more volume.</p></div>
           <div class="trial-checks">
-            <div class="trial-check">All 4 employees from day one</div>
+            <div class="trial-check">All 3 employees from day one</div>
             <div class="trial-check">No credit card required</div>
             <div class="trial-check">Upgrade or cancel anytime</div>
             <div class="trial-check">Outputs stay in your library</div>
@@ -936,7 +886,7 @@
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How is this different from Buffer or Jasper?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Buffer is a scheduling tool. Jasper is a writing assistant you prompt. Neither has an autonomous team, a self-running pipeline, a meeting feature, or a memory system. Sovexa is a workforce model — the difference is who does the thinking.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What does video generation produce?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Once Riley's shot list is approved, Sovexa renders an edited Reel — with text overlays, transitions, and pacing — that you can review, approve, and download. Stored in your Outputs library.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my brand data private?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. Your niche, brand voice, and outputs are private to your workspace. We do not use your data to train models. Encrypted at rest and in transit. Export or delete anytime.</div></div></div>
-          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">All 4 AI employees (Maya, Jordan, Alex, Riley) with a starter task runway each month. No credit card required — free forever. Upgrade to Pro, Max, or Agency when you need more volume, meetings, or video generation.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">All 3 AI employees (Maya, Jordan, Riley) with a small daily runway that resets every day at midnight UTC. No trial countdown, no credit card — free forever. Upgrade to Pro, Max, or Agency when you need more volume, meetings, or video generation.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Can I cancel or change my plan anytime?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. No contracts, no cancellation fees. Upgrade, downgrade, or cancel from your billing dashboard. You keep full access until the end of your current billing period.</div></div></div>
         </div>
       </div>
@@ -1029,7 +979,7 @@
   <section class="hq3-hero">
     <div>
       <h1>Good morning, Jaytlin.<br/>Your team <em>shipped</em><br/>4 posts overnight.</h1>
-      <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, Alex is on Reel 3 of 3, and Riley has a shot list staged for tomorrow.</p>
+      <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, and Riley has a shot list staged for tomorrow.</p>
     </div>
   </section>
 
@@ -1206,20 +1156,6 @@
         <div class="hq3-node-eta"><span>100%</span><span>· 08:47</span></div>
       </div>
 
-      <div class="hq3-node \1" data-node="alex">
-        <div class="hq3-node-top">
-          <div class="hq3-node-port"><span class="ltr">A</span></div>
-          <div>
-            <div class="hq3-node-name">Alex</div>
-            <div class="hq3-node-role">Copy &amp; Script</div>
-          </div>
-        </div>
-        <div class="hq3-node-status"><span class="dt"></span>writing · in flight</div>
-        <div class="hq3-node-task">Reel 3 — <em>"boundary, not to-do"</em></div>
-        <div class="hq3-node-prog"><span style="width:72%" id="hq3-alex-prog"></span></div>
-        <div class="hq3-node-eta"><span id="hq3-alex-ts">72% · writing</span><span>ETA 11:18</span></div>
-      </div>
-
       <div class="hq3-node \1" data-node="riley">
         <div class="hq3-node-top">
           <div class="hq3-node-port"><span class="ltr">R</span></div>
@@ -1228,7 +1164,7 @@
             <div class="hq3-node-role">Creative Direction</div>
           </div>
         </div>
-        <div class="hq3-node-status"><span class="dt"></span>queued · awaiting Alex</div>
+        <div class="hq3-node-status"><span class="dt"></span>queued · awaiting Jordan</div>
         <div class="hq3-node-task">Publish Reel 3 — <em>IG · 11:42</em></div>
         <div class="hq3-node-prog"><span style="width:0%"></span></div>
         <div class="hq3-node-eta"><span>queued</span><span>· 11:42</span></div>
@@ -1536,8 +1472,8 @@
 <section class="pipe-mast">
   <div>
     <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">The assembly line</span></div>
-    <h1>Pipeline — <em>4 agents</em>, one cadence.</h1>
-    <p class="sub">Every post walks this line. Maya spots the opportunity, Jordan frames the angle, Alex writes + edits, Riley ships. Handoffs are automatic; you only step in at the yellow diamonds.</p>
+    <h1>Pipeline — <em>3 agents</em>, one cadence.</h1>
+    <p class="sub">Every post walks this line. Maya spots the opportunity, Jordan frames the angle, Riley directs + ships. Handoffs are automatic; you only step in at the yellow diamonds.</p>
   </div>
   <div class="mini-stats">
     <div class="stat"><div class="lbl">Throughput · 7d</div><div class="v"><em>21</em>/wk</div><div class="d">3.0 posts/day</div></div>
@@ -2073,10 +2009,10 @@
                   <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span></div>
                   <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
                 </div>
-                <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts." — Jordan</p>
+                <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Riley on production." — Jordan</p>
               </div>
               <div class="out-foot">
-                <button class="ab approve" onclick="approveCalendarPlan()">Approve &mdash; brief Alex</button>
+                <button class="ab approve" onclick="approveCalendarPlan()">Approve &mdash; brief Riley</button>
                 <button class="ab recon">Adjust timing</button>
                 <button class="ab rej">Rethink angle</button>
                 <button class="ab recon" onclick="openMeeting('Jordan','Content Strategist','J')" style="margin-left:auto">Call meeting</button>
@@ -2129,10 +2065,6 @@
             <div class="cal-legend-item">
               <div class="cal-legend-swatch" style="background:var(--c-maya-b)"></div>
               Maya — Trends
-            </div>
-            <div class="cal-legend-item">
-              <div class="cal-legend-swatch" style="background:var(--c-alex-b)"></div>
-              Alex — Copy
             </div>
             <div class="cal-legend-item">
               <div class="cal-legend-swatch" style="background:var(--c-riley-b)"></div>
@@ -2207,6 +2139,15 @@
 
     <!-- STUDIO -->
     <div class="view" id="view-db-studio">
+
+<!-- Studio is Riley's domain. The band sits above the masthead so the
+     identity is set before the user reads anything else on the page. -->
+<div class="vx-studio-band" data-employee="riley">
+  <span class="vx-status-dot is-working" style="color:var(--vx-riley)"></span>
+  <span class="vx-employee-name" style="color:var(--vx-riley)">RILEY</span>
+  <span class="vx-tile__separator">·</span>
+  <span class="vx-studio-band__role">Creative Director</span>
+</div>
 
 <!-- MASTHEAD — matches .masthead pattern from Posts/Audience/Knowledge -->
 <section class="masthead">
@@ -2308,39 +2249,17 @@
       <div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">Loading Jordan's strategy…</div>
     </div>
 
-    <!-- Custom time -->
-    <div style="border-top:1px solid var(--b1);padding-top:14px">
-      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Custom time</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Date</label>
-          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" data-studio-input="date">
-        </div>
-        <div>
-          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Time (UTC)</label>
-          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" data-studio-input="time">
-        </div>
+    <!-- Save as Ready — auto-posting isn't built yet, so we don't pretend
+         to schedule. Approving both visual + caption enables this button;
+         the clip moves to the Ready queue for the user to publish manually. -->
+    <div style="border-top:1px solid var(--b1);padding-top:14px;margin-top:6px">
+      <button class="btn-fill" data-studio-action="save-ready" data-clip-id="pending"
+        style="width:100%;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600;border-radius:8px" disabled>
+        Save as Ready
+      </button>
+      <div style="font-size:11px;color:var(--t3);text-align:center;margin-top:8px;line-height:1.5">
+        Approve the visual and the caption to enable. Auto-posting is coming soon.
       </div>
-      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule-custom" data-clip-id="pending">Schedule at custom time</button>
-    </div>
-
-    <div style="text-align:center;margin-top:12px">
-      <button class="btn" style="padding:7px 20px;font-size:11px;color:var(--t3)" data-studio-action="save-draft" data-clip-id="pending">Save as draft instead</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- SCHEDULE CONFIRM MODAL -->
-<div id="schedule-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:1000">
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:28px;max-width:380px;width:90%;box-shadow:0 20px 60px var(--sh)">
-    <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:10px">Confirm Scheduling</div>
-    <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:20px">
-      This post will be scheduled to Instagram on <strong id="confirm-time">Tuesday, April 29 at 2:00 PM UTC</strong>. You can reschedule anytime before it goes live.
-    </div>
-    <div style="display:flex;gap:12px">
-      <button class="btn-fill" id="schedule-confirm-btn" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600">Yes, schedule it</button>
-      <button class="btn" style="flex:1;padding:12px;font-size:12px" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">Cancel</button>
     </div>
   </div>
 </div>

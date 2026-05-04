@@ -6,10 +6,10 @@
  * persona + system prompt.
  */
 ;(function () {
+  // Three-employee team. Copywriter (Alex) was retired.
   const ROLE_BY_NAME = {
     Maya: 'analyst',
     Jordan: 'strategist',
-    Alex: 'copywriter',
     Riley: 'creative_director',
   }
 
@@ -32,13 +32,13 @@
   function saveMeetingCache() {
     try { sessionStorage.setItem('vx-meeting-cache', JSON.stringify(meetingCache)) } catch {}
   }
-  let currentRole = 'copywriter'
-  let currentName = 'Alex'
+  let currentRole = 'creative_director'
+  let currentName = 'Riley'
   let streaming = false
 
   const originalOpen = window.openMeeting
   window.openMeeting = function (name, role, init, taskRef, topic) {
-    currentRole = ROLE_BY_NAME[name] || 'copywriter'
+    currentRole = ROLE_BY_NAME[name] || 'creative_director'
     currentName = name
     // Claude requires the first message in `messages` to have role='user',
     // so we show the greeting in the UI but do NOT push it into history.
@@ -308,7 +308,7 @@
       let msg = `Hey — ${name} here. I built a **${dayCount}-day content plan** for this week.\n\n`
       if (firstDay) msg += `Kicking off with: **${firstDay.topic || firstDay.title || 'Day 1'}** — ${firstDay.format || ''}\n\n`
       if (c.strategyNote) msg += `${c.strategyNote}\n\n`
-      msg += `Full calendar is below. **Approve** to hand it to Alex for copy, or tell me what to adjust.`
+      msg += `Full calendar is below. **Approve** to hand it to Riley for production, or tell me what to adjust.`
       return msg
     }
 
@@ -470,7 +470,7 @@
    */
   window.openMeetingWithTaskOutput = function (opts) {
     const { name, role, init, task, output } = opts
-    currentRole = ROLE_BY_NAME[name] || 'copywriter'
+    currentRole = ROLE_BY_NAME[name] || 'creative_director'
     currentName = name
     history = []
     document.getElementById('vx-mtg-knowledge')?.remove()

@@ -5,10 +5,10 @@
  * Integrates with /api/employees for detailed employee metrics and history.
  */
 ;(function () {
+  // Three-employee team. Copywriter (Alex) was retired.
   const EMPLOYEES = [
     { role: 'analyst',           name: 'Maya',   title: 'Trend & Insights Analyst', init: 'M', short: 'Trend Analyst' },
     { role: 'strategist',        name: 'Jordan', title: 'Content Strategist',       init: 'J', short: 'Content Strategist' },
-    { role: 'copywriter',        name: 'Alex',   title: 'Copywriter & Script Writer', init: 'A', short: 'Copywriter' },
     { role: 'creative_director', name: 'Riley',  title: 'Creative Director',        init: 'R', short: 'Creative Director' },
   ]
 

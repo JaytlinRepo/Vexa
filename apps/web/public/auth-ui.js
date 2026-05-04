@@ -245,7 +245,7 @@
     subNiche: '',
     audience: { description: '', age: '', interests: '' },
     goals: [],
-    agentTools: { maya: [], jordan: [], alex: [], riley: [] },
+    agentTools: { maya: [], jordan: [], riley: [] },
     instagram: { handle: '' },
   }
   let authedUser = null
@@ -1183,8 +1183,8 @@
     if (typeof window.__vxShowObStep === 'function') window.__vxShowObStep(8)
   })
 
-  function agentName(a) { return { maya: 'Maya', jordan: 'Jordan', alex: 'Alex', riley: 'Riley' }[a] }
-  function agentRole(a) { return { maya: 'Trend & insights', jordan: 'Strategy', alex: 'Copy', riley: 'Creative direction' }[a] }
+  function agentName(a) { return { maya: 'Maya', jordan: 'Jordan', riley: 'Riley' }[a] }
+  function agentRole(a) { return { maya: 'Trend & insights', jordan: 'Strategy', riley: 'Creative direction' }[a] }
 
   function setProgress(pct) {
     const p = document.getElementById('ob-prog')

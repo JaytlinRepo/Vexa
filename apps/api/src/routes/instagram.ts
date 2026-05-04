@@ -377,6 +377,18 @@ router.get('/auth/callback', async (req, res) => {
     }
     // Heuristic content tags so the Content-mix tile populates immediately
     // (Bedrock-based tagger is rate-limited; this fills the gap for free tier).
+    // Track the three async bootstrap tasks below so the frontend can show
+    // a "preparing your dashboard" loader instead of empty cards while
+    // Bedrock spins up, and a real failure banner if any step errors out.
+    const { startBootstrap, setStep } = await import('../lib/firstConnectBootstrap')
+    await startBootstrap(companyId, { postCount: stub.postCount ?? 0 })
+
+    // The historical-snapshot backfill above (lines ~316-336) has already
+    // tried to run by this point — record its outcome immediately so the
+    // aggregate state reflects it. We treat the first-connect snapshot as
+    // ready unless `dailyHistoryError` was set (we set it in the catch above).
+    void setStep(companyId, 'backfill', 'ready')
+
     void (async () => {
       try {
         const { heuristicTagAllPosts } = await import('../lib/heuristicTagger')
@@ -394,8 +406,11 @@ router.get('/auth/callback', async (req, res) => {
       try {
         const { generateMayaPlaybook } = await import('../lib/metricTracking')
         await generateMayaPlaybook(prisma, companyId)
+        await setStep(companyId, 'maya', 'ready')
       } catch (e) {
-        console.warn('[instagram] first-connect Maya playbook failed:', (e as Error).message?.slice(0, 120))
+        const msg = (e as Error).message?.slice(0, 120)
+        console.warn('[instagram] first-connect Maya playbook failed:', msg)
+        await setStep(companyId, 'maya', 'failed', msg)
       }
     })()
 
@@ -405,7 +420,10 @@ router.get('/auth/callback', async (req, res) => {
       try {
         const fresh = await prisma.company.findUnique({ where: { id: companyId }, select: { goals: true } })
         const existing = (fresh?.goals as { active?: unknown } | null) || {}
-        if (existing.active) return
+        if (existing.active) {
+          await setStep(companyId, 'goal', 'skipped')
+          return
+        }
         const { generateJordanGoal } = await import('./company')
         const result = await generateJordanGoal(prisma, companyId)
         if (result) {
@@ -414,9 +432,14 @@ router.get('/auth/callback', async (req, res) => {
             data: { goals: { ...existing, active: result.goal } as unknown as object },
           })
           console.log('[instagram] Jordan opening goal set:', result.goal.type, '→', result.goal.target)
+          await setStep(companyId, 'goal', 'ready')
+        } else {
+          await setStep(companyId, 'goal', 'skipped')
         }
       } catch (e) {
-        console.warn('[instagram] first-connect Jordan goal failed:', (e as Error).message?.slice(0, 120))
+        const msg = (e as Error).message?.slice(0, 120)
+        console.warn('[instagram] first-connect Jordan goal failed:', msg)
+        await setStep(companyId, 'goal', 'failed', msg)
       }
     })()
 

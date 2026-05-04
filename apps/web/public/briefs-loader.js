@@ -3,7 +3,7 @@
  *
  * Maya gets: morning brief + weekly pulse
  * Jordan gets: weekly plan
- * Alex gets: weekly hooks
+ * (Alex retired — no hooks fetch.)
  * Riley: no injected brief chip (Studio queue is on the HQ Riley drawer).
  *
  * Each brief renders as a clickable summary below the node-task.
@@ -33,14 +33,12 @@
         get('/api/briefs/evening'),
         get('/api/weekly/maya-pulse'),
         get('/api/weekly/jordan-plan'),
-        get('/api/weekly/alex-hooks'),
       ])
 
       var morning = results[0]
       var evening = results[1]
       var pulse   = results[2]
       var plan    = results[3]
-      var hooks   = results[4]
 
       // Maya node — morning brief + pulse
       var mayaNode = document.querySelector('[data-node="maya"]')
@@ -84,16 +82,7 @@
         injectBriefs(jordanNode, briefChip('weekly-plan', label, goal, tone, actions, plan.informedBy))
       }
 
-      // Alex node — weekly hooks
-      var alexNode = document.querySelector('[data-node="alex"]')
-      if (alexNode && hooks && hooks.output) {
-        var ho = hooks.output
-        var hookList = ho.weeklyHooks || ho.weekly_hooks || ho.hooks || []
-        var count = Array.isArray(hookList) ? hookList.length : 0
-        injectBriefs(alexNode, briefChip('weekly-hooks', 'WEEKLY HOOKS', count + ' days of hooks ready', null, [
-          btn('View', "window.navigateTo('weekly-hooks')"),
-        ], hooks.informedBy))
-      }
+      // Alex node removed — copywriter role retired from the team.
 
       console.log('[briefs-loader] briefs injected into pipeline')
     } catch (err) {

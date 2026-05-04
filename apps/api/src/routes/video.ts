@@ -250,34 +250,44 @@ export function initVideoRoutes(_prisma: PrismaClient) {
       res.setHeader('Connection', 'keep-alive')
       res.setHeader('X-Accel-Buffering', 'no')
 
-      // flushHeaders() pushes status + headers to the wire immediately so
-      // the proxy/EventSource sees an "open" connection without waiting for
-      // the first body byte.
       res.flushHeaders()
-      // Initial comment frame primes the connection — keeps proxies that
-      // wait for "first bytes" from sitting on the response.
-      res.write(': connected\n\n')
+      try { res.write(': connected\n\n') } catch { /* socket already gone */ }
 
       if (!sseClients.has(userId)) sseClients.set(userId, new Set())
       sseClients.get(userId)!.add(res)
       console.log(`[video] SSE client connected: ${userId} (${sseClients.get(userId)!.size} tab(s))`)
 
-      req.on('close', () => {
-        sseClients.get(userId)?.delete(res)
-        if (sseClients.get(userId)?.size === 0) sseClients.delete(userId)
-        console.log(`[video] SSE client disconnected: ${userId}`)
-      })
-
-      // Keep-alive heartbeat. 15s is well under common proxy idle timeouts
-      // (Next.js dev proxy ~30s, nginx default 60s) so the channel stays
-      // open through quiet periods of the pipeline.
       const heartbeat = setInterval(() => {
-        res.write(': heartbeat\n\n')
+        try {
+          res.write(': heartbeat\n\n')
+        } catch {
+          // Socket gone but the close event hadn't fired yet — clean up
+          // here too so a half-closed connection doesn't leak the Response
+          // ref or keep ticking the heartbeat forever.
+          cleanup()
+        }
       }, 15000)
 
-      req.on('close', () => {
+      // Single cleanup path so we never partially tear down. Idempotent so
+      // it's safe whether the trigger comes from req.close, res.close, or
+      // a write error.
+      let cleanedUp = false
+      const cleanup = () => {
+        if (cleanedUp) return
+        cleanedUp = true
         clearInterval(heartbeat)
-      })
+        const tabs = sseClients.get(userId)
+        if (tabs) {
+          tabs.delete(res)
+          if (tabs.size === 0) sseClients.delete(userId)
+        }
+        try { res.end() } catch { /* already ended */ }
+        console.log(`[video] SSE client disconnected: ${userId}`)
+      }
+
+      req.on('close', cleanup)
+      res.on('close', cleanup)
+      res.on('error', cleanup)
     } catch (err) {
       console.error('[video] SSE setup failed:', err)
       res.status(500).end()
@@ -420,7 +430,24 @@ export function broadcastProcessingEvent(event: string, data: any, userId?: stri
   if (userId) {
     const tabs = sseClients.get(userId)
     if (tabs && tabs.size > 0) {
-      tabs.forEach((client) => client.write(message))
+      // Track and prune any clients whose write fails — they're a closed
+      // socket whose 'close' event hasn't fired yet (proxy timeouts, abrupt
+      // disconnects). Without this the Set grows unboundedly.
+      const dead: Response[] = []
+      tabs.forEach((client) => {
+        try {
+          client.write(message)
+        } catch {
+          dead.push(client)
+        }
+      })
+      if (dead.length > 0) {
+        dead.forEach((c) => {
+          tabs.delete(c)
+          try { c.end() } catch { /* already ended */ }
+        })
+        if (tabs.size === 0) sseClients.delete(userId)
+      }
     } else {
       // We have a userId but no tabs are listening — probably the user's
       // SSE client hasn't connected yet (race) or already closed. Log

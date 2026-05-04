@@ -228,18 +228,34 @@ html[data-theme="dark"] #view-db-dashboard.hq-v3 .hq3-clock-fmt{box-shadow:inset
    callout + small legend. Visually distinct from the bar charts so the
    right column doesn't read as four-of-the-same. */
 #view-db-dashboard.hq-v3 .hq3-loc-donut{display:flex;flex-direction:column;gap:14px;padding:6px 0 4px}
-#view-db-dashboard.hq-v3 .hq3-loc-chart{position:relative;width:100%;display:flex;justify-content:center;align-items:center;height:180px}
-#view-db-dashboard.hq-v3 .hq3-loc-svg{width:160px;height:160px;display:block}
+/* Donut hole inner diameter ≈ 58/100 of the SVG. The text below is sized
+   so the caption ("FROM <country>") and the italic percentage both clear
+   the ring on both sides. The container is also widened so the ring
+   isn't squeezed against the tile edges. */
+#view-db-dashboard.hq-v3 .hq3-loc-chart{position:relative;width:100%;display:flex;justify-content:center;align-items:center;height:220px}
+#view-db-dashboard.hq-v3 .hq3-loc-svg{width:200px;height:200px;display:block}
 #view-db-dashboard.hq-v3 .hq3-loc-center{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  /* Constrain the centered block to the inner hole (~116px) so long
+     country names ("United Kingdom") wrap inside the donut instead of
+     spilling onto the ring. */
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:108px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
   pointer-events:none;text-align:center;
 }
 #view-db-dashboard.hq-v3 .hq3-loc-pct{
-  font-family:'Cormorant Garamond',serif;font-style:italic;font-size:34px;color:var(--accent);line-height:1;
+  font-family:'Cormorant Garamond',serif;font-style:italic;font-size:30px;
+  color:var(--accent);line-height:1;
+  /* Italic letterforms lean left; nudge the block right so the leading
+     stroke of "5" / "9" doesn't visually crowd the ring. */
+  padding-left:4px;
 }
 #view-db-dashboard.hq-v3 .hq3-loc-cap{
-  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--t3);
-  text-transform:uppercase;margin-top:6px;
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.06em;
+  color:var(--t3);text-transform:uppercase;
+  margin-top:6px;line-height:1.35;
+  /* Wrap inside the hole instead of overflowing the ring. */
+  white-space:normal;word-break:break-word;hyphens:auto;
 }
 #view-db-dashboard.hq-v3 .hq3-loc-legend{display:flex;flex-direction:column;gap:6px}
 #view-db-dashboard.hq-v3 .hq3-loc-legend-row{
@@ -583,7 +599,10 @@ html[data-theme="dark"] #view-db-dashboard.hq-v3 .hq3-clock-fmt{box-shadow:inset
 #view-db-dashboard.hq-v3 .fc-legend .li.yt .sw{background:var(--yt)}
 
 /* ── Pipeline ────────────────────────────────────────────────────── */
-#view-db-dashboard.hq-v3 .hq3-pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;position:relative;margin-top:6px}
+/* Three pipeline lanes (Maya / Jordan / Riley) — was repeat(4,...) when
+   Alex (copywriter) was on the team. The 4th column would otherwise be
+   left blank. */
+#view-db-dashboard.hq-v3 .hq3-pipe{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;position:relative;margin-top:6px}
 #view-db-dashboard.hq-v3 .hq3-pipe::before{
   content:'';position:absolute;left:24px;right:24px;top:74px;height:1px;
   background:linear-gradient(to right,var(--ok) 0%,var(--ok) 50%,var(--accent) 50%,var(--accent) 62%,var(--hair-strong) 62%);
@@ -806,17 +825,13 @@ html[data-theme="dark"] #view-db-dashboard.hq-v3 .hq3-clock-fmt{box-shadow:inset
 }
 #view-db-dashboard.hq-v3 .hq3-maya-take .body em{font-style:italic;color:var(--accent);font-family:'Cormorant Garamond',serif;font-size:14px}
 
-/* ── [data-tip] tooltips inside HQ v3 ────────────────────────────── */
-#view-db-dashboard.hq-v3 [data-tip]{position:relative}
-#view-db-dashboard.hq-v3 [data-tip]:hover::after{
-  content:attr(data-tip);position:absolute;left:0;top:calc(100% + 8px);z-index:50;
-  padding:9px 12px;border-radius:8px;background:var(--t1);color:var(--bg);
-  font-family:'Inter',sans-serif;font-size:11px;font-weight:400;
-  letter-spacing:0;text-transform:none;line-height:1.45;
-  width:max-content;max-width:300px;white-space:normal;
-  box-shadow:0 14px 36px -10px rgba(20,16,10,.35), 0 4px 10px rgba(20,16,10,.12);
-  pointer-events:none;
-}
+/* HQ v3 [data-tip] tooltips deliberately fall through to the global rule
+   in vexa-shared.css (`[data-tip]::after`). The earlier HQ-specific
+   override anchored `left:0; top:calc(100% + 8px)` and produced a 300px
+   tooltip that started at the trigger's left edge — for KPIs near the
+   left of the tile this clipped off-screen and only the middle of the
+   text was visible. The global rule centers above the trigger with a
+   transform, has a fade-in transition, and caps width at 260px. */
 
 /* ── HQ pipeline node drawer ─────────────────────────────────────
    Opens when a user clicks a pipeline node (Maya/Jordan/Alex/Riley)
@@ -891,6 +906,32 @@ html[data-theme="dark"] .hq3-drawer-pill{background:rgba(125,138,107,.18);color:
 .hq3-drawer-line:last-child{border-bottom:none}
 html[data-theme="dark"] .hq3-drawer-line{border-bottom-color:rgba(255,255,255,.06)}
 .hq3-drawer-empty{color:#8a8682;font-style:italic;font-size:13px;padding:20px;text-align:center}
+
+/* Jordan's posting-strategy slots — mirrors Studio's "When to post" panel
+   inside the HQ drawer. First slot is the primary recommendation (accent
+   border), the next two are alternatives. */
+.hq3-drawer-strategy{display:flex;flex-direction:column;gap:10px}
+.hq3-drawer-slot{
+  background:var(--bg);border:1px solid var(--b1);border-radius:10px;padding:14px;
+}
+.hq3-drawer-slot:first-of-type{border-color:var(--accent)}
+.hq3-drawer-slot-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;
+}
+.hq3-drawer-slot-label{
+  font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--t3);margin-bottom:4px;
+}
+.hq3-drawer-slot:first-of-type .hq3-drawer-slot-label{color:var(--accent)}
+.hq3-drawer-slot-time{font-size:14px;font-weight:600;color:var(--t1)}
+.hq3-drawer-slot-conf{
+  font-size:11px;font-weight:600;color:var(--ok);
+  padding:4px 8px;background:rgba(159,179,138,.15);border-radius:4px;flex-shrink:0;
+}
+.hq3-drawer-slot:nth-of-type(2) .hq3-drawer-slot-conf{color:var(--accent);background:var(--accent-soft)}
+.hq3-drawer-slot:nth-of-type(3) .hq3-drawer-slot-conf{color:var(--down);background:rgba(196,138,138,.15)}
+.hq3-drawer-slot-rationale{font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px}
+.hq3-drawer-slot-tags{display:flex;gap:6px;flex-wrap:wrap}
 .hq3-drawer-shot{display:grid;grid-template-columns:40px 1fr;gap:2px 8px;margin-bottom:8px;align-items:start}
 .hq3-drawer-shot-at{font-family:'JetBrains Mono',monospace;font-size:9px;color:#c08a3e;letter-spacing:.06em;padding-top:2px}
 html[data-theme="dark"] .hq3-drawer-shot-at{color:#d4a574}
@@ -950,6 +991,17 @@ html[data-theme="dark"] .hq3-drawer-btn--primary{background:#edede9;color:#0c0c0
 
 .hq3-drawer-msg{margin-top:10px;font-size:12px;color:#5a8a5e;min-height:1em;text-align:center}
 .hq3-drawer-msg.is-error{color:#b86e5b}
+/* Quiet, neutral copy when we hide the action footer because there's nothing
+   to act on — used in place of three disabled-looking dead buttons. */
+.hq3-drawer-msg.is-info{
+  color:var(--t2);
+  background:var(--s1);
+  border:1px solid var(--b1);
+  border-radius:8px;
+  padding:10px 14px;
+  text-align:left;
+  line-height:1.5;
+}
 
 #view-db-dashboard.hq-v3 .hq3-node{cursor:pointer;transition:transform .15s, box-shadow .15s}
 #view-db-dashboard.hq-v3 .hq3-node:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}

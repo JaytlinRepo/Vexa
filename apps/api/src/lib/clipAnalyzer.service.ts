@@ -245,7 +245,7 @@ export async function analyzeAndPickClip(
   sceneData: SceneAnalysis | undefined,
   frames: ExtractedFrame[],
   prisma?: PrismaClient,
-  creatorProfile?: { style?: Record<string, unknown> | null; retention?: Record<string, unknown> | null } | null,
+  creatorProfile?: { style?: Record<string, unknown> | null; retention?: Record<string, unknown> | null; trimLearning?: Record<string, unknown> | null } | null,
   beatAnalysis?: BeatAnalysis,
   badWindows?: BadWindow[],
   audioCurve?: AudioPoint[],
@@ -503,7 +503,15 @@ HOW MUCH TO KEEP PER ACTION:
 
   // No hard target — Riley decides the output length based on what she sees + the creator's style.
   // We give her the source duration and her style profile. She decides what to keep and what to cut.
-  const rawCutSpeed = (style as any)?.avgCutDuration || 3
+  // Trim-learning override: if the user has been re-cutting Riley's
+  // segments, their preferred kept-segment duration is the strongest
+  // pacing signal we have. Use it when the aggregator has enough data.
+  const trimLearning = creatorProfile?.trimLearning as Record<string, unknown> | undefined
+  const trimPreferredCutSpeed = (trimLearning?.preferredCutSpeed as number | null | undefined) ?? null
+  const platformCutSpeed = (style as any)?.avgCutDuration || 3
+  const rawCutSpeed = trimPreferredCutSpeed && trimPreferredCutSpeed > 0
+    ? trimPreferredCutSpeed
+    : platformCutSpeed
   const avgCutSpeed = Math.max(1, rawCutSpeed)
 
   // Build creator style instructions — how THIS creator edits
@@ -539,6 +547,54 @@ HOW MUCH TO KEEP PER ACTION:
     }
   }
 
+  // Build the trim-learning section. This carries direct user-edit
+  // signal — how the creator tightens / re-paces Riley's first cut.
+  // Drop signals are intentionally NOT surfaced: a user dropping a
+  // segment is often a one-off taste decision (duplicate, "not feeling
+  // it" today) rather than a durable preference, and we don't want
+  // Riley generalizing from noise. Trim/extend behavior — which IS
+  // about pacing — gets through. One kept-edited clip is enough; Riley
+  // merges this with the existing style profile, it's a Bayesian
+  // update not a replacement.
+  let trimLearningSection = ''
+  if (trimLearning && Number(trimLearning.editedClipCount) >= 1) {
+    const tl = trimLearning as Record<string, unknown>
+    const trimPatterns = Array.isArray(tl.trimPatterns) ? (tl.trimPatterns as string[]) : []
+    const trimEnergy = (tl.trimRatioByEnergy ?? {}) as Record<string, number | null>
+    const trimRatio = typeof tl.trimRatio === 'number' ? (tl.trimRatio as number) : null
+    const frontTrimRate = typeof tl.frontTrimRate === 'number' ? (tl.frontTrimRate as number) : null
+    const lines: string[] = []
+    // ── Trim signals (Tier 2) ──
+    if (trimPatterns.length > 0) {
+      lines.push(`- These shot types get SHORTENED (kept but cut tighter) more than half the time: ${trimPatterns.slice(0, 8).map((p) => `"${p}"`).join(', ')}. When picking shots that match, choose tighter windows from the start.`)
+    }
+    if (trimRatio !== null && trimRatio < 0.85) {
+      lines.push(`- When this creator trims, they keep about ${Math.round(trimRatio * 100)}% of your chosen length. PRE-EMPT this — pick tighter windows now so they don't have to trim them down.`)
+    }
+    if (typeof trimEnergy.medium === 'number' && trimEnergy.medium < 0.80) {
+      lines.push(`- Medium-energy shots get trimmed to ~${Math.round(trimEnergy.medium * 100)}% of the original length. For medium-energy moments, pick shorter windows by default.`)
+    }
+    if (typeof trimEnergy.high === 'number' && trimEnergy.high < 0.85) {
+      lines.push(`- Even high-energy shots get trimmed to ~${Math.round(trimEnergy.high * 100)}%. Don't pad action moments — cut at the natural beat-end, not after.`)
+    }
+    if (frontTrimRate !== null) {
+      if (frontTrimRate >= 0.65) {
+        lines.push(`- Front-trim preference: ${Math.round(frontTrimRate * 100)}% of trims happen at the START. PUSH segment startTime forward — cut into the action sooner, skip lead-in entirely.`)
+      } else if (frontTrimRate <= 0.35) {
+        lines.push(`- Back-trim preference: ${Math.round((1 - frontTrimRate) * 100)}% of trims happen at the END. Pull segment endTime EARLIER — leave when the action lands, don't linger.`)
+      }
+    }
+    if (typeof tl.preferredCutSpeed === 'number' && tl.preferredCutSpeed > 0) {
+      lines.push(`- This creator's PREFERRED segment length (from their re-cuts) is ~${(tl.preferredCutSpeed as number).toFixed(1)}s. Match that pace.`)
+    }
+    if (typeof tl.preferredSegmentCount === 'number' && tl.preferredSegmentCount > 0) {
+      lines.push(`- Their preferred reel has ~${tl.preferredSegmentCount} segments total. Plan around that count.`)
+    }
+    if (lines.length > 0) {
+      trimLearningSection = `\nLEARNED FROM PAST EDITS (real user trims of your previous cuts — strongest signal we have):\n${lines.join('\n')}\n`
+    }
+  }
+
   // Build the source-structure section: if this is a stitched compilation,
   // tell Riley about each clip's boundaries AND demand per-source diversity.
   // Cap = ceil(targetSegments / sources) + 1 (so 5 sources × 6 target =
@@ -569,7 +625,7 @@ CRITICAL DIVERSITY RULE:
 You're looking at ${frames.length} keyframes extracted from a ${videoDuration.toFixed(1)}-second video, plus audio transcript and motion data. Use ALL of this to make editing decisions.
 
 Your job: edit this ${videoDuration.toFixed(0)}s video the way THIS creator would edit it.
-${creatorInstructions}${retentionInsightsSection}${sourceStructureSection}
+${creatorInstructions}${retentionInsightsSection}${trimLearningSection}${sourceStructureSection}
 PACING MATH:
 - This creator averages ~${avgCutSpeed.toFixed(1)}s per segment.
 - Source video is ${videoDuration.toFixed(0)}s long.
@@ -733,6 +789,15 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
   }
 
   let decision: RileyResponse | null = null
+  // Riley's model. Defaults to Haiku 4.5 — direct successor to the
+  // original Haiku 3 with much better vision and multi-section
+  // instruction following. The `us.` prefix selects the cross-region
+  // inference profile, which is REQUIRED for the 4.x family — the
+  // bare model ID returns "on-demand throughput isn't supported".
+  // Override via BEDROCK_MODEL_RILEY to try Sonnet 4.5/4.6 or Opus
+  // 4.6 (also need their `us.` prefixed inference-profile IDs).
+  const RILEY_MODEL = process.env.BEDROCK_MODEL_RILEY
+    || 'us.anthropic.claude-haiku-4-5-20251001-v1:0'
   // Throttle-aware invokeAgent — Bedrock 429s here would silently drop
   // Riley back to a generic motion-only fallback, masking everything we
   // computed upstream. Retry with backoff on rate-limit errors only.
@@ -747,6 +812,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
           maxTokens: MAX_TOKENS_FIRST,
           temperature: temp,
           companyId,
+          modelId: RILEY_MODEL,
         })
       } catch (err) {
         lastErr = err as Error
@@ -2082,7 +2148,7 @@ function fallbackClip(
   videoDuration: number,
   targetDuration: number,
   sceneData?: SceneAnalysis,
-  creatorProfile?: { style?: Record<string, unknown> | null; retention?: Record<string, unknown> | null } | null,
+  creatorProfile?: { style?: Record<string, unknown> | null; retention?: Record<string, unknown> | null; trimLearning?: Record<string, unknown> | null } | null,
 ): ClipDecision {
   // Honor creator's optimal length if retention says so
   const optimal = (creatorProfile?.retention as any)?.performanceCorrelations?.videoLength?.optimal as number | undefined

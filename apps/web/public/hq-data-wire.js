@@ -86,7 +86,7 @@
     }
 
     // ── PIPELINE NODES ──
-    var roleMap = { analyst: 'maya', strategist: 'jordan', copywriter: 'alex', creative_director: 'riley' }
+    var roleMap = { analyst: 'maya', strategist: 'jordan', creative_director: 'riley' }
     var nodes = document.querySelectorAll('#view-db-dashboard #pipe .node')
     nodes.forEach(function(node) {
       var key = node.dataset.node

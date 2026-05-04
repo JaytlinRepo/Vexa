@@ -100,8 +100,18 @@ function monthBucket(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-function bedrockKey(companyId: string): string {
-  return `bedrock:${companyId}:${monthBucket()}`
+function dayBucket(): string {
+  const d = new Date()
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+/** Bedrock counter key. Plans with `resetWindow: 'daily'` (Free) bucket per
+ *  UTC day so usage rolls over each midnight; everything else stays monthly.
+ *  Defaulting to monthly preserves prior behaviour for paid tiers. */
+function bedrockKey(companyId: string, window: 'daily' | 'monthly' = 'monthly'): string {
+  return window === 'daily'
+    ? `bedrock:${companyId}:d:${dayBucket()}`
+    : `bedrock:${companyId}:${monthBucket()}`
 }
 
 export async function trackBedrockCall(
@@ -118,23 +128,34 @@ export async function trackBedrockCall(
   local.lastCallAt = Date.now()
   _bedrockLocal.set(companyId, local)
 
+  // Write to BOTH the daily and monthly buckets so quota reads can pick
+  // whichever window matches the user's plan without the bedrock service
+  // needing to know plan internals. Storage cost is trivial (one extra hash
+  // per company per day, expiring in 2 days).
   try {
-    const key = bedrockKey(companyId)
+    const monthlyKey = bedrockKey(companyId, 'monthly')
+    const dailyKey = bedrockKey(companyId, 'daily')
+    const now = String(Date.now())
     const pipe = getClient().pipeline()
-    pipe.hincrby(key, 'count', 1)
-    pipe.hincrby(key, 'inputTokens', inputTokens)
-    pipe.hincrby(key, 'outputTokens', outputTokens)
-    pipe.hset(key, 'lastCallAt', String(Date.now()))
-    pipe.expire(key, 35 * 24 * 60 * 60) // auto-clean after ~35 days
+    for (const [key, ttl] of [[monthlyKey, 35 * 24 * 60 * 60], [dailyKey, 2 * 24 * 60 * 60]] as const) {
+      pipe.hincrby(key, 'count', 1)
+      pipe.hincrby(key, 'inputTokens', inputTokens)
+      pipe.hincrby(key, 'outputTokens', outputTokens)
+      pipe.hset(key, 'lastCallAt', now)
+      pipe.expire(key, ttl)
+    }
     await pipe.exec()
   } catch {
     // In-memory fallback already updated.
   }
 }
 
-export async function getBedrockUsage(companyId: string): Promise<BedrockRecord> {
+export async function getBedrockUsage(
+  companyId: string,
+  window: 'daily' | 'monthly' = 'monthly',
+): Promise<BedrockRecord> {
   try {
-    const data = await getClient().hgetall(bedrockKey(companyId))
+    const data = await getClient().hgetall(bedrockKey(companyId, window))
     if (data?.count) {
       return {
         count: parseInt(data.count, 10),

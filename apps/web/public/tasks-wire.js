@@ -11,7 +11,6 @@
   const EMP_COLOR = {
     Maya: '#6ab4ff',
     Jordan: 'var(--t1)',
-    Alex: '#e8c87a',
     Riley: '#b482ff',
   }
 

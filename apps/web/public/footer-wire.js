@@ -24,7 +24,7 @@
           <div class="vx-footer-brand">
             <div class="vx-footer-mark">Sovexa</div>
             <p class="vx-footer-tag">Your content. Run by a team.</p>
-            <p class="vx-footer-mini">Four AI specialists — analyst, strategist, copywriter, creative director — that plan, write, and produce content for your brand.</p>
+            <p class="vx-footer-mini">Three AI specialists — analyst, strategist, creative director — that plan and produce content for your brand.</p>
           </div>
 
           <div class="vx-footer-col">

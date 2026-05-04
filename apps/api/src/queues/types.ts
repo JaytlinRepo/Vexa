@@ -30,7 +30,6 @@ export interface ScheduledAgentJobData {
     | 'evening-recap'
     | 'weekly-maya-pulse'
     | 'weekly-jordan-plan'
-    | 'weekly-alex-hooks'
     | 'weekly-riley-briefs'
     | 'thought-responses'
     | 'generate-timeline'
@@ -42,6 +41,7 @@ export type ContentAnalysisJobData =
   | { kind: 'tag-posts'; companyId: string }
   | { kind: 'style-analysis'; companyId: string }
   | { kind: 'content-profile'; companyId: string }
+  | { kind: 'trim-learning'; companyId: string }
 
 // ── Platform Sync ────────────────────────────────────────────────────────────
 

@@ -261,11 +261,15 @@ export async function generateJordanGoal(
   }
 
   // ── ENGAGEMENT LIFT ──────────────────────────────────────────────
-  if (engagement > 0 && avoidType !== 'engagement') {
-    // 0.3 pt lift is meaningful but realistic across most IG accounts.
-    // We cap the target to a ceiling that matches bucket — nobody pushes
-    // engagement past ~8% sustainably.
+  // Only meaningful when there's headroom. If baseline is already very
+  // high (>= 8%), skip — proposing a "lift" only to clamp the target
+  // *below* the baseline produced nonsense like "Lifting from 25.71% to
+  // 10.00%" for accounts with a tiny denominator. Above 8%, the right
+  // opening goal is reach or follower growth, not more engagement.
+  if (engagement > 0 && engagement < 8 && avoidType !== 'engagement') {
     const pt = engagement < 1 ? 0.4 : engagement < 3 ? 0.3 : 0.2
+    // Ceiling at 10 is a soft cap — pt is small enough that for any
+    // baseline < 8 the target stays comfortably above baseline.
     const target = Math.min(10, Math.round((engagement + pt) * 100) / 100)
     candidates.push({
       type: 'engagement',
@@ -273,7 +277,7 @@ export async function generateJordanGoal(
       baseline: engagement,
       byDate: addDays(now, 30),
       metricLabel: METRIC_LABELS.engagement,
-      rationale: `Your engagement is ${engagement.toFixed(2)}%. Lifting to ${target.toFixed(2)}% in 30 days is realistic — Alex tightens hooks, I cut the weakest two slots from your pillar mix.`,
+      rationale: `Your engagement is ${engagement.toFixed(2)}%. Lifting to ${target.toFixed(2)}% in 30 days is realistic — Riley tightens the visual brief and I cut the weakest two slots from your pillar mix.`,
       priority: growthStalled ? 10 : engagement < 2 ? 9 : 6,
     })
   }

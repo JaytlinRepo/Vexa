@@ -11,12 +11,15 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { userId } = (req as AuthedRequest).session
     const report = await computeUsage(prisma, userId)
 
-    // Append Bedrock usage for the user's primary company
+    // Append Bedrock usage for the user's primary company. Read the bucket
+    // that matches the user's plan reset window — daily for Free, monthly
+    // for paid tiers — so the surfaced usage matches the cap shown to them.
     const company = await prisma.company.findFirst({ where: { userId }, select: { id: true } })
     if (company) {
-      const bedrock = await getBedrockUsage(company.id)
+      const bedrock = await getBedrockUsage(company.id, report.tasks.resetWindow)
       ;(report as unknown as Record<string, unknown>).bedrock = {
-        callsThisMonth: bedrock.count,
+        count: bedrock.count,
+        window: report.tasks.resetWindow,
         inputTokens: bedrock.inputTokens,
         outputTokens: bedrock.outputTokens,
         estimatedCost: `$${estimateCost(bedrock).toFixed(4)}`,

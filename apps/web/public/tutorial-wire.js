@@ -25,7 +25,7 @@
     {
       title: 'Give the team a brief',
       body:
-        'From **Your team**, use **Brief** on Maya, Jordan, Alex, or Riley to assign real work. Pick a preset that matches what you need this week.',
+        'From **Your team**, use **Brief** on Maya, Jordan, or Riley to assign real work. Pick a preset that matches what you need this week.',
     },
     {
       title: 'Call a meeting when you want context',

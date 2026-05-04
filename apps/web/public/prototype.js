@@ -333,14 +333,19 @@ function obPrev(step){
 }
 
 function startReveal(){
-  const delays=[500,1100,1700,2300]
+  // Three-employee team (Maya, Jordan, Riley). Alex was retired —
+  // ob-emp-2 is now Riley and there's no ob-emp-3 to reveal.
+  const delays=[500,1100,1700]
   delays.forEach((d,i)=>{
     setTimeout(()=>{
-      document.getElementById('ob-emp-'+i).classList.add('revealed')
-      if(i===3){
+      const el = document.getElementById('ob-emp-'+i)
+      if (el) el.classList.add('revealed')
+      if(i===delays.length-1){
         setTimeout(()=>{
-          document.getElementById('ob-prog').style.width='100%'
-          document.getElementById('ob-enter-btn').style.opacity='1'
+          var prog = document.getElementById('ob-prog')
+          var btn = document.getElementById('ob-enter-btn')
+          if (prog) prog.style.width='100%'
+          if (btn) btn.style.opacity='1'
         },400)
       }
     },d)
@@ -642,7 +647,6 @@ function renderWeek() {
         if (e.date !== dateStr) return false
         if (e.who === 'jordan' && hi === 0) return true
         if (e.who === 'maya'   && hi === 1) return true
-        if (e.who === 'alex'   && hi === 3) return true
         if (e.who === 'riley'  && hi === 5) return true
         return false
       })
@@ -699,23 +703,24 @@ function approveEntry(id, e) {
   entry.status = 'approved'
   renderCalendar()
 
-  // Trigger Alex to add hooks entry on same date
+  // Trigger Riley to add a production brief on the same date — Jordan's
+  // plan now hands directly to Riley (Alex was retired from the team).
   if (entry.who === 'jordan' && entry.type === 'Reel') {
     setTimeout(() => {
-      const alexEntry = {
-        id: 'ae'+Date.now(),
+      const rileyEntry = {
+        id: 're'+Date.now(),
         date: entry.date,
-        type: 'Hooks',
-        title: 'Hook set — '+entry.title,
-        who: 'alex',
+        type: 'Brief',
+        title: 'Production brief — '+entry.title,
+        who: 'riley',
         status: 'planned',
-        label: 'Alex'
+        label: 'Riley'
       }
-      calEntries.push(alexEntry)
+      calEntries.push(rileyEntry)
       renderCalendar()
-      showToast('A','Alex','Copywriter',
-        `"Plan approved — I'm writing hooks for the ${entry.title} Reel now. I'll have 5 variations ready shortly."`,
-        alexEntry.id)
+      showToast('R','Riley','Creative Director',
+        `"Plan approved — I'm shaping the production direction for the ${entry.title} Reel now. Shot list and pacing on the way."`,
+        rileyEntry.id)
     }, 1800)
   }
 }
@@ -724,7 +729,6 @@ function meetingFromEntry(who, e) {
   if(e){e.stopPropagation()}
   const names = {jordan:['Jordan','Content Strategist','J'],
                  maya:  ['Maya','Trend Analyst','M'],
-                 alex:  ['Alex','Copywriter','A'],
                  riley: ['Riley','Creative Director','R']}
   const n = names[who]||['Jordan','Strategist','J']
   openMeeting(n[0], n[1], n[2])
@@ -746,21 +750,19 @@ function approveCalendarPlan() {
     if(e.who==='jordan' && e.status==='planned') e.status='approved'
   })
 
-  // Alex adds script entries
-  const reel1 = {id:'script1', date:'2025-01-13', type:'Script', title:'Weighted walking script',    who:'alex', status:'planned', label:'Alex'}
-  const reel2 = {id:'script2', date:'2025-01-16', type:'Script', title:'Cycle syncing script',        who:'alex', status:'planned', label:'Alex'}
-  calEntries.push(reel1, reel2)
-
-  // Riley adds production entries  
-  const prod1 = {id:'prod1', date:'2025-01-13', type:'Shoot', title:'Production day — Reel 01', who:'riley', status:'planned', label:'Riley'}
-  calEntries.push(prod1)
+  // Riley picks up directly from Jordan's approved plan and adds shoot
+  // and brief entries (Alex was retired from the team).
+  const brief1 = {id:'brief1', date:'2025-01-13', type:'Brief',  title:'Production brief — weighted walking', who:'riley', status:'planned', label:'Riley'}
+  const brief2 = {id:'brief2', date:'2025-01-16', type:'Brief',  title:'Production brief — cycle syncing',     who:'riley', status:'planned', label:'Riley'}
+  const prod1  = {id:'prod1',  date:'2025-01-13', type:'Shoot',  title:'Production day — Reel 01',             who:'riley', status:'planned', label:'Riley'}
+  calEntries.push(brief1, brief2, prod1)
 
   // Switch to calendar to show the update
   switchTasksView('calendar')
   setTimeout(()=>{
-    showToast('A','Alex','Copywriter',
-      '"Jordan\'s plan is approved — I\'ve added script slots to Monday and Thursday. Hooks for the weighted walking Reel are in progress now."',
-      'script1')
+    showToast('R','Riley','Creative Director',
+      '"Jordan\'s plan is approved — I\'ve added briefs and a shoot day. Shot list for the weighted walking Reel coming next."',
+      'brief1')
   }, 800)
 
   setTimeout(()=>{
@@ -935,11 +937,28 @@ window.briefEvent = async function (action, context) {
   try {
     switch (action) {
       case 'approve-plan':
-        await fetch('/api/weekly/plan/approve' + q, {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        })
-        if (typeof window.showNotification === 'function') window.showNotification('Plan approved — preference saved', 'success')
+        try {
+          var planRes = await fetch('/api/weekly/plan/approve' + q, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          var planData = await planRes.json().catch(function () { return {} })
+          // Only claim "X picked up the next step" when the backend's chain
+          // actually fired; otherwise show whatever honest reason the API
+          // returned. Hard-coded "Plan approved — preference saved" wasn't
+          // checking and was repeating a happy-path lie.
+          if (typeof window.showNotification === 'function') {
+            if (planRes.ok && planData && planData.chain && planData.chain.ok && planData.chain.nextEmployeeName) {
+              window.showNotification('Plan approved · ' + planData.chain.nextEmployeeName + ' picked up the next step', 'success')
+            } else if (planRes.ok) {
+              window.showNotification(planData && planData.message ? planData.message : 'Plan approved', 'success')
+            } else {
+              window.showNotification('Plan approved, but the next step couldn\'t start. Try again in a moment.', 'error')
+            }
+          }
+        } catch (_) {
+          if (typeof window.showNotification === 'function') window.showNotification('Couldn\'t approve the plan. Check your connection and try again.', 'error')
+        }
         if (typeof window.refreshBriefs === 'function') window.refreshBriefs()
         break
       case 'reject-plan':
@@ -981,14 +1000,13 @@ window.navigateTo = function (brief) {
   var endpointMap = {
     'weekly-plan': '/api/weekly/jordan-plan',
     'weekly-pulse': '/api/weekly/maya-pulse',
-    'weekly-hooks': '/api/weekly/alex-hooks',
+    // weekly-hooks (Alex) retired
     'trends': '/api/briefs/morning',
     'evening-recap': '/api/briefs/evening',
   }
   var titleMap = {
     'weekly-plan': "Jordan's Content Plan",
     'weekly-pulse': "Maya's Weekly Pulse",
-    'weekly-hooks': "Alex's Hooks",
     'trends': 'Morning Brief',
     'evening-recap': 'Evening Recap',
   }
@@ -1038,7 +1056,100 @@ window.navigateTo = function (brief) {
   function formatBriefOutput(o, type) {
     if (type === 'trends') return formatMorningBrief(o)
     if (type === 'weekly-pulse') return formatMayaPulse(o)
+    // Jordan's weekly content plan has a known JSON shape (weekOf, pillars,
+    // posts, strategyNote, audienceFocus). The generic walker rendered it
+    // as auto-uppercased "WEEK OF / PILLARS / STRATEGY NOTE / AUDIENCE
+    // FOCUS" with the strategy note as one wall of text. The dedicated
+    // formatter below reads cleaner and uses plain-language headings.
+    if (type === 'weekly-plan' || (o && (o.audienceFocus || o.strategyNote || o.pillars))) {
+      return formatJordanContentPlan(o)
+    }
     return formatGenericBrief(o)
+  }
+
+  // Plain-language layout for Jordan's content plan. Splits the strategy
+  // note into per-pillar bullets when Jordan still numbers them (legacy
+  // outputs from before the simpler-language prompt update); otherwise
+  // shows the note as a single short paragraph.
+  function formatJordanContentPlan(o) {
+    if (!o) return '<div style="color:var(--t3)">No plan to show yet.</div>'
+    var parts = []
+
+    // Header — week + audience + a single-sentence strategy summary.
+    // Anything longer than one sentence is noise: the pillars and the
+    // per-day calendar already say everything else. Truncate aggressively.
+    var weekLabel = ''
+    if (o.weekOf) {
+      try {
+        weekLabel = 'Week of ' + new Date(o.weekOf + 'T12:00:00')
+          .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      } catch (_) { weekLabel = 'Week of ' + o.weekOf }
+    }
+    var headline = oneSentence(o.strategyNote, 22) // primary "what we're doing" line
+    if (weekLabel || o.audienceFocus || headline) {
+      parts.push(
+        '<div style="padding-bottom:14px;border-bottom:1px solid var(--b1);margin-bottom:18px">'
+        + (weekLabel ? '<div style="font-family:\'Cormorant Garamond\',serif;font-size:22px;font-weight:400;color:var(--t1);margin-bottom:6px">' + esc(weekLabel) + '</div>' : '')
+        + (headline ? '<div style="font-size:13px;color:var(--t1);line-height:1.5;margin-bottom:6px">' + esc(headline) + '</div>' : '')
+        + (o.audienceFocus ? '<div style="font-size:12px;color:var(--t3);line-height:1.5">For ' + esc(o.audienceFocus) + '</div>' : '')
+        + '</div>'
+      )
+    }
+
+    // Three things we’re posting (was "Pillars" — same data, friendlier label)
+    if (Array.isArray(o.pillars) && o.pillars.length) {
+      var pillarRows = o.pillars.map(function (p) {
+        return '<div style="padding:8px 0 8px 12px;border-left:2px solid var(--accent);margin-bottom:6px;font-size:13px;color:var(--t1)">'
+          + esc(typeof p === 'string' ? p : (p.name || p.title || ''))
+          + '</div>'
+      }).join('')
+      parts.push(sec3('What we’re posting about'))
+      parts.push('<div style="margin-bottom:18px">' + pillarRows + '</div>')
+    }
+
+    // The 7-day calendar (if present) — small day rows
+    if (Array.isArray(o.posts) && o.posts.length) {
+      parts.push(sec3('This week’s posts'))
+      var rows = o.posts.slice(0, 7).map(function (p) {
+        var fmt = p.format ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);border:1px solid var(--b1);padding:2px 6px;border-radius:3px;margin-right:8px">' + esc(p.format) + '</span>' : ''
+        return '<div style="padding:8px 0;border-bottom:1px dashed var(--b1)">'
+          + '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px">'
+          + '<span style="font-size:12px;font-weight:500;color:var(--t1)">' + esc(p.day || '') + '</span>'
+          + fmt
+          + '</div>'
+          + '<div style="font-size:12px;color:var(--t2);line-height:1.5">' + esc(p.topic || p.title || '') + '</div>'
+          + (p.angle ? '<div style="font-size:11px;color:var(--t3);margin-top:2px;line-height:1.45">' + esc(p.angle) + '</div>' : '')
+          + '</div>'
+      }).join('')
+      parts.push('<div style="margin-bottom:8px">' + rows + '</div>')
+    }
+
+    return parts.join('') || '<div style="color:var(--t3)">No plan details available.</div>'
+  }
+  // Section heading — small caps, accent-coloured, used by formatJordanContentPlan.
+  function sec3(label) {
+    return '<div style="font-family:\'DM Sans\',Inter,sans-serif;font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t1);margin-bottom:10px">' + esc(label) + '</div>'
+  }
+  // Reduce a long strategy note to a single short sentence. Drops everything
+  // after the first numbered list item (legacy Jordan output format) and any
+  // trailing "By mixing up the formats..." closer. Hard cap on word count
+  // because Jordan's first sentence is sometimes itself overlong.
+  function oneSentence(raw, maxWords) {
+    if (!raw) return ''
+    var s = String(raw).trim()
+    // Cut at the start of a numbered pillar block ("1. X -")
+    var numberedAt = s.search(/[:\s]\s*1\.\s+[A-Z]/)
+    if (numberedAt > 0) s = s.slice(0, numberedAt)
+    // Drop trailing colons / dashes left over after the cut
+    s = s.replace(/[:—\-\s]+$/, '').trim()
+    // Take up to the first sentence terminator
+    var firstStop = s.search(/[.!?](\s|$)/)
+    if (firstStop > 0) s = s.slice(0, firstStop + 1)
+    // Word-cap belt-and-braces
+    var words = s.split(/\s+/)
+    var max = maxWords || 22
+    if (words.length > max) s = words.slice(0, max).join(' ').replace(/[,\s]+$/, '') + '…'
+    return s
   }
 
   function formatMorningBrief(data) {

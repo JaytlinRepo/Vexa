@@ -9,14 +9,14 @@
   const ROLE_WHO = {
     analyst: 'maya',
     strategist: 'jordan',
-    copywriter: 'alex',
+    // copywriter: 'alex' — retired. Legacy tasks of this role won't map to a
+    // pipeline lane, which is the intended behavior.
     creative_director: 'riley',
   }
 
   const WHO_LABEL = {
     maya: 'Maya',
     jordan: 'Jordan',
-    alex: 'Alex',
     riley: 'Riley',
   }
 

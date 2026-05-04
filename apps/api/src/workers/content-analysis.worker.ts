@@ -43,6 +43,26 @@ export function createContentAnalysisWorker(): Worker {
           break
         }
 
+        case 'trim-learning': {
+          // Aggregate the trim signal across every company with recent
+          // edits when fan-out is requested. Per-company flow is also
+          // supported in case we want to trigger it on-demand later.
+          const { computeTrimLearning, saveTrimLearning, runTrimLearningForAllCompanies } = await import('../services/trimLearning.service')
+          if (companyId === '__fan-out__') {
+            const result = await runTrimLearningForAllCompanies(prisma)
+            console.log(`[worker:content] trim-learning: scanned ${result.companies} companies, wrote ${result.profiles} profiles`)
+          } else {
+            const profile = await computeTrimLearning(prisma, companyId)
+            if (profile) {
+              await saveTrimLearning(prisma, companyId, profile)
+              console.log(`[worker:content] trim-learning: ${companyId} → ${profile.dropPatterns.length} patterns, preferredCutSpeed=${profile.preferredCutSpeed}`)
+            } else {
+              console.log(`[worker:content] trim-learning: ${companyId} — not enough edited clips yet`)
+            }
+          }
+          break
+        }
+
         default:
           console.warn(`[worker:content] unknown kind: ${kind}`)
       }

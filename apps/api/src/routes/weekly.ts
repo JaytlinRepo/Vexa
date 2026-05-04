@@ -307,10 +307,12 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         return res.status(403).json({ error: 'Company not found' })
       }
 
-      // Find the latest content_plan task
+      // Find the latest content_plan task with the employee row attached so
+      // the auto-chain knows who Jordan is and what the next role should be.
       const planTask = await prisma.task.findFirst({
         where: { companyId, type: 'content_plan' },
         orderBy: { createdAt: 'desc' },
+        include: { employee: true },
       })
 
       if (!planTask) {
@@ -323,12 +325,36 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
         data: { status: 'approved' },
       })
 
-      // TODO: Auto-trigger Alex and Riley tasks since plan was approved
-      // The auto-chain should handle this, but if not, manually trigger:
-      // await triggerWeeklyAlexHooks(prisma, companyId)
-      // await triggerWeeklyRileyBriefs(prisma, companyId)
+      // Run the same auto-chain the generic /api/tasks/:id/action route uses
+      // so Alex picks up hooks for the approved plan. Alex's task in turn
+      // chains to Riley on its own approval. Without this, the route just
+      // flipped the status flag and the pipeline truly did nothing — the
+      // dashboard's "the next agent picked up the next step" copy was a lie.
+      const { triggerNextAgentAfterApproval } = await import('../agents/task-orchestrator')
+      let chain: Awaited<ReturnType<typeof triggerNextAgentAfterApproval>>
+      try {
+        chain = await triggerNextAgentAfterApproval(prisma, {
+          id: planTask.id,
+          companyId: planTask.companyId,
+          employee: planTask.employee,
+        })
+      } catch (e) {
+        console.warn('[weekly] auto-chain after plan approval failed:', (e as Error).message)
+        chain = { ok: false, reason: 'bad_config' }
+      }
 
-      res.json({ success: true, message: 'Weekly plan approved. Alex and Riley are next.' })
+      // Honest response — the frontend uses `chain.nextEmployeeName` for the
+      // "Alex picked up the next step" line. If the chain didn't fire we
+      // don't pretend it did.
+      const message = chain.ok
+        ? `Weekly plan approved. ${chain.nextEmployeeName} picked up "${chain.title}".`
+        : chain.reason === 'quota_exceeded'
+          ? 'Weekly plan approved. Plan task limit blocked the next step — upgrade or wait for reset.'
+          : chain.reason === 'duplicate_chain_task'
+            ? 'Weekly plan approved. The next step was already in flight from an earlier approval.'
+            : 'Weekly plan approved. The next step will start when the team has capacity.'
+
+      res.json({ success: true, message, chain })
     } catch (err) {
       console.error('[weekly] plan/approve error:', err)
       res.status(500).json({ error: 'Failed to approve plan' })

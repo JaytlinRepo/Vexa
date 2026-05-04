@@ -9,6 +9,13 @@
       "port": 4000
     },
     {
+      "name": "workers",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "src/workers/index.ts"],
+      "cwd": "apps/api",
+      "port": 4001
+    },
+    {
       "name": "web",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["next", "dev"],
