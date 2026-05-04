@@ -1059,11 +1059,43 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
       }
       segments = merged
 
+      // ── Overlap-fixup pass ────────────────────────────────────────
+      // When the merge above kept two distinct-action segments side by
+      // side, they may still overlap in source time (Riley picks them
+      // separately, then the 1.4s-minimum stretcher extends one end
+      // past the next start). Concatenating overlapping source ranges
+      // produces a visible "glitch repeat" — the same frames play twice
+      // at the join. Fix by pushing the LATER segment's startTime
+      // forward to the prior endTime. Front-clipping matches the
+      // user's typical trim preference (front-trim) and keeps the
+      // earlier segment's narrative end intact.
+      let overlapFixes = 0
+      let overlapDrops = 0
+      const fixed: ReelSegment[] = []
+      for (const s of segments) {
+        const prev = fixed[fixed.length - 1]
+        if (prev && s.startTime < prev.endTime - 0.01) {
+          const newStart = prev.endTime
+          if (s.endTime - newStart >= 1.0) {
+            fixed.push({ ...s, startTime: newStart })
+            overlapFixes++
+          } else {
+            // Trimming would leave it under 1.0s — drop instead.
+            overlapDrops++
+          }
+        } else {
+          fixed.push({ ...s })
+        }
+      }
+      segments = fixed
+
       if (snapsApplied > 0) console.log(`[clip-analyzer] Snapped ${snapsApplied} cut points to beats/rest points`)
       if (extensions > 0) console.log(`[clip-analyzer] Extended ${extensions} cut(s) outward to nearest beat (was mid-action)`)
       if (speechExtensions > 0) console.log(`[clip-analyzer] Extended ${speechExtensions} cut(s) outward to preserve speech spans (was mid-sentence)`)
       if (stretches > 0) console.log(`[clip-analyzer] Stretched ${stretches} segment(s) to meet minimum 1.4s length`)
       if (perActionCaps > 0) console.log(`[clip-analyzer] Capped ${perActionCaps} segment(s) at MAX_SEG_LEN to prevent over-extension`)
+      if (overlapFixes > 0) console.log(`[clip-analyzer] Fixed ${overlapFixes} overlapping segment join(s) — pushed later startTime forward`)
+      if (overlapDrops > 0) console.log(`[clip-analyzer] Dropped ${overlapDrops} segment(s) where overlap-fix would leave <1.0s`)
     }
 
     // ── Hard exclusion of segments inside heavy bad-quality windows ────────
@@ -2098,7 +2130,7 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
       }
     }
 
-    const totalDuration = segments.reduce((sum, s) => sum + (s.endTime - s.startTime), 0)
+    let totalDuration = segments.reduce((sum, s) => sum + (s.endTime - s.startTime), 0)
 
     // Build combined transcript from selected segments
     const clipTranscript = segments.map(seg => {
@@ -2116,6 +2148,41 @@ Here are the keyframes from the video. Each frame is labeled with its timestamp.
     }
     const lastSegEnd = segments.length > 0 ? segments[segments.length - 1].endTime : 0
     const coversEnd = lastSegEnd > videoDuration * 0.6
+
+    // ── True-final no-overlap pass ────────────────────────────────────────
+    // The earlier FINAL DEFENSIVE GUARD at line ~1562 runs BEFORE the
+    // source-diversity floor-fill (line ~2011) and the YAVG dedup pass
+    // (line ~2078). Floor-fill can synthesize a segment whose source-time
+    // window overlaps an existing segment, and the earlier guard never
+    // sees it. That overlap renders as "glitch repeat" frames at the
+    // join. Walk the final list one more time, push any overlapping start
+    // forward to the prior end, and drop anything that falls below the
+    // 1.0s absolute floor after trim.
+    {
+      segments.sort((a, b) => a.startTime - b.startTime)
+      const finalOut: ReelSegment[] = []
+      let finalTrimmed = 0
+      let finalDropped = 0
+      for (const s of segments) {
+        const prev = finalOut[finalOut.length - 1]
+        let newStart = s.startTime
+        if (prev && newStart < prev.endTime - 0.001) {
+          newStart = prev.endTime
+          finalTrimmed++
+        }
+        if (s.endTime - newStart < 1.0) {
+          finalDropped++
+          continue
+        }
+        finalOut.push({ ...s, startTime: newStart })
+      }
+      if (finalTrimmed > 0 || finalDropped > 0) {
+        console.log(`[clip-analyzer] True-final overlap pass: trimmed ${finalTrimmed}, dropped ${finalDropped} (post-floor-fill or post-dedup overlap)`)
+      }
+      segments = finalOut
+      // Recompute totalDuration after the final pass
+      totalDuration = segments.reduce((sum, s) => sum + (s.endTime - s.startTime), 0)
+    }
 
     console.log(`[clip-analyzer] Riley (vision) picked ${segments.length} segments, ${totalDuration.toFixed(1)}s total`)
     console.log(`  Jump cuts: ${hasGaps ? 'YES' : 'NO (contiguous — may need re-cut)'}`)
