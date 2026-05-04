@@ -2128,24 +2128,38 @@ body::before{
   gap:10px;
   padding:12px;
 }
-.studio-clip-visual video{
-  display:block;width:100%;
-  aspect-ratio:9/16;
-  max-height:min(240px, 42vw);
+/* Video sizes by HEIGHT, width auto-fits the source's intrinsic
+   aspect ratio. Killing the forced 9/16 aspect-ratio + max-height
+   combo eliminates the black "side bars" that appeared when the
+   grid cell was wider than 9:16 of the cap. The card-bg fills the
+   gap on either side of a centered, intrinsically-sized video. */
+.studio-clip-visual{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  background:transparent;
   border-radius:10px;
-  /* `contain` letterboxes anything that isn't a perfect 9:16 source. `cover`
-     was zooming in and clipping the edges, and the cropping was preserved in
-     the native fullscreen player too — users couldn't see the full frame. */
-  object-fit:contain;
-  background:#000;
+  overflow:hidden;
 }
+.studio-clip-visual video{
+  display:block;
+  height:min(440px, 60vw);
+  width:auto;
+  max-width:100%;
+  border-radius:10px;
+  object-fit:contain;
+  background:transparent;
+}
+/* Placeholder keeps a forced 9/16 box since there's no intrinsic
+   video to derive size from — fallback for clips without a URL. */
 .studio-clip-visual .studio-clip-placeholder{
   display:flex;align-items:center;justify-content:center;
   width:100%;
   aspect-ratio:9/16;
-  max-height:min(240px, 42vw);
+  max-height:min(440px, 60vw);
   border-radius:10px;
-  background:#000;
+  background:var(--b1);
   font-size:28px;color:var(--t3);
 }
 .studio-clip-meta{font-size:10px;color:var(--t3);line-height:1.35}
@@ -2154,7 +2168,26 @@ body::before{
 .studio-clip-ver{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#000}
 .studio-clip-toning{font-family:'JetBrains Mono',monospace;letter-spacing:.02em;margin-bottom:4px}
 .studio-clip-score{padding:5px 8px;border-radius:6px;margin-top:2px;font-size:10px;font-weight:600}
-.studio-clip-actions{display:flex;gap:8px;margin-top:2px}
+.studio-clip-actions{display:flex;gap:6px;margin-top:2px;align-items:center}
+/* Compact icon-only action button — used for Download / Re-cut / Reject
+   on studio clip cards. Pairs with the primary Approve fill button.
+   Hover lifts the bg + border, danger variant uses the red accent. */
+.vx-icon-btn{
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;
+  background:transparent;
+  border:1px solid var(--b1);
+  color:var(--t2);
+  border-radius:8px;
+  cursor:pointer;
+  transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease;
+  padding:0;
+}
+.vx-icon-btn:hover{background:var(--b1);border-color:var(--b1);color:var(--t1);transform:translateY(-1px)}
+.vx-icon-btn:active{transform:translateY(0)}
+.vx-icon-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.vx-icon-btn-danger:hover{background:rgba(196,138,138,.14);border-color:rgba(196,138,138,.45);color:rgba(196,138,138,.95)}
 .studio-clip-feedback{margin-top:2px;padding:10px;border-radius:8px;background:rgba(196,138,138,.06);border:1px solid rgba(196,138,138,.18)}
 .studio-clip-footer{
   padding:6px 10px;border-top:1px solid var(--b1);
@@ -2179,9 +2212,11 @@ body::before{
   #studio-pending-container{
     grid-template-columns:1fr;
   }
-  .studio-clip-visual video,
+  .studio-clip-visual video{
+    height:min(560px, 75vh);
+  }
   .studio-clip-visual .studio-clip-placeholder{
-    max-height:min(340px, 58vh);
+    max-height:min(560px, 75vh);
   }
 }
 

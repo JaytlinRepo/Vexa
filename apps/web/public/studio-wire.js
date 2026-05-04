@@ -681,14 +681,18 @@
   function updateClipState(clipId, updates) {
     if (!clipStateMap[clipId]) clipStateMap[clipId] = {}
     Object.assign(clipStateMap[clipId], updates)
-    // Captions UI was retired (Alex was removed from the team), so the
-    // Save as Ready button gates on visual approval only — the copy-
-    // approval status is no longer reachable from the UI.
+    // Visual approval is the only reachable gate now (Alex/captions
+    // retired). Approving unlocks the Download icon-button on THIS
+    // clip's card. Each card's button has its own data-clip-id baked
+    // in, so we scope the lookup to that ID rather than reassigning
+    // dataset.clipId across all save-ready buttons.
     const state = clipStateMap[clipId]
     if (state.visualApprovalStatus === 'approved') {
       activeClipId = clipId
-      document.querySelectorAll('[data-studio-action="save-ready"]').forEach(btn => {
-        btn.dataset.clipId = clipId
+      document.querySelectorAll(
+        `[data-studio-action="save-ready"][data-clip-id="${clipId}"], `
+        + `[data-studio-action="open-schedule-picker"][data-clip-id="${clipId}"]`,
+      ).forEach((btn) => {
         btn.disabled = false
       })
     }
@@ -715,10 +719,18 @@
     })
 
     // Open the re-cut modal (replaces the old inline strip).
+    // Refuse to open when the clip's source has been purged — the
+    // modal needs the source video to render trims/extends, and the
+    // backend would 410 on save anyway. Show a toast pointing the
+    // user to re-upload instead.
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-studio-action="open-recut-studio"]')
       if (!btn) return
       e.preventDefault()
+      if (btn.disabled || btn.dataset.sourcePurged === 'true') {
+        showToast('Source no longer available — re-upload the original to edit again.', 'info')
+        return
+      }
       openRecutStudio(btn.dataset.clipId)
     })
 
@@ -1058,10 +1070,10 @@
       btn.disabled = false
     })
 
-    // Save as Ready — only enabled once both visual and caption are approved.
-    // Auto-posting isn't built yet; saving the clip as Ready is the honest
-    // end state here. Time pickers and "scheduled" toasts have been removed
-    // until there's a real poster behind them.
+    // Download (was "Save as Ready") — marks the clip ready in the DB
+    // AND triggers the actual file download. Both fire in parallel since
+    // they don't depend on each other; if mark-ready is already done,
+    // re-marking is idempotent.
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-studio-action="save-ready"]')
       if (!btn) return
@@ -1071,16 +1083,271 @@
         return
       }
       const state = clipStateMap[clipId] || {}
-      // Visual approval is the only reachable gate now — captions UI was
-      // retired with Alex.
       if (state.visualApprovalStatus !== 'approved') {
         showToast('Approve the visual first', 'error')
         return
       }
       btn.disabled = true
-      await markClipReady(clipId)
-      btn.disabled = false
+      try {
+        await Promise.all([markClipReady(clipId), downloadClip(clipId)])
+      } finally {
+        btn.disabled = false
+      }
     })
+
+    // Schedule — open the inline picker. Pre-fills the time and (when
+    // editing an existing schedule) the caption. The picker is a
+    // single shared element in the sidebar; we stash the active
+    // clipId on its dataset so submit/cancel know what to target.
+    document.addEventListener('click', (e) => {
+      const open = e.target.closest('[data-studio-action="open-schedule-picker"]')
+      if (open) {
+        const clipId = open.dataset.clipId
+        if (!clipId || clipId === 'pending') {
+          showToast('Approve a clip first', 'error')
+          return
+        }
+        const prefillWhen = open.dataset.prefillWhen || null
+        const prefillCaption = open.dataset.prefillCaption ?? null
+        openSchedulePicker(clipId, { prefillWhen, prefillCaption })
+        return
+      }
+      const cancel = e.target.closest('[data-studio-action="schedule-cancel"]')
+      if (cancel) {
+        const picker = document.getElementById('studio-schedule-picker')
+        if (picker) picker.style.display = 'none'
+      }
+    })
+
+    // Live character counter on the caption textarea — clamped to 2200
+    // (IG cap). Color shifts at >2000 to warn the user.
+    document.addEventListener('input', (e) => {
+      const ta = e.target.closest('#studio-schedule-caption')
+      if (!ta) return
+      const counter = document.getElementById('studio-schedule-caption-count')
+      if (!counter) return
+      const len = ta.value.length
+      counter.textContent = `${len.toLocaleString()} / 2,200`
+      counter.style.color = len > 2000 ? 'var(--err)' : len > 1800 ? 'var(--accent)' : 'var(--t3)'
+    })
+
+    // Schedule submit — POSTs to /clip/:id/schedule with the chosen
+    // datetime + optional caption. Refreshes the ticker so the new
+    // entry shows immediately. The same endpoint accepts an updated
+    // caption / time for an already-scheduled clip (idempotent on
+    // status), so this also handles the "edit caption" flow from the
+    // ticker.
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-studio-action="schedule-submit"]')
+      if (!btn) return
+      const picker = document.getElementById('studio-schedule-picker')
+      const input = document.getElementById('studio-schedule-when')
+      const captionTa = document.getElementById('studio-schedule-caption')
+      const clipId = picker?.dataset.clipId
+      if (!clipId || !input?.value) {
+        showToast('Pick a date and time', 'error')
+        return
+      }
+      const when = new Date(input.value)
+      if (isNaN(when.getTime())) {
+        showToast('Invalid date', 'error'); return
+      }
+      if (when.getTime() < Date.now() - 60_000) {
+        showToast('Pick a time in the future', 'error'); return
+      }
+      const caption = (captionTa?.value ?? '').trim()
+      if (caption.length > 2200) {
+        showToast('Caption is over the 2,200 character limit', 'error'); return
+      }
+      btn.disabled = true
+      try {
+        const res = await fetch(`${API}/api/studio/clip/${encodeURIComponent(clipId)}/schedule`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scheduledFor: when.toISOString(),
+            platform: 'instagram',
+            caption,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.message || 'Couldn\'t schedule that clip')
+        }
+        showToast(
+          caption
+            ? `✓ Scheduled for ${when.toLocaleString()} with caption`
+            : `✓ Scheduled for ${when.toLocaleString()} — add a caption later from the strip below`,
+          'success',
+        )
+        if (picker) picker.style.display = 'none'
+        refreshScheduleTicker()
+        refreshClips()
+      } catch (err) {
+        console.error('[studio] schedule failed:', err)
+        showToast(studioErr(err, 'Couldn\'t schedule that clip. Please try again.'), 'error')
+      } finally {
+        btn.disabled = false
+      }
+    })
+
+    // Unschedule from the ticker — click an item's × button.
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-studio-action="unschedule"]')
+      if (!btn) return
+      const clipId = btn.dataset.clipId
+      if (!clipId) return
+      btn.disabled = true
+      try {
+        const res = await fetch(`${API}/api/studio/clip/${encodeURIComponent(clipId)}/schedule`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        if (!res.ok) throw new Error('Failed to unschedule')
+        showToast('Unscheduled', 'info')
+        refreshScheduleTicker()
+        refreshClips()
+      } catch (err) {
+        console.error('[studio] unschedule failed:', err)
+        showToast('Couldn\'t unschedule. Try again.', 'error')
+      } finally {
+        btn.disabled = false
+      }
+    })
+  }
+
+  // ── Schedule picker open helper ─────────────────────────────────────
+  // Used by both the "Schedule for later" sidebar button (no pre-fill,
+  // defaults to tomorrow noon) and the ticker's "Edit" button (pre-
+  // fills the existing scheduledFor + caption so the user is editing
+  // in place rather than scheduling from scratch).
+  function openSchedulePicker(clipId, opts) {
+    opts = opts || {}
+    const picker = document.getElementById('studio-schedule-picker')
+    const input = document.getElementById('studio-schedule-when')
+    const captionTa = document.getElementById('studio-schedule-caption')
+    const counter = document.getElementById('studio-schedule-caption-count')
+    if (!picker || !input || !captionTa) return
+    const pad = (n) => String(n).padStart(2, '0')
+    const toLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    let when
+    if (opts.prefillWhen) {
+      when = new Date(opts.prefillWhen)
+      if (isNaN(when.getTime())) when = null
+    }
+    if (!when) {
+      // Default: tomorrow at noon local time.
+      when = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      when.setHours(12, 0, 0, 0)
+    }
+    input.value = toLocal(when)
+    captionTa.value = opts.prefillCaption || ''
+    if (counter) {
+      const len = captionTa.value.length
+      counter.textContent = `${len.toLocaleString()} / 2,200`
+      counter.style.color = len > 2000 ? 'var(--err)' : len > 1800 ? 'var(--accent)' : 'var(--t3)'
+    }
+    picker.dataset.clipId = clipId
+    picker.style.display = 'block'
+    // Smooth scroll the picker into view (in case it was below the fold).
+    try { picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) } catch {}
+    captionTa.focus({ preventScroll: true })
+  }
+
+  // ── Schedule ticker ─────────────────────────────────────────────────
+  // Horizontal strip at the bottom of the studio tab showing all
+  // upcoming scheduled clips. Auto-refreshes every 60s while the tab
+  // is visible so the countdown stays current.
+  let scheduleTickerTimer = null
+  function fmtCountdown(iso) {
+    if (!iso) return ''
+    const ms = new Date(iso).getTime() - Date.now()
+    if (ms <= 0) return 'now'
+    const m = Math.round(ms / 60_000)
+    if (m < 60) return `in ${m}m`
+    const h = Math.round(m / 60)
+    if (h < 48) return `in ${h}h`
+    const d = Math.round(h / 24)
+    return `in ${d}d`
+  }
+  async function refreshScheduleTicker() {
+    const ticker = document.getElementById('studio-schedule-ticker')
+    const rail = document.getElementById('studio-schedule-ticker-rail')
+    const count = document.getElementById('studio-schedule-ticker-count')
+    if (!ticker || !rail) return
+    try {
+      const res = await fetch(`${API}/api/studio/scheduled`, { credentials: 'include' })
+      if (!res.ok) return
+      const { scheduled } = await res.json()
+      const items = Array.isArray(scheduled) ? scheduled : []
+      ticker.dataset.empty = items.length === 0 ? 'true' : 'false'
+      if (count) count.textContent = items.length > 0 ? `${items.length} upcoming` : ''
+      if (items.length === 0) {
+        rail.innerHTML = `<div data-schedule-ticker-empty style="font-size:12px;color:var(--t3);padding:18px 0;text-align:center;width:100%">Nothing scheduled yet — approve a clip and tap "Schedule for later" to queue it.</div>`
+        return
+      }
+      const esc = (str) => String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+      rail.innerHTML = items.map((s) => {
+        const when = new Date(s.scheduledFor)
+        const local = when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        const countdown = fmtCountdown(s.scheduledFor)
+        const hook = String(s.hook || '').slice(0, 80)
+        const captionFull = String(s.caption || '')
+        const captionPreview = captionFull
+          ? captionFull.replace(/\s+/g, ' ').slice(0, 90) + (captionFull.length > 90 ? '…' : '')
+          : ''
+        const captionStatus = captionFull
+          ? `<span style="color:var(--ok)">✍ caption set</span>`
+          : `<span style="color:var(--err)">no caption</span>`
+        const thumb = s.thumbUrl
+          ? `<img src="${esc(s.thumbUrl)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" />`
+          : `<div style="width:100%;height:100%;background:var(--b1);display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:14px">∅</div>`
+        return `
+          <div data-schedule-ticker-item data-clip-id="${s.id}"
+            style="flex:0 0 auto;width:220px;border:1px solid var(--b1);border-radius:8px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;scroll-snap-align:start">
+            <div style="position:relative;aspect-ratio:9/16;width:100%;background:var(--b1)">
+              ${thumb}
+              <button type="button" data-studio-action="unschedule" data-clip-id="${s.id}"
+                title="Unschedule"
+                style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
+              <span style="position:absolute;left:4px;bottom:4px;padding:2px 6px;background:rgba(0,0,0,.7);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;border-radius:4px">${s.duration}s</span>
+            </div>
+            <div style="padding:8px 10px;display:flex;flex-direction:column;gap:4px">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;color:var(--accent);text-transform:uppercase">${countdown} · ${esc(s.scheduledPlatform || 'IG')}</div>
+              <div style="font-size:11px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(hook)}">${esc(hook) || `Clip ${s.id.slice(-6)}`}</div>
+              <div style="font-size:10px;color:var(--t3)">${local}</div>
+              <div style="font-size:11px;color:var(--t2);line-height:1.4;${captionFull ? '' : 'font-style:italic'};max-height:32px;overflow:hidden" title="${esc(captionFull)}">
+                ${captionFull ? esc(captionPreview) : '— no caption yet —'}
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">
+                ${captionStatus}
+                <button type="button" data-studio-action="open-schedule-picker"
+                  data-clip-id="${s.id}"
+                  data-prefill-when="${esc(s.scheduledFor)}"
+                  data-prefill-caption="${esc(captionFull)}"
+                  title="${captionFull ? 'Edit caption or time' : 'Add caption'}"
+                  style="background:transparent;border:1px solid var(--b1);color:var(--t2);padding:3px 8px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;cursor:pointer">${captionFull ? 'Edit' : '+ Caption'}</button>
+              </div>
+            </div>
+          </div>`
+      }).join('')
+    } catch (err) {
+      console.warn('[studio] ticker refresh failed:', err)
+    }
+  }
+  function startScheduleTickerAutoRefresh() {
+    stopScheduleTickerAutoRefresh()
+    refreshScheduleTicker()
+    scheduleTickerTimer = setInterval(refreshScheduleTicker, 60_000)
+  }
+  function stopScheduleTickerAutoRefresh() {
+    if (scheduleTickerTimer) { clearInterval(scheduleTickerTimer); scheduleTickerTimer = null }
   }
 
   // ── Upload ────────────────────────────────────────────────────────
@@ -2685,7 +2952,22 @@
       })
       if (!res.ok) {
         let msg = 'Re-cut failed'
-        try { const err = await res.json(); msg = err.error || err.message || msg } catch {}
+        let code = ''
+        try {
+          const err = await res.json()
+          code = err.error || ''
+          msg = err.message || err.error || msg
+        } catch {}
+        // Source purged → swap message for the friendly re-upload hint
+        // and mark the clip's button so it stays disabled going
+        // forward (sourceAvailable on the in-memory clip flips false).
+        if (res.status === 410 || code === 'source_purged') {
+          const idx = pendingClips.findIndex((c) => c.id === clipId)
+          if (idx >= 0) pendingClips[idx] = { ...pendingClips[idx], sourceAvailable: false }
+          renderPendingClips()
+          showToast('This source has been removed to save space. Re-upload the original to edit again.', 'error')
+          return
+        }
         throw new Error(msg)
       }
       const json = await res.json()
@@ -2776,10 +3058,39 @@
               <span style="color:${scoreColor}">Style match ${Math.round((style.styleReplication || 0) * 100)}%</span>
             </div>
           </div>
-          <div class="studio-clip-actions">
-            <button type="button" class="btn-fill" style="flex:1;padding:7px 10px;font-size:11px" data-studio-action="approve-visual" data-clip-id="${clip.id}">Approve</button>
-            <button type="button" class="btn" style="flex:1;padding:7px 10px;font-size:11px" data-studio-action="open-recut-studio" data-clip-id="${clip.id}">Re-cut</button>
-            <button type="button" class="btn" style="flex:1;padding:7px 10px;font-size:11px" data-studio-action="show-visual-feedback" data-clip-id="${clip.id}">Reject</button>
+          <!-- Collapsed action row. Approve is the primary CTA — full
+               label, accent fill. Download / Re-cut / Reject collapse
+               to compact icon-only buttons that reveal a tooltip on
+               hover. Cleaner shelf than three equal-weight pills. -->
+          <div class="studio-clip-actions" style="display:flex;align-items:center;gap:6px">
+            <button type="button" class="btn-fill"
+              style="flex:1;padding:8px 14px;font-size:12px;font-weight:500;letter-spacing:.01em;border-radius:8px"
+              data-studio-action="approve-visual" data-clip-id="${clip.id}">Approve</button>
+            <button type="button" class="vx-icon-btn"
+              data-studio-action="save-ready" data-clip-id="${clip.id}"
+              ${clip.visualApprovalStatus === 'approved' ? '' : 'disabled'}
+              title="${clip.visualApprovalStatus === 'approved' ? 'Download (saves the rendered MP4 and marks ready)' : 'Approve first to download'}" aria-label="Download">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 2v9"/><path d="M4.5 7.5L8 11l3.5-3.5"/><path d="M3 13h10"/>
+              </svg>
+            </button>
+            <button type="button" class="vx-icon-btn"
+              data-studio-action="open-recut-studio" data-clip-id="${clip.id}"
+              ${clip.sourceAvailable === false ? 'disabled data-source-purged="true"' : ''}
+              title="${clip.sourceAvailable === false
+                ? 'Source no longer available — re-upload the original to edit again'
+                : 'Re-cut (drop, trim, or reorder segments)'}" aria-label="Re-cut">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="4" cy="11" r="2"/><circle cx="12" cy="11" r="2"/><path d="M5.4 9.7L13 3"/><path d="M3 3l7.6 6.7"/>
+              </svg>
+            </button>
+            <button type="button" class="vx-icon-btn vx-icon-btn-danger"
+              data-studio-action="show-visual-feedback" data-clip-id="${clip.id}"
+              title="Reject (give Riley feedback to regenerate)" aria-label="Reject">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 4l8 8"/><path d="M12 4l-8 8"/>
+              </svg>
+            </button>
           </div>
           <div id="visual-feedback-${clip.id}" class="studio-clip-feedback" style="display:none">
             <textarea id="visual-fb-${clip.id}" rows="2" placeholder="What to change (e.g. 'Too warm')" style="width:100%;border:1px solid var(--b1);border-radius:8px;padding:8px;font-size:11px;resize:none;background:var(--bg);color:var(--t2);font-family:inherit;box-sizing:border-box"></textarea>
@@ -2854,10 +3165,17 @@
       peakEl.textContent = dayPart + fmtPeakHour(ctx.audiencePeakHour)
     }
 
+    // Top-5 posting windows from Jordan. The first one is the strongest
+    // pick (audience peak); subsequent slots fan out into different
+    // engagement patterns (alternate weekday, off-peak test, weekend,
+    // lunch-window). All five render — auto-posting isn't built yet so
+    // these are advisory only, no Schedule action attached.
     const SLOTS = [
-      { key: 'primary',   label: 'Primary',        labelColor: 'var(--accent)', border: '1px solid var(--accent)', confColor: 'var(--ok)', confBg: 'rgba(159,179,138,.15)' },
-      { key: 'secondary', label: 'Alternative',     labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--accent)', confBg: 'var(--accent-soft)' },
-      { key: 'tertiary',  label: 'Testing window',  labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--down)',   confBg: 'rgba(196,138,138,.15)' },
+      { key: 'primary',    label: 'Top pick',         labelColor: 'var(--accent)', border: '1px solid var(--accent)', confColor: 'var(--ok)',     confBg: 'rgba(159,179,138,.15)' },
+      { key: 'secondary',  label: 'Alternative',      labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--accent)', confBg: 'var(--accent-soft)' },
+      { key: 'tertiary',   label: 'Off-peak test',    labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--down)',   confBg: 'rgba(196,138,138,.15)' },
+      { key: 'quaternary', label: 'Weekend slot',     labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--t2)',     confBg: 'var(--b1)' },
+      { key: 'quinary',    label: 'Lunch window',     labelColor: 'var(--t3)',     border: '1px solid var(--b1)',     confColor: 'var(--t2)',     confBg: 'var(--b1)' },
     ]
 
     slotsEl.innerHTML = SLOTS.map(slot => {
@@ -2901,17 +3219,16 @@
     const countEl = document.querySelector('[data-studio-pending-count]')
     if (countEl) countEl.textContent = count === 1 ? '1 item' : `${count} items`
 
-    // Keep the sidebar Save as Ready button targeting the first pending clip.
-    // Also evaluate whether that clip is already visually-approved (e.g.
-    // user reloaded after approving) and enable the button accordingly.
-    // Without this, an already-approved clip leaves the button stuck
-    // disabled until the user re-clicks Approve.
+    // Per-card save-ready (download) buttons. Each card has its own
+    // data-clip-id baked in — we just need to set the disabled state
+    // based on THIS clip's approval status. Handles the page-reload
+    // case where clips were already approved before refresh.
     activeClipId = pendingClips[0]?.id || null
-    var activeState = (activeClipId && clipStateMap[activeClipId]) || {}
-    var ready = activeState.visualApprovalStatus === 'approved'
-    document.querySelectorAll('[data-studio-action="save-ready"]').forEach(btn => {
-      if (activeClipId) btn.dataset.clipId = activeClipId
-      btn.disabled = !ready
+    document.querySelectorAll('[data-studio-action="save-ready"][data-clip-id]').forEach((btn) => {
+      const cid = btn.dataset.clipId
+      if (!cid || cid === 'pending') return
+      const state = clipStateMap[cid] || {}
+      btn.disabled = state.visualApprovalStatus !== 'approved'
     })
   }
 
@@ -2960,6 +3277,12 @@
 
     // Load Jordan's posting strategy (fire-and-forget, renders into sidebar)
     loadPostingStrategy()
+
+    // SHELVED: scheduled-videos ticker auto-refresh. Re-enable by
+    // un-commenting the line below AND removing the display:none on
+    // [data-feature="schedule-shelved"] in body.html. The handler
+    // function is kept defined so flipping this back on is one line.
+    // startScheduleTickerAutoRefresh()
 
     // Resume an in-flight job if one was running when the user navigated
     // away or refreshed. The backend keeps processing regardless of the

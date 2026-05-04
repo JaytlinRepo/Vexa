@@ -628,7 +628,15 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           // sent as `sourceDuration` so the frontend doesn't have to
           // ffprobe the source.
           const sourceDuration = clip.upload?.duration ?? null
-          return { ...clip, clippedUrl: url, sourceVideoUrl, segmentThumbnailUrls, sourceDuration }
+          // sourceAvailable tells the UI whether the user can still
+          // re-cut. Drives the Re-cut icon button's enabled/disabled
+          // state and the "re-upload to edit" tooltip. We treat the
+          // upload as gone when EITHER the explicit purge flag is set,
+          // OR there's no resolvable sourceVideoUrl at all.
+          const sourceAvailable = !!clip.upload
+            && !(clip.upload as any).sourcePurgedAt
+            && !!sourceVideoUrl
+          return { ...clip, clippedUrl: url, sourceVideoUrl, segmentThumbnailUrls, sourceDuration, sourceAvailable }
         })
       )
 
@@ -660,10 +668,18 @@ export function initStudioRoutes(_prisma: PrismaClient) {
       }
 
       // Mark clip as archived (soft delete)
-      await prisma.videoClip.update({
+      const updated = await prisma.videoClip.update({
         where: { id: clipId },
         data: { status: 'archived' },
+        select: { uploadId: true },
       })
+
+      // If this archive made all sibling clips terminal, the upload's
+      // source MP4 may now be eligible for purge. Fire-and-forget; the
+      // helper enforces a grace period so a recent recut won't lose its
+      // source the second the user discards.
+      const { schedulePurgeCheck } = await import('../lib/sourcePurge.service')
+      schedulePurgeCheck(prisma, updated.uploadId)
 
       res.json({ success: true, message: 'Clip discarded' })
     } catch (err) {
@@ -709,7 +725,7 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         })
       }
 
-      await prisma.videoClip.update({
+      const updated = await prisma.videoClip.update({
         where: { id: data.clipId },
         data: {
           status: 'ready',
@@ -718,7 +734,14 @@ export function initStudioRoutes(_prisma: PrismaClient) {
             platform: data.platform,
           } as any,
         },
+        select: { uploadId: true },
       })
+
+      // The clip just shipped. If every sibling clip from the same
+      // upload has also shipped (and the grace period has elapsed),
+      // the source MP4 will be deleted from S3 in the background.
+      const { schedulePurgeCheck } = await import('../lib/sourcePurge.service')
+      schedulePurgeCheck(prisma, updated.uploadId)
 
       res.json({ success: true, message: 'Saved as ready', clipId: clip.id })
     } catch (err) {
@@ -781,6 +804,139 @@ export function initStudioRoutes(_prisma: PrismaClient) {
     } catch (err) {
       console.error('[studio] download presign failed:', err)
       res.status(500).json({ error: 'download_failed', message: 'Couldn\'t prepare your download. Please try again.' })
+    }
+  })
+
+  // ── Scheduling ──────────────────────────────────────────────────────
+  // Two endpoints. Auto-poster isn't built; these just persist the user's
+  // intent and feed the studio bottom-ticker. Status flips to 'scheduled'
+  // so the clip leaves the pending queue but isn't treated as posted.
+  router.post('/clip/:clipId/schedule', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { clipId } = req.params
+      const scheduledFor = req.body?.scheduledFor
+      const platform = typeof req.body?.platform === 'string' ? req.body.platform : 'instagram'
+      // Caption is optional — passing null/undefined leaves whatever's
+      // already on the clip untouched. Passing an empty string clears
+      // it. IG cap is 2,200 chars; we trim leading/trailing whitespace
+      // but otherwise preserve what the user typed (linebreaks, emoji,
+      // hashtags). Captions can also be edited later via this same
+      // endpoint with the existing scheduledFor unchanged.
+      const captionRaw = req.body?.caption
+      const captionProvided = typeof captionRaw === 'string'
+      const caption = captionProvided ? captionRaw.trim().slice(0, 2200) : undefined
+      if (!scheduledFor || typeof scheduledFor !== 'string') {
+        return res.status(400).json({ error: 'invalid_schedule', message: 'scheduledFor (ISO timestamp) is required.' })
+      }
+      const when = new Date(scheduledFor)
+      if (isNaN(when.getTime())) {
+        return res.status(400).json({ error: 'invalid_schedule', message: 'scheduledFor must be a valid ISO timestamp.' })
+      }
+      if (when.getTime() < Date.now() - 60_000) {
+        return res.status(400).json({ error: 'past_schedule', message: 'Schedule a time in the future.' })
+      }
+      const clip = await prisma.videoClip.findFirst({
+        where: { id: clipId, company: { userId } },
+        select: { id: true, visualApprovalStatus: true },
+      })
+      if (!clip) return res.status(404).json({ error: 'clip_not_found' })
+      // Scheduling implies approval — the user is committing to publish.
+      const updated = await prisma.videoClip.update({
+        where: { id: clip.id },
+        data: {
+          scheduledFor: when,
+          scheduledPlatform: platform,
+          status: 'scheduled',
+          ...(captionProvided ? { caption: caption || null, copyApprovalStatus: caption ? 'approved' : 'pending' } : {}),
+          ...(clip.visualApprovalStatus === 'pending' ? { visualApprovalStatus: 'approved' } : {}),
+        },
+        select: {
+          id: true,
+          scheduledFor: true,
+          scheduledPlatform: true,
+          status: true,
+          caption: true,
+        },
+      })
+      res.json({ clip: updated })
+    } catch (err) {
+      console.error('[studio] schedule failed:', err)
+      res.status(500).json({ error: 'schedule_failed', message: 'Couldn\'t schedule that clip. Please try again.' })
+    }
+  })
+
+  router.delete('/clip/:clipId/schedule', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const { clipId } = req.params
+      const clip = await prisma.videoClip.findFirst({
+        where: { id: clipId, company: { userId } },
+        select: { id: true },
+      })
+      if (!clip) return res.status(404).json({ error: 'clip_not_found' })
+      await prisma.videoClip.update({
+        where: { id: clip.id },
+        data: { scheduledFor: null, scheduledPlatform: null, status: 'ready_to_post' },
+      })
+      res.json({ ok: true })
+    } catch (err) {
+      console.error('[studio] unschedule failed:', err)
+      res.status(500).json({ error: 'unschedule_failed' })
+    }
+  })
+
+  router.get('/scheduled', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as AuthedRequest).session
+      const company = await prisma.company.findFirst({
+        where: { userId },
+        select: { id: true },
+      })
+      if (!company) return res.json({ scheduled: [] })
+      // Show all upcoming scheduled clips for this company. Limit to 20 to
+      // keep the ticker payload tiny — anyone with more than 20 future
+      // posts can paginate later.
+      const rows = await prisma.videoClip.findMany({
+        where: {
+          companyId: company.id,
+          scheduledFor: { gte: new Date(Date.now() - 60_000) },
+        },
+        orderBy: { scheduledFor: 'asc' },
+        take: 20,
+        select: {
+          id: true,
+          duration: true,
+          hook: true,
+          caption: true,
+          scheduledFor: true,
+          scheduledPlatform: true,
+          segmentThumbnails: true,
+        },
+      })
+      // Presign the first thumbnail per clip for the ticker preview.
+      const scheduled = await Promise.all(
+        rows.map(async (clip) => {
+          let thumbUrl: string | null = null
+          const thumbs = Array.isArray(clip.segmentThumbnails) ? (clip.segmentThumbnails as string[]) : []
+          if (thumbs.length > 0) {
+            try { thumbUrl = await getPresignedUrl(thumbs[0], 3600) } catch { thumbUrl = null }
+          }
+          return {
+            id: clip.id,
+            duration: clip.duration,
+            hook: clip.hook,
+            caption: clip.caption,
+            scheduledFor: clip.scheduledFor,
+            scheduledPlatform: clip.scheduledPlatform,
+            thumbUrl,
+          }
+        }),
+      )
+      res.json({ scheduled })
+    } catch (err) {
+      console.error('[studio] scheduled list failed:', err)
+      res.status(500).json({ error: 'scheduled_list_failed' })
     }
   })
 
@@ -1099,6 +1255,16 @@ export function initStudioRoutes(_prisma: PrismaClient) {
       // Pull the source video. videoUpload.sourceVideoUrl is either an
       // s3:// reference or a presigned URL containing the key. Resolve to
       // a fresh presigned URL so buildReel can stream it.
+      // If the source has been explicitly purged (Tier 2 cleanup), refuse
+      // with a clear, actionable error so the frontend can show the
+      // "re-upload to edit" hint instead of a generic 500.
+      if (clip.upload && (clip.upload as any).sourcePurgedAt) {
+        res.status(410).json({
+          error: 'source_purged',
+          message: 'The original upload has been removed to save space. Re-upload it to edit this clip again.',
+        })
+        return
+      }
       const rawSrc: string | undefined = clip.upload?.sourceVideoUrl
       if (!rawSrc) { res.status(400).json({ error: 'source_missing' }); return }
       let sourceUrlForBuild: string
@@ -1172,6 +1338,23 @@ export function initStudioRoutes(_prisma: PrismaClient) {
         }
       }
 
+      // Capture S3 keys we're about to ORPHAN so we can purge them
+      // after the update succeeds. The old reel MP4 (clip.clippedUrl)
+      // becomes unreachable the moment the new s3Key replaces it.
+      // Same for segmentThumbnails IF we generated fresh ones — when
+      // newThumbs is empty we're carrying the old keys forward, so
+      // those must NOT be deleted. Descript share links (non-s3://)
+      // are skipped — they're not ours to delete.
+      const orphanedReelKey = (() => {
+        const u = clip.clippedUrl
+        if (typeof u !== 'string' || !u.startsWith('s3://')) return null
+        return u.slice('s3://'.length)
+      })()
+      const orphanedThumbKeys: string[] = newThumbs.length > 0
+        && Array.isArray(clip.segmentThumbnails)
+          ? (clip.segmentThumbnails as string[]).filter((k): k is string => typeof k === 'string' && k.length > 0)
+          : []
+
       // Persist. Bump editVersion so the aggregator can later count
       // average edits per clip per creator.
       const updated = await prisma.videoClip.update({
@@ -1188,6 +1371,35 @@ export function initStudioRoutes(_prisma: PrismaClient) {
           editVersion: { increment: 1 },
         },
       })
+
+      // Fire-and-forget purge of orphaned recut artifacts. Runs after
+      // the DB update commits so a delete failure can't corrupt state
+      // — at worst we leave the old objects in S3 (eventually swept by
+      // the bucket's lifecycle policy). Don't await: the user response
+      // shouldn't block on cleanup.
+      if (orphanedReelKey || orphanedThumbKeys.length > 0) {
+        ;(async () => {
+          try {
+            const { deleteFile } = await import('../services/storage/s3.service')
+            const tasks: Promise<unknown>[] = []
+            if (orphanedReelKey && orphanedReelKey !== result.s3Key) {
+              tasks.push(deleteFile(orphanedReelKey).catch((e) =>
+                console.warn(`[studio] recut purge: failed to delete reel ${orphanedReelKey}:`, (e as Error).message)))
+            }
+            for (const k of orphanedThumbKeys) {
+              tasks.push(deleteFile(k).catch((e) =>
+                console.warn(`[studio] recut purge: failed to delete thumb ${k}:`, (e as Error).message)))
+            }
+            await Promise.all(tasks)
+            const totalDeleted = (orphanedReelKey ? 1 : 0) + orphanedThumbKeys.length
+            if (totalDeleted > 0) {
+              console.log(`[studio] recut purge: deleted ${totalDeleted} orphan object(s) for clip ${clipId} (${orphanedReelKey ? '1 reel + ' : ''}${orphanedThumbKeys.length} thumbs)`)
+            }
+          } catch (err) {
+            console.warn('[studio] recut purge failed:', (err as Error).message)
+          }
+        })()
+      }
 
       // Resolve the new playback URL + thumbnail URLs for the UI
       const playUrl = await getPresignedUrl(result.s3Key, 3600)

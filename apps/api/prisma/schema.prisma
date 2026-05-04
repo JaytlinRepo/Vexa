@@ -766,6 +766,11 @@ model VideoUpload {
   sourceVideoUrl String // Original uploaded video
   fileName       String?
   duration       Int? // Seconds (extracted from video)
+  // Set when the source MP4 has been purged from S3 to reclaim space.
+  // The rendered clips associated with this upload still play (they
+  // live in studio/clips/), but Re-cut is no longer possible without
+  // a fresh upload. UI uses this flag to disable Re-cut + show a hint.
+  sourcePurgedAt DateTime? @map("source_purged_at")
 
   clips VideoClip[]
 
@@ -802,6 +807,13 @@ model VideoClip {
   styleMetrics      Json? // {styleReplication: 0.87, colorAccuracy: 0.92, ...}
   editorialFeedback Json? // [{type: 'visual'|'copy', reason, timestamp, version}]
 
+  // Scheduling ──────────────────────────────────────────────────────────
+  // When set, the clip is queued for future posting. Auto-poster isn't
+  // wired yet — these fields just record the user's intent and feed the
+  // bottom-of-studio ticker. Actual post execution will be added later.
+  scheduledFor      DateTime? @map("scheduled_for")
+  scheduledPlatform String?   @map("scheduled_platform") // 'instagram' | 'tiktok' | etc
+
   // User-trim feature ────────────────────────────────────────────────────
   // Per-segment poster frames (S3 keys) so the approval UI can show a
   // strip of segment thumbnails without re-extracting frames per page view.
@@ -823,6 +835,7 @@ model VideoClip {
   @@index([status])
   @@index([visualApprovalStatus])
   @@index([copyApprovalStatus])
+  @@index([scheduledFor])
   @@map("video_clips")
 }
 

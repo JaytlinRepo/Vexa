@@ -306,6 +306,40 @@ export async function computeWeeklySummaryExtended(
     },
   })
 
+  // For bestHour we want a STABLE signal — averaging engagement per
+  // post bucketed by hour. The current week's posts alone are usually
+  // too few (and biased by the user's posting habit). Historical posts
+  // — capped to the last 90 days, max 200 rows — give a much better
+  // signal. Falls back to weekPosts if there's literally no history.
+  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
+  const historicalCutoff = new Date(Date.now() - NINETY_DAYS_MS)
+  const historicalPosts = await prisma.platformPost.findMany({
+    where: { accountId, publishedAt: { gte: historicalCutoff } },
+    orderBy: { publishedAt: 'desc' },
+    take: 200,
+    select: {
+      publishHour: true,
+      likeCount: true,
+      commentCount: true,
+      shareCount: true,
+    },
+  })
+  // If 90-day window is empty (long-dormant account), look back further
+  // — up to the last 200 posts EVER. Still a stable signal, just stale.
+  const postsForBestHour = historicalPosts.length > 0
+    ? historicalPosts
+    : await prisma.platformPost.findMany({
+        where: { accountId },
+        orderBy: { publishedAt: 'desc' },
+        take: 200,
+        select: {
+          publishHour: true,
+          likeCount: true,
+          commentCount: true,
+          shareCount: true,
+        },
+      })
+
   // ── Follower growth % ────────────────────────────────────────
   const followerGrowthPct = summary.followerStart > 0
     ? safe(summary.followerDelta / summary.followerStart)
@@ -324,9 +358,12 @@ export async function computeWeeklySummaryExtended(
   const avgViralityScore = avg(weekPosts.map((p) => p.viralityScore))
   const avgCaptionLength = avg(weekPosts.map((p) => p.captionLength))
 
-  // ── Best hour by engagement ──────────────────────────────────
+  // ── Best hour by engagement (uses historical window) ─────────
+  // Averages weighted-engagement per post bucketed by publishHour.
+  // Source is `postsForBestHour` (90d window or fallback to last 200
+  // ever) — NOT just this week's posts, which is usually too few.
   const hourBuckets: Record<number, { totalEng: number; count: number }> = {}
-  for (const p of weekPosts) {
+  for (const p of postsForBestHour) {
     if (p.publishHour == null) continue
     if (!hourBuckets[p.publishHour]) hourBuckets[p.publishHour] = { totalEng: 0, count: 0 }
     hourBuckets[p.publishHour].totalEng += p.likeCount + p.commentCount * 2 + p.shareCount * 3

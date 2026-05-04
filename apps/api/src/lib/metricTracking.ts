@@ -107,16 +107,35 @@ export async function computeWeeklySummary(
   let topPost = posts[0] || null
   let topPostViews = topPost?.viewCount || 0
 
-  // Best day (most posts published)
-  const dayCount: Record<string, number> = {}
+  // Best day — average ENGAGEMENT per post by day-of-week, computed
+  // across all historical posts on this account (capped at 200 most
+  // recent). The original calc used "most posts published per day"
+  // which just told us the user's posting habit, not which day actually
+  // earned reach. Posts missing publishedAt are skipped.
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  for (const p of posts) {
-    if (p.publishedAt) {
-      const d = dayNames[new Date(p.publishedAt).getUTCDay()]
-      dayCount[d] = (dayCount[d] || 0) + 1
-    }
+  const historicalForDay = await prisma.platformPost.findMany({
+    where: { accountId, NOT: { publishedAt: null } },
+    orderBy: { publishedAt: 'desc' },
+    take: 200,
+    select: {
+      publishedAt: true,
+      likeCount: true,
+      commentCount: true,
+      shareCount: true,
+    },
+  })
+  const dayBuckets: Record<string, { totalEng: number; count: number }> = {}
+  for (const p of historicalForDay) {
+    if (!p.publishedAt) continue
+    const d = dayNames[new Date(p.publishedAt).getUTCDay()]
+    if (!dayBuckets[d]) dayBuckets[d] = { totalEng: 0, count: 0 }
+    dayBuckets[d].totalEng += p.likeCount + p.commentCount * 2 + p.shareCount * 3
+    dayBuckets[d].count++
   }
-  const bestDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+  const bestDay = Object.entries(dayBuckets)
+    .filter(([_, v]) => v.count > 0)
+    .sort((a, b) => (b[1].totalEng / b[1].count) - (a[1].totalEng / a[1].count))[0]?.[0]
+    || null
 
   // Best format
   const formatPerf: Record<string, { count: number; totalViews: number }> = {}

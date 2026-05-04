@@ -2249,17 +2249,53 @@
       <div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">Loading Jordan's strategy…</div>
     </div>
 
-    <!-- Save as Ready — auto-posting isn't built yet, so we don't pretend
-         to schedule. Approving both visual + caption enables this button;
-         the clip moves to the Ready queue for the user to publish manually. -->
-    <div style="border-top:1px solid var(--b1);padding-top:14px;margin-top:6px">
-      <button class="btn-fill" data-studio-action="save-ready" data-clip-id="pending"
-        style="width:100%;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600;border-radius:8px" disabled>
-        Save as Ready
+    <!-- Download moved to per-video card actions for cleaner sidebar.
+         The Schedule flow + bottom ticker remain SHELVED until auto-
+         posting is built (Meta + TikTok API reviews must clear first).
+         The schedule markup is kept in source but display:none — see
+         body.html and studio-wire.js for the dormant code. -->
+    <!-- SHELVED: Schedule UI. Re-enable by removing the display:none on this wrapper and on #studio-schedule-ticker below. -->
+    <div data-feature="schedule-shelved" style="display:none;border-top:1px solid var(--b1);padding-top:14px;margin-top:6px">
+      <button class="btn" data-studio-action="open-schedule-picker" data-clip-id="pending"
+        style="width:100%;padding:12px;font-size:12px;border-radius:8px;cursor:pointer" disabled>
+        Schedule for later
       </button>
-      <div style="font-size:11px;color:var(--t3);text-align:center;margin-top:8px;line-height:1.5">
-        Approve the visual and the caption to enable. Auto-posting is coming soon.
+      <div id="studio-schedule-picker" style="display:none;border:1px solid var(--b1);border-radius:8px;padding:10px;background:var(--bg);margin-top:10px">
+        <label style="display:block;font-size:11px;color:var(--t3);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Post at</label>
+        <input type="datetime-local" id="studio-schedule-when" style="width:100%;padding:8px;font-size:12px;border:1px solid var(--b1);border-radius:6px;background:var(--bg);color:var(--t1);font-family:inherit" />
+        <label style="display:block;font-size:11px;color:var(--t3);margin:10px 0 6px;letter-spacing:.04em;text-transform:uppercase">Caption <span style="color:var(--t3);text-transform:none;letter-spacing:0">(optional — can be added later)</span></label>
+        <textarea id="studio-schedule-caption" rows="4" maxlength="2200"
+          placeholder="Write the caption that'll go out with this post. Hashtags, mentions, line breaks all welcome."
+          style="width:100%;padding:8px;font-size:12px;border:1px solid var(--b1);border-radius:6px;background:var(--bg);color:var(--t1);font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--t3);margin-top:4px">
+          <span id="studio-schedule-caption-count">0 / 2200</span>
+          <span style="font-style:italic">IG cap is 2,200 characters</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn-fill" data-studio-action="schedule-submit"
+            style="flex:1;padding:8px;font-size:11px;border-radius:6px;cursor:pointer">Schedule</button>
+          <button class="btn" data-studio-action="schedule-cancel"
+            style="flex:1;padding:8px;font-size:11px;border-radius:6px;cursor:pointer">Cancel</button>
+        </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHELVED: Scheduled-videos ticker. Re-enable by removing the
+     display:none on the wrapper. Backend endpoints + JS handlers are
+     left in place so flipping this back on works without a rebuild. -->
+<div id="studio-schedule-ticker" data-empty="true" data-feature="schedule-shelved"
+  style="display:none;margin-top:14px;border-top:1px solid var(--b1);padding-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Scheduled to post</span>
+    <span id="studio-schedule-ticker-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)"></span>
+  </div>
+  <div id="studio-schedule-ticker-rail"
+    style="display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scroll-snap-type:x mandatory">
+    <div data-schedule-ticker-empty
+      style="font-size:12px;color:var(--t3);padding:18px 0;text-align:center;width:100%">
+      Nothing scheduled yet — approve a clip and tap "Schedule for later" to queue it.
     </div>
   </div>
 </div>

@@ -19,6 +19,11 @@ export interface PostingStrategy {
   primary: PostingRecommendation
   secondary: PostingRecommendation
   tertiary: PostingRecommendation
+  // Top-5 view for the Studio sidebar. Older callers that only consume
+  // primary/secondary/tertiary keep working; new ones can read all 5
+  // via primary..quinary.
+  quaternary?: PostingRecommendation
+  quinary?: PostingRecommendation
   context: {
     audiencePeakHour?: number // 0-23 UTC
     trendMomentum?: 'rising' | 'stable' | 'declining'
@@ -96,6 +101,8 @@ export class StudioPostingStrategyService {
       primary: recommendations[0],
       secondary: recommendations[1],
       tertiary: recommendations[2],
+      quaternary: recommendations[3],
+      quinary: recommendations[4],
       context: {
         audiencePeakHour,
         trendMomentum: this.getTrendMomentum(trendInsights),
@@ -256,7 +263,37 @@ export class StudioPostingStrategyService {
       formatPerformance: 'Testing or exploratory',
     }
 
-    return [primary, secondary, tertiary]
+    // Quaternary: Weekend slot at peak hour. Saturday/Sunday audiences
+    // skew toward casual scroll behavior — different mood than weekday
+    // peak. Low-competition since most brands post Mon-Fri.
+    const quaternaryDate = new Date(primary.recommendedTime)
+    const targetWeekendDay = 6 // Saturday
+    const daysUntilSat = (targetWeekendDay - quaternaryDate.getDay() + 7) % 7 || 7
+    quaternaryDate.setDate(quaternaryDate.getDate() + daysUntilSat)
+    quaternaryDate.setHours(peakHour, 0, 0, 0)
+    const quaternary: PostingRecommendation = {
+      recommendedTime: quaternaryDate,
+      rationale: `Saturday at ${this.formatHour(peakHour)} UTC — weekend audience, different mindset (relaxed scroll vs weekday work-break). Most brands skip weekends, so competition is lower.`,
+      confidence: 0.66,
+      audiencePeak: false,
+      formatPerformance: `Weekend slot for ${contentType}`,
+    }
+
+    // Quinary: Lunch window — 12-1 PM UTC for the work-break scroll.
+    // Different audience pattern than peak-hour evening engagement;
+    // catches users on shorter attention bursts.
+    const quinaryDate = new Date(primary.recommendedTime)
+    quinaryDate.setDate(quinaryDate.getDate() + 1)
+    quinaryDate.setHours(12, 30, 0, 0)
+    const quinary: PostingRecommendation = {
+      recommendedTime: quinaryDate,
+      rationale: `Lunch window (12:30 PM UTC) — short attention bursts during work breaks. Strong for hook-heavy content that grabs in 1 second.`,
+      confidence: 0.62,
+      audiencePeak: false,
+      formatPerformance: `Midday window for ${contentType}`,
+    }
+
+    return [primary, secondary, tertiary, quaternary, quinary]
   }
 
   private formatHour(hour: number): string {
