@@ -830,8 +830,8 @@ model VideoClip {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([uploadId])  // enforced by migration add_videoclip_uploadid_unique; prevents duplicate clips on retry
   @@index([companyId])
-  @@index([uploadId])
   @@index([status])
   @@index([visualApprovalStatus])
   @@index([copyApprovalStatus])

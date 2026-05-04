@@ -43,8 +43,11 @@
 
   function populateNav(user, company) {
     const displayName = company?.name || user.fullName || user.username || 'Your company'
+    const planLabel = (user.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan'
     setText('nav-username', displayName)
-    setText('nav-userplan', (user.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan')
+    setText('nav-userplan', planLabel)
+    // Keep the profile dropdown in sync — profile-wire.js may have run before the API returned
+    setText('vx-profile-plan', planLabel)
     setText('nav-avatar', displayName.charAt(0).toUpperCase())
     setText('db-greeting', `${greeting()}, ${user.fullName || user.username || 'CEO'}.`)
     if (company) {

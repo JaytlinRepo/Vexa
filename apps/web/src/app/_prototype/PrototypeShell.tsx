@@ -5,7 +5,7 @@ import Script from 'next/script'
 // Bump VERSION any time we change a companion script — the query string
 // forces browsers to re-fetch instead of loading the old file from cache.
 // In prod this'll be replaced with the build SHA.
-const VERSION = '20260501-26'
+const VERSION = '20260504-2'
 const v = (path: string) => `${path}?v=${VERSION}`
 
 export default function PrototypeShell({ html }: { html: string }) {
@@ -32,8 +32,6 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/home-merge.js')} strategy="afterInteractive" />
       <Script src={v('/auth-ui.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-wire.js')} strategy="afterInteractive" />
-      <Script src={v('/bootstrap-status-wire.js')} strategy="afterInteractive" />
-      <Script src={v('/team-status-wire.js')} strategy="afterInteractive" />
       {/* tutorial-wire.js — legacy modal walkthrough, superseded by the
           spotlight tour (tour-engine.js + tour-steps.js). Kept on disk so
           we can revive a step if needed; not loaded so it doesn't double-
@@ -50,7 +48,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/tasks-view-wire.js')} strategy="afterInteractive" />
       <Script src={v('/outputs-wire.js')} strategy="afterInteractive" />
       <Script src={v('/billing-wire.js')} strategy="afterInteractive" />
-      {/* memory-wire.js — Memory settings tab removed from UI; file kept on disk */}
+      <Script src={v('/memory-wire.js')} strategy="afterInteractive" />
       <Script src={v('/insights-wire.js')} strategy="afterInteractive" />
       <Script src={v('/agent-drawer.js')} strategy="afterInteractive" />
       <Script src={v('/dashboard-v2.js')} strategy="afterInteractive" />
@@ -64,7 +62,6 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/footer-wire.js')} strategy="afterInteractive" />
       <Script src={v('/reveal-wire.js')} strategy="afterInteractive" />
       <Script src={v('/topbar-scroll.js')} strategy="afterInteractive" />
-      <Script src={v('/island-nav.js')} strategy="afterInteractive" />
       <Script src={v('/contact-wire.js')} strategy="afterInteractive" />
       <Script src={v('/landing-wire.js')} strategy="afterInteractive" />
       <Script src={v('/hq-wire.js')} strategy="afterInteractive" />
@@ -74,9 +71,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/hq-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/hq-v3-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/posts-data-wire.js')} strategy="afterInteractive" />
-      {/* knowledge-data-wire.js — shelved; Knowledge tab hidden pending re-release */}
-      {/* <Script src={v('/knowledge-data-wire.js')} strategy="afterInteractive" /> */}
-      <Script src={v('/admin-community-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/knowledge-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/team-data-wire.js')} strategy="afterInteractive" />
       <Script src={v('/profile-wire.js')} strategy="afterInteractive" />
       <Script src={v('/vexa-shell.js')} strategy="afterInteractive" />
@@ -89,6 +84,7 @@ export default function PrototypeShell({ html }: { html: string }) {
       <Script src={v('/weekly-pulse-wire.js')} strategy="afterInteractive" />
       <Script src={v('/weekly-plan-wire.js')} strategy="afterInteractive" />
       <Script src={v('/weekly-hooks-wire.js')} strategy="afterInteractive" />
+      <Script src={v('/weekly-briefs-wire.js')} strategy="afterInteractive" />
     </>
   )
 }

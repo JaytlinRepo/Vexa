@@ -10,19 +10,15 @@ import { Router, Request, Response } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import VideoProcessingService from '../lib/videoProcessing.service'
-import { uploadFile, buildUploadKey, getPresignedUrl } from '../services/storage/s3.service'
+import { uploadFile, buildUploadKey, getPresignedUrl, deleteFile } from '../services/storage/s3.service'
 import multer from 'multer'
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
 
 const router = Router()
 let prisma: PrismaClient
 let processingService: VideoProcessingService
 
 // Store SSE clients for broadcasting
-// Keyed by userId — each user only receives their own processing events.
-const sseClients = new Map<string, Set<Response>>()
+const sseClients = new Map<string, Response>()
 
 export function initVideoRoutes(_prisma: PrismaClient) {
   prisma = _prisma
@@ -30,26 +26,11 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Upload Video ───────────────────────────────────────────────────────────
 
-  // All uploads land on disk so a multi-hundred-MB body never pins the
-  // request handler's heap. memoryStorage was OOM-prone for large clips
-  // and broke the proxy connection mid-upload on big iPhone videos.
-  const safeFilename = (_req: Request, file: Express.Multer.File, cb: (err: Error | null, name: string) => void): void => {
-    const safe = file.originalname.replace(/[^A-Za-z0-9._-]/g, '_')
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safe}`)
-  }
-
-  const singleUploadTmp = path.join(os.tmpdir(), 'sovexa-single-uploads')
-  fs.mkdirSync(singleUploadTmp, { recursive: true })
+  // Accept both 'video' (single) and 'videos' (batch) field names.
+  // 500MB ceiling keeps the process from OOM-ing on huge files buffered in memory.
   const upload = multer({
-    storage: multer.diskStorage({ destination: singleUploadTmp, filename: safeFilename }),
-    limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 1 },
-  })
-
-  const batchUploadTmp = path.join(os.tmpdir(), 'sovexa-batch-uploads')
-  fs.mkdirSync(batchUploadTmp, { recursive: true })
-  const uploadBatch = multer({
-    storage: multer.diskStorage({ destination: batchUploadTmp, filename: safeFilename }),
-    limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 12 },
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 },
   })
 
   /**
@@ -79,115 +60,61 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         return res.status(400).json({ error: 'No video file provided' })
       }
 
-      // Stream from disk → S3. Always free the temp file when we're done.
-      let videoUpload: { id: string } | null = null
+      // Upload to S3 first, then create the DB record.
+      // If the DB create fails, clean up the orphaned S3 object.
+      const s3Key = buildUploadKey(companyId, file.originalname)
+      await uploadFile({
+        key: s3Key,
+        body: file.buffer,
+        contentType: file.mimetype,
+      })
+      const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
+
+      let videoUpload: Awaited<ReturnType<typeof prisma.videoUpload.create>>
       try {
-        const s3Key = buildUploadKey(companyId, file.originalname)
-        await uploadFile({
-          key: s3Key,
-          body: fs.createReadStream(file.path),
-          contentType: file.mimetype,
-        })
-        const videoUrl = await getPresignedUrl(s3Key, 86400) // 24h URL for processing
-
         videoUpload = await prisma.videoUpload.create({
-          data: { companyId, sourceVideoUrl: videoUrl, fileName: file.originalname },
-        })
-        console.log(`[video] Upload created: ${videoUpload.id}`)
-
-        // Return immediately so the client unblocks before processing starts.
-        res.json({
-          uploadId: videoUpload.id,
-          status: 'processing',
-          message: 'Video processing started',
-        })
-
-        // Map upload → user for SSE event routing, identical to the batch path.
-        const { registerUploadUser } = await import('../lib/videoProcessing.service')
-        registerUploadUser(videoUpload.id, userId)
-
-        // Prefer BullMQ so an API restart doesn't lose the job. Fall back to
-        // inline processing only when Redis is unreachable, mirroring the
-        // batch route's resilience.
-        const { isRedisHealthy } = await import('../queues/connection')
-        if (await isRedisHealthy()) {
-          try {
-            const { videoQueue } = await import('../queues')
-            await videoQueue.add('single', {
-              uploadId: videoUpload.id,
-              videoUrl,
-              userId,
-              companyId,
-              s3Key,
-            })
-            console.log(`[video] single ${videoUpload.id} enqueued`)
-          } catch (err) {
-            console.warn(`[video] enqueue failed despite healthy Redis — falling back inline:`, (err as Error).message)
-            processingService.processVideo(videoUpload.id, videoUrl, userId).catch((e) => {
-              console.error('[video] Background processing failed:', e)
-            })
+          data: {
+            companyId,
+            sourceVideoUrl: videoUrl,
+            fileName: file.originalname
           }
-        } else {
-          console.warn(`[video] Redis unavailable — processing single ${videoUpload.id} inline`)
-          processingService.processVideo(videoUpload.id, videoUrl, userId).catch((e) => {
-            console.error('[video] Background processing failed:', e)
-          })
-        }
-      } finally {
-        // Always remove the disk-buffered upload — the worker reads from S3.
-        try { fs.unlinkSync(file.path) } catch {}
+        })
+      } catch (dbErr) {
+        // DB create failed — remove the S3 object so it doesn't become an orphan
+        await deleteFile(s3Key).catch(e => console.error('[video] Failed to clean up orphaned S3 object:', e))
+        throw dbErr
+      }
+
+      console.log(`[video] Upload created: ${videoUpload.id}`)
+
+      // Return immediately
+      res.json({
+        uploadId: videoUpload.id,
+        status: 'processing',
+        message: 'Video processing started'
+      })
+
+      // Enqueue for background processing with retry support.
+      // Falls back to in-process if Redis/queue is unavailable (dev without Redis).
+      try {
+        const { videoQueue } = await import('../queues')
+        await videoQueue.add('single', {
+          uploadId: videoUpload.id,
+          videoUrl,
+          userId,
+          companyId,
+          s3Key,
+        })
+        console.log(`[video] Enqueued upload ${videoUpload.id} for processing`)
+      } catch (queueErr) {
+        console.warn(`[video] Queue unavailable, processing in-process (no retry): ${queueErr}`)
+        processingService.processVideo(videoUpload.id, videoUrl, userId).catch(err => {
+          console.error(`[video] Background processing failed:`, err)
+        })
       }
     } catch (err) {
       console.error('[video] Upload failed:', err)
       res.status(500).json({ error: 'Upload failed' })
-    }
-  })
-
-  // ── Job existence check ───────────────────────────────────────────────────
-  // Used by the Studio frontend on tab init to decide whether to resurrect a
-  // saved progress card. Returns 404 if the upload/compilation no longer
-  // exists (e.g. after an admin truncate or aborted run), so the client can
-  // discard the stale sessionStorage entry instead of showing a ghost bar.
-  router.get('/job/:id', requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { userId } = (req as AuthedRequest).session
-      const id = req.params.id
-      const ownedCompanyIds = (await prisma.company.findMany({
-        where: { userId },
-        select: { id: true },
-      })).map((c) => c.id)
-      if (ownedCompanyIds.length === 0) { res.status(404).json({ error: 'not_found' }); return }
-
-      // Compilation path: if we have a finished/failed compilation, tell the
-      // client to drop the resume. A linked clip means the whole pipeline ran
-      // (compilation → Riley → output) and the user shouldn't see a ghost
-      // progress bar even if they already approved/rejected the clip.
-      const compilation = await prisma.videoCompilation.findFirst({
-        where: { id, companyId: { in: ownedCompanyIds } },
-        select: { id: true, status: true },
-      })
-      if (compilation) {
-        const done = compilation.status === 'completed' || compilation.status === 'failed'
-        res.json({ kind: 'compilation', id: compilation.id, status: compilation.status, done })
-        return
-      }
-
-      // Single-upload path: a clip linked to the upload means processing is
-      // done. Otherwise the worker is still running it.
-      const upload = await prisma.videoUpload.findFirst({
-        where: { id, companyId: { in: ownedCompanyIds } },
-        select: { id: true },
-      })
-      if (upload) {
-        const clip = await prisma.videoClip.findFirst({ where: { uploadId: upload.id }, select: { id: true } })
-        res.json({ kind: 'upload', id: upload.id, done: !!clip })
-        return
-      }
-
-      res.status(404).json({ error: 'not_found' })
-    } catch (err) {
-      console.error('[video] job lookup failed:', err)
-      res.status(500).json({ error: 'lookup_failed' })
     }
   })
 
@@ -237,57 +164,36 @@ export function initVideoRoutes(_prisma: PrismaClient) {
     try {
       const { userId } = (req as AuthedRequest).session
 
-      // Setup SSE.
-      //   - Content-Type / Cache-Control: standard SSE headers.
-      //   - X-Accel-Buffering: tells nginx (prod) and any compatible proxy
-      //     never to buffer this response. Without this the dev-time
-      //     Next.js proxy can hold the headers until first write fills its
-      //     internal buffer, which prevents the browser from seeing the
-      //     stream as "open" and causes immediate disconnects.
-      //   - Connection: keep-alive (express may set this anyway, explicit is safer).
-      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
-      res.setHeader('Cache-Control', 'no-cache, no-transform')
+      // Setup SSE
+      res.setHeader('Content-Type', 'text/event-stream')
+      res.setHeader('Cache-Control', 'no-cache')
       res.setHeader('Connection', 'keep-alive')
-      res.setHeader('X-Accel-Buffering', 'no')
 
-      res.flushHeaders()
-      try { res.write(': connected\n\n') } catch { /* socket already gone */ }
+      const clientId = `${userId}_${Date.now()}`
+      sseClients.set(clientId, res)
 
-      if (!sseClients.has(userId)) sseClients.set(userId, new Set())
-      sseClients.get(userId)!.add(res)
-      console.log(`[video] SSE client connected: ${userId} (${sseClients.get(userId)!.size} tab(s))`)
+      console.log(`[video] SSE client connected: ${clientId}`)
 
+      // Cleanup on disconnect
+      req.on('close', () => {
+        sseClients.delete(clientId)
+        console.log(`[video] SSE client disconnected: ${clientId}`)
+      })
+
+      // Keep connection alive. On write error the client already disconnected;
+      // clear the interval so the timer doesn't accumulate on a stale entry.
       const heartbeat = setInterval(() => {
         try {
           res.write(': heartbeat\n\n')
         } catch {
-          // Socket gone but the close event hadn't fired yet — clean up
-          // here too so a half-closed connection doesn't leak the Response
-          // ref or keep ticking the heartbeat forever.
-          cleanup()
+          sseClients.delete(clientId)
+          clearInterval(heartbeat)
         }
-      }, 15000)
+      }, 30000)
 
-      // Single cleanup path so we never partially tear down. Idempotent so
-      // it's safe whether the trigger comes from req.close, res.close, or
-      // a write error.
-      let cleanedUp = false
-      const cleanup = () => {
-        if (cleanedUp) return
-        cleanedUp = true
+      req.on('close', () => {
         clearInterval(heartbeat)
-        const tabs = sseClients.get(userId)
-        if (tabs) {
-          tabs.delete(res)
-          if (tabs.size === 0) sseClients.delete(userId)
-        }
-        try { res.end() } catch { /* already ended */ }
-        console.log(`[video] SSE client disconnected: ${userId}`)
-      }
-
-      req.on('close', cleanup)
-      res.on('close', cleanup)
-      res.on('error', cleanup)
+      })
     } catch (err) {
       console.error('[video] SSE setup failed:', err)
       res.status(500).end()
@@ -296,7 +202,7 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
   // ── Batch Upload (multi-video compilation) ──────────────────────────────────
 
-  router.post('/upload-batch', requireAuth, uploadBatch.any(), async (req, res) => {
+  router.post('/upload-batch', requireAuth, upload.any(), async (req, res) => {
     try {
       const { userId } = (req as AuthedRequest).session
       const { companyId, strategy, targetDuration } = req.body as {
@@ -311,49 +217,25 @@ export function initVideoRoutes(_prisma: PrismaClient) {
       if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
 
       const files = req.files as Express.Multer.File[]
-      const MAX_BATCH = 12 // hard cap; mirrored on the Studio frontend
       if (!files || files.length < 2) {
         res.status(400).json({ error: 'At least 2 video files required' })
         return
       }
-      if (files.length > MAX_BATCH) {
-        res.status(400).json({
-          error: 'too_many_files',
-          message: `Maximum ${MAX_BATCH} videos per batch. You sent ${files.length}.`,
-        })
-        return
-      }
 
-      // Upload all files to S3 and create VideoUpload records.
-      // Files are on disk (multer.diskStorage); stream them to S3 so we
-      // never hold the full multi-hundred-MB buffer in memory.
+      // Upload all files to S3 and create VideoUpload records
       const uploadIds: string[] = []
-      const tempPaths: string[] = []
-      try {
-        for (const file of files) {
-          tempPaths.push(file.path) // remember to clean up
-          const s3Key = `studio/clips/${company.id}/${Date.now()}-${file.originalname}`
-          await uploadFile({
-            key: s3Key,
-            body: fs.createReadStream(file.path),
-            contentType: file.mimetype,
-          })
+      for (const file of files) {
+        const s3Key = `studio/clips/${company.id}/${Date.now()}-${file.originalname}`
+        await uploadFile({ key: s3Key, body: file.buffer, contentType: file.mimetype })
 
-          const upload = await prisma.videoUpload.create({
-            data: {
-              companyId: company.id,
-              sourceVideoUrl: `s3://${s3Key}`,
-              fileName: file.originalname,
-            },
-          })
-          uploadIds.push(upload.id)
-        }
-      } finally {
-        // Always remove temp files, success or failure. The worker only
-        // needs the S3 copy; the local file has done its job.
-        for (const p of tempPaths) {
-          try { fs.unlinkSync(p) } catch {}
-        }
+        const upload = await prisma.videoUpload.create({
+          data: {
+            companyId: company.id,
+            sourceVideoUrl: `s3://${s3Key}`,
+            fileName: file.originalname,
+          },
+        })
+        uploadIds.push(upload.id)
       }
 
       // Create compilation record
@@ -366,42 +248,18 @@ export function initVideoRoutes(_prisma: PrismaClient) {
         },
       })
 
-      // Register compilationId → userId so SSE events from the compilation
-      // pipeline reach the right tab. Without this, broadcast calls drop
-      // every progress event ("called without userId — event dropped").
-      const { registerUploadUser } = await import('../lib/videoProcessing.service')
-      registerUploadUser(compilation.id, userId)
-
-      // Enqueue for background processing — but only if Redis is actually
-      // reachable. `videoQueue.add()` does NOT reject when Redis is down;
-      // BullMQ buffers the job in memory and retries forever, so a try/catch
-      // around add() can't detect the outage. We have to ping Redis upfront
-      // and pick the path explicitly.
-      const { isRedisHealthy } = await import('../queues/connection')
-      const redisOk = await isRedisHealthy()
-      if (redisOk) {
-        try {
-          const { videoQueue } = await import('../queues')
-          await videoQueue.add('compilation', {
-            uploadId: compilation.id,
-            videoUrl: '',
-            userId,
-            companyId: company.id,
-            s3Key: '',
-          })
-          console.log(`[video] compilation ${compilation.id} enqueued`)
-        } catch (err) {
-          // Edge case: Redis dropped between health-check and add. Fall back inline.
-          console.warn(`[video] queue enqueue failed despite healthy Redis — falling back inline:`, (err as Error).message)
-          const { processCompilation } = await import('../lib/videoCompilation.service')
-          processCompilation(prisma, compilation.id).catch((e) =>
-            console.error('[video] compilation processing failed:', e),
-          )
-        }
-      } else {
-        // Redis down — process inline. Slower (single-process), but works.
-        // Fire-and-forget so the HTTP response doesn't block on the long pipeline.
-        console.warn(`[video] Redis unavailable — processing compilation ${compilation.id} inline as fallback`)
+      // Enqueue for background processing
+      try {
+        const { videoQueue } = await import('../queues')
+        await videoQueue.add('compilation', {
+          uploadId: compilation.id,
+          videoUrl: '',
+          userId,
+          companyId: company.id,
+          s3Key: '',
+        })
+      } catch {
+        // Fallback: process directly if queue not available
         const { processCompilation } = await import('../lib/videoCompilation.service')
         processCompilation(prisma, compilation.id).catch((e) =>
           console.error('[video] compilation processing failed:', e),
@@ -424,40 +282,12 @@ export function initVideoRoutes(_prisma: PrismaClient) {
   return router
 }
 
-// Send a processing event only to the specific user who owns the job.
-export function broadcastProcessingEvent(event: string, data: any, userId?: string) {
+// Broadcast events to all connected clients
+export function broadcastProcessingEvent(event: string, data: any) {
   const message = `data: ${JSON.stringify({ event, ...data })}\n\n`
-  if (userId) {
-    const tabs = sseClients.get(userId)
-    if (tabs && tabs.size > 0) {
-      // Track and prune any clients whose write fails — they're a closed
-      // socket whose 'close' event hasn't fired yet (proxy timeouts, abrupt
-      // disconnects). Without this the Set grows unboundedly.
-      const dead: Response[] = []
-      tabs.forEach((client) => {
-        try {
-          client.write(message)
-        } catch {
-          dead.push(client)
-        }
-      })
-      if (dead.length > 0) {
-        dead.forEach((c) => {
-          tabs.delete(c)
-          try { c.end() } catch { /* already ended */ }
-        })
-        if (tabs.size === 0) sseClients.delete(userId)
-      }
-    } else {
-      // We have a userId but no tabs are listening — probably the user's
-      // SSE client hasn't connected yet (race) or already closed. Log
-      // once per event-type to make debugging easier.
-      console.warn(`[video] event '${event}' for user ${userId.slice(0, 8)}… dropped (no listeners)`)
-    }
-  } else {
-    // Legacy callers without userId — skip rather than broadcasting to everyone.
-    console.warn('[video] broadcastProcessingEvent called without userId — event dropped:', event)
-  }
+  sseClients.forEach(client => {
+    client.write(message)
+  })
 }
 
 export default router

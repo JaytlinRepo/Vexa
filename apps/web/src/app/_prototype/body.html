@@ -15,7 +15,7 @@
       <span class="ob-eyebrow">Step 1 of 3</span>
       <h2 class="ob-title">Name your company.</h2>
       <p class="ob-sub">This is the brand Sovexa will build content for. Your team will refer to this as they work.</p>
-      <input class="ob-input" id="ob-name-input" placeholder="e.g. Marcus Fitness, The Wealth Lab" maxlength="120" autocomplete="organization" autocapitalize="words">
+      <input class="ob-input" id="ob-name-input" placeholder="e.g. Marcus Fitness, The Wealth Lab" autocomplete="off">
       <p class="ob-hint">You can change this anytime in Settings.</p>
       <div class="ob-actions">
         <button class="btn-fill" onclick="obNext(1)" style="padding:13px 32px;font-size:12px">Continue</button>
@@ -26,14 +26,19 @@
     <div class="ob-step" id="ob-2">
       <span class="ob-eyebrow">Step 2 of 3</span>
       <h2 class="ob-title">What do you create?</h2>
-      <p class="ob-sub">Add tags that describe your focus — lifestyle, fitness, streaming, comedy, tutorials, whatever fits. Your team uses these to steer language and research.</p>
-      <div class="ob-niche-tag-ui">
-        <div class="ob-niche-tags" id="ob-niche-tags" aria-label="Selected tags"></div>
-        <div class="ob-tag-add-row">
-          <input type="text" class="ob-input ob-tag-entry" id="ob-tag-input" placeholder="e.g. streaming, tech reviews…" maxlength="48" autocomplete="off">
-          <button type="button" class="ob-tag-add-btn" onclick="obAddCurrentTag()" aria-label="Add tag">Add</button>
-        </div>
-        <p class="ob-hint">Press <strong style="font-weight:600;color:var(--t2)">Enter</strong> or <strong style="font-weight:600;color:var(--t2)">Add</strong> after each tag. Comma-separated values add multiple at once.</p>
+      <p class="ob-sub">Your team will specialize in this niche. The language, trends, and strategy all adapt to match.</p>
+      <div class="ob-grid" id="ob-niche-grid">
+        <button class="ob-card" onclick="selectNiche(this,'fitness')"><div class="ob-card-lbl">01</div><div class="ob-card-name">Fitness &amp; Wellness</div><div class="ob-card-desc">Workouts, nutrition, transformation</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'finance')"><div class="ob-card-lbl">02</div><div class="ob-card-name">Finance &amp; Investing</div><div class="ob-card-desc">Wealth, markets, personal finance</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'food')"><div class="ob-card-lbl">03</div><div class="ob-card-name">Food &amp; Cooking</div><div class="ob-card-desc">Recipes, technique, food culture</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'coaching')"><div class="ob-card-lbl">04</div><div class="ob-card-name">Coaching &amp; Education</div><div class="ob-card-desc">Teaching, courses, authority building</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'lifestyle')"><div class="ob-card-lbl">05</div><div class="ob-card-name">Lifestyle</div><div class="ob-card-desc">Aesthetic, story, personal brand</div></button>
+        <button class="ob-card" onclick="selectNiche(this,'personal_dev')"><div class="ob-card-lbl">06</div><div class="ob-card-name">Personal Development</div><div class="ob-card-desc">Mindset, habits, growth</div></button>
+        <button class="ob-card" id="ob-niche-other" onclick="toggleCustomNiche()"><div class="ob-card-lbl">07</div><div class="ob-card-name">Other</div><div class="ob-card-desc">Something else — tell us</div></button>
+      </div>
+      <div id="ob-custom-niche" style="display:none;margin-bottom:16px">
+        <input class="ob-input" id="ob-custom-niche-input" placeholder="e.g. Travel, Tech, Gaming, Beauty, Real Estate" autocomplete="off" style="margin-bottom:4px">
+        <p class="ob-hint">Your team will specialize in this. Be specific — "travel vlogging" works better than just "travel".</p>
       </div>
       <div class="ob-actions">
         <button class="btn-fill" id="ob-niche-btn" onclick="obNext(2)" style="padding:13px 32px;font-size:12px;opacity:.4" disabled>Continue</button>
@@ -43,7 +48,7 @@
 
     <!-- Step 4: Team reveal -->
     <div class="ob-step" id="ob-4">
-      <span class="ob-eyebrow">Step 3 of 3 · Your team is ready</span>
+      <span class="ob-eyebrow">Your team is ready</span>
       <h2 class="ob-title" id="ob-reveal-title">Welcome to Sovexa.</h2>
       <p class="ob-sub" id="ob-reveal-sub">Your team has specialized and they are already at work.</p>
       <div class="ob-reveal-list" id="ob-team-list">
@@ -66,11 +71,20 @@
           <div class="ob-emp-status"></div>
         </div>
         <div class="ob-emp-card" id="ob-emp-2">
+          <div class="ob-emp-init">A</div>
+          <div style="flex:1">
+            <div class="ob-emp-name">Alex</div>
+            <div class="ob-emp-role">Copywriter &amp; Script Writer</div>
+            <div class="ob-emp-msg">"Once Jordan's plan is approved I will start writing hooks and scripts. Fair warning — I have strong opinions."</div>
+          </div>
+          <div class="ob-emp-status"></div>
+        </div>
+        <div class="ob-emp-card" id="ob-emp-3">
           <div class="ob-emp-init">R</div>
           <div style="flex:1">
             <div class="ob-emp-name">Riley</div>
             <div class="ob-emp-role">Creative Director</div>
-            <div class="ob-emp-msg">"I will turn Jordan's plan into production-ready direction. Your first shot list will be ready right after the plan is approved."</div>
+            <div class="ob-emp-msg">"I will turn everything into production-ready direction. Your first shot list comes after Alex delivers the script."</div>
           </div>
           <div class="ob-emp-status"></div>
         </div>
@@ -88,8 +102,8 @@
     <div class="mr-emp">
       <div class="mr-emp-init" id="mr-init">A</div>
       <div>
-        <div class="mr-emp-name" id="mr-name">Riley</div>
-        <div class="mr-emp-role" id="mr-role">Creative Director</div>
+        <div class="mr-emp-name" id="mr-name">Alex</div>
+        <div class="mr-emp-role" id="mr-role">Copywriter &amp; Script Writer</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -110,7 +124,7 @@
   </div>
   <div style="padding:0 40px 24px;max-width:800px;width:100%;margin:0 auto">
     <div class="mr-input-wrap">
-      <input class="mr-input" placeholder="Reply..." id="mr-input-field" onkeydown="mrSend(event)">
+      <input class="mr-input" placeholder="Reply to Alex..." id="mr-input-field" onkeydown="mrSend(event)">
       <button class="mr-send" onclick="mrSendBtn()">Send</button>
     </div>
     <p class="mr-note">This is the only place in Sovexa where you type freely. Everything else is structured.</p>
@@ -133,16 +147,11 @@
        referencing #sidenav / #collapseBtn doesn't crash. Nav items have
        moved into the horizontal top nav below. -->
   <nav id="sidenav" aria-hidden="true">
-    <!-- Defaults intentionally blank. JS (dashboard-wire `populateNav`,
-         dashboard-v2, profile-wire) writes the real name + plan after
-         /api/auth/me resolves. If that JS hasn't run yet we'd rather
-         render an empty pill than fake "Guest / Marketing" copy that
-         looked like a real signed-in state. -->
     <div class="nav-user" id="nav-user-area">
-      <div class="nav-user-avatar" id="nav-avatar"></div>
+      <div class="nav-user-avatar" id="nav-avatar">V</div>
       <div class="nav-user-info">
-        <div class="nav-user-name" id="nav-username"></div>
-        <div class="nav-user-plan" id="nav-userplan"></div>
+        <div class="nav-user-name" id="nav-username">Guest</div>
+        <div class="nav-user-plan" id="nav-userplan">Marketing</div>
       </div>
     </div>
   </nav>
@@ -176,7 +185,7 @@
           <a class="topnav-link" id="nav-db-studio" onclick="navigate('db-studio')">Studio</a>
 
           <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')" style="display:none">Knowledge</a>
-          <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')" style="display:none">Team</a>
+          <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')">Team</a>
         </div>
       </nav>
 
@@ -204,7 +213,7 @@
               </div>
               <div class="vx-profile-info">
                 <div class="vx-profile-name" id="vx-profile-name">User</div>
-                <div class="vx-profile-plan" id="vx-profile-plan">Max Plan</div>
+                <div class="vx-profile-plan" id="vx-profile-plan">Pro Plan</div>
               </div>
             </div>
             <div class="vx-profile-divider"></div>
@@ -229,7 +238,12 @@
       </div>
     </div>
 
-    <!-- Mobile navigation drawer -->
+    <!-- ══ MOBILE BROWSER NAV DRAWER ══════════════════════════════════
+         Slide-out menu for phone Safari/Chrome. Hidden on desktop and
+         inside the native app via .vx-mobile-only. The drawer is the
+         ONLY mobile nav surface — the inline .topnav is hidden on
+         mobile by mobile.css. App surface gets its own bottom tab bar
+         (in app.css), not this drawer. Wired by mobile-shell-wire.js. -->
     <div class="vx-mobile-only vxm-drawer" id="vxm-drawer" aria-hidden="true">
       <div class="vxm-drawer-scrim" data-vxm-close></div>
       <aside class="vxm-drawer-panel" role="menu" aria-label="Mobile navigation">
@@ -245,7 +259,7 @@
           <a class="vxm-drawer-link" data-vxm-go="db-posts">Posts</a>
           <a class="vxm-drawer-link" data-vxm-go="db-studio">Studio</a>
           <a class="vxm-drawer-link" data-vxm-go="db-knowledge" style="display:none">Knowledge</a>
-          <a class="vxm-drawer-link" data-vxm-go="db-team" style="display:none">Team</a>
+          <a class="vxm-drawer-link" data-vxm-go="db-team">Team</a>
           <a class="vxm-drawer-link" data-vxm-go="db-settings">Settings</a>
         </div>
       </aside>
@@ -260,7 +274,7 @@
 <section class="hero" id="top">
   <div class="hero-left">
     <div class="eyebrow-row">
-      <span class="pill"><span class="g"></span>Now hiring · <em>3 agents</em></span>
+      <span class="pill"><span class="g"></span>Now hiring · <em>4 agents</em></span>
     </div>
     <h1>
       <span class="line"><span>Run your content</span></span>
@@ -269,7 +283,8 @@
     </h1>
     <p class="sub">Sovexa gives you a team of four AI agents who <em>scout, plan, write, and ship</em> your content across every platform. You stay on voice. They stay on time. Your calendar is finally full.</p>
     <div class="cta-row">
-      <a href="#" class="btn-primary" onclick="if (typeof window.showSignup === 'function') window.showSignup(); return false">Start your company <span class="arr">→</span></a>
+      <a href="#pricing" class="btn-primary">Start your company <span class="arr">→</span></a>
+      <a href="#how" class="btn-ghost"><span class="play">▶</span> See it work · 90s</a>
     </div>
     <div class="proof">
       <div class="avs">
@@ -299,6 +314,13 @@
         <div class="agent" data-k="jordan">
           <div class="av">J</div>
           <div class="mid"><div class="nm">Jordan · Content Strategist</div><div class="task" data-tasks='["drafting brief #213","mapping to <em>pillar 2</em>","angle: boundary · not to-do"]'>drafting brief #213</div></div>
+          <div class="rt"><span class="sdot"></span><span>IDLE</span></div>
+          <div class="bar"></div>
+        </div>
+        <div class="agent-connector"><div></div></div>
+        <div class="agent" data-k="alex">
+          <div class="av">A</div>
+          <div class="mid"><div class="nm">Alex · Copywriter</div><div class="task" data-tasks='["writing Reel caption","voice match <em>96%</em>","draft 2 of 2"]'>writing Reel caption</div></div>
           <div class="rt"><span class="sdot"></span><span>IDLE</span></div>
           <div class="bar"></div>
         </div>
@@ -341,9 +363,9 @@
 <!-- ═════════ THE TEAM ═════════ -->
 <section class="blk" id="team">
   <div class="sec-head reveal">
-    <span class="eyebrow">01 · Meet the team</span>
-    <h2>Three agents. <em>One voice.</em> Yours.</h2>
-    <p class="lede">Not one mega-bot doing everything badly. Three specialists, each with their own lane, their own personality, and permissions they earn. You manage them like a team — because that’s what they are.</p>
+    <span class="eyebrow">§ 01 · meet the team</span>
+    <h2>Four agents. <em>One voice.</em> Yours.</h2>
+    <p class="lede">Not one mega-bot doing everything badly. Four specialists, each with their own lane, their own personality, and permissions they earn. You manage them like a team — because that’s what they are.</p>
   </div>
   <div class="team-wrap">
     <div class="t-card reveal d1">
@@ -361,11 +383,18 @@
       <div class="skills"><span>pillars</span><span>briefs</span><span>cadence</span></div>
     </div>
     <div class="t-card reveal d3">
+      <div class="av">A</div>
+      <div class="nm"><em>Alex</em></div>
+      <div class="rl">Copywriter & Script Writer</div>
+      <div class="bio">"Less <em>ought-to</em>, more <em>felt</em>."</div>
+      <div class="skills"><span>voice-locked</span><span>captions</span><span>shot lists</span></div>
+    </div>
+    <div class="t-card reveal d4">
       <div class="av">R</div>
       <div class="nm"><em>Riley</em></div>
       <div class="rl">Creative Director</div>
       <div class="bio">"Right post. Right minute. Right <em>feed</em>."</div>
-      <div class="skills"><span>shot lists</span><span>IG · TT · YT</span><span>auto-reply</span></div>
+      <div class="skills"><span>IG · TT · YT</span><span>auto-reply</span><span>cross-post</span></div>
     </div>
   </div>
 </section>
@@ -373,7 +402,7 @@
 <!-- ═════════ HOW IT WORKS ═════════ -->
 <section class="blk" id="how" style="background:linear-gradient(180deg,var(--bg),var(--s1),var(--bg))">
   <div class="sec-head reveal">
-    <span class="eyebrow">02 · The pipeline</span>
+    <span class="eyebrow">§ 02 · the pipeline</span>
     <h2>From <em>signal</em> to <em>shipped</em>, in one room.</h2>
     <p class="lede">Trend → brief → draft → calendar. Four steps, four agents, one continuous flow. You watch it happen, step in when you want.</p>
   </div>
@@ -381,7 +410,8 @@
     <div class="how-steps" id="steps">
       <div class="how-step on" data-f="1"><div class="n">01 · MONDAY 06:00</div><h4>Maya <em>finds</em> the story</h4></div>
       <div class="how-step" data-f="2"><div class="n">02 · MONDAY 09:00</div><h4>Jordan <em>plans</em> the week</h4></div>
-      <div class="how-step" data-f="4"><div class="n">03 · ALWAYS</div><h4>Riley <em>ships</em> on time</h4></div>
+      <div class="how-step" data-f="3"><div class="n">03 · WEEKDAYS</div><h4>Alex <em>writes</em> in your voice</h4></div>
+      <div class="how-step" data-f="4"><div class="n">04 · ALWAYS</div><h4>Riley <em>ships</em> on time</h4></div>
     </div>
     <div class="how-stage" id="stage">
       <!-- Frame 1 -->
@@ -406,7 +436,7 @@
           <div class="row"><div class="k">Angle</div><div class="v">Frame the boundary as a <em>refusal</em>, not a ritual. Counter-culture to to-do-list rest.</div></div>
           <div class="row"><div class="k">Format</div><div class="v">Reel · 22s · second-person voice-over · slow B-roll</div></div>
           <div class="row"><div class="k">Hook</div><div class="v">"Rest is not something you <em>add</em>."</div></div>
-          <div class="row"><div class="k">Signals</div><div class="v">Maya · 7 sources · 3 trending · strong read</div></div>
+          <div class="row"><div class="k">Signals</div><div class="v">Maya · 7 sources · 3 hot · confidence <em>0.86</em></div></div>
           <div class="row"><div class="k">Ships</div><div class="v"><span class="typing">Wednesday 11:42 PT · IG + TT + YT Short</span></div></div>
         </div>
       </div>
@@ -438,7 +468,7 @@
 <!-- ═════════ BEFORE / AFTER ═════════ -->
 <section class="blk" id="compare">
   <div class="sec-head reveal">
-    <span class="eyebrow">03 · Before / after</span>
+    <span class="eyebrow">§ 03 · the before · after</span>
     <h2>You <em>before</em>. You <em>after</em>.</h2>
   </div>
   <div class="compare reveal">
@@ -496,55 +526,43 @@
 <!-- ═════════ PRICING ═════════ -->
 <section class="blk" id="pricing">
   <div class="sec-head reveal">
-    <span class="eyebrow">04 · Hire your team</span>
+    <span class="eyebrow">§ 04 · hire your team</span>
     <h2>One salary. <em>Four</em> employees.</h2>
     <p class="lede">Pick a team size. Switch plans anytime. Cancel anytime. Your agents come with you.</p>
   </div>
   <div class="prices reveal">
     <div class="plan">
-      <div class="ph"><div class="n">Free</div><div class="bd"></div></div>
-      <div class="px">$0<em>/mo</em></div>
-      <div class="pd">The full team — start without a card.</div>
+      <div class="ph"><div class="n">Solo</div><div class="bd"></div></div>
+      <div class="px">$19<em>/mo</em></div>
+      <div class="pd">The full team, on retainer.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
-        <li><span class="c">✓</span><span>Generous monthly task runway</span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
+        <li><span class="c">✓</span><span>50 tasks / month</span></li>
         <li><span class="c">✓</span><span>Voice match · 90% SLA</span></li>
         <li><span class="c">✓</span><span>Weekly review digest</span></li>
       </ul>
       <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Start free</a>
     </div>
-    <div class="plan">
-      <div class="ph"><div class="n">Pro</div><div class="bd">Entry paid</div></div>
-      <div class="px">$29<em>/mo</em></div>
-      <div class="pd">More runway than Free — upgrade when you want the full stack.</div>
-      <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
-        <li><span class="c">✓</span><span>75 tasks / month · 5 videos</span></li>
-        <li><span class="c">✓</span><span>Brand voice · knowledge feed · outputs</span></li>
-        <li><span class="c">✓</span><span>Weekly review digest</span></li>
-      </ul>
-      <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Choose Pro →</a>
-    </div>
     <div class="plan feat">
-      <div class="ph"><div class="n"><em>Max</em></div><div class="bd">Most hired</div></div>
+      <div class="ph"><div class="n"><em>Pro</em></div><div class="bd">Most hired</div></div>
       <div class="px">$59<em>/mo</em></div>
-      <div class="pd">Meetings, memory, video, and the runway working creators need.</div>
+      <div class="pd">Your team, full-time.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
+        <li><span class="c">✓</span><span><em>Maya · Jordan · Alex · Riley</em></span></li>
         <li><span class="c">✓</span><span>200 tasks / month</span></li>
         <li><span class="c">✓</span><span>Meetings · brand memory · weekly pulse</span></li>
         <li><span class="c">✓</span><span>Video generation · 15 / month</span></li>
         <li><span class="c">✓</span><span>Voice match · 95% SLA</span></li>
         <li><span class="c">✓</span><span>Live pipeline · CEO dashboard</span></li>
       </ul>
-      <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Choose Max →</a>
+      <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Hire the team →</a>
     </div>
     <div class="plan">
       <div class="ph"><div class="n">Agency</div><div class="bd"></div></div>
       <div class="px">$149<em>/mo</em></div>
       <div class="pd">For teams running 5+ creators.</div>
       <ul>
-        <li><span class="c">✓</span><span>Everything in Max</span></li>
+        <li><span class="c">✓</span><span>Everything in Pro</span></li>
         <li><span class="c">✓</span><span>Multi-seat · role-based access</span></li>
         <li><span class="c">✓</span><span>Private model fine-tune</span></li>
         <li><span class="c">✓</span><span>White-glove onboarding</span></li>
@@ -602,7 +620,7 @@
             <div class="team-row-main">
               <div class="team-role">Content Strategist</div>
               <div class="team-name">Jordan</div>
-              <div class="team-desc">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Adjusts based on what performs. Briefs Riley automatically once you approve the plan — so the pipeline runs itself without you managing it.</div>
+              <div class="team-desc">Builds your weekly content plan, defines your pillars, and keeps your brand growing consistently. Adjusts based on what performs. Briefs Alex automatically once you approve the plan — so the pipeline runs itself without you managing it.</div>
               <div class="team-tags"><span class="team-tag">Content calendar</span><span class="team-tag">Content Strategist</span><span class="team-tag">Audience analysis</span><span class="team-tag">Pipeline</span></div>
             </div>
             <div class="team-row-meta"><span class="team-schedule">Delivers Sunday 7pm</span></div>
@@ -610,12 +628,22 @@
           <div class="team-row">
             <div class="team-row-num"><span class="team-num-txt">03</span></div>
             <div class="team-row-main">
-              <div class="team-role">Creative Director</div>
-              <div class="team-name">Riley</div>
-              <div class="team-desc">Turns Jordan's plan into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use. Then sends the brief to video generation automatically.</div>
-              <div class="team-tags"><span class="team-tag">Shot lists</span><span class="team-tag">Visual direction</span><span class="team-tag">Pacing</span><span class="team-tag">Video generation</span></div>
+              <div class="team-role">Copywriter &amp; Script Writer</div>
+              <div class="team-name">Alex</div>
+              <div class="team-desc">Writes hooks, captions, Reel scripts, and carousels in your voice. Delivers multiple variations so you choose. Gets sharper with every revision you request. Has strong opinions about which hook is the right one and will tell you directly.</div>
+              <div class="team-tags"><span class="team-tag">Hooks</span><span class="team-tag">Reel scripts</span><span class="team-tag">Captions</span><span class="team-tag">Carousel copy</span></div>
             </div>
             <div class="team-row-meta"><span class="team-schedule">After Jordan approves</span></div>
+          </div>
+          <div class="team-row">
+            <div class="team-row-num"><span class="team-num-txt">04</span></div>
+            <div class="team-row-main">
+              <div class="team-role">Creative Director</div>
+              <div class="team-name">Riley</div>
+              <div class="team-desc">Turns scripts into production-ready shot lists and visual direction. Tells you exactly what to film, how to pace it, where to put text overlays, and what audio to use. Then sends the brief to video generation automatically.</div>
+              <div class="team-tags"><span class="team-tag">Shot lists</span><span class="team-tag">Visual direction</span><span class="team-tag">Pacing</span><span class="team-tag">Video generation</span></div>
+            </div>
+            <div class="team-row-meta"><span class="team-schedule">After Alex delivers</span></div>
           </div>
         </div>
       </div>
@@ -637,20 +665,20 @@
         </div>
         <div class="meeting-block" style="margin-top:48px">
           <div class="mtg-top">
-            <div class="mtg-who"><div class="mtg-name">Riley</div><div class="mtg-role">Creative Director</div></div>
+            <div class="mtg-who"><div class="mtg-name">Alex</div><div class="mtg-role">Copywriter &amp; Script Writer</div></div>
             <div style="display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)"><div class="mtg-dot"></div>Meeting in progress</div>
           </div>
           <div class="mtg-msgs">
             <div class="mtg-col">
-              <div class="mtg-bubble">"Before we start — I pulled up your last 12 approved Reels. The ones that ran best opened with a tight close-up and no on-screen text for the first beat. I'll keep that pattern. What did you want to discuss?"</div>
+              <div class="mtg-bubble">"Before we start — I pulled up your last 12 approved hooks. I'm noticing you consistently approve hooks that open with a specific number or timeframe. I will keep that in mind. What did you want to discuss?"</div>
             </div>
             <div class="mtg-col right">
-              <div class="mtg-bubble user">The weighted walking shoot feels safe. Can we make it look more cinematic?</div>
-              <div class="mtg-bubble" style="margin-top:10px">"I agree it plays safer than usual. There's a middle ground — open low-angle on the shoes for two beats, then cut to the body in motion. We keep the edit tight; the shot reads premium without changing the message. Want me to re-brief the shoot?"</div>
+              <div class="mtg-bubble user">The weighted walking hook feels safe. Can we go more edgy?</div>
+              <div class="mtg-bubble" style="margin-top:10px">"I agree it plays safer than usual. But there is a middle ground — lead with the identity challenge instead of the benefit. 'You have been doing cardio wrong and nobody profits from telling you.' Want three in that direction?"</div>
             </div>
           </div>
           <div class="mtg-foot">
-            <input class="mtg-input" placeholder="Reply to Riley...">
+            <input class="mtg-input" placeholder="Reply to Alex...">
             <button class="mtg-end">End Meeting</button>
           </div>
           <div class="mtg-note">Meetings are the only place in Sovexa where you type freely. Decisions are auto-summarized and converted to tasks when you end.</div>
@@ -668,6 +696,7 @@
         </div>
         <div class="out-nav">
           <button class="out-btn active" onclick="switchOut(this,'trend')">Maya &mdash; Trend Report</button>
+          <button class="out-btn" onclick="switchOut(this,'hooks')">Alex &mdash; Hooks</button>
           <button class="out-btn" onclick="switchOut(this,'cal')">Jordan &mdash; Content Plan</button>
         </div>
         <div id="out-trend">
@@ -689,7 +718,27 @@
             </div>
           </div>
         </div>
-        <!-- Alex's hook variations demo removed — copywriter retired. -->
+        <div id="out-hooks" style="display:none">
+          <div class="out-card">
+            <div class="out-head"><span class="out-from">Alex &middot; Hook variations &middot; Weighted walking</span><span class="out-when">Monday 12:11pm</span></div>
+            <div class="out-body">
+              <div class="hook-list">
+                <div class="hook-row"><span class="h-n">01</span><span class="h-t">I walked 20 minutes a day for 30 days with a 20lb vest. Here's what nobody tells you about what happens to your body.</span><span class="h-l">Story opener</span></div>
+                <div class="hook-row"><span class="h-n">02</span><span class="h-t">The laziest cardio you've never tried burns more calories than a 45-minute run. And you can do it in work clothes.</span><span class="h-l h-s">Alex's pick</span></div>
+                <div class="hook-row"><span class="h-n">03</span><span class="h-t">Gym culture will never tell you this because it doesn't require a gym membership.</span><span class="h-l">Controversial</span></div>
+                <div class="hook-row"><span class="h-n">04</span><span class="h-t">If you hate running, this is the thing you've been looking for.</span><span class="h-l">Empathy opener</span></div>
+                <div class="hook-row"><span class="h-n">05</span><span class="h-t">What happens to your body when you add 20lbs to a daily walk? Week-by-week breakdown.</span><span class="h-l">Curiosity loop</span></div>
+              </div>
+              <p class="out-aside">"02 is the one. 'In work clothes' is a detail that makes it feel real. 01 is safe if you want safe." — Alex</p>
+            </div>
+            <div class="out-foot">
+              <button class="ab approve">Use hook 02</button>
+              <button class="ab recon">Too safe — bolder</button>
+              <button class="ab rej">5 more</button>
+              <span class="out-note">No typing required</span>
+            </div>
+          </div>
+        </div>
         <div id="out-cal" style="display:none">
           <div class="out-card">
             <div class="out-head"><span class="out-from">Jordan &middot; Weekly Content Plan &middot; Jan 13</span><span class="out-when">Sunday 7:44pm</span></div>
@@ -704,13 +753,13 @@
                 <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span><p class="cal-t">Algo rest day</p></div>
                 <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
               </div>
-              <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Riley on production for Monday and Thursday." — Jordan</p>
+              <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts for Monday and Thursday." — Jordan</p>
             </div>
             <div class="out-foot">
-              <button class="ab approve">Approve &mdash; brief Riley</button>
+              <button class="ab approve">Approve &mdash; brief Alex</button>
               <button class="ab recon">Adjust timing</button>
               <button class="ab rej">Rethink angle</button>
-              <span class="out-note">Approval triggers Riley</span>
+              <span class="out-note">Approval triggers Alex</span>
             </div>
           </div>
         </div>
@@ -787,13 +836,13 @@
         </div>
         <div class="pricing-grid">
           <div class="pc">
-            <div class="pc-tier">Free</div>
-            <div class="pc-price" id="ps-free"><sup>$</sup>0<span class="mo">/mo</span></div>
-            <p class="pc-desc">All four employees from day one — upgrade when you need more volume.</p>
+            <div class="pc-tier">Solo</div>
+            <div class="pc-price" id="ps-starter"><sup>$</sup>19<span class="mo">/mo</span></div>
+            <p class="pc-desc">The full team, on retainer. All four employees ready immediately.</p>
             <ul class="pc-feats">
-              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
+              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Niche + sub-niche specialization</li>
-              <li class="y">5 tasks/month to start</li>
+              <li class="y">Up to 50 tasks/month</li>
               <li class="y">Brand voice settings</li>
               <li class="y">Knowledge feed</li>
               <li class="y">Outputs library &mdash; 2 revisions</li>
@@ -802,33 +851,15 @@
               <li class="dim">Video generation</li>
               <li class="dim">Monday trend reports</li>
             </ul>
-            <button class="pc-btn ghost" onclick="startOnboarding()">Start free</button>
-          </div>
-          <div class="pc">
-            <div class="pc-tier">Pro</div>
-            <div class="pc-price" id="ps-pro"><sup>$</sup>29<span class="mo">/mo</span></div>
-            <p class="pc-desc">More runway than Free &mdash; lighter than Max. Same four employees.</p>
-            <ul class="pc-feats">
-              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
-              <li class="y">Deep niche specialization</li>
-              <li class="y">75 tasks/month</li>
-              <li class="y">Brand voice · knowledge feed</li>
-              <li class="y">Outputs library &mdash; 5 revisions</li>
-              <li class="y">Weekly summary digests</li>
-              <li class="dim">Meeting feature</li>
-              <li class="dim">Brand memory &mdash; learns over time</li>
-              <li class="dim">Monday trend reports</li>
-              <li class="y">Video generation &mdash; 5/month</li>
-            </ul>
-            <button class="pc-btn ghost" onclick="startOnboarding()">Start with Pro</button>
+            <button class="pc-btn ghost" onclick="startOnboarding()">Start free trial</button>
           </div>
           <div class="pc featured">
             <div class="pc-badge">Most popular</div>
-            <div class="pc-tier">Max</div>
-            <div class="pc-price" id="ps-max"><sup>$</sup>59<span class="mo">/mo</span></div>
-            <p class="pc-desc">The full creator stack &mdash; meetings, memory, video, and priority flow.</p>
+            <div class="pc-tier">Pro</div>
+            <div class="pc-price" id="ps-pro"><sup>$</sup>59<span class="mo">/mo</span></div>
+            <p class="pc-desc">Your team, full-time. Same full team — now with meetings, memory, video, and 4× the runway.</p>
             <ul class="pc-feats">
-              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
+              <li class="y">All 4 employees &mdash; Maya · Jordan · Alex · Riley</li>
               <li class="y">Deep niche specialization</li>
               <li class="y">200 tasks/month</li>
               <li class="y">Advanced brand voice + memory</li>
@@ -839,7 +870,7 @@
               <li class="y">Monday trend reports</li>
               <li class="y">Video generation &mdash; 15/month</li>
             </ul>
-            <button class="pc-btn fill" onclick="startOnboarding()">Start with Max</button>
+            <button class="pc-btn fill" onclick="startOnboarding()">Start with Pro</button>
           </div>
           <div class="pc">
             <div class="pc-tier">Agency</div>
@@ -848,7 +879,7 @@
             <ul class="pc-feats">
               <li class="y">Up to 5 brand workspaces</li>
               <li class="y">Independent teams per brand</li>
-              <li class="y">Everything in Max per workspace</li>
+              <li class="y">Everything in Pro per workspace</li>
               <li class="y">Priority AI processing</li>
               <li class="y">Advanced analytics</li>
               <li class="y">75 video generations/month</li>
@@ -857,15 +888,15 @@
               <li class="y">Custom employee personas</li>
               <li class="y">Early access to features</li>
             </ul>
-            <button class="pc-btn ghost" onclick="window.showSignup()">Get started</button>
+            <button class="pc-btn ghost">Contact us</button>
           </div>
         </div>
         <div class="trial-row">
-          <div><h4>Start free — no credit card.</h4><p>The Free plan gives you full access to your AI team with a fresh 3 tasks every day. No trial countdown, no card, no expiry. Upgrade to Pro, Max, or Agency when you're ready for more volume.</p></div>
+          <div><h4>What's in the free trial?</h4><p>Every plan starts with 7-day full access. No credit card. The complete product — not a limited preview.</p></div>
           <div class="trial-checks">
-            <div class="trial-check">All 3 employees from day one</div>
+            <div class="trial-check">Full team from day one</div>
             <div class="trial-check">No credit card required</div>
-            <div class="trial-check">Upgrade or cancel anytime</div>
+            <div class="trial-check">Cancel before day 7 &mdash; pay nothing</div>
             <div class="trial-check">Outputs stay in your library</div>
           </div>
         </div>
@@ -886,7 +917,7 @@
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How is this different from Buffer or Jasper?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Buffer is a scheduling tool. Jasper is a writing assistant you prompt. Neither has an autonomous team, a self-running pipeline, a meeting feature, or a memory system. Sovexa is a workforce model — the difference is who does the thinking.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What does video generation produce?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Once Riley's shot list is approved, Sovexa renders an edited Reel — with text overlays, transitions, and pacing — that you can review, approve, and download. Stored in your Outputs library.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my brand data private?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. Your niche, brand voice, and outputs are private to your workspace. We do not use your data to train models. Encrypted at rest and in transit. Export or delete anytime.</div></div></div>
-          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the Free plan?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">All 3 AI employees (Maya, Jordan, Riley) with a small daily runway that resets every day at midnight UTC. No trial countdown, no credit card — free forever. Upgrade to Pro, Max, or Agency when you need more volume, meetings, or video generation.</div></div></div>
+          <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What's included in the free trial?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">The full product. No restricted features, no trial mode. Cancel before day 7 and you won't be charged. Your outputs stay in your library regardless.</div></div></div>
           <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Can I cancel or change my plan anytime?<i class="faq-arr">&#9662;</i></div><div class="faq-a"><div class="faq-a-inner">Yes. No contracts, no cancellation fees. Upgrade, downgrade, or cancel from your billing dashboard. You keep full access until the end of your current billing period.</div></div></div>
         </div>
       </div>
@@ -958,18 +989,22 @@
 
     <!-- ══ DASHBOARD VIEWS ══════════════════════════════ -->
 
-    <!-- Dashboard home (HQ) -->
+    <!-- DASHBOARD HOME (HQ) — v3 warm-ivory redesign.
+         The hq-v3 class scopes the new CSS in apps/web/src/app/hq-v3.css
+         and tells dashboard-v2.js to skip its render. -->
     <div class="view hq-v3" id="view-db-dashboard">
 
 <div class="hq">
 
-  <!-- Date and clock -->
+  <!-- Eyebrow — date is wired from real Date in hq-v3-data-wire.js -->
   <div class="eyebrow-strip">
     <span class="eyebrow"><span class="rule"></span><span id="hq3-eyebrow-date">—</span></span>
-    <span class="live"><span class="dd"></span>LIVE · <span class="hq3-clock-toolbar"><span id="hq3-clock">—</span><span class="hq3-clock-fmt" role="group" aria-label="Time format"><button type="button" class="on" id="hq3-clock-fmt-24" data-hq3-clock-fmt="24" aria-pressed="true">24h</button><button type="button" id="hq3-clock-fmt-12" data-hq3-clock-fmt="12" aria-pressed="false">12h</button></span></span></span>
+    <span class="live"><span class="dd"></span>LIVE · <span id="hq3-clock">—</span></span>
   </div>
 
-  <!-- Quick actions when there’s something to review -->
+  <!-- Cockpit action strip — wired by hq-v3-data-wire.js. Hidden until the
+       wire confirms there's something to surface (delivered tasks, anomalies,
+       or a clean "all clear" state). -->
   <section class="hq3-cockpit" id="hq3-cockpit" hidden>
     <span class="hq3-cockpit-summary" id="hq3-cockpit-summary">—</span>
     <div class="hq3-cockpit-chips" id="hq3-cockpit-chips"></div>
@@ -979,7 +1014,7 @@
   <section class="hq3-hero">
     <div>
       <h1>Good morning, Jaytlin.<br/>Your team <em>shipped</em><br/>4 posts overnight.</h1>
-      <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, and Riley has a shot list staged for tomorrow.</p>
+      <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, Alex is on Reel 3 of 3, and Riley has a shot list staged for tomorrow.</p>
     </div>
   </section>
 
@@ -1003,14 +1038,17 @@
     <div class="fc-wrap">
       <div class="fc-head">
         <div>
-          <div class="fc-num">—</div>
+          <div class="fc-num">313.8<span class="unit">K</span></div>
           <div class="fc-cap">Total followers · <span id="hq3-platform-cap">all platforms</span></div>
-          <!-- Platform filter (Instagram / TikTok / …) -->
+          <!-- Platform toggle buttons are generated dynamically by
+               wirePlatformToggle() from the connected accounts list. Add
+               a new platform integration → it shows up here automatically. -->
           <div class="hq3-platform-toggle pill-tabs" id="hq3-platform-toggle" data-hq3-platform-tabs></div>
         </div>
       </div>
 
-      <!-- Growth goal card -->
+      <!-- Goal anchor — wired by hq-v3-data-wire.js. Shows progress toward
+           a user-set target, OR an empty "Set a goal" prompt. -->
       <div class="hq3-goal" id="hq3-goal" hidden></div>
       <form class="hq3-goal-form" id="hq3-goal-form" hidden>
         <label class="lbl">Set a goal</label>
@@ -1035,28 +1073,28 @@
             <line x1="0" y1="120" x2="800" y2="120"/>
             <line x1="0" y1="200" x2="800" y2="200"/>
           </g>
+          <text x="0" y="36" class="axis">400K</text>
+          <text x="0" y="116" class="axis">350K</text>
+          <text x="0" y="196" class="axis">300K</text>
+          <text x="0" y="260" class="axis">250K</text>
           <path class="past-fill" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162 L420,260 L0,260 Z"/>
           <path class="past-line" d=""/>
           <line class="now-line" x1="420" y1="20" x2="420" y2="260"/>
+          <text x="424" y="30" class="axis">NOW</text>
           <path class="future-line" d=""/>
+          <g class="hq3-axis-labels"></g>
           <g class="hq3-milestones"></g>
         </svg>
-        <!-- Crosshair overlay — same viewBox/aspectRatio as chart SVG so coords align -->
-        <svg class="fc-cross" viewBox="0 0 800 280" preserveAspectRatio="none">
-          <line class="vline" x1="0" y1="0" x2="0" y2="280"/>
-          <circle class="dot" cx="0" cy="140" r="4"/>
-        </svg>
-        <!-- Tooltip chip — positioned by JS -->
-        <div class="fc-tooltip"><strong class="fc-tt-val"></strong><span class="fc-tt-date"></span></div>
-        <!-- X-axis labels — HTML so they're never stretched by preserveAspectRatio:none -->
-        <div class="hq3-x-axis" id="hq3-x-axis"></div>
       </div>
 
       <div class="fc-legend"></div>
     </div>
   </section>
 
-  <!-- Maya’s daily playbook and timely alerts -->
+  <!-- Pulse: Maya's playbook + live anomaly callouts. Sits above the
+       fold so the daily morning routine is read-then-act, not scroll-and-
+       hunt. Both wire from hq-v3-data-wire.js → /api/platform/maya-playbook
+       and a client-side z-score pass over recent posts. -->
   <section class="sect hq3-pulse">
     <div class="hq3-pulse-grid">
       <div class="playbook">
@@ -1080,6 +1118,7 @@
         <div class="hq3-cal-tile" id="hq3-cal-tile">
           <div class="head">
             <span class="lbl">This week's cadence</span>
+            <button type="button" class="hq3-cal-link" data-open-calendar>Open calendar →</button>
           </div>
           <div class="hq3-cal-body" id="hq3-cal-body">—</div>
         </div>
@@ -1087,7 +1126,8 @@
     </div>
   </section>
 
-  <!-- Summary stats row -->
+  <!-- Mini-stats strip — moved out of the hero. Lives between §01 and §02.
+       Values are placeholders ('—') until hq-v3-data-wire.js fills them. -->
   <section class="sect">
     <div class="hq3-hero-mini">
       <div class="row">
@@ -1104,25 +1144,28 @@
           <div class="d"></div>
         </div>
       </div>
+      <div class="row">
+        <span class="lbl">Tasks · this month</span>
+        <div style="text-align:right">
+          <div class="v">—</div>
+          <div class="d"></div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- Pipeline -->
-  <section class="sect hq3-pipeline-sect collapsed" id="hq3-pipeline-sect">
+  <section class="sect">
     <div class="sect-head">
       <div class="l">
         <span class="n">Team status</span>
         <h2>The <em>pipeline</em>, live.</h2>
       </div>
       <div class="right">
-        <button type="button" class="hq3-pipeline-toggle" id="hq3-pipeline-toggle" aria-expanded="false" aria-controls="hq3-pipeline-collapse">
-          Show pipeline
-        </button>
+        <span class="meta">AUTO-HANDOFF · ON</span>
       </div>
     </div>
 
-    <div class="hq3-pipeline-collapse" id="hq3-pipeline-collapse">
-    <div class="hq3-pipeline-collapse-inner">
     <div class="hq3-pipe" id="hq3-pipe">
       <div class="hq3-pipe-arrow \1">→</div>
       <div class="hq3-pipe-arrow \1">→</div>
@@ -1156,6 +1199,20 @@
         <div class="hq3-node-eta"><span>100%</span><span>· 08:47</span></div>
       </div>
 
+      <div class="hq3-node \1" data-node="alex">
+        <div class="hq3-node-top">
+          <div class="hq3-node-port"><span class="ltr">A</span></div>
+          <div>
+            <div class="hq3-node-name">Alex</div>
+            <div class="hq3-node-role">Copy &amp; Script</div>
+          </div>
+        </div>
+        <div class="hq3-node-status"><span class="dt"></span>writing · in flight</div>
+        <div class="hq3-node-task">Reel 3 — <em>"boundary, not to-do"</em></div>
+        <div class="hq3-node-prog"><span style="width:72%" id="hq3-alex-prog"></span></div>
+        <div class="hq3-node-eta"><span id="hq3-alex-ts">72% · writing</span><span>ETA 11:18</span></div>
+      </div>
+
       <div class="hq3-node \1" data-node="riley">
         <div class="hq3-node-top">
           <div class="hq3-node-port"><span class="ltr">R</span></div>
@@ -1164,14 +1221,11 @@
             <div class="hq3-node-role">Creative Direction</div>
           </div>
         </div>
-        <div class="hq3-node-status"><span class="dt"></span>queued · awaiting Jordan</div>
+        <div class="hq3-node-status"><span class="dt"></span>queued · awaiting Alex</div>
         <div class="hq3-node-task">Publish Reel 3 — <em>IG · 11:42</em></div>
         <div class="hq3-node-prog"><span style="width:0%"></span></div>
         <div class="hq3-node-eta"><span>queued</span><span>· 11:42</span></div>
-        <div class="hq3-riley-queue" id="hq3-riley-queue" hidden></div>
       </div>
-    </div>
-    </div>
     </div>
   </section>
 
@@ -1278,14 +1332,14 @@
               <span class="lbl">Maya's take</span>
               <span class="chev">▾</span>
             </summary>
-            <div class="body"><em>Wed 12:00</em> is the bullseye — 28% engagement, more than 2× the weekly average. Tue + Thu evenings (18:00) are your second window. Skip mornings before 09:00 — posts there rarely earn back the time.</div>
+            <div class="body"><em>Wed 12:00</em> is the bullseye — 28% engagement, more than 2× the weekly average. Tue + Thu evenings (18:00) are your second window. Skip mornings before 09:00 entirely; signal-to-effort is low.</div>
           </details>
         </div>
 
         <div class="tile">
           <div class="tile-head">
             <h3>What drives your <em>likes</em></h3>
-            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">patterns · 312 posts</span>
+            <span class="meta mono" style="font-size:10px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase">correlation · n=312</span>
           </div>
           <div class="corr">
             <div class="corr-row"><span class="name">Hook length <em>&lt; 3s</em></span><span class="bar"><span class="axis"></span><span style="width:42%"></span></span><span class="v">+0.84</span></div>
@@ -1306,7 +1360,9 @@
           </details>
         </div>
 
-        <!-- Reach: how many people saw your posts over time -->
+        <!-- Reach trend — 30-day reach trajectory. Distinct signal from
+             follower count: reach = how many people the algorithm pushed
+             to. Wired by hq-v3-data-wire.js → ts.snapshots[].reach7d. -->
         <div class="tile">
           <div class="tile-head">
             <h3>Reach <em>trend</em></h3>
@@ -1348,7 +1404,10 @@
         <div class="tile-head" style="margin-bottom:6px">
           <h3>Recent <em>posts</em></h3>
         </div>
-        <!-- Post filters -->
+        <!-- Posts filter chips. Platform chips have data-platform; the
+             sort chips are passive labels. The wire hides platform chips
+             when no account for that platform exists, and adds new ones
+             when integrations are connected. -->
         <div class="post-filters" data-hq3-filters>
           <span class="on" data-filter-platform="all">All</span><span data-filter-platform="instagram">Instagram</span><span data-filter-platform="tiktok">TikTok</span><span data-filter-platform="youtube">YouTube</span><span data-filter-sort="views">Top views</span><span data-filter-sort="engagement">Top engagement</span>
         </div>
@@ -1362,7 +1421,7 @@
         <div class="post-row"><div class="thumb">▶</div><div class="body"><div class="t">Hot take — <em>cardio is overrated</em></div><div class="m"><span class="pf tt"><span class="dot"></span>TikTok · Reel</span><span>7d</span></div></div><div class="nums"><span class="n">128K</span><span class="e up">▲ 11.9%</span></div></div>
         <div class="post-row"><div class="thumb">◯</div><div class="body"><div class="t">Monday pulse — <em>retention</em> wins</div><div class="m"><span class="pf ig"><span class="dot"></span>Instagram · Story</span><span>4d</span></div></div><div class="nums"><span class="n">11K</span><span class="e up">▲ 6.2%</span></div></div>
 
-        <!-- Audience and content mix -->
+        <!-- Audience + content tiles wired by hq-v3-data-wire.js -->
         <div class="tile" style="margin-top:24px">
           <div class="tile-head">
             <h3>Audience · <em>location</em></h3>
@@ -1393,8 +1452,9 @@
   </section>
 
   <div class="foot">
-    <span>SOVEXA · COMPANY OS · PRO</span>
+    <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
     <em>Your content. Run by a team.</em>
+    <span>API 200 · BEDROCK OK · NEON OK</span>
   </div>
 
 </div><!-- /hq -->
@@ -1406,60 +1466,29 @@
   if(!view||!view.classList.contains('hq-v3'))return;
   if(view.dataset.hq3Wired==='1')return; view.dataset.hq3Wired='1';
 
-  // Eyebrow date from the visitor’s device clock
-  ;(function(){var d=new Date();var days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];var months=['January','February','March','April','May','June','July','August','September','October','November','December'];var el=document.getElementById('hq3-eyebrow-date');if(el)el.textContent=days[d.getDay()]+' · '+months[d.getMonth()]+' '+d.getDate()})();
+  // Clock
+  function tick(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};var el=document.getElementById('hq3-clock');if(el)el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
+  tick();setInterval(tick,1000);
 
-  // Clock — 24h (15:02:28) vs 12h (3:02:28 PM), persisted
-  ;(function(){
-    var LS='hq3.clockFmt'
-    var el=document.getElementById('hq3-clock')
-    var b24=document.getElementById('hq3-clock-fmt-24')
-    var b12=document.getElementById('hq3-clock-fmt-12')
-    var use24=true
-    function p(n){return String(n).padStart(2,'0')}
-    function fmt24(d){return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
-    function fmt12(d){
-      var h=d.getHours();var ap=h>=12?'PM':'AM';h=h%12;if(h===0)h=12
-      return h+':'+p(d.getMinutes())+':'+p(d.getSeconds())+' '+ap
-    }
-    function applyFmt(is24){
-      use24=is24;if(b24){b24.classList.toggle('on',is24);b24.setAttribute('aria-pressed',is24?'true':'false')}
-      if(b12){b12.classList.toggle('on',!is24);b12.setAttribute('aria-pressed',(!is24)?'true':'false')}
-    }
-    function tick(){if(!el)return;el.textContent=use24?fmt24(new Date()):fmt12(new Date())}
-    function setFmt(is24,persist){applyFmt(is24);tick();if(persist){try{localStorage.setItem(LS,is24?'24':'12')}catch(e){}}}
-    try{if(localStorage.getItem(LS)==='12')use24=false}catch(e){}
-    applyFmt(use24)
-    tick();setInterval(tick,1000)
-    if(b24)b24.addEventListener('click',function(){setFmt(true,true)})
-    if(b12)b12.addEventListener('click',function(){setFmt(false,true)})
-  })();
+  // Alex progress ticker removed — was a pure visual mockup that animated
+  // Alex's progress bar from 72% upward forever regardless of real status.
+  // The wire's renderPipelineNodes sets all four pipeline progress bars
+  // from real task status, including Alex.
 
   // Pill tabs
-  view.querySelectorAll('[data-hq3-tabs]').forEach(function(grp){grp.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){if(b.disabled)return;grp.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})})});
+  view.querySelectorAll('[data-hq3-tabs]').forEach(function(grp){grp.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){grp.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})})});
 
   // Post filters
   view.querySelectorAll('[data-hq3-filters] span').forEach(function(s){s.addEventListener('click',function(){view.querySelectorAll('[data-hq3-filters] span').forEach(function(x){x.classList.remove('on')});s.classList.add('on')})});
 
-  // Pipeline nodes → detail drawer
-  view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(n){n.addEventListener('click',function(){var role=n.getAttribute('data-node');if(!role)return;view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(x){x.classList.remove('active')});n.classList.add('active');if(typeof window.openHQPipelineDrawer==='function')window.openHQPipelineDrawer(role)})});
+  // Forecast hover crosshair removed — the static FC_PTS array was hardcoded
+  // fake values from "Jan 1" through "Jun 16 · proj" pinned to a 313.8K
+  // creator. The crosshair SVG + tooltip DIV were stripped from the markup
+  // when the chart was wired to real data; this block is left as a marker
+  // so a future "real" crosshair can be added against actual sparkline points.
 
-  // Pipeline section collapse
-  ;(function(){
-    // v2: default is collapsed; legacy key often had '0' (expanded) — bump key once.
-    var LS='hq3.pipelineCollapsed.v2'
-    var sect=document.getElementById('hq3-pipeline-sect')
-    var btn=document.getElementById('hq3-pipeline-toggle')
-    if(!sect||!btn)return
-    function setCollapsed(on,persist){
-      sect.classList.toggle('collapsed',on)
-      btn.setAttribute('aria-expanded',on?'false':'true')
-      btn.textContent=on?'Show pipeline':'Hide pipeline'
-      if(persist){try{localStorage.setItem(LS,on?'1':'0')}catch(e){}}
-    }
-    try{setCollapsed(localStorage.getItem(LS)!=='0',false)}catch(e){setCollapsed(true,false)}
-    btn.addEventListener('click',function(){setCollapsed(!sect.classList.contains('collapsed'),true)})
-  })();
+  // Pipeline node click → focus
+  view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(n){n.addEventListener('click',function(){var was=n.classList.contains('active');view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(x){x.classList.remove('active')});if(!was)n.classList.add('active')})});
 })();
 </script>
 
@@ -1471,9 +1500,9 @@
 <!-- MASTHEAD -->
 <section class="pipe-mast">
   <div>
-    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">The assembly line</span></div>
-    <h1>Pipeline — <em>3 agents</em>, one cadence.</h1>
-    <p class="sub">Every post walks this line. Maya spots the opportunity, Jordan frames the angle, Riley directs + ships. Handoffs are automatic; you only step in at the yellow diamonds.</p>
+    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ The assembly line</span></div>
+    <h1>Pipeline — <em>4 agents</em>, one cadence.</h1>
+    <p class="sub">Every post walks this line. Maya spots the opportunity, Jordan frames the angle, Alex writes + edits, Riley ships. Handoffs are automatic; you only step in at the yellow diamonds.</p>
   </div>
   <div class="mini-stats">
     <div class="stat"><div class="lbl">Throughput · 7d</div><div class="v"><em>21</em>/wk</div><div class="d">3.0 posts/day</div></div>
@@ -1521,23 +1550,23 @@
   <div class="cell">
     <h4>Handoff <em>rules</em></h4>
     <div class="cnt">3 active · edit in Team</div>
-    <div class="qitem"><span class="idx">1</span>
-      <div class="t">Maya → Jordan: <em>auto</em> if ≥2 sources confirm<span class="meta">Strong agreement across sources</span></div>
+    <div class="qitem"><span class="idx">§</span>
+      <div class="t">Maya → Jordan: <em>auto</em> if ≥2 sources confirm<span class="meta">Confidence ≥ 0.78 required</span></div>
       <span class="who" style="color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%,transparent)">ON</span></div>
-    <div class="qitem"><span class="idx">2</span>
+    <div class="qitem"><span class="idx">§</span>
       <div class="t">Jordan → Alex: <em>auto</em> on brief complete<span class="meta">Unless tagged experimental</span></div>
       <span class="who" style="color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%,transparent)">ON</span></div>
-    <div class="qitem"><span class="idx">3</span>
+    <div class="qitem"><span class="idx">§</span>
       <div class="t">Alex → Riley: <em>CEO review</em> required<span class="meta">All posts · caption + visual</span></div>
       <span class="who" style="color:var(--accent);border-color:var(--accent-soft)">MANUAL</span></div>
-    <div class="qitem"><span class="idx">4</span>
+    <div class="qitem"><span class="idx">§</span>
       <div class="t">Pillar-shift proposals: <em>CEO only</em><span class="meta">Strategy changes require review</span></div>
       <span class="who" style="color:var(--accent);border-color:var(--accent-soft)">MANUAL</span></div>
   </div>
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · PRO</span>
+  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
@@ -1595,7 +1624,7 @@
     </div>
 
     <div class="pagination" style="margin-top:28px;display:flex;justify-content:center;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);letter-spacing:.05em">
-      <!-- Post cards -->
+      <!-- Populated dynamically by posts-data-wire.js -->
     </div>
   </div>
 
@@ -1615,13 +1644,13 @@
           </select>
         </div>
       </div>
-      <!-- Post cards -->
+      <!-- Populated dynamically by posts-data-wire.js -->
     </div>
   </aside>
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · PRO</span>
+  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
@@ -1633,7 +1662,7 @@
 
 <section class="mast">
   <div>
-    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">Who’s watching</span></div>
+    <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Who is actually out there</span></div>
     <h1>A room full of <em>312K</em> people.<br/>Here's who.</h1>
     <p class="sub">Mostly women 26-34, mostly US + UK, most active Sunday evenings. They save more than they share. They came for the reset, they stay for the quiet ambition thread.</p>
   </div>
@@ -1770,7 +1799,7 @@
 <!-- DEMOGRAPHICS -->
 <section class="stretch">
   <div class="stretch-head">
-    <span class="n">02</span><h2 style="flex:1">Who they <em>are</em></h2>
+    <span class="n">§ 02</span><h2 style="flex:1">Who they <em>are</em></h2>
     <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3);letter-spacing:.05em">PLATFORM-WEIGHTED AVG</span>
   </div>
 
@@ -1952,7 +1981,7 @@
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · PRO</span>
+  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
@@ -2009,10 +2038,10 @@
                   <div class="cal-c" style="opacity:.3"><div class="cal-d">18</div><span class="cal-f">Rest</span></div>
                   <div class="cal-c"><div class="cal-d">19</div><span class="cal-f">Reel</span><p class="cal-t">Weekly recap</p></div>
                 </div>
-                <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Riley on production." — Jordan</p>
+                <p class="out-aside">"I front-loaded the trend content. Approve and I'll brief Alex on scripts." — Jordan</p>
               </div>
               <div class="out-foot">
-                <button class="ab approve" onclick="approveCalendarPlan()">Approve &mdash; brief Riley</button>
+                <button class="ab approve" onclick="approveCalendarPlan()">Approve &mdash; brief Alex</button>
                 <button class="ab recon">Adjust timing</button>
                 <button class="ab rej">Rethink angle</button>
                 <button class="ab recon" onclick="openMeeting('Jordan','Content Strategist','J')" style="margin-left:auto">Call meeting</button>
@@ -2065,6 +2094,10 @@
             <div class="cal-legend-item">
               <div class="cal-legend-swatch" style="background:var(--c-maya-b)"></div>
               Maya — Trends
+            </div>
+            <div class="cal-legend-item">
+              <div class="cal-legend-swatch" style="background:var(--c-alex-b)"></div>
+              Alex — Copy
             </div>
             <div class="cal-legend-item">
               <div class="cal-legend-swatch" style="background:var(--c-riley-b)"></div>
@@ -2140,18 +2173,10 @@
     <!-- STUDIO -->
     <div class="view" id="view-db-studio">
 
-<!-- Studio is Riley's domain. The band sits above the masthead so the
-     identity is set before the user reads anything else on the page. -->
-<div class="vx-studio-band" data-employee="riley">
-  <span class="vx-status-dot is-working" style="color:var(--vx-riley)"></span>
-  <span class="vx-employee-name" style="color:var(--vx-riley)">RILEY</span>
-  <span class="vx-tile__separator">·</span>
-  <span class="vx-studio-band__role">Creative Director</span>
-</div>
-
 <!-- MASTHEAD — matches .masthead pattern from Posts/Audience/Knowledge -->
 <section class="masthead">
   <div>
+    <div class="kicker"><span class="rule"></span><span class="eyebrow">§ Production</span></div>
     <h1>Clip, edit, and <em>ship</em>.</h1>
     <p class="sub">Upload raw footage. Riley auto-clips and applies your aesthetic. Then post directly to any platform.</p>
   </div>
@@ -2181,41 +2206,16 @@
     <div class="kpi-head">
       <div class="l">
         <div class="lbl" id="processing-status">Processing...</div>
-        <div class="sub" id="processing-detail">Preparing your videos</div>
+        <div class="sub" id="processing-detail">Uploading to Descript...</div>
       </div>
-      <div class="r" style="display:flex;align-items:center;gap:14px">
-        <div style="text-align:right">
-          <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
-          <div style="font-size:11px;color:var(--t3)" id="processing-elapsed">just now</div>
-        </div>
-        <button id="processing-dismiss" type="button" aria-label="Hide" title="Hide this card"
-          style="background:transparent;border:1px solid var(--b1);color:var(--t3);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:0">&times;</button>
+      <div class="r">
+        <div style="font-size:24px;font-weight:600" id="processing-progress">0%</div>
+        <div style="font-size:11px;color:var(--t3)">time remaining</div>
       </div>
     </div>
     <div style="background:var(--b1);height:4px;border-radius:2px;overflow:hidden;margin-top:16px">
       <div style="background:var(--accent);height:100%;width:0%;transition:width .3s ease" id="processing-bar"></div>
     </div>
-    <!-- Phase pills -->
-    <div id="processing-phases" style="display:flex;gap:6px;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase">
-      <div data-phase="upload" style="flex:1;padding:6px 8px;border:1px solid var(--b1);border-radius:6px;text-align:center;color:var(--t3);background:transparent;transition:all .25s ease">1 · Upload</div>
-      <div data-phase="combine" style="flex:1;padding:6px 8px;border:1px solid var(--b1);border-radius:6px;text-align:center;color:var(--t3);background:transparent;transition:all .25s ease">2 · Combine</div>
-      <div data-phase="edit" style="flex:1;padding:6px 8px;border:1px solid var(--b1);border-radius:6px;text-align:center;color:var(--t3);background:transparent;transition:all .25s ease">3 · Riley editing</div>
-      <div data-phase="done" style="flex:1;padding:6px 8px;border:1px solid var(--b1);border-radius:6px;text-align:center;color:var(--t3);background:transparent;transition:all .25s ease">4 · Done</div>
-    </div>
-  </div>
-</div>
-
-<!-- COMPLETION BANNER (persistent until dismissed) -->
-<div id="studio-complete-banner" style="display:none;padding:16px 40px 0">
-  <div style="background:linear-gradient(135deg, rgba(159,179,138,.18), rgba(159,179,138,.08));border:1px solid var(--ok);border-radius:10px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px">
-    <div style="display:flex;align-items:center;gap:14px">
-      <div style="font-size:22px">✓</div>
-      <div>
-        <div style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em" id="complete-banner-title">Your reel is ready</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px" id="complete-banner-detail">Review and approve below</div>
-      </div>
-    </div>
-    <button id="studio-complete-dismiss" style="padding:8px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border:none;border-radius:6px;background:var(--ok);color:#000;cursor:pointer">Got it</button>
   </div>
 </div>
 
@@ -2228,9 +2228,9 @@
       <h3>Pending Approval · <em><span data-studio-pending-count>2 items</span></em></h3>
     </div>
 
-    <!-- Studio: clips to review -->
+    <!-- Dynamic clip cards rendered by studio-wire.js -->
     <div id="studio-pending-container">
-      <!-- Studio clip cards -->
+      <!-- Clips rendered dynamically by studio-wire.js -->
     </div><!-- /studio-pending-container -->
   </div>
 
@@ -2240,69 +2240,105 @@
       <h3>When to <em>Post</em></h3>
     </div>
     <div style="font-size:12px;color:var(--t2);margin-bottom:16px">Jordan's strategy based on your audience peaks, trending topics, and format performance</div>
-    <div id="studio-peak-summary" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1);margin-bottom:16px">
       <span style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)">Audience peaks</span>
-      <span id="studio-peak-label" style="font-size:16px;font-weight:600;color:var(--t1);letter-spacing:-.01em">—</span>
-    </div>
-    <div id="studio-strategy-slots">
-      <!-- Suggested posting times -->
-      <div style="color:var(--t3);font-size:12px;padding:20px 0;text-align:center">Loading Jordan's strategy…</div>
+      <span style="font-size:16px;font-weight:600;color:var(--t1);letter-spacing:-.01em">Tue 2 PM UTC</span>
     </div>
 
-    <!-- Download moved to per-video card actions for cleaner sidebar.
-         The Schedule flow + bottom ticker remain SHELVED until auto-
-         posting is built (Meta + TikTok API reviews must clear first).
-         The schedule markup is kept in source but display:none — see
-         body.html and studio-wire.js for the dormant code. -->
-    <!-- SHELVED: Schedule UI. Re-enable by removing the display:none on this wrapper and on #studio-schedule-ticker below. -->
-    <div data-feature="schedule-shelved" style="display:none;border-top:1px solid var(--b1);padding-top:14px;margin-top:6px">
-      <button class="btn" data-studio-action="open-schedule-picker" data-clip-id="pending"
-        style="width:100%;padding:12px;font-size:12px;border-radius:8px;cursor:pointer" disabled>
-        Schedule for later
-      </button>
-      <div id="studio-schedule-picker" style="display:none;border:1px solid var(--b1);border-radius:8px;padding:10px;background:var(--bg);margin-top:10px">
-        <label style="display:block;font-size:11px;color:var(--t3);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Post at</label>
-        <input type="datetime-local" id="studio-schedule-when" style="width:100%;padding:8px;font-size:12px;border:1px solid var(--b1);border-radius:6px;background:var(--bg);color:var(--t1);font-family:inherit" />
-        <label style="display:block;font-size:11px;color:var(--t3);margin:10px 0 6px;letter-spacing:.04em;text-transform:uppercase">Caption <span style="color:var(--t3);text-transform:none;letter-spacing:0">(optional — can be added later)</span></label>
-        <textarea id="studio-schedule-caption" rows="4" maxlength="2200"
-          placeholder="Write the caption that'll go out with this post. Hashtags, mentions, line breaks all welcome."
-          style="width:100%;padding:8px;font-size:12px;border:1px solid var(--b1);border-radius:6px;background:var(--bg);color:var(--t1);font-family:inherit;resize:vertical;min-height:80px;box-sizing:border-box"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--t3);margin-top:4px">
-          <span id="studio-schedule-caption-count">0 / 2200</span>
-          <span style="font-style:italic">IG cap is 2,200 characters</span>
+    <!-- Primary -->
+    <div style="background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:4px">Primary</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Tuesday, April 29 · 2:00 PM</div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn-fill" data-studio-action="schedule-submit"
-            style="flex:1;padding:8px;font-size:11px;border-radius:6px;cursor:pointer">Schedule</button>
-          <button class="btn" data-studio-action="schedule-cancel"
-            style="flex:1;padding:8px;font-size:11px;border-radius:6px;cursor:pointer">Cancel</button>
+        <span style="font-size:11px;font-weight:600;color:var(--ok);padding:4px 8px;background:rgba(159,179,138,.15);border-radius:4px">92%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Your audience is most active then. Reels get 23% more views at this time.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(159,179,138,.15);color:var(--ok)">Audience peak</span>
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)">Format trending</span>
+        <span style="font-size:10px;padding:3px 8px;border-radius:4px;background:var(--b1);color:var(--t2)">High signal day</span>
+      </div>
+      <button class="btn-fill" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T14:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Secondary -->
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Alternative</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Monday, April 28 · 2:00 PM</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--accent);padding:4px 8px;background:var(--accent-soft);border-radius:4px">84%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Second-best posting day, same peak hour. Good backup if Tuesday feels crowded.</div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-28T14:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Tertiary -->
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:8px;padding:14px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Testing window</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Tuesday, April 29 · 8:00 AM</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--down);padding:4px 8px;background:rgba(196,138,138,.15);border-radius:4px">71%</span>
+      </div>
+      <div style="font-size:12px;line-height:1.5;color:var(--t2);margin-bottom:10px">Early morning — lower competition. Good for testing novel angles.</div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule" data-clip-id="clip-1" data-scheduled-time="2026-04-29T08:00:00Z">Schedule for this time</button>
+    </div>
+
+    <!-- Custom time -->
+    <div style="border-top:1px solid var(--b1);padding-top:14px">
+      <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Custom time</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Date</label>
+          <input type="date" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" min="2026-04-22" data-studio-input="date">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--t3);display:block;margin-bottom:4px">Time (UTC)</label>
+          <input type="time" style="width:100%;border:1px solid var(--b1);border-radius:4px;padding:7px;font-size:11px;background:var(--bg);color:var(--t2);font-family:inherit" data-studio-input="time">
         </div>
       </div>
+      <button class="btn" style="width:100%;padding:9px;font-size:11px" data-studio-action="schedule-custom" data-clip-id="clip-1">Schedule at custom time</button>
+    </div>
+
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn" style="padding:7px 20px;font-size:11px;color:var(--t3)" data-studio-action="save-draft" data-clip-id="clip-1">Save as draft instead</button>
     </div>
   </div>
 </div>
 
-<!-- SHELVED: Scheduled-videos ticker. Re-enable by removing the
-     display:none on the wrapper. Backend endpoints + JS handlers are
-     left in place so flipping this back on works without a rebuild. -->
-<div id="studio-schedule-ticker" data-empty="true" data-feature="schedule-shelved"
-  style="display:none;margin-top:14px;border-top:1px solid var(--b1);padding-top:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Scheduled to post</span>
-    <span id="studio-schedule-ticker-count" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)"></span>
+<!-- READY CLIPS — padded section -->
+<section style="padding:28px 40px">
+  <div class="section-head">
+    <h3>Ready to <em>Post</em> · 4 clips</h3>
   </div>
-  <div id="studio-schedule-ticker-rail"
-    style="display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;scroll-snap-type:x mandatory">
-    <div data-schedule-ticker-empty
-      style="font-size:12px;color:var(--t3);padding:18px 0;text-align:center;width:100%">
-      Nothing scheduled yet — approve a clip and tap "Schedule for later" to queue it.
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px" id="studio-clips">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:24px;text-align:center;color:var(--t3);font-size:12px">Clips will appear here once processed</div>
+  </div>
+</section>
+
+<!-- SCHEDULE CONFIRM MODAL -->
+<div id="schedule-confirm-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:1000">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:28px;max-width:380px;width:90%;box-shadow:0 20px 60px var(--sh)">
+    <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:10px">Confirm Scheduling</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:20px">
+      This post will be scheduled to Instagram on <strong id="confirm-time">Tuesday, April 29 at 2:00 PM UTC</strong>. You can reschedule anytime before it goes live.
+    </div>
+    <div style="display:flex;gap:12px">
+      <button class="btn-fill" id="schedule-confirm-btn" style="flex:1;padding:12px;font-size:12px;background:var(--ok);border:none;cursor:pointer;color:#000;font-weight:600">Yes, schedule it</button>
+      <button class="btn" style="flex:1;padding:12px;font-size:12px" onclick="document.getElementById('schedule-confirm-modal').style.display='none'">Cancel</button>
     </div>
   </div>
 </div>
 
 <div class="foot-row">
-  <span>SOVEXA · STUDIO · PRO</span>
+  <span>SOVEXA · STUDIO · BUILD 087 · PRO</span>
   <span class="brand">Your content. Run by a team.</span>
+  <span>API 200 · RUNWAY OK · DESCRIPT OK</span>
 </div>
 
     </div>
@@ -2316,7 +2352,7 @@
 <section style="padding:32px 40px 18px">
   <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
     <div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Explore</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">§ Explore</div>
       <h1 style="font-family:'Cormorant Garamond',serif;font-weight:400;font-size:42px;line-height:1.05;color:var(--t1);margin:0">What's <em style="font-style:italic;color:var(--accent)">trending</em> in your niche.</h1>
       <p id="feed-sub" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--t2);margin:8px 0 0;max-width:600px;line-height:1.55">Content from creators in your space, plus articles and discussions worth your attention.</p>
     </div>
@@ -2329,13 +2365,16 @@
   </div>
 </section>
 
-<!-- Knowledge explore grid -->
+<!-- IG/Apple-style explore grid: one continuous flow.
+     The first item renders as a hero (2 cols × 2 rows). #knowledge-featured
+     is kept as a hidden no-op so the wire can still target it; the CSS
+     forces display:none. -->
 <section style="padding:0 40px;margin-top:24px">
   <div id="knowledge-featured" class="vx-explore-featured" aria-hidden="true"></div>
   <div id="knowledge-explore-grid" class="vx-explore-grid"></div>
 </section>
 
-<!-- Hidden placeholders for alternate layouts -->
+<!-- Hidden — kept so legacy wire references don't error -->
 <div id="knowledge-images-col" style="display:none"></div>
 <div id="knowledge-reels-grid" style="display:none"></div>
 <div id="knowledge-articles-rail" style="display:none"></div>
@@ -2343,18 +2382,19 @@
 <div id="community-share-panel" style="display:none"></div>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · PRO</span>
+  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
 
     </div>
 
-    <!-- Admin: community moderation (admin accounts only) -->
+    <!-- ADMIN: Community moderation queue. Visible only when /api/auth/me
+         returns user.isAdmin === true. Populated by admin-community-wire.js. -->
     <div class="view" id="view-admin-community" style="display:none">
       <section class="mast">
         <div>
-          <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">Admin · Moderation</span></div>
+          <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Admin · Moderation</span></div>
           <h1>Community <em>reports</em>.</h1>
           <p class="sub">Reported posts are hidden from every community feed until you resolve.</p>
         </div>
@@ -2375,7 +2415,8 @@
         <div class="settings-grid">
           <div class="settings-nav">
             <button class="settings-nav-item active" onclick="switchSettings(this,'profile')">Profile</button>
-            <button type="button" class="settings-nav-item" id="vx-settings-niche-tab" hidden onclick="switchSettings(this,'niche')">Niche</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'brand')">Brand Voice</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'niche')">Niche</button>
             <button class="settings-nav-item" onclick="switchSettings(this,'billing')">Billing</button>
           </div>
           <div>
@@ -2388,7 +2429,7 @@
                 <button class="settings-save">Save changes</button>
                 <p style="margin-top:16px;font-size:12px;color:var(--t3);line-height:1.5">Need a refresher on the dashboard? <button type="button" class="vx-replay-tips" onclick="if(typeof window.vxReplayTutorial==='function')window.vxReplayTutorial()" style="background:none;border:none;color:var(--t2);cursor:pointer;text-decoration:underline;padding:0;font:inherit">Replay quick tips</button></p>
               </div>
-              <div class="settings-section" id="settings-community-section" hidden style="margin-top:32px;border-top:1px solid var(--hair,rgba(20,16,10,.08));padding-top:28px">
+              <div class="settings-section" style="margin-top:32px;border-top:1px solid var(--hair,rgba(20,16,10,.08));padding-top:28px">
                 <h3>Community sharing</h3>
                 <p style="margin-bottom:16px">When on, your <strong>10 most popular videos</strong> can appear in the Knowledge feed of other CEOs in your niche, tagged with your @handle and a link back to your original post. You won't see your own content in your own feed.</p>
                 <label style="display:flex;align-items:center;gap:12px;cursor:pointer;font-size:13px;color:var(--t1)">
@@ -2396,6 +2437,16 @@
                   <span>Allow my top videos to appear in the Knowledge feed</span>
                 </label>
                 <div id="settings-community-status" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)"></div>
+              </div>
+            </div>
+            <div class="settings-panel" id="settings-brand">
+              <div class="settings-section">
+                <h3>Brand Voice</h3>
+                <p>How your team writes for you. The more specific, the better the outputs.</p>
+                <div class="settings-field"><span class="settings-label">Tone</span><input class="settings-input" value="Motivational, direct, conversational"></div>
+                <div class="settings-field"><span class="settings-label">Avoid</span><input class="settings-input" value="Corporate jargon, overly technical language"></div>
+                <div class="settings-field"><span class="settings-label">Audience</span><input class="settings-input" value="Women aged 25–35, intermediate fitness level, no gym"></div>
+                <button class="settings-save">Save changes</button>
               </div>
             </div>
             <div class="settings-panel" id="settings-niche">
@@ -2410,10 +2461,9 @@
             <div class="settings-panel" id="settings-billing">
               <div class="settings-section" id="vx-billing-section">
                 <h3>Subscription</h3>
-                <p id="vx-billing-status" style="color:var(--t2);line-height:1.65;margin-bottom:6px;font-size:14px"></p>
-                <p id="vx-billing-usage" hidden style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--t3);line-height:1.5;margin:0 0 4px;text-transform:none"></p>
-                <!-- Subscription plan cards -->
-                <div id="vx-plan-cards"></div>
+                <p id="vx-billing-status" style="color:var(--t2)"></p>
+                <!-- Plan cards -->
+                <div id="vx-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0"></div>
                 <!-- Actions -->
                 <div style="display:flex;gap:10px;margin-top:4px">
                   <button class="settings-save" id="vx-billing-manage" style="display:none">Manage billing</button>
@@ -2428,6 +2478,4 @@
   </div><!-- /main -->
 </div><!-- /app -->
 
-<script type="module">
-  import('/briefs-loader.js').catch(err => console.error('Failed to load briefs:', err))
-</script>
+<!-- briefs-loader.js is loaded via <Script> in PrototypeShell.tsx — no inline import needed -->
