@@ -73,6 +73,8 @@ import { clientSafeApiMessage } from './lib/clientSafeErrorMessage'
 })()
 
 const app = express()
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1)
+app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : 1)
 const PORT = Number(process.env.PORT ?? 4000)
 
 // Security headers — applied to every response.
@@ -130,7 +132,19 @@ app.use(
 )
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vexa-api', mode: getMode(), ts: new Date().toISOString() })
+  const revision =
+    process.env.GIT_SHA
+    || process.env.VERCEL_GIT_COMMIT_SHA
+    || process.env.CODEBUILD_RESOLVED_SOURCE_VERSION
+    || process.env.AWS_COMMIT_ID
+    || null
+  res.json({
+    ok: true,
+    service: 'vexa-api',
+    mode: getMode(),
+    revision,
+    ts: new Date().toISOString(),
+  })
 })
 
 // TikTok URL-prefix verification. TikTok hands out a token file (e.g.
