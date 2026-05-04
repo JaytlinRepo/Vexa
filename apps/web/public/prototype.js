@@ -41,8 +41,12 @@ if(__vxPrototypeBoot){
 //   1. URL hash if it names a real view (refresh-restore + auth-gate target)
 //   2. The .view.active element in the DOM (default = view-home)
 var currentView='home'
+// Routes not exposed in this build — redirect to HQ on load and on navigate()
+var HIDDEN_ROUTES=['db-team','db-tasks','db-knowledge']
 try{
   var __vxHash=(location.hash||'').replace(/^#/,'')
+  // Redirect hidden routes to HQ before restoring scroll position
+  if(HIDDEN_ROUTES.indexOf(__vxHash)>=0)__vxHash='db-dashboard'
   if(/^[a-z0-9-]+$/.test(__vxHash) && document.getElementById('view-'+__vxHash)){
     currentView=__vxHash
   } else {
@@ -66,6 +70,8 @@ var sectionNames={
 }
 
 function navigate(id){
+  if(HIDDEN_ROUTES.indexOf(id)>=0)id='db-dashboard'
+
   // Remove the auth-gate style that uses !important to hide views —
   // once navigate() runs, the .active class handles visibility.
   var gate=document.getElementById('vx-auth-gate')

@@ -9,10 +9,10 @@
   var AGENTS = {
     analyst:           { css: 'var(--ig)',     initial: 'M', label: 'Maya' },
     strategist:        { css: 'var(--tt)',     initial: 'J', label: 'Jordan' },
-    copywriter:        { css: 'var(--accent)', initial: 'A', label: 'Alex' },
     creative_director: { css: 'var(--yt)',     initial: 'R', label: 'Riley' },
   }
-  var ROLE_LIST = ['analyst', 'strategist', 'copywriter', 'creative_director']
+  // Alex (copywriter) is shelved — excluded from ROLE_LIST and filter pills
+  var ROLE_LIST = ['analyst', 'strategist', 'creative_director']
 
   var TYPE_LABEL = {
     trend_report: 'Trend', content_plan: 'Plan', hooks: 'Hooks',
