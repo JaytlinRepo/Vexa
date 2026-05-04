@@ -418,17 +418,17 @@ export async function computeWeeklySummaryExtended(
   const fourWeeksAgo = new Date(weekStart)
   fourWeeksAgo.setUTCDate(fourWeeksAgo.getUTCDate() - 28)
 
-  const historicalPosts = await prisma.platformPost.findMany({
+  const historicalPostsForFormat = await prisma.platformPost.findMany({
     where: { accountId, publishedAt: { gte: fourWeeksAgo, lt: weekStart } },
     select: { mediaType: true, likeCount: true, commentCount: true, shareCount: true },
   })
 
   const formatMomentum: Array<{ format: string; avgEng: number; delta: number; trend: string }> = []
-  const formats = [...new Set([...weekPosts.map((p) => p.mediaType), ...historicalPosts.map((p) => p.mediaType)])]
+  const formats = [...new Set([...weekPosts.map((p) => p.mediaType), ...historicalPostsForFormat.map((p) => p.mediaType)])]
 
   for (const fmt of formats) {
     const thisWeek = weekPosts.filter((p) => p.mediaType === fmt)
-    const historical = historicalPosts.filter((p) => p.mediaType === fmt)
+    const historical = historicalPostsForFormat.filter((p) => p.mediaType === fmt)
 
     const thisAvg = thisWeek.length > 0
       ? avg(thisWeek.map((p) => p.likeCount + p.commentCount * 2 + p.shareCount * 3))

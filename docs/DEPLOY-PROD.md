@@ -28,9 +28,20 @@ Production runs entirely on AWS. Secrets are managed via SSM Parameter Store.
 - Merge `dev` → `main` → manually trigger build (production never auto-deploys)
 
 ### API (App Runner)
+
+**One command** (build with `GIT_SHA` baked into the image for `GET /health` → `revision`, push, deploy):
+
 ```bash
-# 1. Build for amd64 (required — Mac is ARM)
-docker buildx build --platform linux/amd64 -t sovexa-api -f apps/api/Dockerfile .
+bash apps/api/scripts/deploy-apprunner-prod.sh
+```
+
+**Manual steps** (same as the script):
+
+```bash
+# 1. Build for amd64 (required — Mac is ARM). GIT_SHA shows up in /health as `revision`.
+docker buildx build --platform linux/amd64 \
+  --build-arg "GIT_SHA=$(git rev-parse HEAD)" \
+  -t sovexa-api -f apps/api/Dockerfile .
 
 # 2. Push to ECR
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 322513863369.dkr.ecr.us-east-1.amazonaws.com
@@ -42,6 +53,8 @@ aws apprunner start-deployment \
   --service-arn arn:aws:apprunner:us-east-1:322513863369:service/sovexa-api-prod/be31ecaa30bc469db5cdbe3fc87273b4 \
   --region us-east-1
 ```
+
+After rollout (~minutes), verify: `curl -s https://api.sovexa.ai/health` should include `"revision":"<40-char sha>"` matching the commit you built.
 
 ### Database
 - Schema changes: `npx prisma db push` (runs automatically in Docker CMD)

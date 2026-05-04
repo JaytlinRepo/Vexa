@@ -45,11 +45,14 @@ RUN npm run build || true
 
 # ── Runtime stage ─────────────────────────────────────────────
 FROM node:20-alpine AS runtime
+ARG GIT_SHA=
 WORKDIR /repo
 RUN apk add --no-cache openssl
 
 ENV NODE_ENV=production
 ENV PORT=4000
+# Baked at image build — surfaces in GET /health as `revision` (see apps/api/src/index.ts)
+ENV GIT_SHA=${GIT_SHA}
 
 # Copy what runtime needs
 COPY --from=build /repo/node_modules ./node_modules
