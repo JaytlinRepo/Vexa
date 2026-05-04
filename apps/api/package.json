@@ -19,7 +19,8 @@
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:knowledge": "tsx scripts/seed-niche-knowledge.ts",
     "sync:all": "tsx scripts/sync-all.ts",
-    "dev:test": "VEXA_MODE=test tsx watch src/index.ts"
+    "dev:test": "VEXA_MODE=test tsx watch src/index.ts",
+    "test:auth-rate-limit": "NODE_ENV=production SESSION_SECRET=test-secret-for-auth-rate-limit-smoke-only tsx scripts/test-auth-rate-limit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.600.0",
