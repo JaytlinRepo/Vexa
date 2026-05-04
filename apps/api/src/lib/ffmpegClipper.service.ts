@@ -41,6 +41,17 @@ const VIDEO_CODEC_EXTRA: string[] = VIDEO_CODEC === 'libx264'
   ? ['-preset', 'veryfast', '-crf', '23']
   : ['-b:v', '8M']
 
+// Per-segment cut codec — ALWAYS libx264 for frame-accurate seek.
+// h264_videotoolbox (macOS) does NOT honor output-seek (-ss after -i)
+// reliably: it includes 3-4 leading frames from BEFORE the requested
+// startTime, which renders as a visible "glitch repeat" at concat
+// joins. libx264 respects output-seek precisely. The cost is ~30%
+// slower per-segment encode on macOS dev — totally acceptable for
+// the cut step (seconds of work). The final concat can still use
+// the platform encoder for max throughput on long outputs.
+const SEGMENT_CUT_CODEC = 'libx264'
+const SEGMENT_CUT_CODEC_EXTRA = ['-preset', 'veryfast', '-crf', '23']
+
 export interface ClipResult {
   s3Key: string
   duration: number
@@ -128,7 +139,7 @@ export async function buildReel(params: {
         '-i', inputPath,
         '-ss', String(outputSeek),
         '-t', String(duration),
-        '-c:v', VIDEO_CODEC, ...VIDEO_CODEC_EXTRA,
+        '-c:v', SEGMENT_CUT_CODEC, ...SEGMENT_CUT_CODEC_EXTRA,
         '-c:a', 'aac', '-b:a', '128k',
         '-vf', vfStr,
         ...(afStr ? ['-af', afStr] : []),
