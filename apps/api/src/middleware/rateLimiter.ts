@@ -27,6 +27,31 @@ function skipInDev(_req: Request): boolean {
   return isDev
 }
 
+// Auth rate limiter — accounts in this set bypass the 30-attempt gate.
+// Matched case-insensitively against the request body's `identifier`
+// (login), `email` (signup/forgot-password), or `username` field.
+// Used during demos / repeated-login testing where the limiter would
+// otherwise lock out a known-good test account on a shared IP.
+//
+// Keep the list short and obviously non-production. Adding a real
+// customer here defeats the brute-force protection for that account.
+const AUTH_LIMITER_BYPASS_IDENTIFIERS = new Set<string>([
+  'jaytlin',           // test account — repeated login flows
+  // add more usernames or emails as needed
+])
+
+function isAuthLimiterBypassed(req: Request): boolean {
+  const body = (req.body ?? {}) as Record<string, unknown>
+  for (const field of ['identifier', 'email', 'username']) {
+    const v = body[field]
+    if (typeof v === 'string' && v.trim().length > 0
+        && AUTH_LIMITER_BYPASS_IDENTIFIERS.has(v.trim().toLowerCase())) {
+      return true
+    }
+  }
+  return false
+}
+
 // General API rate limit — 100 requests per minute per user/IP
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -40,13 +65,14 @@ export const apiLimiter = rateLimit({
 })
 
 // Auth endpoints — 30 attempts per 15 minutes per real client IP (production only)
+// Skips entirely in dev, AND for known test accounts (see bypass set above).
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator: (req: Request) => clientIp(req),
-  skip: skipInDev,
+  skip: (req: Request) => skipInDev(req) || isAuthLimiterBypassed(req),
   validate: { xForwardedForHeader: false, keyGeneratorIpFallback: false },
   message: { error: 'rate_limited', message: 'Too many login attempts. Try again later.' },
 })
