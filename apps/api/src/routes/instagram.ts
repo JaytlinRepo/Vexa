@@ -116,47 +116,25 @@ router.get('/auth/callback', async (req, res) => {
     res.status(400).type('html').send('<h1>State mismatch</h1><p>Refresh and try again.</p>')
     return
   }
-  let companyId = decoded.c
-
-  // Pending signup path: companyId is empty — create user+company atomically now.
-  if (!companyId) {
-    // Look up by nonce (stored at /auth/start time, survives cross-site redirect).
-    // Fall back to cookie for same-origin flows.
-    const pending = getPendingByNonce(decoded.n) ?? await readPendingSignup(req)
-    console.log('[instagram] pending data:', pending ? `email=${pending.email} company=${pending.companyName} niche=${pending.niche}` : 'null')
-    if (!pending?.companyName || !pending?.niche) {
-      res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
-      return
-    }
-    const EMPLOYEE_SEED = [
-      { role: 'analyst' as const, name: 'Maya' },
-      { role: 'strategist' as const, name: 'Jordan' },
-      { role: 'copywriter' as const, name: 'Alex' },
-      { role: 'creative_director' as const, name: 'Riley' },
-    ]
-    const created = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: { email: pending.email, username: pending.username, passwordHash: pending.passwordHash, fullName: pending.fullName ?? null },
-        select: { id: true, email: true },
-      })
-      const company = await tx.company.create({
-        data: { userId: user.id, name: pending.companyName!, niche: pending.niche!, employees: { create: EMPLOYEE_SEED } },
-        select: { id: true },
-      })
-      return { user, company }
-    })
-    companyId = created.company.id
-    clearPendingSignup(res)
-    deletePendingByNonce(decoded.n)
-    await createSession(res, { userId: created.user.id, email: created.user.email })
-    // Seed tasks + welcome notification fire-and-forget
-    const { seedStarterTasks } = await import('../lib/seedStarterTasks')
-    seedStarterTasks(prisma, { companyId, niche: pending.niche! }).catch(() => {})
-  }
-
   if (!code) {
     res.status(400).type('html').send('<h1>No code returned</h1>')
     return
+  }
+
+  let companyId = decoded.c
+
+  // Pending signup path: companyId is empty — read+validate pending data now,
+  // but do NOT create DB records yet. User+company is created after OAuth succeeds.
+  let pendingSignup: Awaited<ReturnType<typeof readPendingSignup>> | null = null
+  if (!companyId) {
+    // Look up by nonce (stored at /auth/start time, survives cross-site redirect).
+    // Fall back to cookie for same-origin flows.
+    pendingSignup = getPendingByNonce(decoded.n) ?? await readPendingSignup(req)
+    console.log('[instagram] pending data:', pendingSignup ? `email=${pendingSignup.email} company=${pendingSignup.companyName} niche=${pendingSignup.niche}` : 'null')
+    if (!pendingSignup?.companyName || !pendingSignup?.niche) {
+      res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
+      return
+    }
   }
 
   try {
@@ -178,6 +156,35 @@ router.get('/auth/callback', async (req, res) => {
       return
     }
     console.log('[instagram] found IG Business Account:', igBiz.igBusinessId, 'on page', igBiz.pageName)
+
+    // Pending signup: platform connection verified — now create user+company atomically.
+    if (pendingSignup) {
+      const pending = pendingSignup
+      const EMPLOYEE_SEED = [
+        { role: 'analyst' as const, name: 'Maya' },
+        { role: 'strategist' as const, name: 'Jordan' },
+        { role: 'copywriter' as const, name: 'Alex' },
+        { role: 'creative_director' as const, name: 'Riley' },
+      ]
+      const created = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: { email: pending.email, username: pending.username, passwordHash: pending.passwordHash, fullName: pending.fullName ?? null },
+          select: { id: true, email: true },
+        })
+        const company = await tx.company.create({
+          data: { userId: user.id, name: pending.companyName!, niche: pending.niche!, employees: { create: EMPLOYEE_SEED } },
+          select: { id: true },
+        })
+        return { user, company }
+      })
+      companyId = created.company.id
+      clearPendingSignup(res)
+      deletePendingByNonce(decoded.n)
+      await createSession(res, { userId: created.user.id, email: created.user.email })
+      // Seed tasks + welcome notification fire-and-forget
+      const { seedStarterTasks } = await import('../lib/seedStarterTasks')
+      seedStarterTasks(prisma, { companyId, niche: pending.niche! }).catch(() => {})
+    }
 
     // Fetch profile (required) + media/audience (best-effort)
     const profile = await meta.getIGProfile(igBiz.igBusinessId, accessToken)

@@ -187,36 +187,15 @@ router.get('/callback', async (req, res) => {
   const codeVerifier = decoded.v
   let stateCompanyId = decoded.c
 
-  // Pending signup path: companyId is empty — create user+company atomically now.
+  // Pending signup path: companyId is empty — read+validate pending data now,
+  // but do NOT create DB records yet. User+company is created after token exchange succeeds.
+  let pendingSignup: Awaited<ReturnType<typeof readPendingSignup>> | null = null
   if (!stateCompanyId) {
-    const pending = getPendingByNonce(decoded.nonce) ?? await readPendingSignup(req)
-    if (!pending?.companyName || !pending?.niche) {
+    pendingSignup = getPendingByNonce(decoded.nonce) ?? await readPendingSignup(req)
+    if (!pendingSignup?.companyName || !pendingSignup?.niche) {
       res.status(400).type('html').send('<h1>Signup session expired</h1><p>Please sign up again.</p>')
       return
     }
-    const EMPLOYEE_SEED = [
-      { role: 'analyst' as const, name: 'Maya' },
-      { role: 'strategist' as const, name: 'Jordan' },
-      { role: 'copywriter' as const, name: 'Alex' },
-      { role: 'creative_director' as const, name: 'Riley' },
-    ]
-    const created = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: { email: pending.email, username: pending.username, passwordHash: pending.passwordHash, fullName: pending.fullName ?? null },
-        select: { id: true, email: true },
-      })
-      const company = await tx.company.create({
-        data: { userId: user.id, name: pending.companyName!, niche: pending.niche!, employees: { create: EMPLOYEE_SEED } },
-        select: { id: true },
-      })
-      return { user, company }
-    })
-    stateCompanyId = created.company.id
-    clearPendingSignup(res)
-    deletePendingByNonce(decoded.nonce)
-    await createSession(res, { userId: created.user.id, email: created.user.email })
-    const { seedStarterTasks } = await import('../lib/seedStarterTasks')
-    seedStarterTasks(prisma, { companyId: stateCompanyId, niche: pending.niche! }).catch(() => {})
   }
 
   if (!code) {
@@ -312,6 +291,34 @@ router.get('/callback', async (req, res) => {
     profileFields: profile ? Object.keys(profile).length : 0,
     videoCount: videos.length,
   })
+
+  // Pending signup: token exchange succeeded — now create user+company atomically.
+  if (pendingSignup) {
+    const pending = pendingSignup
+    const EMPLOYEE_SEED = [
+      { role: 'analyst' as const, name: 'Maya' },
+      { role: 'strategist' as const, name: 'Jordan' },
+      { role: 'copywriter' as const, name: 'Alex' },
+      { role: 'creative_director' as const, name: 'Riley' },
+    ]
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email: pending.email, username: pending.username, passwordHash: pending.passwordHash, fullName: pending.fullName ?? null },
+        select: { id: true, email: true },
+      })
+      const company = await tx.company.create({
+        data: { userId: user.id, name: pending.companyName!, niche: pending.niche!, employees: { create: EMPLOYEE_SEED } },
+        select: { id: true },
+      })
+      return { user, company }
+    })
+    stateCompanyId = created.company.id
+    clearPendingSignup(res)
+    deletePendingByNonce(decoded.nonce)
+    await createSession(res, { userId: created.user.id, email: created.user.email })
+    const { seedStarterTasks } = await import('../lib/seedStarterTasks')
+    seedStarterTasks(prisma, { companyId: stateCompanyId, niche: pending.niche! }).catch(() => {})
+  }
 
   // If a companyId was set at /auth/start, persist the connection and send
   // the user back to the web dashboard. Otherwise (sandbox smoke test), fall
