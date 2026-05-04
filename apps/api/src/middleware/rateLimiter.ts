@@ -58,7 +58,11 @@ function skipInDev(_req: Request): boolean {
 //
 // Keep the list short and obviously non-production. Adding a real
 // customer here defeats the brute-force protection for that account.
-const AUTH_LIMITER_BASE_BYPASS = ['jaytlin'] as const // matches username or jaytlin@… (local-part)
+// Matches against username, email, OR the local-part of an email. Both
+// `jaytlin` (the username variant) and `jaytaskew` (matches the
+// jaytaskew@gmail.com primary test account) are listed so any of those
+// login identifiers skip the limiter.
+const AUTH_LIMITER_BASE_BYPASS = ['jaytlin', 'jaytaskew'] as const
 
 /** NFC + strip invisible unicode (copy/paste); trim + lowercase. */
 function normalizeAuthBypassToken(raw: string): string {
