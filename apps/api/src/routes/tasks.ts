@@ -12,6 +12,7 @@ import { AgentRole } from '../lib/nicheKnowledge'
 import { triggerNextAgentAfterApproval, type AgentPipelineChainResult } from '../agents/task-orchestrator'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
 import { PLAN_LIMITS } from '../lib/plans'
+import { isUnlimitedUser, UNLIMITED_LIMITS } from '../lib/unlimitedAccounts'
 import { getBedrockUsage, getCooldown, setCooldown, deleteCooldown } from '../lib/rateLimitStore'
 
 const router = Router()
@@ -73,8 +74,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     }
 
     // Plan-based enforcement
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true } })
-    const plan = PLAN_LIMITS[user?.plan ?? 'free']
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { plan: true, username: true } })
+    const plan = isUnlimitedUser(user) ? UNLIMITED_LIMITS : PLAN_LIMITS[user?.plan ?? 'free']
 
     // Cooldown: plan-based minutes between briefs per agent (Redis-backed)
     const cooldownMs = plan.briefCooldownMin * 60 * 1000

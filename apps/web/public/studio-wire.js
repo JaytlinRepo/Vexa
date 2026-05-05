@@ -552,7 +552,17 @@
       })
       if (!res.ok) {
         let errMsg = 'Batch upload failed'
-        try { const err = await res.json(); errMsg = err.error || errMsg } catch {}
+        try {
+          const err = await res.json()
+          if (err.error === 'studio_limit_exceeded') {
+            const u = err.usage && err.usage.studioEdits
+            errMsg = u
+              ? `Studio edit limit reached — ${u.used}/${u.limit} this month. Upgrade to keep editing.`
+              : 'Studio edit limit reached for this month. Upgrade to keep editing.'
+          } else {
+            errMsg = err.message || err.error || errMsg
+          }
+        } catch {}
         throw new Error(errMsg)
       }
       const json = await res.json()
@@ -605,7 +615,14 @@
       })
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || 'Upload failed')
+        if (err.error === 'studio_limit_exceeded') {
+          const u = err.usage && err.usage.studioEdits
+          const msg = u
+            ? `Studio edit limit reached — ${u.used}/${u.limit} this month. Upgrade to keep editing.`
+            : 'Studio edit limit reached for this month. Upgrade to keep editing.'
+          throw new Error(msg)
+        }
+        throw new Error(err.message || err.error || 'Upload failed')
       }
       const json = await res.json()
       if (bar) bar.style.width = '15%'
@@ -634,7 +651,7 @@
     'Extract keyframes': 'Pulling frames for visual analysis...',
     'Analyze clip (Riley)': 'Riley is watching your video and picking the best moments...',
     'Build reel (FFmpeg)': 'Building reel from best moments...',
-    'Write captions (Alex)': 'Alex is writing captions...',
+    'Write captions (Riley)': 'Riley is writing captions...',
   }
 
   function connectProcessingStream(uploadId) {
@@ -717,7 +734,7 @@
       { at: 5, pct: 50, label: 'Riley is picking the best moments...', detail: 'Analyzing transcript for high-energy segments' },
       { at: 8, pct: 65, label: 'Building reel from best moments...', detail: 'Cutting and encoding segments' },
       { at: 15, pct: 80, label: 'Still encoding...', detail: 'Large files take a bit longer' },
-      { at: 20, pct: 85, label: 'Alex is writing captions...', detail: 'Captions based on what was actually said' },
+      { at: 20, pct: 85, label: 'Riley is writing captions...', detail: 'Captions based on what was actually said' },
       { at: 30, pct: 90, label: 'Almost done...', detail: 'Uploading to S3' },
     ]
 
@@ -830,7 +847,7 @@
 
           <!-- Captions -->
           <div style="max-height:400px;overflow-y:auto">
-            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;position:sticky;top:0;background:var(--s1);padding:4px 0;z-index:1">Alex's captions — choose one</div>
+            <div style="font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;position:sticky;top:0;background:var(--s1);padding:4px 0;z-index:1">Captions — choose one</div>
             ${captions.length > 0 ? captions.map((cap, i) => `
               <div style="background:var(--bg);border:${i === 0 ? '2px solid var(--accent)' : '1px solid var(--b1)'};border-radius:8px;padding:12px;margin-bottom:10px">
                 <div style="font-size:13px;font-weight:500;line-height:1.5;color:var(--t1);margin-bottom:4px">"${(cap.text || '').replace(/"/g, '&quot;')}"</div>

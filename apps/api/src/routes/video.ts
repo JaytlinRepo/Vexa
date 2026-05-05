@@ -11,6 +11,7 @@ import { PrismaClient } from '@prisma/client'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import VideoProcessingService from '../lib/videoProcessing.service'
 import { uploadFile, buildUploadKey, getPresignedUrl, deleteFile } from '../services/storage/s3.service'
+import { assertStudioEditQuota } from '../lib/usage'
 import multer from 'multer'
 
 const router = Router()
@@ -53,6 +54,16 @@ export function initVideoRoutes(_prisma: PrismaClient) {
 
       if (!company) {
         return res.status(403).json({ error: 'Company not found' })
+      }
+
+      try {
+        await assertStudioEditQuota(prisma, userId)
+      } catch (err) {
+        const e = err as Error & { code?: string; usage?: unknown }
+        if (e.code === 'studio_limit_exceeded') {
+          return res.status(402).json({ error: 'studio_limit_exceeded', usage: e.usage })
+        }
+        throw err
       }
 
       const file = (req as any).files?.[0] || (req as any).file
@@ -220,6 +231,27 @@ export function initVideoRoutes(_prisma: PrismaClient) {
       if (!files || files.length < 2) {
         res.status(400).json({ error: 'At least 2 video files required' })
         return
+      }
+
+      // Studio quota — batch creates one VideoUpload row per file, so reject
+      // if the entire batch wouldn't fit under the user's monthly cap.
+      try {
+        const usage = await assertStudioEditQuota(prisma, userId)
+        if (usage.studioEdits.used + files.length > usage.studioEdits.limit) {
+          res.status(402).json({
+            error: 'studio_limit_exceeded',
+            message: `Batch of ${files.length} would exceed your remaining ${usage.studioEdits.limit - usage.studioEdits.used} Studio edits this month.`,
+            usage,
+          })
+          return
+        }
+      } catch (err) {
+        const e = err as Error & { code?: string; usage?: unknown }
+        if (e.code === 'studio_limit_exceeded') {
+          res.status(402).json({ error: 'studio_limit_exceeded', usage: e.usage })
+          return
+        }
+        throw err
       }
 
       // Upload all files to S3 and create VideoUpload records

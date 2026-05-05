@@ -113,6 +113,7 @@ router.get('/subscription', requireAuth, async (req, res, next) => {
     let usage: {
       tasks: { used: number; limit: number; resetAt: string; resetWindow: 'daily' | 'monthly' }
       videos: { used: number; limit: number; resetAt: string }
+      studioEdits: { used: number; limit: number; resetAt: string }
       workspaces: { used: number; limit: number }
       meetingFeature: boolean
       brandMemory: boolean
@@ -124,6 +125,7 @@ router.get('/subscription', requireAuth, async (req, res, next) => {
       usage = {
         tasks: u.tasks,
         videos: u.videos,
+        studioEdits: u.studioEdits,
         workspaces: u.workspaces,
         meetingFeature: u.meetingFeature,
         brandMemory: u.brandMemory,

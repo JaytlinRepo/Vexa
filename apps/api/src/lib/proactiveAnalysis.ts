@@ -2,6 +2,7 @@ import { PrismaClient, EmployeeRole } from '@prisma/client'
 import { orchestrateTask } from '../agents/task-orchestrator'
 import { createNotification } from '../services/notifications/notification.service'
 import { PLAN_LIMITS } from './plans'
+import { isUnlimitedUser, UNLIMITED_LIMITS } from './unlimitedAccounts'
 
 const DEDUP_WINDOW_MS = 6 * 24 * 60 * 60 * 1000 // 6 days
 
@@ -83,13 +84,13 @@ async function triggerMayaTask(
     where: { id: companyId },
     include: {
       employees: { where: { role: 'analyst', isActive: true } },
-      user: { select: { plan: true } },
+      user: { select: { plan: true, username: true } },
     },
   })
   if (!company) return { triggered: false, reason: 'company_not_found' }
 
   // Check plan allows this feature
-  const plan = PLAN_LIMITS[company.user.plan]
+  const plan = isUnlimitedUser(company.user) ? UNLIMITED_LIMITS : PLAN_LIMITS[company.user.plan]
   const isPerformanceReview = opts.type === 'performance_review'
   const isPulse = opts.type === 'weekly_pulse'
   if (isPerformanceReview && !plan.proactiveAnalysis) return { triggered: false, reason: 'plan_locked' }

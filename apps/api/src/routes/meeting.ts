@@ -4,6 +4,7 @@ import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { isTestMode } from '../lib/mode'
 import { readTopMemories, formatMemoryForPrompt } from '../lib/brandMemory'
 import { PLAN_LIMITS } from '../lib/plans'
+import { isUnlimitedUser } from '../lib/unlimitedAccounts'
 import { nicheKnowledgeBlock, AgentRole } from '../lib/nicheKnowledge'
 
 import prisma from '../lib/prisma'
@@ -529,9 +530,9 @@ router.post('/reply', requireAuth, async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { plan: true },
+      select: { plan: true, username: true },
     })
-    if (user && !PLAN_LIMITS[user.plan].meetingFeature) {
+    if (user && !isUnlimitedUser(user) && !PLAN_LIMITS[user.plan].meetingFeature) {
       res.status(402).json({ error: 'meeting_not_in_plan', plan: user.plan })
       return
     }

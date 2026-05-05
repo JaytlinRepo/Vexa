@@ -444,24 +444,27 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 All plans include all 4 employees (Maya · Jordan · Alex · Riley). Upgrading buys runway, meetings, memory, and video — not access to more agents.
 
 ### Free — $0
-- All 4 employees (audition the team)
+- All 3 employees (audition the team)
 - 5 tasks/month
+- 2 Studio edits/month
 - No meetings, no video, no brand memory, no auto-pulses
 - 1-hour task cooldown
 - 0 revisions (one-shot per task — encourage upgrade)
 - Top-of-funnel acquisition tier
 
 ### Solo — $19/mo (annual: $15/mo, $180/yr)
-- All 4 employees
+- All 3 employees
 - 50 tasks/month
+- 6 Studio edits/month
 - Basic brand voice
 - 2 revisions per output
 - No meeting feature
 - No video generation
 
 ### Pro — $59/mo (annual: $47/mo, $564/yr)
-- All 4 employees
+- All 3 employees
 - 200 tasks/month
+- 20 Studio edits/month
 - Full brand voice + memory
 - 10 revisions per output
 - Meeting feature unlocked
@@ -473,6 +476,7 @@ All plans include all 4 employees (Maya · Jordan · Alex · Riley). Upgrading b
 - Everything in Pro per workspace
 - Priority Bedrock processing (2-min brief cooldown vs. 5-min on Pro/Solo)
 - 75 video generations/month
+- 30 Studio edits/month
 - 1,000 tasks/month
 - Advanced analytics
 - Custom employee personas

@@ -7,6 +7,10 @@ export interface PlanLimits {
   tasksPerMonth: number
   resetWindow: 'daily' | 'monthly'
   videosPerMonth: number
+  /** Cap on Studio uploads (Riley clip pipeline) per month. Counted against
+   *  VideoUpload rows. Distinct from videosPerMonth, which counts
+   *  Creatomate-rendered Output rows of type='video'. */
+  studioEditsPerMonth: number
   workspaces: number
   meetingFeature: boolean
   brandMemory: boolean
@@ -31,6 +35,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     tasksPerMonth: 3, // per-DAY cap (resetWindow: 'daily')
     resetWindow: 'daily',
     videosPerMonth: 0,
+    studioEditsPerMonth: 2,
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
@@ -47,6 +52,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     tasksPerMonth: 75,
     resetWindow: 'monthly',
     videosPerMonth: 5,
+    studioEditsPerMonth: 6,
     workspaces: 1,
     meetingFeature: false,
     brandMemory: false,
@@ -63,6 +69,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     tasksPerMonth: 200,
     resetWindow: 'monthly',
     videosPerMonth: 15,
+    studioEditsPerMonth: 20,
     workspaces: 1,
     meetingFeature: true,
     brandMemory: true,
@@ -79,6 +86,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     tasksPerMonth: 1000,
     resetWindow: 'monthly',
     videosPerMonth: 75,
+    studioEditsPerMonth: 30,
     workspaces: 5,
     meetingFeature: true,
     brandMemory: true,

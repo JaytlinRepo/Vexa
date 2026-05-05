@@ -8,6 +8,7 @@ import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { detectNicheFromContent } from '../lib/nicheDetection'
 import { syncTiktokAccount } from '../lib/tiktokRefreshSync'
 import { PLAN_LIMITS } from '../lib/plans'
+import { isUnlimitedUser, UNLIMITED_LIMITS } from '../lib/unlimitedAccounts'
 
 import prisma from '../lib/prisma'
 const router = Router()
@@ -341,8 +342,8 @@ router.get('/callback', async (req, res) => {
       console.warn('[tiktok] persist failed', e)
     }
     // Fire-and-forget: plan-gated features on connect
-    const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
-    const connectPlan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
+    const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true, username: true } } } })
+    const connectPlan = isUnlimitedUser(ownerForPlan?.user) ? UNLIMITED_LIMITS : PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
 
     // Initialize bootstrap state so the dashboard can show a "preparing"
     // loader. We mark backfill as ready (TikTok has no equivalent of the
@@ -557,13 +558,13 @@ router.post('/sync', requireAuth, async (req, res) => {
     res.status(400).json({ error: 'missing_company_id' })
     return
   }
-  const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true } } } })
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true, username: true } } } })
   if (!company) {
     res.status(404).json({ error: 'company_not_found' })
     return
   }
   // Sync-on-login is a pro+ feature
-  const syncPlan = PLAN_LIMITS[company.user.plan]
+  const syncPlan = isUnlimitedUser(company.user) ? UNLIMITED_LIMITS : PLAN_LIMITS[company.user.plan]
   if (!syncPlan.syncOnLogin) {
     res.json({ synced: false, newPosts: 0, reason: 'plan_locked' })
     return

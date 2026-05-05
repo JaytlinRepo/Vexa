@@ -50,6 +50,12 @@
     const pct = Math.min(100, Math.round((used / Math.max(1, limit)) * 100))
     const barColor = pct >= 90 ? '#ff6b6b' : pct >= 70 ? '#e8c87a' : 'var(--t1)'
 
+    const stEdits = usage.studioEdits
+    const stUsed = stEdits ? stEdits.used : 0
+    const stLimit = stEdits ? stEdits.limit : 0
+    const stPct = stLimit > 0 ? Math.min(100, Math.round((stUsed / stLimit) * 100)) : 0
+    const stBarColor = stPct >= 90 ? '#ff6b6b' : stPct >= 70 ? '#e8c87a' : 'var(--t1)'
+
     const card = document.createElement('div')
     card.id = 'vx-plan-card'
     card.style.cssText =
@@ -72,6 +78,16 @@
           <div style="width:${pct}%;height:100%;background:${barColor};transition:width .4s ease"></div>
         </div>
       </div>
+      ${stLimit > 0 ? `
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Studio edits this month</span>
+          <span style="font-size:12px;color:var(--t2)"><strong style="color:var(--t1);font-weight:600">${stUsed}</strong> / ${stLimit}</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--s3);overflow:hidden">
+          <div style="width:${stPct}%;height:100%;background:${stBarColor};transition:width .4s ease"></div>
+        </div>
+      </div>` : ''}
     `
     stats.insertAdjacentElement('afterend', card)
     card.querySelector('#vx-plan-manage').addEventListener('click', () => {
@@ -104,7 +120,7 @@
         <h3 style="font-family:'Syne',sans-serif;font-size:22px;margin:0 0 8px">Your team is at the monthly limit</h3>
         <p style="font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 18px">
           You have used all ${usage?.tasks?.limit ?? '—'} tasks on the ${usage?.plan ?? 'free'} plan ${usage?.tasks?.resetWindow === 'daily' ? 'today' : 'this month'}.
-          Upgrade to Max for 200 tasks/month, video generation, and meeting access — or Pro for a lighter paid runway.
+          Upgrade to Max for 200 tasks/month, 20 Studio edits, video generation, and meeting access — or Pro for a lighter paid runway.
         </p>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button id="vx-up-cancel" style="background:none;border:1px solid var(--b2);color:var(--t2);padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px">Close</button>

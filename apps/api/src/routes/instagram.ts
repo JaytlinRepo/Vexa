@@ -11,6 +11,7 @@ import { createNotification } from '../services/notifications/notification.servi
 import { detectNicheFromContent } from '../lib/nicheDetection'
 import { triggerFirstConnectBatch } from '../lib/proactiveAnalysis'
 import { PLAN_LIMITS } from '../lib/plans'
+import { isUnlimitedUser, UNLIMITED_LIMITS } from '../lib/unlimitedAccounts'
 
 import prisma from '../lib/prisma'
 const router = Router()
@@ -374,8 +375,8 @@ router.get('/auth/callback', async (req, res) => {
     }
 
     // Fire-and-forget: plan-gated features
-    const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true } } } })
-    const plan = PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
+    const ownerForPlan = await prisma.company.findUnique({ where: { id: companyId }, include: { user: { select: { plan: true, username: true } } } })
+    const plan = isUnlimitedUser(ownerForPlan?.user) ? UNLIMITED_LIMITS : PLAN_LIMITS[ownerForPlan?.user.plan ?? 'free']
     if (plan.nicheDetection) {
       void detectNicheFromContent(prisma, companyId).catch(() => {})
     }
@@ -490,9 +491,9 @@ router.post('/sync', requireAuth, async (req, res) => {
   const { userId } = (req as AuthedRequest).session
   const companyId = typeof req.body?.companyId === 'string' ? req.body.companyId : ''
   if (!companyId) { res.status(400).json({ error: 'missing_company_id' }); return }
-  const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true } } } })
+  const company = await prisma.company.findFirst({ where: { id: companyId, userId }, include: { user: { select: { plan: true, username: true } } } })
   if (!company) { res.status(404).json({ error: 'company_not_found' }); return }
-  const plan = PLAN_LIMITS[company.user.plan]
+  const plan = isUnlimitedUser(company.user) ? UNLIMITED_LIMITS : PLAN_LIMITS[company.user.plan]
 
   // One-time history backfill bypasses the plan gate so the trend chart
   // populates on first login even for free users. Uses < 5 snapshots as

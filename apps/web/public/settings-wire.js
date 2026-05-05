@@ -148,13 +148,13 @@
   // ── Billing — cards + Stripe checkout (GET /api/stripe/subscription) ─────
   var PLANS = [
     { id:'free', name:'Free', price:'$0', billingNote:'Free forever · no card required',
-      features:['All four employees · quality parity','5 tasks/month','No meetings, brand memory, or heavy video','Great for proving fit'] },
+      features:['All three employees · quality parity','5 tasks/month','2 Studio edits/month','No meetings, brand memory, or heavy video','Great for proving fit'] },
     { id:'pro', name:'Pro', price:'$29', billingNote:'Billed monthly · annual at checkout',
-      features:['75 tasks/month','5 videos/month','Brand voice · knowledge feed','No meetings or brand memory'] },
+      features:['75 tasks/month','5 videos/month','6 Studio edits/month','Brand voice · knowledge feed','No meetings or brand memory'] },
     { id:'max', name:'Max', price:'$59', billingNote:'Billed monthly · annual at checkout', popular:true,
-      features:['200 tasks/month','Meetings · brand memory','15 videos/month','Weekly trend pulse · priority flow'] },
+      features:['200 tasks/month','Meetings · brand memory','15 videos/month','20 Studio edits/month','Weekly trend pulse · priority flow'] },
     { id:'agency', name:'Agency', price:'$149', billingNote:'Billed monthly · annual at checkout',
-      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','Everything in Max per workspace','Priority processing'] },
+      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','30 Studio edits/month','Everything in Max per workspace','Priority processing'] },
   ]
 
   function planDisplayName (id) {
@@ -236,6 +236,9 @@
         var parts = ['Tasks · ' + tk.used + ' / ' + tk.limit + ' ' + taskPeriod]
         if (sub.usage.videos && sub.usage.videos.limit > 0) {
           parts.push('Videos · ' + sub.usage.videos.used + ' / ' + sub.usage.videos.limit)
+        }
+        if (sub.usage.studioEdits && sub.usage.studioEdits.limit > 0) {
+          parts.push('Studio edits · ' + sub.usage.studioEdits.used + ' / ' + sub.usage.studioEdits.limit)
         }
         var rs = formatResetDate(tk.resetAt)
         if (rs) parts.push('Resets · ' + rs)
