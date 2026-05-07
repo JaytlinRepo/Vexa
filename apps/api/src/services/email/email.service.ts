@@ -101,7 +101,7 @@ export async function sendWelcomeEmail(params: {
     ${divider()}
     <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.08em">Your team</p>
     <table width="100%" cellpadding="0" cellspacing="0">
-      ${(['analyst','strategist','copywriter','creative_director'] as EmployeeRole[]).map(role => {
+      ${(['analyst','strategist','creative_director'] as EmployeeRole[]).map(role => {
         const emp = EMPLOYEE_CONFIGS[role]
         return `<tr><td style="padding:10px 0;border-bottom:1px solid #1e1e1e">
           <span style="font-size:18px">${emp.emoji}</span>

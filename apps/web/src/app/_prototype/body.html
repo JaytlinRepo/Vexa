@@ -22,24 +22,19 @@
       </div>
     </div>
 
-    <!-- Step 2: Niche -->
+    <!-- Step 2: Niche — tag-input flow. Type or paste tags, press Enter or
+         comma to commit each. obContentTags / obAddTagNormalized in
+         prototype.js handle state + pill render. -->
     <div class="ob-step" id="ob-2">
       <span class="ob-eyebrow">Step 2 of 3</span>
       <h2 class="ob-title">What do you create?</h2>
-      <p class="ob-sub">Your team will specialize in this niche. The language, trends, and strategy all adapt to match.</p>
-      <div class="ob-grid" id="ob-niche-grid">
-        <button class="ob-card" onclick="selectNiche(this,'fitness')"><div class="ob-card-lbl">01</div><div class="ob-card-name">Fitness &amp; Wellness</div><div class="ob-card-desc">Workouts, nutrition, transformation</div></button>
-        <button class="ob-card" onclick="selectNiche(this,'finance')"><div class="ob-card-lbl">02</div><div class="ob-card-name">Finance &amp; Investing</div><div class="ob-card-desc">Wealth, markets, personal finance</div></button>
-        <button class="ob-card" onclick="selectNiche(this,'food')"><div class="ob-card-lbl">03</div><div class="ob-card-name">Food &amp; Cooking</div><div class="ob-card-desc">Recipes, technique, food culture</div></button>
-        <button class="ob-card" onclick="selectNiche(this,'coaching')"><div class="ob-card-lbl">04</div><div class="ob-card-name">Coaching &amp; Education</div><div class="ob-card-desc">Teaching, courses, authority building</div></button>
-        <button class="ob-card" onclick="selectNiche(this,'lifestyle')"><div class="ob-card-lbl">05</div><div class="ob-card-name">Lifestyle</div><div class="ob-card-desc">Aesthetic, story, personal brand</div></button>
-        <button class="ob-card" onclick="selectNiche(this,'personal_dev')"><div class="ob-card-lbl">06</div><div class="ob-card-name">Personal Development</div><div class="ob-card-desc">Mindset, habits, growth</div></button>
-        <button class="ob-card" id="ob-niche-other" onclick="toggleCustomNiche()"><div class="ob-card-lbl">07</div><div class="ob-card-name">Other</div><div class="ob-card-desc">Something else — tell us</div></button>
+      <p class="ob-sub">Add 1&ndash;16 tags that describe your content. The more specific, the sharper your team specializes &mdash; "weighted walking" beats "fitness".</p>
+      <div class="ob-niche-tags" id="ob-niche-tags" aria-live="polite"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="ob-input" id="ob-tag-input" placeholder="e.g. weighted walking, postpartum strength, cycle-syncing" autocomplete="off" style="flex:1">
+        <button type="button" class="btn-ghost" onclick="obAddCurrentTag()" style="padding:11px 18px;font-size:12px">Add</button>
       </div>
-      <div id="ob-custom-niche" style="display:none;margin-bottom:16px">
-        <input class="ob-input" id="ob-custom-niche-input" placeholder="e.g. Travel, Tech, Gaming, Beauty, Real Estate" autocomplete="off" style="margin-bottom:4px">
-        <p class="ob-hint">Your team will specialize in this. Be specific — "travel vlogging" works better than just "travel".</p>
-      </div>
+      <p class="ob-hint">Press Enter or comma to add a tag. Click any tag to remove it.</p>
       <div class="ob-actions">
         <button class="btn-fill" id="ob-niche-btn" onclick="obNext(2)" style="padding:13px 32px;font-size:12px;opacity:.4" disabled>Continue</button>
         <button class="ob-back" onclick="obPrev(2)">Back</button>
@@ -175,8 +170,6 @@
 
           <a class="topnav-link" id="nav-db-studio" onclick="navigate('db-studio')">Studio</a>
 
-          <a class="topnav-link" id="nav-db-knowledge" onclick="navigate('db-knowledge')" style="display:none">Knowledge</a>
-          <a class="topnav-link" id="nav-db-team" onclick="navigate('db-team')">Team</a>
         </div>
       </nav>
 
@@ -275,13 +268,6 @@
     <p class="sub">Sovexa gives you a team of three AI agents who <em>scout, plan, and ship</em> your content across every platform. You stay on voice. They stay on time. Your calendar is finally full.</p>
     <div class="cta-row">
       <a href="#pricing" class="btn-primary">Start your company <span class="arr">→</span></a>
-      <a href="#how" class="btn-ghost"><span class="play">▶</span> See it work · 90s</a>
-    </div>
-    <div class="proof">
-      <div class="avs">
-        <div class="av">M</div><div class="av">J</div><div class="av">R</div>
-      </div>
-      <div class="t"><em>2,418 creators</em> hired their team this week</div>
     </div>
   </div>
 
@@ -317,10 +303,11 @@
         </div>
       </div>
 
+      <div class="out-ticker-caption">Average week on Sovexa</div>
       <div class="out-ticker">
-        <div class="m"><div class="l">This week</div><div class="v" id="tk-posts"><em>21</em> posts</div></div>
-        <div class="m center"><div class="l">Reach</div><div class="v" id="tk-reach"><em>1.8</em>M</div></div>
-        <div class="m"><div class="l">CEO hours</div><div class="v" id="tk-hrs"><em>28.4</em>h saved</div></div>
+        <div class="m"><div class="l">Posts shipped this week</div><div class="v" id="tk-posts"><em>21</em> posts</div></div>
+        <div class="m center"><div class="l">Reach this week</div><div class="v" id="tk-reach"><em>1.8</em>M</div></div>
+        <div class="m"><div class="l">Hours reclaimed this week</div><div class="v" id="tk-hrs"><em>28</em> hours</div></div>
       </div>
     </div>
   </div>
@@ -465,76 +452,68 @@
   </div>
 </section>
 
-<!-- ═════════ VOICE / QUOTE ═════════ -->
-<section class="blk" style="padding-top:60px;padding-bottom:60px">
-  <div class="voice reveal">
-    <div class="voice-quote">"I stopped being the <em>bottleneck</em> of my own company. Now I just sign off on the work."</div>
-    <div class="voice-auth">
-      <div class="av">E</div>
-      <div class="meta">
-        <div class="n">Elena M.</div>
-        <div class="h">Creator · 840K combined · on Sovexa since Jan</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ STATS ═════════ -->
-<section class="blk" style="padding-top:60px;padding-bottom:60px">
-  <div class="stats reveal">
-    <div class="stat"><div class="v" data-count="21"><em>0</em></div><div class="l">Posts / week · avg</div></div>
-    <div class="stat"><div class="v" data-count="28"><em>0</em>h</div><div class="l">CEO hours reclaimed</div></div>
-    <div class="stat"><div class="v" data-count="96"><em>0</em>%</div><div class="l">Voice-match score</div></div>
-    <div class="stat"><div class="v" data-count="2418"><em>0</em></div><div class="l">Creators on board</div></div>
-  </div>
-</section>
+<!-- VOICE/QUOTE and STATS sections removed (2026-05-06) — testimonial copy
+     read as marketer-speak rather than a real user; stats strip duplicated
+     hero ticker numbers and lacked outcome anchoring. Restore once real
+     customer quotes + outcome metrics are available. -->
 
 <!-- ═════════ PRICING ═════════ -->
 <section class="blk" id="pricing">
   <div class="sec-head reveal">
     <span class="eyebrow">§ 04 · hire your team</span>
-    <h2>One salary. <em>Three</em> employees.</h2>
-    <p class="lede">Pick a team size. Switch plans anytime. Cancel anytime. Your agents come with you.</p>
+    <h2>Same team. Same features. <em>Different runway.</em></h2>
+    <p class="lede">Every plan unlocks every feature &mdash; meetings, brand memory, weekly pulse, video, Studio. Tiers differ only in daily volume. Switch anytime.</p>
+    <div class="price-toggle reveal" style="justify-content:center;margin:20px auto 0">
+      <span class="tog-lbl">Monthly</span>
+      <div class="tog" onclick="togglePrice()" role="switch" aria-label="Toggle monthly or annual pricing"></div>
+      <span class="tog-lbl">Annual</span>
+      <span class="save-tag">Save 20%</span>
+    </div>
   </div>
   <div class="prices reveal">
     <div class="plan">
-      <div class="ph"><div class="n">Solo</div><div class="bd"></div></div>
-      <div class="px">$19<em>/mo</em></div>
-      <div class="pd">The full team, on retainer.</div>
+      <div class="ph"><div class="n">Pro</div><div class="bd"></div></div>
+      <div class="px px-mo">$19<em>/mo</em></div>
+      <div class="px px-yr">$15<em>/mo</em></div>
+      <div class="px-yr-foot">billed annually &middot; $180/yr</div>
+      <div class="pd">Light daily runway for solo creators.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
-        <li><span class="c">✓</span><span>50 tasks / month</span></li>
-        <li><span class="c">✓</span><span>6 Studio edits / month</span></li>
-        <li><span class="c">✓</span><span>Voice match · 90% SLA</span></li>
-        <li><span class="c">✓</span><span>Weekly review digest</span></li>
+        <li><span class="c">✓</span><span><em>8</em> tasks / day</span></li>
+        <li><span class="c">✓</span><span><em>8</em> Studio edits / month</span></li>
+        <li><span class="c">✓</span><span><em>3</em> video renders / month</span></li>
+        <li><span class="c">✓</span><span>10-min brief cooldown</span></li>
+        <li><span class="c">✓</span><span>5 revisions per output</span></li>
       </ul>
-      <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Start free</a>
+      <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Start with Pro</a>
     </div>
     <div class="plan feat">
-      <div class="ph"><div class="n"><em>Pro</em></div><div class="bd">Most hired</div></div>
-      <div class="px">$59<em>/mo</em></div>
-      <div class="pd">Your team, full-time.</div>
+      <div class="ph"><div class="n"><em>Max</em></div><div class="bd">Most hired</div></div>
+      <div class="px px-mo">$59<em>/mo</em></div>
+      <div class="px px-yr">$47<em>/mo</em></div>
+      <div class="px-yr-foot">billed annually &middot; $564/yr</div>
+      <div class="pd">Daily runway for working creators.</div>
       <ul>
-        <li><span class="c">✓</span><span><em>Maya · Jordan · Riley</em></span></li>
-        <li><span class="c">✓</span><span>200 tasks / month</span></li>
-        <li><span class="c">✓</span><span>Meetings · brand memory · weekly pulse</span></li>
-        <li><span class="c">✓</span><span>Video generation · 15 / month</span></li>
-        <li><span class="c">✓</span><span>20 Studio edits / month</span></li>
-        <li><span class="c">✓</span><span>Voice match · 95% SLA</span></li>
-        <li><span class="c">✓</span><span>Live pipeline · CEO dashboard</span></li>
+        <li><span class="c">✓</span><span><em>20</em> tasks / day</span></li>
+        <li><span class="c">✓</span><span><em>25</em> Studio edits / month</span></li>
+        <li><span class="c">✓</span><span><em>15</em> video renders / month</span></li>
+        <li><span class="c">✓</span><span>5-min brief cooldown</span></li>
+        <li><span class="c">✓</span><span>10 revisions per output</span></li>
       </ul>
       <a href="#" class="btn btn-f" onclick="startOnboarding();return false">Hire the team →</a>
     </div>
     <div class="plan">
       <div class="ph"><div class="n">Agency</div><div class="bd"></div></div>
-      <div class="px">$149<em>/mo</em></div>
-      <div class="pd">For teams running 5+ creators.</div>
+      <div class="px px-mo">$149<em>/mo</em></div>
+      <div class="px px-yr">$119<em>/mo</em></div>
+      <div class="px-yr-foot">billed annually &middot; $1,428/yr</div>
+      <div class="pd">For agencies running 5+ brands.</div>
       <ul>
-        <li><span class="c">✓</span><span>Everything in Pro</span></li>
-        <li><span class="c">✓</span><span>30 Studio edits / month</span></li>
-        <li><span class="c">✓</span><span>Multi-seat · role-based access</span></li>
-        <li><span class="c">✓</span><span>Private model fine-tune</span></li>
-        <li><span class="c">✓</span><span>White-glove onboarding</span></li>
+        <li><span class="c">✓</span><span>Up to <em>5</em> brand workspaces</span></li>
+        <li><span class="c">✓</span><span><em>150</em> tasks / day · across workspaces</span></li>
+        <li><span class="c">✓</span><span><em>100</em> Studio edits / month</span></li>
+        <li><span class="c">✓</span><span><em>75</em> video renders / month</span></li>
+        <li><span class="c">✓</span><span>2-min cooldown · priority queue</span></li>
+        <li><span class="c">✓</span><span>Custom personas · white-label</span></li>
       </ul>
       <a href="#" class="btn btn-g" onclick="startOnboarding();return false">Talk to us</a>
     </div>
@@ -759,73 +738,72 @@
       <div class="mkt-view">
         <div class="mkt-head">
           <span class="eyebrow">Pricing</span>
-          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Hire your team today.</h2>
-          <p class="body">No agencies. No freelancers. One flat subscription — your full AI content team, every month.</p>
+          <h2 class="serif" style="font-size:clamp(38px,5vw,68px);margin-bottom:16px">Same team. Same features.</h2>
+          <p class="body">Every plan unlocks every feature &mdash; meetings, brand memory, weekly pulse, video, Studio. Tiers differ only in daily volume.</p>
           <div class="price-toggle">
             <span class="tog-lbl">Monthly</span>
-            <div class="tog" id="priceToggle" onclick="togglePrice()"></div>
+            <div class="tog" onclick="togglePrice()" role="switch" aria-label="Toggle monthly or annual pricing"></div>
             <span class="tog-lbl">Annual</span>
             <span class="save-tag">Save 20%</span>
           </div>
           <p class="body" style="margin-top:18px;font-size:14px;opacity:0.7">
-            Or <a href="#" onclick="startOnboarding();return false" style="text-decoration:underline">try Free first</a> &mdash; 5 tasks with the full team, no credit card.
+            Or <a href="#" onclick="startOnboarding();return false" style="text-decoration:underline">try Free first</a> &mdash; 3 tasks/day with the full team, no credit card.
           </p>
         </div>
         <div class="pricing-grid">
           <div class="pc">
-            <div class="pc-tier">Solo</div>
-            <div class="pc-price" id="ps-starter"><sup>$</sup>19<span class="mo">/mo</span></div>
-            <p class="pc-desc">The full team, on retainer. All three employees ready immediately.</p>
+            <div class="pc-tier">Pro</div>
+            <div class="pc-price px-mo"><sup>$</sup>19<span class="mo">/mo</span></div>
+            <div class="pc-price px-yr"><sup>$</sup>15<span class="mo">/mo</span></div>
+            <div class="pc-price-foot px-yr-foot">billed annually &middot; $180/yr</div>
+            <p class="pc-desc">Light daily runway for solo creators. Every feature included.</p>
             <ul class="pc-feats">
-              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
-              <li class="y">Niche + sub-niche specialization</li>
-              <li class="y">Up to 50 tasks/month</li>
-              <li class="y">Studio edits &mdash; 6/month</li>
-              <li class="y">Brand voice settings</li>
-              <li class="y">Knowledge feed</li>
-              <li class="y">Outputs library &mdash; 2 revisions</li>
-              <li class="dim">Meeting feature</li>
-              <li class="dim">Brand memory &mdash; learns over time</li>
-              <li class="dim">Video generation</li>
-              <li class="dim">Monday trend reports</li>
+              <li class="y"><strong>8</strong> tasks / day</li>
+              <li class="y"><strong>8</strong> Studio edits / month</li>
+              <li class="y"><strong>3</strong> video renders / month</li>
+              <li class="y">10-min brief cooldown</li>
+              <li class="y">5 revisions per output</li>
+              <li class="y">Meetings &middot; brand memory &middot; weekly pulse</li>
+              <li class="y">Knowledge feed + insights</li>
+              <li class="y">Proactive auto-briefs</li>
             </ul>
-            <button class="pc-btn ghost" onclick="startOnboarding()">Start free trial</button>
+            <button class="pc-btn ghost" onclick="startOnboarding()">Start with Pro</button>
           </div>
           <div class="pc featured">
             <div class="pc-badge">Most popular</div>
-            <div class="pc-tier">Pro</div>
-            <div class="pc-price" id="ps-pro"><sup>$</sup>59<span class="mo">/mo</span></div>
-            <p class="pc-desc">Your team, full-time. Same full team — now with meetings, memory, video, and 4× the runway.</p>
+            <div class="pc-tier">Max</div>
+            <div class="pc-price px-mo"><sup>$</sup>59<span class="mo">/mo</span></div>
+            <div class="pc-price px-yr"><sup>$</sup>47<span class="mo">/mo</span></div>
+            <div class="pc-price-foot px-yr-foot">billed annually &middot; $564/yr</div>
+            <p class="pc-desc">Daily runway for working creators. 2.5&times; the volume of Pro.</p>
             <ul class="pc-feats">
-              <li class="y">All 3 employees &mdash; Maya · Jordan · Riley</li>
-              <li class="y">Deep niche specialization</li>
-              <li class="y">200 tasks/month</li>
-              <li class="y">Studio edits &mdash; 20/month</li>
-              <li class="y">Advanced brand voice + memory</li>
-              <li class="y">Meeting feature</li>
+              <li class="y"><strong>20</strong> tasks / day</li>
+              <li class="y"><strong>25</strong> Studio edits / month</li>
+              <li class="y"><strong>15</strong> video renders / month</li>
+              <li class="y">5-min brief cooldown</li>
               <li class="y">10 revisions per output</li>
-              <li class="y">Feedback loop &mdash; team improves</li>
+              <li class="y">Meetings &middot; brand memory &middot; weekly pulse</li>
               <li class="y">Knowledge feed + insights</li>
-              <li class="y">Monday trend reports</li>
-              <li class="y">Video generation &mdash; 15/month</li>
+              <li class="y">Proactive auto-briefs</li>
             </ul>
-            <button class="pc-btn fill" onclick="startOnboarding()">Start with Pro</button>
+            <button class="pc-btn fill" onclick="startOnboarding()">Start with Max</button>
           </div>
           <div class="pc">
             <div class="pc-tier">Agency</div>
-            <div class="pc-price" id="ps-agency"><sup>$</sup>149<span class="mo">/mo</span></div>
-            <p class="pc-desc">For creators managing multiple brands or agency owners running content for clients.</p>
+            <div class="pc-price px-mo"><sup>$</sup>149<span class="mo">/mo</span></div>
+            <div class="pc-price px-yr"><sup>$</sup>119<span class="mo">/mo</span></div>
+            <div class="pc-price-foot px-yr-foot">billed annually &middot; $1,428/yr</div>
+            <p class="pc-desc">For agencies running 5+ brands. Caps span all workspaces.</p>
             <ul class="pc-feats">
-              <li class="y">Up to 5 brand workspaces</li>
-              <li class="y">Independent teams per brand</li>
-              <li class="y">Everything in Pro per workspace</li>
-              <li class="y">Priority AI processing</li>
-              <li class="y">Advanced analytics</li>
-              <li class="y">75 video generations/month</li>
-              <li class="y">Studio edits &mdash; 30/month</li>
-              <li class="y">1,000 tasks/month</li>
-              <li class="y">White-label exports</li>
+              <li class="y">Up to <strong>5</strong> brand workspaces</li>
+              <li class="y"><strong>150</strong> tasks / day &middot; across workspaces</li>
+              <li class="y"><strong>100</strong> Studio edits / month</li>
+              <li class="y"><strong>75</strong> video renders / month</li>
+              <li class="y">2-min cooldown &middot; priority queue</li>
+              <li class="y">Unlimited revisions per output</li>
+              <li class="y">Meetings &middot; brand memory &middot; weekly pulse</li>
               <li class="y">Custom employee personas</li>
+              <li class="y">White-label exports</li>
               <li class="y">Early access to features</li>
             </ul>
             <button class="pc-btn ghost">Contact us</button>
@@ -940,6 +918,12 @@
   <div class="eyebrow-strip">
     <span class="eyebrow"><span class="rule"></span><span id="hq3-eyebrow-date">—</span></span>
     <span class="live"><span class="dd"></span>LIVE · <span id="hq3-clock">—</span></span>
+    <!-- Clock format toggle. Persists via localStorage('hq3.clockFmt' = '12'|'24').
+         Default = '24'. tick() in the inline <script> below reads window.__vxClockFmt. -->
+    <div class="hq3-clock-fmt" role="group" aria-label="Clock format">
+      <button type="button" data-clock-fmt="24" class="on" aria-pressed="true">24h</button>
+      <button type="button" data-clock-fmt="12" aria-pressed="false">12h</button>
+    </div>
   </div>
 
   <!-- Cockpit action strip — wired by hq-v3-data-wire.js. Hidden until the
@@ -978,7 +962,7 @@
     <div class="fc-wrap">
       <div class="fc-head">
         <div>
-          <div class="fc-num">313.8<span class="unit">K</span></div>
+          <div class="fc-num">—</div>
           <div class="fc-cap">Total followers · <span id="hq3-platform-cap">all platforms</span></div>
           <!-- Platform toggle buttons are generated dynamically by
                wirePlatformToggle() from the connected accounts list. Add
@@ -1013,11 +997,15 @@
             <line x1="0" y1="120" x2="800" y2="120"/>
             <line x1="0" y1="200" x2="800" y2="200"/>
           </g>
-          <text x="0" y="36" class="axis">400K</text>
-          <text x="0" y="116" class="axis">350K</text>
-          <text x="0" y="196" class="axis">300K</text>
-          <text x="0" y="260" class="axis">250K</text>
-          <path class="past-fill" d="M0,230 L60,225 L120,218 L180,210 L240,200 L300,188 L360,176 L420,162 L420,260 L0,260 Z"/>
+          <!-- Y-axis ticks populated dynamically by hq-v3-data-wire.js
+               (renderForecastChart) from the real series min/max once
+               STATE.overview.timeseries resolves. Stay blank until then —
+               better than flashing the old 400K/350K/300K/250K mockup. -->
+          <text x="0" y="36" class="axis hq3-y-axis" data-rung="3"></text>
+          <text x="0" y="116" class="axis hq3-y-axis" data-rung="2"></text>
+          <text x="0" y="196" class="axis hq3-y-axis" data-rung="1"></text>
+          <text x="0" y="260" class="axis hq3-y-axis" data-rung="0"></text>
+          <path class="past-fill" d=""/>
           <path class="past-line" d=""/>
           <line class="now-line" x1="420" y1="20" x2="420" y2="260"/>
           <text x="424" y="30" class="axis">NOW</text>
@@ -1025,6 +1013,18 @@
           <g class="hq3-axis-labels"></g>
           <g class="hq3-milestones"></g>
         </svg>
+        <!-- Hover overlay: vertical guide + dot positioned by mousemove
+             handler in hq-v3-data-wire.js (~line 800). Sits above the SVG
+             via position:absolute; pointer-events:none so clicks pass
+             through. Hidden by CSS until .fc-chart:hover. -->
+        <svg class="fc-cross" viewBox="0 0 800 280" preserveAspectRatio="none">
+          <line class="vline" x1="0" y1="0" x2="0" y2="280"/>
+          <circle class="dot" cx="0" cy="0" r="4"/>
+        </svg>
+        <div class="fc-tooltip" role="status" aria-live="polite">
+          <strong class="fc-tt-val">—</strong>
+          <span class="fc-tt-date">—</span>
+        </div>
       </div>
 
       <div class="fc-legend"></div>
@@ -1084,28 +1084,27 @@
           <div class="d"></div>
         </div>
       </div>
-      <div class="row">
-        <span class="lbl">Tasks · this month</span>
-        <div style="text-align:right">
-          <div class="v">—</div>
-          <div class="d"></div>
-        </div>
-      </div>
     </div>
   </section>
 
-  <!-- Pipeline -->
-  <section class="sect">
+  <!-- Pipeline (collapsible) — toggle button + grid-row collapse wrapper.
+       hq-v3-data-wire.js's expandHqPipelineSection() targets the same IDs
+       on deep-link arrival. The user-click toggle is wired in the inline
+       <script> below; localStorage key 'hq3.pipelineCollapsed.v2' persists
+       the preference. -->
+  <section class="sect hq3-pipeline-sect" id="hq3-pipeline-sect">
     <div class="sect-head">
       <div class="l">
         <span class="n">Team status</span>
         <h2>The <em>pipeline</em>, live.</h2>
       </div>
       <div class="right">
-        <span class="meta">AUTO-HANDOFF · ON</span>
+        <button type="button" id="hq3-pipeline-toggle" class="hq3-pipeline-toggle" aria-controls="hq3-pipeline-collapse" aria-expanded="true">Hide pipeline</button>
       </div>
     </div>
 
+    <div class="hq3-pipeline-collapse" id="hq3-pipeline-collapse">
+    <div class="hq3-pipeline-collapse-inner">
     <div class="hq3-pipe" id="hq3-pipe">
       <div class="hq3-pipe-arrow \1">→</div>
       <div class="hq3-pipe-arrow \1">→</div>
@@ -1152,6 +1151,8 @@
         <div class="hq3-node-eta"><span>queued</span><span>· 11:42</span></div>
       </div>
     </div>
+    </div><!-- /hq3-pipeline-collapse-inner -->
+    </div><!-- /hq3-pipeline-collapse -->
   </section>
 
   <!-- Main grid -->
@@ -1377,28 +1378,59 @@
   </section>
 
   <div class="foot">
-    <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
+    <span>SOVEXA · <span class="vx-foot-plan">—</span></span>
     <em>Your content. Run by a team.</em>
     <span>API 200 · BEDROCK OK · NEON OK</span>
   </div>
 
 </div><!-- /hq -->
 
-<!-- HQ v3 micro-interactions: clock, alex progress, pill toggle, post filters, forecast crosshair, pipeline node click -->
+<!-- HQ v3 micro-interactions: clock + format toggle, pill tabs, post filters,
+     pipeline node click + collapse toggle. Forecast hover crosshair lives in
+     hq-v3-data-wire.js (it needs the real sparkline points to position the
+     dot); the SVG overlay/tooltip DOM is in the chart markup above. -->
 <script>
 ;(function(){
   var view=document.getElementById('view-db-dashboard');
   if(!view||!view.classList.contains('hq-v3'))return;
   if(view.dataset.hq3Wired==='1')return; view.dataset.hq3Wired='1';
 
-  // Clock
-  function tick(){var d=new Date(),p=function(n){return String(n).padStart(2,'0')};var el=document.getElementById('hq3-clock');if(el)el.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())}
+  // Clock + 24h/12h format toggle. Persists to localStorage so the choice
+  // survives reloads. tick() reads window.__vxClockFmt on every tick so
+  // flipping the toggle takes effect on the next second without an explicit
+  // re-render.
+  try { window.__vxClockFmt = localStorage.getItem('hq3.clockFmt') === '12' ? '12' : '24' }
+  catch(e) { window.__vxClockFmt = '24' }
+  function pad(n){return String(n).padStart(2,'0')}
+  function tick(){
+    var d=new Date(), h=d.getHours(), m=d.getMinutes(), s=d.getSeconds(), suf=''
+    if(window.__vxClockFmt==='12'){
+      suf = h>=12 ? ' PM' : ' AM'
+      h = h%12 || 12
+    } else {
+      h = pad(h)
+    }
+    var el=document.getElementById('hq3-clock')
+    if(el) el.textContent = h + ':' + pad(m) + ':' + pad(s) + suf
+  }
   tick();setInterval(tick,1000);
-
-  // Alex progress ticker removed — was a pure visual mockup that animated
-  // Alex's progress bar from 72% upward forever regardless of real status.
-  // The wire's renderPipelineNodes sets all four pipeline progress bars
-  // from real task status, including Alex.
+  view.querySelectorAll('.hq3-clock-fmt [data-clock-fmt]').forEach(function(b){
+    // Reflect persisted choice on initial render
+    var mode=b.getAttribute('data-clock-fmt')
+    var on = mode === window.__vxClockFmt
+    b.classList.toggle('on', on)
+    b.setAttribute('aria-pressed', on?'true':'false')
+    b.addEventListener('click', function(){
+      window.__vxClockFmt = mode
+      try { localStorage.setItem('hq3.clockFmt', mode) } catch(e){}
+      view.querySelectorAll('.hq3-clock-fmt [data-clock-fmt]').forEach(function(x){
+        var isOn = x===b
+        x.classList.toggle('on', isOn)
+        x.setAttribute('aria-pressed', isOn?'true':'false')
+      })
+      tick()
+    })
+  })
 
   // Pill tabs
   view.querySelectorAll('[data-hq3-tabs]').forEach(function(grp){grp.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){grp.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')})})});
@@ -1406,14 +1438,29 @@
   // Post filters
   view.querySelectorAll('[data-hq3-filters] span').forEach(function(s){s.addEventListener('click',function(){view.querySelectorAll('[data-hq3-filters] span').forEach(function(x){x.classList.remove('on')});s.classList.add('on')})});
 
-  // Forecast hover crosshair removed — the static FC_PTS array was hardcoded
-  // fake values from "Jan 1" through "Jun 16 · proj" pinned to a 313.8K
-  // creator. The crosshair SVG + tooltip DIV were stripped from the markup
-  // when the chart was wired to real data; this block is left as a marker
-  // so a future "real" crosshair can be added against actual sparkline points.
-
   // Pipeline node click → focus
   view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(n){n.addEventListener('click',function(){var was=n.classList.contains('active');view.querySelectorAll('#hq3-pipe .hq3-node').forEach(function(x){x.classList.remove('active')});if(!was)n.classList.add('active')})});
+
+  // Pipeline section collapse toggle. localStorage key matches the deeplink
+  // expander in hq-v3-data-wire.js (hq3.pipelineCollapsed.v2). Default open.
+  (function(){
+    var sect=document.getElementById('hq3-pipeline-sect')
+    var btn=document.getElementById('hq3-pipeline-toggle')
+    if(!sect||!btn)return
+    var collapsed=false
+    try { collapsed = localStorage.getItem('hq3.pipelineCollapsed.v2') === '1' } catch(e){}
+    function apply(){
+      sect.classList.toggle('collapsed', collapsed)
+      btn.textContent = collapsed ? 'Show pipeline' : 'Hide pipeline'
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+    }
+    apply()
+    btn.addEventListener('click', function(){
+      collapsed = !collapsed
+      try { localStorage.setItem('hq3.pipelineCollapsed.v2', collapsed?'1':'0') } catch(e){}
+      apply()
+    })
+  })();
 })();
 </script>
 
@@ -1485,7 +1532,7 @@
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
+  <span>SOVEXA · <span class="vx-foot-plan">—</span></span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
@@ -1569,7 +1616,7 @@
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
+  <span>SOVEXA · <span class="vx-foot-plan">—</span></span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
@@ -1900,29 +1947,14 @@
 </section>
 
 <div class="foot-row">
-  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
+  <span>SOVEXA · <span class="vx-foot-plan">—</span></span>
   <span class="brand">Your content. Run by a team.</span>
   <span>09:42:18 PT · Apr 20</span>
 </div>
 
     </div>
 
-    <!-- TEAM CALENDAR -->
-    <div class="view" id="view-db-team">
-      <section style="padding:18px 40px 0">
-        <div class="section-head" style="margin-bottom:0">
-          <h3>Team <em>calendar</em></h3>
-        </div>
-        <p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t2);margin-top:4px;line-height:1.5">Your team's work and daily thoughts. Share ideas — your agents respond with insights.</p>
-      </section>
-      <div style="padding:0 40px 40px">
-        <div id="team-brief-strip" class="team-brief-strip"></div>
-        <div class="team-calendar-wrapper">
-          <div id="team-calendar"><div style="display:flex;align-items:center;justify-content:center;padding:80px 0"><div class="vx-spin"></div></div></div>
-          <div id="team-calendar-sidebar" class="team-calendar-sidebar"></div>
-        </div>
-      </div>
-    </div>
+    <!-- view-db-team (Team Calendar) deleted 2026-05-07. -->
 
     <!-- TASKS -->
     <div class="view" id="view-db-tasks">
@@ -1999,10 +2031,6 @@
               Maya — Trends
             </div>
             <div class="cal-legend-item">
-              <div class="cal-legend-swatch" style="background:var(--c-alex-b)"></div>
-              Alex — Copy
-            </div>
-            <div class="cal-legend-item">
               <div class="cal-legend-swatch" style="background:var(--c-riley-b)"></div>
               Riley — Production
             </div>
@@ -2077,7 +2105,6 @@
 <!-- MASTHEAD — matches .masthead pattern from Posts/Audience/Knowledge -->
 <section class="masthead">
   <div>
-    <div class="kicker"><span class="rule"></span><span class="eyebrow">§ Production</span></div>
     <h1>Clip, edit, and <em>ship</em>.</h1>
     <p class="sub">Upload raw footage. Riley auto-clips and applies your aesthetic. Then post directly to any platform.</p>
   </div>
@@ -2237,76 +2264,14 @@
 </div>
 
 <div class="foot-row">
-  <span>SOVEXA · STUDIO · BUILD 087 · PRO</span>
+  <span>SOVEXA · STUDIO · <span class="vx-foot-plan">—</span></span>
   <span class="brand">Your content. Run by a team.</span>
   <span>API 200 · RUNWAY OK · DESCRIPT OK</span>
 </div>
 
     </div>
 
-    <!-- KNOWLEDGE — Explore page (IG / Apple-style). Masthead removed
-         per design direction; share-toggle moved into the dedicated
-         "Community sharing" panel below the grid. -->
-    <div class="view" id="view-db-knowledge">
-
-<!-- Compact title strip (no stats banner) -->
-<section style="padding:32px 40px 18px">
-  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
-    <div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">§ Explore</div>
-      <h1 style="font-family:'Cormorant Garamond',serif;font-weight:400;font-size:42px;line-height:1.05;color:var(--t1);margin:0">What's <em style="font-style:italic;color:var(--accent)">trending</em> in your niche.</h1>
-      <p id="feed-sub" style="font-family:'Inter',sans-serif;font-size:13px;color:var(--t2);margin:8px 0 0;max-width:600px;line-height:1.55">Content from creators in your space, plus articles and discussions worth your attention.</p>
-    </div>
-    <div id="explore-filters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="vx-explore-chip is-active" data-filter="all">All</button>
-      <button class="vx-explore-chip" data-filter="reels">Reels</button>
-      <button class="vx-explore-chip" data-filter="images">Pictures</button>
-      <button class="vx-explore-chip" data-cs-act="refresh-feed" style="margin-left:auto" title="Pull fresh content">Refresh</button>
-    </div>
-  </div>
-</section>
-
-<!-- IG/Apple-style explore grid: one continuous flow.
-     The first item renders as a hero (2 cols × 2 rows). #knowledge-featured
-     is kept as a hidden no-op so the wire can still target it; the CSS
-     forces display:none. -->
-<section style="padding:0 40px;margin-top:24px">
-  <div id="knowledge-featured" class="vx-explore-featured" aria-hidden="true"></div>
-  <div id="knowledge-explore-grid" class="vx-explore-grid"></div>
-</section>
-
-<!-- Hidden — kept so legacy wire references don't error -->
-<div id="knowledge-images-col" style="display:none"></div>
-<div id="knowledge-reels-grid" style="display:none"></div>
-<div id="knowledge-articles-rail" style="display:none"></div>
-<div id="knowledge-articles-grid" style="display:none"></div>
-<div id="community-share-panel" style="display:none"></div>
-
-<div class="foot-row">
-  <span>SOVEXA · COMPANY OS · BUILD 087 · PRO</span>
-  <span class="brand">Your content. Run by a team.</span>
-  <span>09:42:18 PT · Apr 20</span>
-</div>
-
-    </div>
-
-    <!-- ADMIN: Community moderation queue. Visible only when /api/auth/me
-         returns user.isAdmin === true. Populated by admin-community-wire.js. -->
-    <div class="view" id="view-admin-community" style="display:none">
-      <section class="mast">
-        <div>
-          <div class="kicker" style="display:flex;align-items:center;gap:12px;color:var(--t3)"><span style="flex:0 0 28px;height:1px;background:var(--t3)"></span><span class="eyebrow">§ Admin · Moderation</span></div>
-          <h1>Community <em>reports</em>.</h1>
-          <p class="sub">Reported posts are hidden from every community feed until you resolve.</p>
-        </div>
-        <div class="mini-stats">
-          <div class="stat"><div class="lbl">Pending</div><div class="v"><em id="admin-pending-count">0</em></div><div class="d">awaiting review</div></div>
-        </div>
-      </section>
-      <section style="padding:0 40px">
-        <div id="admin-community-reports-list"></div>
-      </section>
-    </div>
+    <!-- view-db-knowledge + view-admin-community deleted 2026-05-07. -->
 
     <!-- SETTINGS -->
     <div class="view" id="view-db-settings">
@@ -2316,8 +2281,8 @@
         <div class="settings-grid">
           <div class="settings-nav">
             <button class="settings-nav-item active" onclick="switchSettings(this,'profile')">Profile</button>
-            <button class="settings-nav-item" onclick="switchSettings(this,'brand')">Brand Voice</button>
-            <button class="settings-nav-item" onclick="switchSettings(this,'niche')">Niche</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'brand')" style="display:none">Brand Voice</button>
+            <button class="settings-nav-item" onclick="switchSettings(this,'niche')" style="display:none">Niche</button>
             <button class="settings-nav-item" onclick="switchSettings(this,'billing')">Billing</button>
           </div>
           <div>

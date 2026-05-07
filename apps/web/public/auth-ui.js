@@ -1144,10 +1144,18 @@
 
   // ───────────────────────────────────────────────────────────────────────────
   // ONBOARDING — three steps total: name → niche → integrations, then reveal.
+  // The platform-connect step (ob-8) is built dynamically because the copy +
+  // platform rows depend on runtime feature flags (TikTok integration on/off).
+  // ensurePlatStep() is idempotent and self-heals: if the script first ran
+  // before body.html hydrated, calling it later — e.g. during the niche-step
+  // transition — recovers cleanly instead of null-derefing on getElementById.
   // ───────────────────────────────────────────────────────────────────────────
-  const obWrap = document.querySelector('#onboarding .ob-wrap')
-  if (obWrap) {
+  function ensurePlatStep() {
+    if (document.getElementById('ob-8')) return true
+    const obWrap = document.querySelector('#onboarding .ob-wrap')
+    if (!obWrap) return false
     const reveal = document.getElementById('ob-4')
+    if (!reveal) return false
 
     const platStep = document.createElement('div')
     platStep.className = 'ob-step'
@@ -1169,12 +1177,16 @@
     `
     obWrap.insertBefore(platStep, reveal)
 
-    document.getElementById('ob-platform-continue').addEventListener('click', function () {
-      void finishToReveal()
-    })
-    platStep.querySelector('[data-back]').addEventListener('click', function () {
-      obPrevTo('ob-8')
-    })
+    const contBtn = document.getElementById('ob-platform-continue')
+    if (contBtn) contBtn.addEventListener('click', function () { void finishToReveal() })
+    const backBtn = platStep.querySelector('[data-back]')
+    if (backBtn) backBtn.addEventListener('click', function () { obPrevTo('ob-8') })
+    return true
+  }
+
+  ensurePlatStep()
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensurePlatStep)
   }
 
   document.addEventListener('vx-oauth-return-onboarding', function () {
@@ -1332,7 +1344,11 @@
       if (ob2Hint) { ob2Hint.textContent = ''; ob2Hint.style.color = '' }
       if (btn) { btn.disabled = false; btn.textContent = 'Continue' }
       document.getElementById('ob-2').classList.remove('active')
-      document.getElementById('ob-8').classList.add('active')
+      // Self-heal: if the platform step failed to mount earlier (race with
+      // body.html hydration), build it now before activating.
+      ensurePlatStep()
+      const step8 = document.getElementById('ob-8')
+      if (step8) step8.classList.add('active')
       setProgress(100)
       if (typeof window.__vxObRefreshPlatforms === 'function') void window.__vxObRefreshPlatforms()
     }

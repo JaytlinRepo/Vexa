@@ -31,49 +31,56 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   // Freemium with daily resets — no trial, no upfront cost, light per-day
   // cap. Resets at 00:00 UTC so users get a fresh runway each day; this is
   // the upgrade nudge instead of a 7-day countdown.
+  // Free — audition tier. Daily resets so a curious user comes back tomorrow
+  // instead of blowing the month in one weekend. Studio is monthly so we can
+  // give a real "1 edit per week" demo experience without daily noise.
   free: {
-    tasksPerMonth: 3, // per-DAY cap (resetWindow: 'daily')
+    tasksPerMonth: 3, // per-DAY (resetWindow: 'daily')
     resetWindow: 'daily',
     videosPerMonth: 0,
-    studioEditsPerMonth: 2,
+    studioEditsPerMonth: 3, // monthly — full iteration loop demo
     workspaces: 1,
-    meetingFeature: false,
-    brandMemory: false,
-    bedrockCallsPerMonth: 15, // per-DAY (resetWindow: 'daily')
+    meetingFeature: true, // parity: every tier gets every feature; volume varies
+    brandMemory: true,
+    bedrockCallsPerMonth: 25, // per-DAY
     briefCooldownMin: 60,
-    proactiveAnalysis: false,
+    proactiveAnalysis: false, // no auto-pulses on Free — first-impression hooks come from manual Maya/Jordan briefs
     weeklyPulse: false,
     nicheDetection: true,
     syncOnLogin: false,
     employees: ['analyst', 'strategist', 'creative_director'],
-    revisionsPerOutput: 0,
+    revisionsPerOutput: 1,
   },
+  // Pro — entry paid tier ($19). Daily resets. Same team quality as Max,
+  // smaller daily runway. Quotas tuned so a real user doing 1 post/day with
+  // light iteration never hits the wall organically.
   pro: {
-    tasksPerMonth: 75,
-    resetWindow: 'monthly',
-    videosPerMonth: 5,
-    studioEditsPerMonth: 6,
+    tasksPerMonth: 8, // per-DAY (resetWindow: 'daily')
+    resetWindow: 'daily',
+    videosPerMonth: 3, // monthly — Creatomate-rendered Reels
+    studioEditsPerMonth: 8, // monthly — Riley clip pipeline (expensive; capped tighter)
     workspaces: 1,
-    meetingFeature: false,
-    brandMemory: false,
-    bedrockCallsPerMonth: 400,
-    briefCooldownMin: 15,
+    meetingFeature: true,
+    brandMemory: true,
+    bedrockCallsPerMonth: 200, // per-DAY abuse ceiling
+    briefCooldownMin: 10,
     proactiveAnalysis: true,
-    weeklyPulse: false,
+    weeklyPulse: true, // Sonnet 4 weekly pulse from $19 \u2014 quality parity with Max
     nicheDetection: true,
     syncOnLogin: true,
     employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 5,
   },
+  // Max — flagship tier ($59). Daily resets. The "real working creator" plan.
   max: {
-    tasksPerMonth: 200,
-    resetWindow: 'monthly',
+    tasksPerMonth: 20, // per-DAY
+    resetWindow: 'daily',
     videosPerMonth: 15,
-    studioEditsPerMonth: 20,
+    studioEditsPerMonth: 25, // monthly
     workspaces: 1,
     meetingFeature: true,
     brandMemory: true,
-    bedrockCallsPerMonth: 1200,
+    bedrockCallsPerMonth: 500, // per-DAY abuse ceiling
     briefCooldownMin: 5,
     proactiveAnalysis: true,
     weeklyPulse: true,
@@ -82,15 +89,17 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     employees: ['analyst', 'strategist', 'creative_director'],
     revisionsPerOutput: 10,
   },
+  // Agency — multi-workspace tier ($149). Cap is per-USER (across all
+  // workspaces), not per-workspace. 150 tasks/day = 30/ws \u00d7 5 workspaces.
   agency: {
-    tasksPerMonth: 1000,
-    resetWindow: 'monthly',
+    tasksPerMonth: 150, // per-DAY (across all owned workspaces)
+    resetWindow: 'daily',
     videosPerMonth: 75,
-    studioEditsPerMonth: 30,
+    studioEditsPerMonth: 100, // monthly across all 5 workspaces
     workspaces: 5,
     meetingFeature: true,
     brandMemory: true,
-    bedrockCallsPerMonth: 5500,
+    bedrockCallsPerMonth: 1500, // per-DAY abuse ceiling
     briefCooldownMin: 2,
     proactiveAnalysis: true,
     weeklyPulse: true,

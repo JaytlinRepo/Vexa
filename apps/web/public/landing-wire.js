@@ -97,18 +97,9 @@
     });
   }
 
-  // Ticker micro-updates
-  var tkPosts = document.getElementById('tk-posts');
-  var tkReach = document.getElementById('tk-reach');
-  var tkHrs = document.getElementById('tk-hrs');
-  if(tkPosts && tkReach && tkHrs){
-    var p = 21, r = 1.8, h = 28.4;
-    setInterval(function(){
-      if(Math.random() > 0.6){ p++; tkPosts.innerHTML = '<em>' + p + '</em> posts'; }
-      if(Math.random() > 0.4){ r = +(r + Math.random()*0.03).toFixed(2); tkReach.innerHTML = '<em>' + r + '</em>M'; }
-      if(Math.random() > 0.5){ h = +(h + 0.1).toFixed(1); tkHrs.innerHTML = '<em>' + h + '</em>h saved'; }
-    }, 2200);
-  }
+  // Ticker — values stay static. The strip is labeled "Average week on Sovexa",
+  // so an indefinitely-incrementing counter would contradict the framing
+  // (averages don't grow forever). Static markup in body.html is the truth.
 
   // Reveal on scroll — delay to ensure body.html is fully parsed
   function initReveals() {
@@ -195,5 +186,12 @@
       var track = this.querySelector('.track');
       if(track) track.style.animationPlayState = 'running';
     });
+  }
+
+  // Pricing toggle initial state — togglePrice() (in prototype.js) reads/writes
+  // body[data-billing]. Default to monthly so the .px-yr / .pc-price.px-yr
+  // elements stay hidden until the user flips the switch.
+  if(!document.body.getAttribute('data-billing')){
+    document.body.setAttribute('data-billing','monthly');
   }
 })();

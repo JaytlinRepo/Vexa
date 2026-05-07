@@ -887,7 +887,7 @@ a{color:inherit;text-decoration:none}
               <span class="ln"><span>Good morning, CEO.</span></span>
               <span class="ln"><span>Your team <em>shipped</em> 4 posts overnight.</span></span>
             </h1>
-            <p class="sub">Maya's weekly pulse landed at 08:12, Jordan's plan is <em>live</em>, Alex is on Reel 3 of 3, and Riley has a shot list staged for tomorrow's golden-hour shoot.</p>
+            <p class="sub">Maya's weekly pulse landed at 08:12, Jordan's plan is <em>live</em>, and Riley has a shot list staged for tomorrow's golden-hour shoot.</p>
           </div>
         </div>
         <div class="dashboard">
@@ -1021,8 +1021,9 @@ a{color:inherit;text-decoration:none}
             <div class="status"><span class="dt"></span>Approved · 08:47</div>
             <div class="task">Content plan wk 17. <em>5 pillars</em>, 12 deliverables, retention goal 55%.</div>
             <div class="prog"><span></span></div>
-            <div class="foot"><span>100%</span><span>→ Alex</span></div>
+            <div class="foot"><span>100%</span><span>→ Riley</span></div>
           </div>
+          <!-- Alex (copywriter) node SHELVED 2026-05-06 — restore between n2 and n4 when copywriter role returns.
           <div class="node n3 working">
             <div class="top"><div class="av">A</div><div><div class="n">Alex</div><div class="r">Copy · Scripts</div></div></div>
             <div class="status"><span class="dt"></span>Writing · now</div>
@@ -1030,9 +1031,10 @@ a{color:inherit;text-decoration:none}
             <div class="prog"><span></span></div>
             <div class="foot"><span id="alexPct">72%</span><span>ETA 09:44</span></div>
           </div>
+          -->
           <div class="node n4 queued">
             <div class="top"><div class="av">R</div><div><div class="n">Riley</div><div class="r">Schedule · Ship</div></div></div>
-            <div class="status"><span class="dt"></span>Queued · awaits Alex</div>
+            <div class="status"><span class="dt"></span>Queued · awaits Jordan handoff</div>
             <div class="task">Shot list + visual direction for <em>3 Reels</em>. Auto-briefs on handoff.</div>
             <div class="prog"><span></span></div>
             <div class="foot"><span>0%</span><span>handoff</span></div>
@@ -1088,7 +1090,7 @@ a{color:inherit;text-decoration:none}
           <div class="feed">
             <div class="feed-head">
               <span class="t">Auto-edit · live</span>
-              <span class="live">Alex</span>
+              <span class="live">Riley</span>
             </div>
             <div class="auto-row r1">
               <div class="check">✓</div>
@@ -1197,6 +1199,7 @@ a{color:inherit;text-decoration:none}
                 <div class="rl">Strategy · Plan</div>
               </div>
             </div>
+            <!-- Alex (copywriter) member SHELVED 2026-05-06 — restore between Jordan and Riley when copywriter role returns.
             <div class="member a">
               <div class="av">A</div>
               <div class="info">
@@ -1204,11 +1207,12 @@ a{color:inherit;text-decoration:none}
                 <div class="rl">Create · Edit</div>
               </div>
             </div>
+            -->
             <div class="member r">
               <div class="av">R</div>
               <div class="info">
-                <div class="top-row"><div class="nm">Riley</div><div class="st staged">11:42</div></div>
-                <div class="rl">Schedule · Ship</div>
+                <div class="top-row"><div class="nm">Riley</div><div class="st working">Working</div></div>
+                <div class="rl">Create · Edit · Schedule</div>
               </div>
             </div>
           </div>
@@ -1312,12 +1316,14 @@ a{color:inherit;text-decoration:none}
                 <div class="mid"><div class="nm">Jordan · Strategy</div><div class="ts">drafting brief #213</div></div>
                 <div class="rt">Idle</div>
               </div>
+              <!-- Alex (copywriter) agent SHELVED 2026-05-06 — restore between Jordan and Riley when copywriter role returns.
               <div class="agent-connector"></div>
               <div class="ag a">
                 <div class="av">A</div>
                 <div class="mid"><div class="nm">Alex · Create</div><div class="ts">writing Reel caption</div></div>
                 <div class="rt">Idle</div>
               </div>
+              -->
               <div class="agent-connector"></div>
               <div class="ag r">
                 <div class="av">R</div>
@@ -1428,7 +1434,7 @@ function activate(i){
   }, enterDelay));
 }
 
-/* ── Scene 2 · live clock + Alex progress ── */
+/* ── Scene 2 · live clock (Alex progress ticker no-ops since the Alex node is shelved; defensive null-check on pctEl preserves runtime safety) ── */
 function runScene2(){
   const clockEl = $('#s2clock');
   const pctEl = $('#alexPct');

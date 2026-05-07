@@ -39,9 +39,20 @@ export async function computeUsage(prisma: PrismaClient, userId: string): Promis
   const windowEnd = isDaily ? startOfNextDayUTC() : startOfNextMonthUTC()
 
   const [taskCount, videoCount, studioEditCount] = await Promise.all([
+    // Only `source = 'user'` tasks count against the quota. Proactive cron
+    // briefs (source='system') and onboarding seeds (source='seed') never
+    // burn user budget — that was the architectural bug a Pro user could
+    // hit before clicking anything. isSeeded:false is left as a belt-and-
+    // braces guard for any pre-source-enum rows that lingered through
+    // migration without a source value being set.
     companyIds.length
       ? prisma.task.count({
-          where: { companyId: { in: companyIds }, createdAt: { gte: windowStart, lt: windowEnd }, isSeeded: false },
+          where: {
+            companyId: { in: companyIds },
+            createdAt: { gte: windowStart, lt: windowEnd },
+            source: 'user',
+            isSeeded: false,
+          },
         })
       : 0,
     companyIds.length

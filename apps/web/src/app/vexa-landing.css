@@ -295,13 +295,19 @@ nav.top .cta .start:hover{background:var(--accent-hov);box-shadow:0 8px 24px var
 .agent-connector::before{content:'';width:100%;height:1px;background:var(--b1)}
 .agent-connector.handoff::before{background:var(--accent);opacity:.4}
 
-.out-ticker{
-  margin-top:20px;padding-top:18px;border-top:1px solid var(--b1);
-  display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
+.out-ticker-caption{
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--b1);
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--t3);text-align:center;
 }
-.out-ticker .m{text-align:center}
-.out-ticker .m .l{font-family:'Inter',sans-serif;font-weight:500;font-size:9px;letter-spacing:.2em;color:var(--t3);text-transform:uppercase;margin-bottom:5px}
-.out-ticker .m .v{font-size:20px;color:var(--t1);letter-spacing:-.02em;font-feature-settings:"tnum" 1}
+.out-ticker{
+  margin-top:10px;
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;
+  align-items:stretch;
+}
+.out-ticker .m{text-align:center;display:flex;flex-direction:column}
+.out-ticker .m .l{font-family:'Inter',sans-serif;font-weight:500;font-size:9px;letter-spacing:.16em;color:var(--t3);text-transform:uppercase;line-height:1.3}
+.out-ticker .m .v{font-size:20px;color:var(--t1);letter-spacing:-.02em;font-feature-settings:"tnum" 1;margin-top:auto;padding-top:8px}
 .out-ticker .m .v em{color:var(--accent);font-style:normal}
 .out-ticker .m.center{border-left:1px solid var(--b1);border-right:1px solid var(--b1)}
 
@@ -515,7 +521,7 @@ section.blk{padding:140px 44px;position:relative;z-index:1}
 .stat .l{font-family:'Inter',sans-serif;font-weight:500;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3)}
 
 /* ═══ PRICING ═══ */
-.prices{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--b1);border-radius:16px;overflow:hidden}
+.prices{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--b1);border-radius:16px;overflow:hidden}
 .plan{padding:40px 36px;background:var(--s1);border-right:1px solid var(--b1);position:relative}
 .plan:last-child{border-right:0}
 .plan.feat{background:linear-gradient(180deg,var(--s2),var(--bg));z-index:2}
@@ -526,7 +532,15 @@ section.blk{padding:140px 44px;position:relative;z-index:1}
 .plan .ph .bd{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase}
 .plan .px{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:56px;line-height:1;letter-spacing:-.03em;margin-bottom:6px}
 .plan .px em{font-style:italic;color:var(--accent);font-size:22px;letter-spacing:0}
+.plan .px-yr-foot{font-size:11px;color:var(--t3);letter-spacing:.02em;margin-bottom:18px}
 .plan .pd{font-size:12px;color:var(--t2);margin-bottom:28px}
+/* Billing toggle — body[data-billing] picks which price element shows */
+body[data-billing="monthly"] .plan .px-yr,
+body[data-billing="monthly"] .plan .px-yr-foot,
+body[data-billing="monthly"] .pc .px-yr,
+body[data-billing="monthly"] .pc .px-yr-foot{display:none}
+body[data-billing="annual"] .plan .px-mo,
+body[data-billing="annual"] .pc .px-mo{display:none}
 .plan ul{list-style:none;margin-bottom:28px}
 .plan ul li{padding:10px 0;border-bottom:1px dashed var(--b1);font-size:13px;color:var(--t2);display:grid;grid-template-columns:16px 1fr;gap:10px}
 .plan ul li:last-child{border-bottom:0}

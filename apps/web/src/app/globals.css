@@ -1510,6 +1510,4 @@
   transform: translate(-50%, 0);
 }
 
-/* Knowledge tab shelved — hidden across all surfaces until re-released */
-#view-db-knowledge { display: none !important; }
-[data-v2-nav="db-knowledge"] { display: none !important; }
+/* Knowledge view CSS removed 2026-05-07 — view + nav entries deleted. */

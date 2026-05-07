@@ -5,7 +5,6 @@ import {
 } from '../agents/maya/system-prompt'
 import {
   buildJordanMeetingPrompt,
-  buildAlexMeetingPrompt,
   buildRileyMeetingPrompt,
 } from '../agents/jordan-alex-riley-prompts'
 import { EmployeeRole, MeetingMessage, MeetingDecision } from '@vexa/types'
@@ -156,7 +155,7 @@ Return ONLY valid JSON:
     {
       "decision": "string",
       "actionItem": "string (optional)",
-      "assignedTo": "analyst" | "strategist" | "copywriter" | "creative_director" | null
+      "assignedTo": "analyst" | "strategist" | "creative_director" | null
     }
   ]
 }`
@@ -212,8 +211,6 @@ function buildMeetingSystemPrompt(
       return buildMayaMeetingPrompt(context)
     case 'strategist':
       return buildJordanMeetingPrompt(context)
-    case 'copywriter':
-      return buildAlexMeetingPrompt(context)
     case 'creative_director':
       return buildRileyMeetingPrompt(context)
     default:

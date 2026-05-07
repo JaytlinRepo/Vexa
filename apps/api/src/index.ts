@@ -18,14 +18,10 @@ import instagramRouter from './routes/instagram'
 import meetingRouter from './routes/meeting'
 import tasksRouter from './routes/tasks'
 import employeesRouter from './routes/employees'
-import teamRouter from './routes/team'
 import { getMode } from './lib/mode'
-import feedRouter from './routes/feed'
 import companyRouter from './routes/company'
 import outputsRouter from './routes/outputs'
 import usageRouter from './routes/usage'
-import memoryRouter from './routes/memory'
-import knowledgeRouter from './routes/knowledge'
 import thoughtsRouter from './routes/thoughts'
 import platformDataRouter from './routes/platformData'
 import styleRouter from './routes/style'
@@ -35,7 +31,6 @@ import uploadsRouter from './routes/uploads'
 import stripeRouter from './routes/stripe'
 import adminRouter from './routes/admin'
 import waitlistRouter from './routes/waitlist'
-import communityReportRouter from './routes/communityReport'
 import { initBriefRoutes } from './routes/briefs'
 import { initWeeklyRoutes } from './routes/weekly'
 import { initVideoRoutes } from './routes/video'
@@ -171,13 +166,9 @@ app.use('/api/instagram', instagramRouter)
 app.use('/api/meeting', meetingRouter)
 app.use('/api/tasks', tasksRouter)
 app.use('/api/employees', employeesRouter)
-app.use('/api/team', teamRouter)
-app.use('/api/feed', feedRouter)
 app.use('/api/company', companyRouter)
 app.use('/api/outputs', outputsRouter)
 app.use('/api/usage', usageRouter)
-app.use('/api/memory', memoryRouter)
-app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/thoughts', thoughtsRouter)
 app.use('/api/style', styleRouter)
 app.use('/api/platform', platformDataRouter)
@@ -188,7 +179,6 @@ app.use('/api/stripe', stripeRouter)
 app.use('/api/admin', adminRouter)
 app.use('/admin/queues', setupQueueDashboard())
 app.use('/api/waitlist', waitlistRouter)
-app.use('/api/community', communityReportRouter)
 app.use('/api/briefs', initBriefRoutes(prisma))
 app.use('/api/weekly', initWeeklyRoutes(prisma))
 app.use('/api/video', initVideoRoutes(prisma))

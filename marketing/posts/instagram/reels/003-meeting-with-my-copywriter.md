@@ -1,5 +1,6 @@
 ---
-status: draft
+status: shelved
+shelved_reason: Alex (copywriter) shelved 2026-05-06 for future release. Re-enable when Alex returns to active team.
 platform: instagram
 type: reel
 angle: ceo-identity
@@ -7,7 +8,7 @@ duration: 30s
 date_drafted: 2026-04-27
 ---
 
-# Reel 003 — "I just had a meeting with my copywriter."
+# Reel 003 — "I just had a meeting with my copywriter." *(SHELVED — Alex shelved)*
 
 **Format:** Founder POV. Half talking-head, half over-the-shoulder shot of the meeting room UI.
 

@@ -225,13 +225,16 @@
       return fmtHtml
     }
 
-    // Trend hooks (Alex)
-    if (type === 'trend_hooks' && c.hooks?.length) {
-      var best = c.hooks[c.recommendedHook || 0] || c.hooks[0]
-      return '<div style="margin-bottom:6px;color:var(--t1);font-weight:500">' + c.hooks.length + ' hooks for: ' + esc((c.trendUsed || '').slice(0, 50)) + '</div>'
-        + '<div style="padding:8px 12px;background:var(--s2);border-radius:8px;font-style:italic;font-size:12px;color:var(--t1)">"' + esc((best.text || '').slice(0, 100)) + '"</div>'
-        + '<div style="font-size:10px;color:var(--t3);margin-top:4px">Alex\'s pick · ' + esc(best.style || '') + '</div>'
-    }
+    // Trend hooks (Alex/copywriter) — SHELVED 2026-05-06. Branch retained for
+    // future re-enable when copywriter role returns. trend_hooks tasks are not
+    // created today (no copywriter employee seeded), so this branch never
+    // fires; falls through to the generic renderer below.
+    // if (type === 'trend_hooks' && c.hooks?.length) {
+    //   var best = c.hooks[c.recommendedHook || 0] || c.hooks[0]
+    //   return '<div style="margin-bottom:6px;color:var(--t1);font-weight:500">' + c.hooks.length + ' hooks for: ' + esc((c.trendUsed || '').slice(0, 50)) + '</div>'
+    //     + '<div style="padding:8px 12px;background:var(--s2);border-radius:8px;font-style:italic;font-size:12px;color:var(--t1)">"' + esc((best.text || '').slice(0, 100)) + '"</div>'
+    //     + '<div style="font-size:10px;color:var(--t3);margin-top:4px">Alex\'s pick · ' + esc(best.style || '') + '</div>'
+    // }
 
     // Plan adjustment (Jordan)
     if (type === 'plan_adjustment' && c.adjustments) {
@@ -534,11 +537,9 @@
       }
     }
 
-    // Hide standalone views
-    ;['view-db-team', 'view-db-outputs'].forEach(function (id) {
-      var v = document.getElementById(id)
-      if (v) v.classList.remove('active')
-    })
+    // Hide standalone Outputs view (view-db-team was removed 2026-05-07)
+    var outputsView = document.getElementById('view-db-outputs')
+    if (outputsView) outputsView.classList.remove('active')
   }
 
   // ── Navigation wiring ──────────────────────────────────────────

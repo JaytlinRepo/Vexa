@@ -32,18 +32,13 @@
 
     <line class="hair" x1="0" y1="140" x2="920" y2="140"/>
 
-    <text class="sans ink2" x="0" y="180" font-size="28">Alex · Copywriter</text>
-    <text class="serif ink" x="920" y="180" font-size="36" text-anchor="end">$71,000</text>
+    <text class="sans ink2" x="0" y="180" font-size="28">Riley · Creative Director</text>
+    <text class="serif ink" x="920" y="180" font-size="36" text-anchor="end">$118,000</text>
 
-    <line class="hair" x1="0" y1="200" x2="920" y2="200"/>
+    <line class="hair" x1="0" y1="200" x2="920" y2="200" stroke-width="2"/>
 
-    <text class="sans ink2" x="0" y="240" font-size="28">Riley · Creative Director</text>
-    <text class="serif ink" x="920" y="240" font-size="36" text-anchor="end">$118,000</text>
-
-    <line class="hair" x1="0" y1="260" x2="920" y2="260" stroke-width="2"/>
-
-    <text class="mono ink3" x="0" y="300" font-size="20" letter-spacing="4">TOTAL / YEAR</text>
-    <text class="serif ink" x="920" y="310" font-size="56" text-anchor="end" font-style="italic">$361,000</text>
+    <text class="mono ink3" x="0" y="240" font-size="20" letter-spacing="4">TOTAL / YEAR</text>
+    <text class="serif ink" x="920" y="250" font-size="56" text-anchor="end" font-style="italic">$290,000</text>
   </g>
 
   <!-- Hairline divider -->
@@ -53,9 +48,9 @@
   <text class="mono accent" x="80" y="700" font-size="22" letter-spacing="4">OR</text>
 
   <text class="serif accent" x="80" y="870" font-size="200" font-style="italic" font-weight="400" letter-spacing="-3">$59.00</text>
-  <text class="mono ink3" x="80" y="920" font-size="24" letter-spacing="4">PER MONTH · SOVEXA PRO</text>
+  <text class="mono ink3" x="80" y="920" font-size="24" letter-spacing="4">PER MONTH · SOVEXA MAX</text>
 
   <!-- Footer -->
   <text class="mono accent" x="80" y="1020" font-size="22" letter-spacing="6">SOVEXA.AI</text>
-  <text class="mono ink3" x="1000" y="1020" font-size="18" text-anchor="end" letter-spacing="4">06 / 06</text>
+  <text class="mono ink3" x="1000" y="1020" font-size="18" text-anchor="end" letter-spacing="4">05 / 05</text>
 </svg>

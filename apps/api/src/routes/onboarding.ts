@@ -111,7 +111,7 @@ router.post('/company', async (req, res, next) => {
         type: 'team_update',
         emoji: '👋',
         title: `${company.name} — your team is assembled`,
-        body: 'Jordan, Maya, Alex, and Riley are active. Three deliveries are already waiting on you.',
+        body: 'Maya, Jordan, and Riley are active. Three deliveries are already waiting on you.',
       })
     } catch (e) {
       console.warn('[onboarding] welcome notification failed', e)

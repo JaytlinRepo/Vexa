@@ -797,19 +797,19 @@ Plain-English rules (creators aren't data scientists):
  *   • duplicate-suppression: skip if an identical title was created in the
  *     last 24h (avoids the daily cron flooding the queue with reruns).
  *
- * Riley directives are intentionally NOT supported — Maya talks to Alex,
- * Alex talks to Riley.
+ * Riley directives are intentionally NOT supported — Maya hands off to
+ * Jordan, Jordan briefs Riley. (Alex/copywriter retired 2026-05-07.)
  */
 async function createTasksFromDirectives(
   prisma: PrismaClient,
   companyId: string,
   directives: Array<{ to?: string; title?: string; reason?: string }>,
 ): Promise<void> {
-  const ROLE_BY_KEY: Record<string, string> = { jordan: 'strategist', alex: 'copywriter' }
-  const TYPE_BY_KEY: Record<string, string> = { jordan: 'plan_adjustment', alex: 'caption_writing' }
+  const ROLE_BY_KEY: Record<string, string> = { jordan: 'strategist' }
+  const TYPE_BY_KEY: Record<string, string> = { jordan: 'plan_adjustment' }
 
   const employees = await prisma.employee.findMany({
-    where: { companyId, role: { in: ['strategist', 'copywriter'] } },
+    where: { companyId, role: 'strategist' },
     select: { id: true, role: true },
   })
   const employeeByRole: Record<string, string> = {}
@@ -843,6 +843,7 @@ async function createTasksFromDirectives(
         description: 'Maya · auto-suggested: ' + (d.reason || 'Follows from this week\'s data review.'),
         type: TYPE_BY_KEY[d.to] || 'general',
         status: 'pending',
+        source: 'system', // Maya's auto-derived directives — don't burn user quota
       },
     })
   }

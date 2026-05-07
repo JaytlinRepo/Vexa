@@ -107,6 +107,7 @@ async function triggerMayaTask(
       description: opts.description,
       type: opts.type,
       status: 'in_progress',
+      source: 'system', // proactive cron / auto-chain — never burns user quota
     },
   })
 
@@ -186,17 +187,6 @@ export async function triggerWeeklyPlan(
   })
 }
 
-/**
- * Alex's proactive hooks — RETIRED. Alex (copywriter) was removed from the
- * team. The export remains as a no-op so any straggler callers don't crash;
- * delete this once nothing imports it.
- */
-export async function triggerProactiveHooks(
-  _prisma: PrismaClient,
-  _companyId: string,
-): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return { triggered: false, reason: 'role_retired' }
-}
 
 /**
  * Generic agent task trigger — works for any role.
@@ -233,6 +223,7 @@ async function triggerAgentTask(
       description: opts.description,
       type: opts.type,
       status: 'in_progress',
+      source: 'system', // proactive cron / auto-chain — never burns user quota
     },
   })
 
@@ -312,20 +303,6 @@ export async function triggerPlanAdjustment(
     notifBody: 'Mid-week performance check — some posts swapped based on what\'s working.',
     dedupDays: 6,
   })
-}
-
-/**
- * Alex's trend hooks — RETIRED. Alex (copywriter) was removed. Maya's
- * trend report no longer fans out to a hook-writer; Riley picks up
- * production direction instead. Kept as a no-op until callers are gone.
- */
-export async function triggerTrendHooks(
-  _prisma: PrismaClient,
-  _companyId: string,
-  _trendTopic: string,
-  _trendContext: string,
-): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return { triggered: false, reason: 'role_retired' }
 }
 
 // ─── RILEY PROACTIVE DELIVERABLES ────────────────────────────────────────────
@@ -582,19 +559,6 @@ export async function triggerWeeklyJordanPlan(
     notifBody: "Next week's strategy informed by this week's data.",
     dedupDays: 6,
   })
-}
-
-/**
- * Alex's weekly hooks — RETIRED. Alex (copywriter) was removed; the
- * scheduler no longer calls this. Kept as a no-op export until all
- * callers have been pruned, so an imported reference doesn't break the
- * build during the transition.
- */
-export async function triggerWeeklyAlexHooks(
-  _prisma: PrismaClient,
-  _companyId: string,
-): Promise<{ triggered: boolean; reason?: string; taskId?: string }> {
-  return { triggered: false, reason: 'role_retired' }
 }
 
 /**

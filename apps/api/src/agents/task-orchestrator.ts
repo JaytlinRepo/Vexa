@@ -2,8 +2,8 @@ import { PrismaClient, Prisma, OutputType as PrismaOutputType } from '@prisma/cl
 import prisma from '../lib/prisma'
 import { invokeAgent, parseAgentOutput, retrieveNicheContext, buildLayeredPrompt } from '../services/bedrock/bedrock.service'
 import { buildMayaSystemPrompt, buildMayaTaskPrompt, buildMayaPerformanceSystemPrompt, buildMayaPerformanceTaskPrompt, buildMayaPulseSystemPrompt, buildMayaPulseTaskPrompt } from './maya/system-prompt'
-import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildJordanPlanAdjustmentPrompt, buildAlexSystemPrompt, buildAlexTrendHooksPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt, buildRileyCompetitorAnalysisPrompt } from './jordan-alex-riley-prompts'
-import { TrendReport, ContentPlan, HooksOutput, ScriptOutput, ShotListOutput, PerformanceReview, WeeklyPulse, UploadReview, ContentAudit, GrowthStrategy, FeedAudit, FormatAnalysis, TrendHooks, PlanAdjustment, CompetitorAnalysis, OutputType } from '@vexa/types'
+import { buildJordanSystemPrompt, buildJordanContentAuditPrompt, buildJordanGrowthStrategyPrompt, buildJordanPlanAdjustmentPrompt, buildRileySystemPrompt, buildRileyUploadReviewPrompt, buildRileyFeedAuditPrompt, buildRileyFormatAnalysisPrompt, buildRileyCompetitorAnalysisPrompt } from './jordan-alex-riley-prompts'
+import { TrendReport, ContentPlan, ShotListOutput, PerformanceReview, WeeklyPulse, UploadReview, ContentAudit, GrowthStrategy, FeedAudit, FormatAnalysis, PlanAdjustment, CompetitorAnalysis, OutputType } from '@vexa/types'
 import { executeAndStore } from '../services/agentExecutor'
 import { assertTaskQuota } from '../lib/usage'
 import { tryAutoApproveDeliveredTask } from '../lib/autoShip'
@@ -128,13 +128,13 @@ async function executeAgentTask(task: {
   // Fetch niche context from RAG
   const nicheContext = await retrieveNicheContext(niche, description || task.type)
 
-  // Fetch brand memory. For Jordan + Alex, prepend Maya's latest playbook
-  // directives so they read first — that's our soft "priority directive"
-  // pattern. Riley intentionally does NOT see this section: he executes
-  // Alex's brief, so Maya's analytics reach him via Alex's output, not
-  // directly. Other roles get the standard memory blob.
+  // Fetch brand memory. For Jordan, prepend Maya's latest playbook directives
+  // so they read first — soft "priority directive" pattern. Other roles get
+  // the standard memory blob. (Alex/copywriter executor was retired
+  // 2026-05-07 — its `getMayaDirectiveForRole('copywriter')` branch went
+  // with it.)
   let brandMemory = await getBrandMemory(task.id)
-  if (employee.role === 'strategist' || employee.role === 'copywriter') {
+  if (employee.role === 'strategist') {
     const directive = await getMayaDirectiveForRole(task.companyId, employee.role)
     if (directive) brandMemory = directive + '\n\n' + brandMemory
   }
@@ -159,12 +159,6 @@ async function executeAgentTask(task: {
         return executeJordanPlanAdjustment({ niche, subNiche: company.subNiche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, companyId: task.companyId })
       }
       return executeJordanTask({ niche, brandVoice, audience, goals, nicheContext, brandMemory, platformData, description })
-
-    case 'copywriter':
-      if (task.type === 'trend_hooks') {
-        return executeAlexTrendHooks({ niche, subNiche: company.subNiche, brandVoice, audience, nicheContext, brandMemory, platformData, description, companyId: task.companyId })
-      }
-      return executeAlexTask({ niche, brandVoice, audience, nicheContext, brandMemory, platformData, description, taskType: task.type })
 
     case 'creative_director':
       if (task.type === 'upload_review') {
@@ -383,39 +377,6 @@ async function executeJordanTask(ctx: {
   return parseAgentOutput<ContentPlan>(raw)
 }
 
-async function executeAlexTask(ctx: {
-  niche: string
-  brandVoice: string
-  audience: string
-  nicheContext: string
-  brandMemory: string
-  platformData?: string
-  description: string | null
-  taskType: string
-}): Promise<HooksOutput | ScriptOutput> {
-  const basePrompt = buildAlexSystemPrompt({
-    niche: ctx.niche,
-    brandVoice: ctx.brandVoice,
-    audience: ctx.audience,
-  })
-
-  const systemPrompt = buildLayeredPrompt({
-    baseSystemPrompt: basePrompt,
-    nicheContext: ctx.nicheContext,
-    brandMemory: ctx.brandMemory,
-    platformData: ctx.platformData,
-  })
-
-  const raw = await invokeAgent({
-    systemPrompt,
-    messages: [{ role: 'user', content: ctx.description || 'Write hooks for this week\'s content' }],
-    maxTokens: 2048,
-    temperature: 0.85,
-  })
-
-  return parseAgentOutput<HooksOutput | ScriptOutput>(raw)
-}
-
 async function executeRileyTask(ctx: {
   niche: string
   brandVoice: string
@@ -610,34 +571,6 @@ async function executeJordanPlanAdjustment(ctx: {
     maxTokens: 2048, temperature: 0.6, companyId: ctx.companyId,
   })
   return parseAgentOutput<PlanAdjustment>(raw)
-}
-
-async function executeAlexTrendHooks(ctx: {
-  niche: string; subNiche?: string | null; brandVoice: string; audience: string
-  nicheContext: string; brandMemory: string; platformData?: string; description: string | null; companyId: string
-}): Promise<TrendHooks> {
-  // Extract trend info from description (passed by proactive trigger)
-  let trendTopic = 'current trending topic'
-  let trendContext = ''
-  try {
-    const meta = JSON.parse(ctx.description || '{}')
-    trendTopic = meta.trendTopic || trendTopic
-    trendContext = meta.trendContext || ''
-  } catch {}
-
-  const basePrompt = buildAlexTrendHooksPrompt({
-    niche: ctx.niche, subNiche: ctx.subNiche || undefined, brandVoice: ctx.brandVoice, audience: ctx.audience,
-    trendTopic, trendContext,
-  })
-  const systemPrompt = buildLayeredPrompt({
-    baseSystemPrompt: basePrompt, nicheContext: ctx.nicheContext, brandMemory: ctx.brandMemory,
-    platformData: ctx.platformData,
-  })
-  const raw = await invokeAgent({
-    systemPrompt, messages: [{ role: 'user', content: `Write 5 hooks for this trending topic: "${trendTopic}". Make them specific to my niche and brand.` }],
-    maxTokens: 2048, temperature: 0.85, companyId: ctx.companyId,
-  })
-  return parseAgentOutput<TrendHooks>(raw)
 }
 
 async function executeRileyCompetitorAnalysis(ctx: {
@@ -1171,7 +1104,7 @@ export async function triggerNextAgentAfterApproval(
  * Returns '' when there's no current playbook or no directive for this role.
  */
 async function getMayaDirectiveForRole(companyId: string, role: string): Promise<string> {
-  const roleKey = role === 'strategist' ? 'jordan' : role === 'copywriter' ? 'alex' : null
+  const roleKey = role === 'strategist' ? 'jordan' : null
   if (!roleKey) return ''
 
   const memory = await prisma.brandMemory.findFirst({

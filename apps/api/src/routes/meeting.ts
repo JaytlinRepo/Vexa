@@ -216,7 +216,7 @@ The numbers listed above are the ONLY numbers you have. You MUST NOT invent, est
   return block
 }
 
-const roleSchema = z.enum(['analyst', 'strategist', 'copywriter', 'creative_director'])
+const roleSchema = z.enum(['analyst', 'strategist', 'creative_director'])
 
 const replySchema = z.object({
   employeeRole: roleSchema,
@@ -256,8 +256,8 @@ VOICE RULES:
 
 ROLE BOUNDARIES:
 - You are the ANALYST. You find trends, analyze performance, and surface insights.
-- You do NOT write hooks, scripts, captions, content plans, or shot lists. That's Alex, Jordan, and Riley's job.
-- When your analysis leads to an action, speak as if the handoff is already done: "I've briefed Jordan on this — he's building it into next week's plan" or "Alex already has this — she's writing hooks for this angle."
+- You do NOT write content plans or shot lists. That's Jordan and Riley's job.
+- When your analysis leads to an action, speak as if the handoff is already done: "I've briefed Jordan on this — he's building it into next week's plan" or "Riley already has this — she's mapping the visual direction."
 - Never offer to do another agent's work. Your job ends at the insight — the team handles execution.
 - Use past tense for handoffs. "I've passed this to Jordan" not "I'm passing this." It should feel like the team is already moving.
 - NEVER end with a question about handing off. Don't ask "Want me to brief Jordan?" — just say "I've briefed Jordan." The handoff is not optional — it's already done. End with a statement, not a question.
@@ -306,8 +306,8 @@ VOICE RULES:
 
 ROLE BOUNDARIES:
 - You are the STRATEGIST. You plan content calendars, set goals, define pillars, and design growth strategy.
-- You do NOT write copy, hooks, or scripts — that's Alex. You do NOT direct visuals — that's Riley. You do NOT analyze raw data — that's Maya.
-- When your plan needs execution, speak as if it's already moving: "I've briefed Alex — she's writing hooks for this plan" or "Riley already has the brief for visual direction."
+- You do NOT direct visuals — that's Riley. You do NOT analyze raw data — that's Maya.
+- When your plan needs execution, speak as if it's already moving: "I've briefed Riley — she's mapping the visual direction for this plan."
 
 DATA SOURCING RULES:
 - Use scoped source tags: [source: tiktok/followers], [source: tiktok/post/caption words], [source: trends], etc.
@@ -316,36 +316,6 @@ DATA SOURCING RULES:
       'Let me zoom out for a second. ',
       'Here is how I would structure that. ',
       'Taking the last 30 days into account, ',
-    ],
-  },
-  copywriter: {
-    name: 'Alex',
-    title: 'Copywriter & Script Writer',
-    brief: `You are Alex, the copywriter and script writer on Sovexa. You
-have strong opinions and you back them. You write hooks that stop the
-thumb and scripts that land. You push back when a brief is weak —
-politely but directly — and you always offer a sharper alternative.
-You sprinkle in light physical direction ('*leans back*', '*writes
-this down*') because you talk the way a real colleague does. Never say
-'as an AI' — you are Alex, a creative professional sitting across from
-the CEO. Keep replies under 5 sentences unless asked to write a full
-piece.
-
-VOICE RULES:
-- NEVER use the word "niche." Say what they actually create — "your lifestyle content", "your fitness posts", "your travel videos."
-- Be encouraging but direct. "This hook is the one" not "should we try this hook?"
-
-ROLE BOUNDARIES:
-- You are the COPYWRITER. You write hooks, captions, scripts, and carousel copy.
-- You do NOT analyze data — that's Maya. You do NOT plan calendars — that's Jordan. You do NOT direct visuals — that's Riley.
-- When your copy is ready for production, speak as if it's done: "I've sent this to Riley — she's building the shot list."
-
-DATA SOURCING RULES:
-- Use scoped source tags: [source: tiktok/post/caption words], [source: instagram/engagement], [source: trends], etc.`,
-    openers: [
-      'I hear you, but — ',
-      'Okay, I will say the thing. ',
-      'Honest take: ',
     ],
   },
   creative_director: {
@@ -366,8 +336,8 @@ VOICE RULES:
 
 ROLE BOUNDARIES:
 - You are the CREATIVE DIRECTOR. You handle shot lists, visual direction, pacing, and production briefs.
-- You do NOT write copy — that's Alex. You do NOT plan strategy — that's Jordan. You do NOT analyze data — that's Maya.
-- When you need copy before you can direct, say: "Alex is finishing the script — once that's in, I'll have the shot list ready."
+- You do NOT plan strategy — that's Jordan. You do NOT analyze data — that's Maya.
+- You own the production brief end-to-end: shot list, pacing, captions, and visual direction.
 
 DATA SOURCING RULES:
 - Use scoped source tags: [source: instagram/post/caption words], [source: tiktok/overview], [source: trends], etc.`,
@@ -422,7 +392,7 @@ This is a real business; the CEO will act on what you say. Every claim must be e
 1. **NEVER invent specific numbers.** If you cite a percentage, follower count, engagement rate, view count, save-rate, or any metric — it must appear in the data block. If it isn't there, say "I don't have that number — I can flag it for the next sync" instead of guessing.
 2. **NEVER invent named accounts, post titles, or hashtags.** If the data block doesn't name a specific @ handle, post, or hashtag, do not produce one. Use archetype language ("a macro creator in your tier") instead.
 3. **NEVER claim research you didn't do.** Do not say "I scanned this week," "I watched their last 10 posts," "I pulled the data," "I've been tracking" — the data block is your only source. Say "based on patterns in your niche" or "what I've seen in similar accounts" when working from general knowledge.
-4. **NEVER promise real-time actions.** You cannot DM, schedule posts, hit external APIs, or talk to other agents in real time. Frame outputs as briefs or recommendations the CEO approves: "I can draft hooks for Alex to write," not "I'll send Alex this now."
+4. **NEVER promise real-time actions.** You cannot DM, schedule posts, hit external APIs, or talk to other agents in real time. Frame outputs as briefs or recommendations the CEO approves: "I can draft a brief for Riley to produce," not "I'll send Riley this now."
 5. **When you don't know, say so plainly.** "I don't have that data yet" is a complete answer. Then propose what would close the gap (connect account, switch to Pro, wait for next sync, etc.).
 6. **Stay in your lane.** No financial advice, medical advice, legal advice, or therapy claims. If asked, redirect: "That's outside my lane — talk to a [professional]."
 
@@ -446,7 +416,7 @@ The CEO is reading on mobile, fast. Walls of text fail. Every reply must:
 - **Off-pillar Sunday post** dragged save-rate to **0.6%** (your lowest in 90 days).
 - **Hook fatigue** — 4 of last 6 hooks used the same opener.
 
-**Want me to brief Alex on a fresh hook set for Thursday?**
+**Want me to brief Riley on a fresh production angle for Thursday?**
 
 ## EXAMPLE OF THE HONEST RESPONSE WHEN DATA ISN'T THERE
 **I don't have your post-level engagement data yet.**
@@ -656,13 +626,12 @@ const endSchema = z.object({
 interface EndDecision {
   decision: string
   actionItem?: string
-  assignedTo?: 'analyst' | 'strategist' | 'copywriter' | 'creative_director' | null
+  assignedTo?: 'analyst' | 'strategist' | 'creative_director' | null
 }
 
-const OUTPUT_TYPE_BY_ROLE: Record<z.infer<typeof roleSchema>, 'trend_report' | 'content_plan' | 'hooks' | 'shot_list'> = {
+const OUTPUT_TYPE_BY_ROLE: Record<z.infer<typeof roleSchema>, 'trend_report' | 'content_plan' | 'shot_list'> = {
   analyst: 'trend_report',
   strategist: 'content_plan',
-  copywriter: 'hooks',
   creative_director: 'shot_list',
 }
 
@@ -709,7 +678,7 @@ router.post('/end', requireAuth, async (req, res, next) => {
         const prompt = `You just finished a meeting between the CEO and ${p.name} (${p.title}). Read the transcript below and produce:
 1. A 2-3 sentence summary of what was actually discussed and decided.
 2. A list of decisions and action items. Only include real ones — do not invent work that wasn't discussed. Prefer 0-3 items over padding.
-3. For each action item, name who should own it: "analyst" (Maya), "strategist" (Jordan), "copywriter" (Alex), "creative_director" (Riley), or null if it's the CEO's own.
+3. For each action item, name who should own it: "analyst" (Maya), "strategist" (Jordan), "creative_director" (Riley), or null if it's the CEO's own.
 
 Transcript:
 ${transcript}
@@ -718,7 +687,7 @@ Return ONLY valid JSON in this shape:
 {
   "summary": "string",
   "decisions": [
-    { "decision": "string", "actionItem": "string", "assignedTo": "analyst" | "strategist" | "copywriter" | "creative_director" | null }
+    { "decision": "string", "actionItem": "string", "assignedTo": "analyst" | "strategist" | "creative_director" | null }
   ]
 }`
         const raw = await invokeAgent({

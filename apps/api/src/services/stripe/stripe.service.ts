@@ -164,9 +164,14 @@ async function handleSubscriptionCanceled(subscription: Stripe.Subscription): Pr
   const userId = subscription.metadata?.userId
   if (!userId) return
 
+  // Downgrade to `free` on cancellation so the user can't keep using paid-tier
+  // quotas (200 tasks/day on Max, 15 video renders, 25 Studio edits, etc.)
+  // after they stop paying. assertTaskQuota / assertStudioEditQuota read
+  // PLAN_LIMITS[user.plan] without consulting subscriptionStatus, so a
+  // status-only flip would leave canceled users on the old quotas forever.
   await prisma.user.update({
     where: { id: userId },
-    data: { subscriptionStatus: 'canceled' },
+    data: { subscriptionStatus: 'canceled', plan: 'free' },
   })
 }
 

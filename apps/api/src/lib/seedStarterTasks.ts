@@ -83,7 +83,7 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           },
           insight: 'This is the cleanest trend window we have had in 4 weeks. The combination of macro-creator activation, low audio saturation, and an open carousel lane means you can still claim a position if you ship by Thursday. The swap framing (treadmill → weighted walk) is doing 3.4x the engagement of generic vest-walk content because it triggers the comment-bait loop ("but does it actually burn more than running?"). That comment volume is what the algorithm reads as quality signal.',
           action: 'Ship a Reel by Thursday, then a save-bait carousel by Sunday. Reel leads with the swap framing and the heart-rate-zone visual to drive comments. Carousel breaks down the math (calorie burn comparison, time efficiency, gear cost) for the saves. Stack them so the carousel rides the comment momentum from the Reel.',
-          solution: 'Briefs already going out: Alex is writing 5 hook variations (the "your treadmill is the problem" angle is in the queue), Riley is shot-listing the 28-second cut with the heart-rate overlay. You will see all of it in your review queue within the hour. Approve and you ship Thursday.',
+          solution: 'Briefs already going out: Riley is shot-listing the 28-second cut with the heart-rate overlay. You will see all of it in your review queue within the hour. Approve and you ship Thursday.',
         },
         {
           topic: 'protein-first breakfast',
@@ -182,7 +182,7 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           audienceFit: 'High fit — your audience overlaps heavily with the rate-chasing sub-segment.',
           insight: 'The Fed signaling pulled the discussion into the mainstream this week. Rate-chase content always over-performs in the 5-day window after a Fed move because people are actively searching for the next move.',
           action: 'Post a "where I just moved my emergency fund" Reel + a carousel comparing 5 current HYSA rates. Carousel does the saves; Reel does the reach.',
-          solution: 'I am pulling current rates for the top 8 HYSAs right now. Alex will draft both the Reel hook and the carousel slides. You will see both before EOD.',
+          solution: 'I am pulling current rates for the top 8 HYSAs right now. Riley will brief the Reel and the carousel. You will see both before EOD.',
         },
         {
           topic: 'house-hacking ADUs',
@@ -253,7 +253,7 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           audienceFit: 'Strong fit — high-protein dessert is a perfect match for your audience.',
           insight: 'A single audio is carrying this trend right now (you can spot it by the consistent 12-second cuts in the top posts). The window before it crests and noise overtakes it is roughly 4-6 days.',
           action: 'Use the trending audio (non-negotiable for this one), keep the first 3 seconds silent ASMR, payoff with the bite-to-camera. Post by Thursday.',
-          solution: 'Riley already drafted the shot list (in your queue). Alex will write 3 hook options that work with the audio. Approve and we ship.',
+          solution: 'Riley already drafted the shot list (in your queue). Approve and we ship.',
         },
         {
           topic: 'no-flour bread',
@@ -324,7 +324,7 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           audienceFit: 'Strong fit — your audience is action-oriented and frustrated with the goal-setting playbook.',
           insight: 'The conversation flipped this week from "habits vs goals" debate to "here is the smallest possible habit to start with." That is the wedge you can own — concrete starter habits, not theory.',
           action: 'Ship two pieces back-to-back: a Reel hot take ("goals are vanity, habits ship"), then a carousel listing 5 specific 2-minute habits. Reel pulls reach, carousel pulls saves.',
-          solution: 'Jordan is queuing both posts for this week. Alex will write the hot-take hook. You will have everything to approve by tomorrow.',
+          solution: 'Jordan is queuing both posts for this week. You will have everything to approve by tomorrow.',
         },
         {
           topic: 'burnout recovery frameworks',
@@ -336,7 +336,7 @@ const NICHE_PACKS: Array<{ match: RegExp; pack: NichePack }> = [
           audienceFit: 'Medium-strong fit — pulls a slightly older audience who are your highest-value buyers.',
           insight: 'Sustained climb, not a spike. This becomes a pillar post — something pinned to your profile that does evergreen distribution for months.',
           action: 'Build one cornerstone carousel walking through your 4-step reset framework. Treat this like a long-form artifact people screenshot and save.',
-          solution: 'I will pull 3 burnout frameworks from credible sources you can attribute and frame against. Jordan slots it for week 2 so Alex has time to write it well.',
+          solution: 'I will pull 3 burnout frameworks from credible sources you can attribute and frame against. Jordan slots it for week 2 so Riley has time to plan it well.',
         },
         {
           topic: 'productivity stack videos',
@@ -457,7 +457,7 @@ export async function seedStarterTasks(prisma: PrismaClient, input: SeedInput): 
   const days = ['Mon', 'Wed', 'Fri']
 
   const seeds: Array<{
-    role: 'analyst' | 'strategist' | 'copywriter' | 'creative_director'
+    role: 'analyst' | 'strategist' | 'creative_director'
     title: string
     type: OutputType
     description: string
@@ -467,7 +467,7 @@ export async function seedStarterTasks(prisma: PrismaClient, input: SeedInput): 
       role: 'strategist',
       title: 'Week one — content plan',
       type: 'content_plan',
-      description: 'Your first weekly plan. Approve to kick off Alex on copy.',
+      description: 'Your first weekly plan. Approve to hand off to Riley for production.',
       output: {
         weekOf: today,
         pillars: pack.pillars,
@@ -484,19 +484,24 @@ export async function seedStarterTasks(prisma: PrismaClient, input: SeedInput): 
         trends: pack.trends as unknown as Prisma.InputJsonValue,
       } as Prisma.InputJsonObject,
     },
-    {
-      role: 'copywriter',
-      title: `Hooks — ${pack.hookTopic}`,
-      type: 'hooks',
-      description: `5 hook variations. #${pack.flaggedHookIndex + 1} is the one.`,
-      output: {
-        hooks: pack.hooks.map((text, i) => ({
-          n: i + 1,
-          text,
-          flagged: i === pack.flaggedHookIndex || undefined,
-        })),
-      },
-    },
+    // SHELVED: Alex (copywriter) seed task — kept as design reference for the
+    // future re-enable. Currently disabled because Plan.employees does not
+    // include 'copywriter' and onboarding.ts does not create a copywriter
+    // Employee row, so this seed would orphan otherwise. Re-enable by
+    // uncommenting AND restoring copywriter in employees array + EMPLOYEE_SEED.
+    // {
+    //   role: 'copywriter',
+    //   title: `Hooks — ${pack.hookTopic}`,
+    //   type: 'hooks',
+    //   description: `5 hook variations. #${pack.flaggedHookIndex + 1} is the one.`,
+    //   output: {
+    //     hooks: pack.hooks.map((text, i) => ({
+    //       n: i + 1,
+    //       text,
+    //       flagged: i === pack.flaggedHookIndex || undefined,
+    //     })),
+    //   },
+    // },
     {
       role: 'creative_director',
       title: `Shot list — ${pack.shotList.reelTitle}`,
@@ -524,6 +529,8 @@ export async function seedStarterTasks(prisma: PrismaClient, input: SeedInput): 
         // "warming up" cards.
         status: 'delivered',
         isSeeded: true,
+        source: 'seed', // onboarding starter pack — never burns user quota
+
         outputs: {
           create: {
             companyId: input.companyId,

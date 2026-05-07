@@ -27,7 +27,7 @@ if(__vxPrototypeBoot){
   if(cd&&cr){
     ;(function loop(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;cr.style.left=rx+'px';cr.style.top=ry+'px';requestAnimationFrame(loop)})()
   }
-  document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.ob-card,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
+  document.querySelectorAll('a,button,[onclick],.emp-row,.team-row,.how-cell,.pc,.feed-card,.output-item,.task-row,.settings-nav-item').forEach(el=>{
     el.addEventListener('mouseenter',()=>document.body.classList.add('ch'))
     el.addEventListener('mouseleave',()=>document.body.classList.remove('ch'))
   })
@@ -46,8 +46,12 @@ if(__vxPrototypeBoot){
 //   1. URL hash if it names a real view (refresh-restore + auth-gate target)
 //   2. The .view.active element in the DOM (default = view-home)
 var currentView='home'
-// Routes not exposed in this build — redirect to HQ on load and on navigate()
-var HIDDEN_ROUTES=['db-team','db-tasks','db-knowledge']
+// Routes not exposed in this build — redirect to HQ on load and on navigate().
+// db-team / db-knowledge views were deleted 2026-05-07 so they don't need to
+// be listed (navigate() bails when the target view doesn't exist), but
+// db-tasks DOM still exists and is reachable via legacy callers — keep it
+// rerouting to HQ.
+var HIDDEN_ROUTES=['db-tasks']
 try{
   var __vxHash=(location.hash||'').replace(/^#/,'')
   // Redirect hidden routes to HQ before restoring scroll position
@@ -410,11 +414,7 @@ function switchFeed(btn,type){
   btn.classList.add('active')
   filterFeed('#mkt-feed-grid','data-type',type)
 }
-function switchFeed2(btn,type){
-  document.querySelectorAll('#view-db-knowledge .feed-tab').forEach(t=>t.classList.remove('active'))
-  btn.classList.add('active')
-  filterFeed('#db-feed-grid','data-type2',type)
-}
+// switchFeed2 removed 2026-05-07 — view-db-knowledge was deleted.
 function filterFeed(gridSel,attr,type){
   document.querySelectorAll(gridSel+' .feed-card').forEach(c=>{
     const show=type==='all'||c.getAttribute(attr)===type
@@ -425,20 +425,17 @@ function filterFeed(gridSel,attr,type){
 }
 
 /* ── PRICING TOGGLE ─────────────────────────────────── */
-var annual=false
-var pp={pro:[29,23],max:[59,47],agency:[149,119]}
+// Sets body[data-billing] to 'monthly' | 'annual'. CSS hides the inactive
+// price element (.px-mo or .px-yr) per card. Both pricing surfaces — the
+// home #pricing block and view-pricing — use the same .tog button class
+// and stay in sync because this writes to <body>, the shared scope.
 function togglePrice(){
-  annual=!annual
-  document.getElementById('priceToggle').classList.toggle('on',annual)
-  const fmt=p=>`<sup>$</sup>${Number.isInteger(p)?p:p.toFixed(2)}<span class="mo">/mo</span>`
-  var freeEl=document.getElementById('ps-free')
-  if(freeEl)freeEl.innerHTML='<sup>$</sup>0<span class="mo">/mo</span>'
-  var proEl=document.getElementById('ps-pro')
-  if(proEl)proEl.innerHTML=fmt(annual?pp.pro[1]:pp.pro[0])
-  var maxEl=document.getElementById('ps-max')
-  if(maxEl)maxEl.innerHTML=fmt(annual?pp.max[1]:pp.max[0])
-  var agencyEl=document.getElementById('ps-agency')
-  if(agencyEl)agencyEl.innerHTML=fmt(annual?pp.agency[1]:pp.agency[0])
+  var current=document.body.getAttribute('data-billing')||'monthly'
+  var next=current==='monthly'?'annual':'monthly'
+  document.body.setAttribute('data-billing',next)
+  document.querySelectorAll('.price-toggle .tog').forEach(function(t){
+    t.classList.toggle('on',next==='annual')
+  })
 }
 
 /* ── MEETING ROOM ───────────────────────────────────── */

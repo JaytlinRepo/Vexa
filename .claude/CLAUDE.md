@@ -72,18 +72,19 @@ This is NOT a chatbot product. It is a structured workforce simulation platform.
 - **Proactive**: Delivers weekly plan every Sunday evening
 - **Bedrock prompt file**: `apps/api/src/agents/jordan/system-prompt.ts`
 
-### Alex — Copywriter & Script Writer
-- **Personality**: Creative, punchy, opinionated. Pushes back if a brief is weak.
-- **Voice**: "I wrote 5 hooks. Hook #3 is the one — the others are safe, this one will stop thumbs."
-- **Outputs**: Hooks (3-10 variations), captions, Reel scripts, carousel copy, CTAs
-- **Proactive**: Delivers content copy once Jordan's plan is approved
+### Alex — Copywriter & Script Writer  *(SHELVED — kept for future re-enable)*
+- **Status**: Removed from active team as of 2026-05-06. Code paths preserved (prompt files, executor, prompt builders, Plan enum value `copywriter`) so the role can be reactivated without a migration.
+- **What's hidden**: not seeded into new Companies (`onboarding.ts EMPLOYEE_SEED`), not in any plan's `employees` array, no UI surfaces, no marketing.
+- **Personality** *(reference)*: Creative, punchy, opinionated. Pushes back if a brief is weak.
+- **Voice** *(reference)*: "I wrote 5 hooks. Hook #3 is the one — the others are safe, this one will stop thumbs."
+- **Outputs** *(reference)*: Hooks (3-10 variations), captions, Reel scripts, carousel copy, CTAs
 - **Bedrock prompt file**: `apps/api/src/agents/alex/system-prompt.ts`
 
 ### Riley — Creative Director
 - **Personality**: Visual thinker, detail-obsessed, speaks in scenes and shots.
 - **Voice**: "Open on a close-up. No talking for the first 2 seconds. Let the visual do the work."
 - **Outputs**: Shot lists, pacing guides, visual direction, editing notes, Creatomate templates
-- **Proactive**: Delivers production brief once Alex's copy is approved
+- **Proactive**: Delivers production brief once Jordan's plan is approved
 - **Bedrock prompt file**: `apps/api/src/agents/riley/system-prompt.ts`
 
 ---
@@ -113,7 +114,7 @@ Employee delivers structured output
 - ⏰ Adjust the timing
 - 📋 Modify specific days
 
-**Hooks & Copy (Alex)**
+**Hooks & Copy (Alex)** *(SHELVED — design reference for future re-enable)*
 - ✅ Use this hook
 - 🔄 Too safe — be bolder
 - 🎯 Off-brand — try again
@@ -440,49 +441,105 @@ NEXT_PUBLIC_MARKETING_URL=https://sovexa.ai
 
 ## Subscription Plans
 
-**Pricing strategy: same team quality at every tier; differentiation is volume + features (Claude model).**
-All plans include all 4 employees (Maya · Jordan · Alex · Riley). Upgrading buys runway, meetings, memory, and video — not access to more agents.
+**Pricing strategy: same team quality + same features at every tier; differentiation is volume only (Claude model).**
+All plans include all 3 employees (Maya · Jordan · Riley — Alex/copywriter currently shelved) AND every feature: meetings, brand memory, weekly pulse, video generation. Upgrading buys MORE — more daily tasks, more Studio edits, more video renders — not access to features. Free is the audition tier.
+
+### Price reference (live Stripe — verified 2026-05-06)
+
+| Tier | Monthly | Annual (billed yearly) | Annual ÷ 12 | Discount vs. monthly | Stripe product |
+|---|---:|---:|---:|---:|---|
+| **Free** | $0 | — | — | — | (no Stripe product) |
+| **Pro** | **$19/mo** | **$180/yr** | $15/mo | 21.1% | `prod_URWKikqqN2k7xM` |
+| **Max** | **$59/mo** | **$564/yr** | $47/mo | 20.3% | `prod_URWKUx8ObgzDTr` |
+| **Agency** | **$149/mo** | **$1,428/yr** | $119/mo | 20.1% | `prod_URWKO5JG98Rp7b` |
+
+Live Stripe price IDs (account `acct_1TNxeAFo8PldjyKY`, `livemode=true`):
+
+```
+STRIPE_PRO_MONTHLY_PRICE_ID    = price_1TSdHbFo8PldjyKYYj2uNfB5  ($19/mo)
+STRIPE_PRO_ANNUAL_PRICE_ID     = price_1TSdHbFo8PldjyKYDWExG3MB  ($180/yr)
+STRIPE_MAX_MONTHLY_PRICE_ID    = price_1TSdHbFo8PldjyKYlJivLENB  ($59/mo)
+STRIPE_MAX_ANNUAL_PRICE_ID     = price_1TSdHcFo8PldjyKYG9cAMx3k  ($564/yr)
+STRIPE_AGENCY_MONTHLY_PRICE_ID = price_1TSdHcFo8PldjyKYz2WUbtuw  ($149/mo)
+STRIPE_AGENCY_ANNUAL_PRICE_ID  = price_1TSdHcFo8PldjyKYaWGunZyU  ($1,428/yr)
+```
+
+These IDs are set as plain env vars on the App Runner service (`sovexa-api-prod`), not via SSM. Plain env vars override SSM when both are present. As of 2026-05-06: 0 customers, 0 subscriptions, 0 charges in live Stripe — billing is wired but not yet publicly opened.
+
+Marketing copy says "Save 20%" — true for all three tiers (effective discounts are slightly above 20% because the annual prices use clean round monthly equivalents instead of exact 20% off).
 
 ### Free — $0
-- All 3 employees (audition the team)
-- 5 tasks/month
-- 2 Studio edits/month
-- No meetings, no video, no brand memory, no auto-pulses
-- 1-hour task cooldown
-- 0 revisions (one-shot per task — encourage upgrade)
-- Top-of-funnel acquisition tier
+- Full team + every feature, just smaller daily runway
+- **3 user tasks / day** (resets 00:00 UTC)
+- 25 Bedrock calls / day (silent abuse ceiling)
+- 3 Studio edits / month (full iteration loop demo)
+- 0 video renders
+- 1-hour brief cooldown
+- 1 revision per output
+- No proactive auto-briefs (manual creation only — keeps Free cost predictable)
 
-### Solo — $19/mo (annual: $15/mo, $180/yr)
-- All 3 employees
-- 50 tasks/month
-- 6 Studio edits/month
-- Basic brand voice
-- 2 revisions per output
-- No meeting feature
-- No video generation
+### Pro — $19/mo (annual: $15/mo, $180/yr)
+- Full team + every feature, modest daily runway
+- **8 user tasks / day**
+- 200 Bedrock calls / day (silent ceiling)
+- 8 Studio edits / month
+- 3 video renders / month
+- 10-min brief cooldown
+- 5 revisions per output
+- Proactive auto-briefs + weekly Maya pulse (Sonnet 4)
 
-### Pro — $59/mo (annual: $47/mo, $564/yr)
-- All 3 employees
-- 200 tasks/month
-- 20 Studio edits/month
-- Full brand voice + memory
+### Max — $59/mo (annual: $47/mo, $564/yr)
+- **20 user tasks / day**
+- 500 Bedrock calls / day
+- 25 Studio edits / month
+- 15 video renders / month
+- 5-min brief cooldown
 - 10 revisions per output
-- Meeting feature unlocked
-- Video generation (15/month)
-- Monday trend reports (automatic)
 
 ### Agency — $149/mo (annual: $119/mo, $1,428/yr)
+- **150 user tasks / day** (across all owned workspaces — ~30/ws × 5 ws)
+- 1,500 Bedrock calls / day
+- 100 Studio edits / month (across all 5 workspaces)
+- 75 video renders / month
 - Up to 5 brand workspaces
-- Everything in Pro per workspace
-- Priority Bedrock processing (2-min brief cooldown vs. 5-min on Pro/Solo)
-- 75 video generations/month
-- 30 Studio edits/month
-- 1,000 tasks/month
-- Advanced analytics
+- 2-min brief cooldown (priority queue)
 - Custom employee personas
 - White-label exports
 
-> Internal note: the entry paid tier is displayed as "Solo" but the database enum value remains `starter` to avoid a migration. Stripe product is "Sovexa Solo". The `free` Plan enum was added 2026-04-27 — requires `prisma migrate dev --name add_free_plan` before the Free signup path can write `plan: 'free'` to the DB.
+### Quota architecture (added 2026-05-06)
+
+The user-visible "tasks/day" cap is **`Task.source = 'user'`** only. Proactive cron-fired tasks set `source: 'system'` (`proactiveAnalysis.ts`, `metricTracking.ts`); onboarding seed tasks set `source: 'seed'` (`seedStarterTasks.ts`). `assertTaskQuota` in `usage.ts` filters by `source: 'user'` so system fires never block user actions. Without this split, a Free user would hit the wall before clicking anything because morning/midday/evening briefs alone consumed the entire monthly budget.
+
+`assertBedrockQuota` in `bedrock.service.ts` is the pre-invoke cap gate. It reads plan + reset window from `PLAN_LIMITS`, current usage from `rateLimitStore` (Redis with in-memory fallback, daily and monthly buckets), and throws `bedrock_quota_exceeded` BEFORE the paid Bedrock call is made. Unlimited users (`isUnlimitedUser`) bypass.
+
+`Studio` is metered separately via `assertStudioEditQuota` in `routes/video.ts:60` and `:239` — gates on `VideoUpload.count` because Studio edits cost ~15-50× more per call than a typical task ($0.10-0.15 vs $0.003-0.012).
+
+> Internal notes: Plan enum is `free | pro | max | agency` — the Stripe product names match exactly. The legacy `starter` slug was retired. Live Stripe (account `acct_1TNxeAFo8PldjyKY`) has the matching products live, billing not yet open to public. App Runner env vars `STRIPE_PRO_*`, `STRIPE_MAX_*`, `STRIPE_AGENCY_*_PRICE_ID` carry the live price IDs.
+
+### Deferred work — pricing/quota system (track here, ship deliberately)
+
+These were scoped during the 2026-05-06 daily-cap rollout but intentionally NOT shipped because each requires a setup decision, external service, or operational migration that shouldn't happen autonomously. Order is rough urgency.
+
+| # | Item | Why deferred | When to do |
+|---|---|---|---|
+| 1 | **Run `npx prisma migrate dev --name add_task_source`** | Migrates `TaskSource` enum + `Task.source` column added in code. Existing tasks default to `user`. Without this, the API won't start. | **Before next deploy** |
+| 2 | **Activate `project=sovexa` cost-allocation tag** | One-click in AWS Billing → Cost allocation tags. Lets Cost Explorer split Sovexa costs from vp-agent's in the shared account. | Anytime — low effort, immediate win |
+| 3 | **Tiered auto-brief schedule** (Free 1/day, Pro 2/day, Max/Agency 3/day) | All tiers currently get all 3 briefs. The `source: 'system'` split protects user quota, but Bedrock cost on Free is ~$0.30/user/mo higher than spec. | When Free user count > ~1K |
+| 4 | **Phone verification on Free signup** (Twilio) | ~$0.05/signup. Policy decisions: which countries, fallback for non-phone, message body. | **Before opening public Free signup** |
+| 5 | **IP / device fingerprinting** (FingerprintJS Pro ~$50/mo or open-source) | Vendor selection + integration. Anti-abuse alongside #4. | Before scaling Free past ~1K users |
+| 6 | **30-day idle-suspend cron** | Code-only but affects existing users — needs UX decisions (email warning day 25? grace period? reactivation flow?). | Same trigger as #4–5 |
+| 7 | **Meeting minutes meter** | Field exists in `usage.ts` types but not actually metered. Sonnet 4 streams in meetings = real cost vector. Free now has meetings — uncapped time = uncapped cost. | **Before opening meetings to Free at scale** |
+| 8 | **Brand memory eviction policy** | `BrandMemory` table is unbounded today. Caps in `plans.ts` (10/100/1000/5000 entries) declared but not enforced — needs LRU eviction or write-rejection. | Before paid base hits ~500 users |
+| 9 | **Move Sovexa to its own AWS sub-account** (Organizations) | Operational migration: replumb `DATABASE_URL`, S3 clone, App Runner re-create, DNS, Stripe webhook URLs. vp-agent currently burns ~$112/mo of shared credit pool. | When paid base hits ~500 users OR credit pool depletes |
+| 10 | **CloudFront for video delivery** | DNS coordination + cache config. S3 egress is biggest scaling cost on Studio. | When S3 egress > ~$500/mo |
+| 11 | **Dual daily+monthly Studio cap** | Currently monthly-only. A heavy Pro user could burn all 8 Studio edits in one Monday. | Only if abuse pattern emerges |
+| 12 | **Bedrock model invocation logging** (`/aws/bedrock/*` CloudWatch group) | ~$0.50/mo. Full audit trail of every model call (caller IAM, model, tokens). Catches future cost anomalies in real time. | Anytime — small lift |
+
+**Margin protection — already shipped:**
+- ✅ `Task.source` enum + `assertTaskQuota` filtering by `source: 'user'` (proactive briefs never burn user budget)
+- ✅ `assertBedrockQuota` pre-invoke gate (DB-backed via `rateLimitStore`, daily/monthly buckets, throws before paid call)
+- ✅ `assertStudioEditQuota` in `routes/video.ts:60` and `:239` (Studio metered separately because per-call cost is 15-50× a normal task)
+- ✅ Daily resets across all paid tiers (smooths AWS load, matches creator rhythm, sharpens Free→Pro conversion mechanic)
 
 ---
 

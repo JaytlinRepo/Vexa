@@ -4,7 +4,7 @@
  * GET /api/weekly/data           — Get weekly metrics + aggregations
  * GET /api/weekly/maya-pulse     — Get Maya's weekly pulse task
  * GET /api/weekly/jordan-plan    — Get Jordan's weekly plan task
- * GET /api/weekly/alex-hooks     — Get Alex's weekly hooks task
+ * (Alex's weekly hooks endpoint retired 2026-05-07.)
  * GET /api/weekly/riley-briefs   — Get Riley's weekly briefs task
  */
 
@@ -55,8 +55,7 @@ async function buildInformedBy(companyId: string, agentRole: string): Promise<{ 
   // Which agent's output fed into this one?
   const chain: Record<string, string> = {
     strategist: 'Maya\'s weekly pulse',
-    copywriter: 'Jordan\'s content plan',
-    creative_director: 'Alex\'s hooks',
+    creative_director: 'Jordan\'s content plan',
   }
   const previousAgent = chain[agentRole] || undefined
 
@@ -191,54 +190,7 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
     }
   })
 
-  // ── Alex's Weekly Hooks ────────────────────────────────────────────────────
-
-  /**
-   * GET /api/weekly/alex-hooks
-   * Get Alex's weekly hooks (3 per day for the week)
-   */
-  router.get('/alex-hooks', requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { userId } = (req as AuthedRequest).session
-      const companyId = req.query.companyId as string
-      if (!companyId) {
-        return res.status(400).json({ error: 'companyId required' })
-      }
-      const company = await prisma.company.findFirst({ where: { id: companyId, userId } })
-      if (!company) {
-        return res.status(403).json({ error: 'Company not found' })
-      }
-
-      const task = await prisma.task.findFirst({
-        where: {
-          companyId,
-          type: 'hooks',
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          outputs: { take: 1 },
-          employee: true,
-        },
-      })
-
-      if (!task) {
-        return res.status(404).json({ error: 'No weekly hooks yet' })
-      }
-
-      const informedBy = await buildInformedBy(companyId, 'copywriter').catch(() => null)
-      res.json({
-        taskId: task.id,
-        status: task.status,
-        createdAt: task.createdAt,
-        employee: task.employee.name,
-        output: task.outputs[0]?.content || null,
-        informedBy,
-      })
-    } catch (err) {
-      console.error('[weekly] alex-hooks error:', err)
-      res.status(500).json({ error: 'Failed to fetch Alex\'s weekly hooks' })
-    }
-  })
+  // /api/weekly/alex-hooks endpoint deleted 2026-05-07 — Alex/copywriter retired.
 
   // ── Riley's Weekly Production Briefs ───────────────────────────────────────
 
@@ -326,10 +278,10 @@ export function initWeeklyRoutes(_prisma: PrismaClient) {
       })
 
       // Run the same auto-chain the generic /api/tasks/:id/action route uses
-      // so Alex picks up hooks for the approved plan. Alex's task in turn
-      // chains to Riley on its own approval. Without this, the route just
-      // flipped the status flag and the pipeline truly did nothing — the
-      // dashboard's "the next agent picked up the next step" copy was a lie.
+      // so Riley picks up the production brief for the approved plan. Without
+      // this, the route just flipped the status flag and the pipeline truly
+      // did nothing — the dashboard's "the next agent picked up the next
+      // step" copy was a lie.
       const { triggerNextAgentAfterApproval } = await import('../agents/task-orchestrator')
       let chain: Awaited<ReturnType<typeof triggerNextAgentAfterApproval>>
       try {

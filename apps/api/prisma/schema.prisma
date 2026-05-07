@@ -48,6 +48,17 @@ enum TaskStatus {
   revision
 }
 
+// TaskSource — separates user-driven work from system auto-fires from
+// onboarding seeds. Critical for quota math: user-visible plan caps
+// (e.g. "8 tasks/day on Pro") count only `user`-source tasks. Proactive
+// briefs (`system`) and onboarding seeds (`seed`) never burn user quota.
+// Default `user` so manual creates inherit correctly without ceremony.
+enum TaskSource {
+  user
+  system
+  seed
+}
+
 enum OutputType {
   trend_report
   content_plan
@@ -221,6 +232,11 @@ model Task {
   type        String
   status      TaskStatus @default(pending)
   isSeeded    Boolean    @default(false) @map("is_seeded")
+  // source = who created this task. user = manual click; system = proactive
+  // cron / auto-chain; seed = onboarding starter pack. Quota math reads this
+  // (only `user` counts against tasksPerMonth). isSeeded is kept for backward
+  // compat — new code should set source explicitly.
+  source      TaskSource @default(user)
   userAction  Json?      @map("user_action")
   createdAt   DateTime   @default(now()) @map("created_at")
   completedAt DateTime?  @map("completed_at")

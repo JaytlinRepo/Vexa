@@ -44,12 +44,22 @@
   function populateNav(user, company) {
     const displayName = company?.name || user.fullName || user.username || 'Your company'
     const planLabel = (user.plan || 'free').replace(/^./, (c) => c.toUpperCase()) + ' plan'
+    const initial = displayName.charAt(0).toUpperCase()
     setText('nav-username', displayName)
     setText('nav-userplan', planLabel)
-    // Keep the profile dropdown in sync — profile-wire.js may have run before the API returned
+    // Keep the profile dropdown in sync — profile-wire.js may have run before
+    // the API returned (it reads nav-username once at boot and copies the
+    // default "Guest" placeholder if API hadn't responded yet).
+    setText('vx-profile-name', displayName)
     setText('vx-profile-plan', planLabel)
-    setText('nav-avatar', displayName.charAt(0).toUpperCase())
+    setText('vx-profile-initial', initial)
+    setText('vx-profile-initial-lg', initial)
+    setText('nav-avatar', initial)
     setText('db-greeting', `${greeting()}, ${user.fullName || user.username || 'CEO'}.`)
+    // Footer plan tag — used by HQ / Pipeline / Posts / Audience / Studio
+    // .foot-row spans. Uppercase to match the existing "SOVEXA · " typography.
+    const footPlan = (user.plan || 'free').toUpperCase()
+    document.querySelectorAll('.vx-foot-plan').forEach((el) => { el.textContent = footPlan })
     if (company) {
       setText('db-company', `${company.name} — your team is active and has work ready for your review.`)
     }

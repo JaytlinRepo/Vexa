@@ -14,7 +14,7 @@ date_drafted: 2026-04-27
 
 ## Hook (0:00–0:03)
 Tight on face. Direct address.
-> "I have four employees now."
+> "I have three employees now."
 
 ## Beat 1 (0:03–0:08)
 Pull back slightly. Coffee in hand.
@@ -29,9 +29,9 @@ Back to face.
 *Cut:* Jordan's calendar — clean editorial weekly grid.
 
 ## Beat 3 (0:13–0:17)
-> "Jordan plans my week. Alex writes the hooks. Riley directs the shots."
+> "Jordan plans my week. Riley directs the shots and the edit."
 
-*Cut:* The three approve / reject / reconsider buttons highlighted on a hook card.
+*Cut:* The three approve / reject / reconsider buttons highlighted on a shot list card.
 
 ## Beat 4 (0:17–0:21)
 Back to face. Holding phone.

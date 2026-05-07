@@ -1,7 +1,9 @@
 /**
  * Studio Copywriting Service
- * Alex's role: Generate captions, hooks, and CTAs for studio content
- * Supports video hooks, image captions, and carousel descriptions
+ * Generates captions, hooks, and CTAs for studio content. Originally
+ * authored as Alex's responsibility; after Alex/copywriter retirement
+ * (2026-05-07) this lives under Riley's clip pipeline. Filename and
+ * service name kept to avoid touching every caller.
  */
 
 import { PrismaClient } from '@prisma/client'

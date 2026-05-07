@@ -3,7 +3,10 @@ import {
   InvokeModelCommand,
   InvokeModelWithResponseStreamCommand,
 } from '@aws-sdk/client-bedrock-runtime'
-import { trackBedrockCall } from '../../lib/bedrockUsage'
+import { trackBedrockCall, getBedrockUsage } from '../../lib/bedrockUsage'
+import prisma from '../../lib/prisma'
+import { PLAN_LIMITS } from '../../lib/plans'
+import { isUnlimitedUser } from '../../lib/unlimitedAccounts'
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 
@@ -11,6 +14,47 @@ const DEFAULT_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-hai
 const BEDROCK_REGION = process.env.AWS_BEDROCK_REGION || 'us-east-1'
 
 const client = new BedrockRuntimeClient({ region: BEDROCK_REGION })
+
+// ─── PRE-INVOKE QUOTA GATE ────────────────────────────────────────────────────
+
+/**
+ * Throws if the company's owning user has hit their Bedrock cap for the
+ * current window (daily for Free, daily/monthly for paid tiers per
+ * resetWindow). No-op when companyId is missing (system-level calls), when
+ * the company can't be resolved, or for unlimited users (jaytlin).
+ *
+ * Reads plan + reset window from PLAN_LIMITS, usage from rateLimitStore
+ * (Redis with in-memory fallback). One small DB query per call — ~10ms,
+ * dwarfed by Bedrock latency. Cache opportunity later if hot path warrants.
+ *
+ * Errors carry code='bedrock_quota_exceeded' so callers can render a
+ * sensible upgrade prompt rather than a generic 500.
+ */
+async function assertBedrockQuota(companyId: string | undefined): Promise<void> {
+  if (!companyId) return
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { user: { select: { plan: true, username: true } } },
+  }).catch(() => null)
+  if (!company?.user) return
+  if (isUnlimitedUser(company.user)) return
+  const limits = PLAN_LIMITS[company.user.plan]
+  if (!limits) return
+  const window = limits.resetWindow
+  const usage = await getBedrockUsage(companyId, window).catch(() => null)
+  if (!usage) return // fail-open on Redis hiccup — track-after still records the truth
+  if (usage.count >= limits.bedrockCallsPerMonth) {
+    const err = new Error('bedrock_quota_exceeded') as Error & {
+      code: string; plan: string; window: 'daily' | 'monthly'; used: number; limit: number
+    }
+    err.code = 'bedrock_quota_exceeded'
+    err.plan = company.user.plan
+    err.window = window
+    err.used = usage.count
+    err.limit = limits.bedrockCallsPerMonth
+    throw err
+  }
+}
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +91,10 @@ interface StreamOptions extends InvokeOptions {
 export async function invokeAgent(options: InvokeOptions): Promise<string> {
   const { systemPrompt, messages, maxTokens = 2048, temperature = 0.7, modelId } = options
   const useModel = modelId || DEFAULT_MODEL_ID
+
+  // Pre-invoke quota gate — throws bedrock_quota_exceeded BEFORE making the
+  // (paid) Bedrock call when the user is at their cap. Caller decides UX.
+  await assertBedrockQuota(options.companyId)
 
   const body = JSON.stringify({
     anthropic_version: 'bedrock-2023-05-31',
@@ -85,6 +133,15 @@ export async function invokeAgent(options: InvokeOptions): Promise<string> {
 export async function invokeAgentStream(options: StreamOptions): Promise<void> {
   const { systemPrompt, messages, maxTokens = 1024, temperature = 0.8, modelId, onChunk, onComplete, onError } = options
   const useModel = modelId || DEFAULT_MODEL_ID
+
+  // Pre-invoke quota gate — same path as invokeAgent. Surfaced through
+  // onError so the streaming caller can swap to an upgrade prompt cleanly.
+  try {
+    await assertBedrockQuota(options.companyId)
+  } catch (err) {
+    onError(err instanceof Error ? err : new Error('bedrock_quota_exceeded'))
+    return
+  }
 
   const body = JSON.stringify({
     anthropic_version: 'bedrock-2023-05-31',

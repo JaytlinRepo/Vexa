@@ -700,6 +700,22 @@
     var yRange = yBottom - yTop
     var n = series.length
 
+    // ── Y-axis tick labels — 4 evenly-spaced rungs from minV → maxV.
+    // The static <text class="axis hq3-y-axis" data-rung="0..3"> elements
+    // in body.html sit at y=36/116/196/260 to match the SVG grid lines.
+    // rung=3 is the top (≈maxV), rung=0 is the bottom (≈minV). Empty
+    // until the wire fires; previously hardcoded "400K/350K/300K/250K"
+    // which lied for any creator not pinned to a 313.8K mockup.
+    var yLabelEls = svg.querySelectorAll('text.hq3-y-axis')
+    if (yLabelEls.length === 4) {
+      yLabelEls.forEach(function (el) {
+        var rung = parseInt(el.getAttribute('data-rung') || '0', 10)
+        var v = minV + (span * rung / 3)
+        var nu = fmtNumWithUnit(v)
+        el.textContent = nu[0] + (nu[1] || '')
+      })
+    }
+
     var pts = series.map(function (s, i) {
       var x = (i / (n - 1)) * xMax
       var y = yBottom - ((s.total - minV) / span) * yRange

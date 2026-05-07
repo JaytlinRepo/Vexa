@@ -80,14 +80,16 @@ All platform data normalizes into `PlatformAccount` / `PlatformSnapshot` / `Plat
 
 | Plan | Monthly | Includes |
 |---|---|---|
-| **Free** | $0 | All 4 agents, 5 tasks/mo, 25 calls/mo. No meetings, video, or memory. Audition tier. |
-| **Solo** | $19/mo | All 4 agents, 50 tasks/mo, 200 Bedrock calls/mo, basic voice. No meetings or video. |
-| **Pro** | $59/mo | All 4 agents, 200 tasks/mo, 1,200 calls/mo, 15 videos, meetings, brand memory, weekly pulse |
-| **Agency** | $149/mo | 5 workspaces, 1,000 tasks/mo, 5,500 calls/mo, 75 videos, 2-min cooldown, all features |
+| **Free** | $0 | All 3 agents + every feature. **3 tasks/day**, 25 Bedrock/day, 3 Studio edits/mo. No proactive briefs. |
+| **Pro** | $19/mo | All 3 agents + every feature. **8 tasks/day**, 200 Bedrock/day, 8 Studio/mo, 3 videos/mo, weekly Maya pulse |
+| **Max** | $59/mo | All 3 agents + every feature. **20 tasks/day**, 500 Bedrock/day, 25 Studio/mo, 15 videos/mo |
+| **Agency** | $149/mo | 5 workspaces. **150 tasks/day** total, 1,500 Bedrock/day, 100 Studio/mo, 75 videos/mo, 2-min priority cooldown |
 
-**Pricing model:** Same team quality at every tier (Claude-style). Differentiation is volume + features, not access to more agents. Free is the acquisition funnel; upgrade = more runway.
+**Pricing model:** Same team quality + same features at every tier (Claude-style). Differentiation is purely volume — daily caps reset 00:00 UTC. Free is the acquisition funnel; upgrade = more daily runway, not more features.
 
-All plans: 7-day free trial, no credit card required.
+**Quota architecture:** User-visible caps count only `Task.source = 'user'` rows. Proactive cron tasks (`source: 'system'`) and onboarding seeds (`source: 'seed'`) never burn user budget. Bedrock has a pre-invoke gate (`assertBedrockQuota`) that throws before the paid call is made when the user is at cap.
+
+Free is no-card; paid tiers checkout via Stripe.
 
 ---
 

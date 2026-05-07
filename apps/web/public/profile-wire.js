@@ -119,11 +119,18 @@
     if (planEl) planEl.textContent = (u.plan || 'free').charAt(0).toUpperCase() + (u.plan || 'free').slice(1)
   }
 
-  // Run usage on dropdown open
+  // Run usage on dropdown open AND whenever fresh dashboard state lands —
+  // dashboard-v2.js dispatches `vx-dash-ready` after STATE.usage is hydrated.
+  // Without this listener, the bar shows the body.html "0%/—" placeholder
+  // until the user re-clicks the avatar; the click-only path means an open
+  // dropdown stays stale forever.
   var avatarBtn = document.getElementById('vx-profile-avatar')
   if (avatarBtn) {
     avatarBtn.addEventListener('click', function () { setTimeout(populateUsage, 50) })
   }
+  window.addEventListener('vx-dash-ready', function () { setTimeout(populateUsage, 0) })
+  // Also try immediately in case state was hydrated before this wire ran
+  setTimeout(populateUsage, 0)
 
   // Theme label — show opposite of current theme
   function updateThemeLabel() {

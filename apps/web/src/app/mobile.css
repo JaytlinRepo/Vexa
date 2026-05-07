@@ -413,7 +413,6 @@ html[data-vx-device="mobile"] svg{max-width:100%!important;height:auto}
    ══════════════════════════════════════════════════════════════════════ */
 @media (max-width:480px){
   html[data-vx-device="mobile"] .output-grid{grid-template-columns:1fr!important}
-  html[data-vx-device="mobile"] .ob-grid{grid-template-columns:1fr!important}
   html[data-vx-device="mobile"] .task-btn{display:none!important}
   html[data-vx-device="mobile"] .task-row{grid-template-columns:28px 1fr!important}
   html[data-vx-device="mobile"] .plat-row{grid-template-columns:1fr!important}

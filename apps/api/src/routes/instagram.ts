@@ -164,7 +164,6 @@ router.get('/auth/callback', async (req, res) => {
       const EMPLOYEE_SEED = [
         { role: 'analyst' as const, name: 'Maya' },
         { role: 'strategist' as const, name: 'Jordan' },
-        { role: 'copywriter' as const, name: 'Alex' },
         { role: 'creative_director' as const, name: 'Riley' },
       ]
       const created = await prisma.$transaction(async (tx) => {

@@ -146,16 +146,33 @@
   }
 
   // ── Billing — cards + Stripe checkout (GET /api/stripe/subscription) ─────
+  // Each paid plan carries both prices. Toggle below the status row picks
+  // which `price`/`note` shows on the card AND determines the `billing` flag
+  // sent to /api/stripe/checkout. Annual price IDs are configured in Stripe
+  // (STRIPE_*_ANNUAL_PRICE_ID env vars) — without this toggle the in-app
+  // upgrade flow could only buy monthly even though Stripe was set up.
   var PLANS = [
-    { id:'free', name:'Free', price:'$0', billingNote:'Free forever · no card required',
-      features:['All three employees · quality parity','5 tasks/month','2 Studio edits/month','No meetings, brand memory, or heavy video','Great for proving fit'] },
-    { id:'pro', name:'Pro', price:'$29', billingNote:'Billed monthly · annual at checkout',
-      features:['75 tasks/month','5 videos/month','6 Studio edits/month','Brand voice · knowledge feed','No meetings or brand memory'] },
-    { id:'max', name:'Max', price:'$59', billingNote:'Billed monthly · annual at checkout', popular:true,
-      features:['200 tasks/month','Meetings · brand memory','15 videos/month','20 Studio edits/month','Weekly trend pulse · priority flow'] },
-    { id:'agency', name:'Agency', price:'$149', billingNote:'Billed monthly · annual at checkout',
-      features:['Up to five workspaces · 75 videos/mo','1,000 tasks/month','30 Studio edits/month','Everything in Max per workspace','Priority processing'] },
+    { id:'free', name:'Free', monthly:{price:'$0',note:'Free forever · no card required'},
+      features:['3 tasks / day','3 Studio edits / month','0 video renders','1-hour brief cooldown','Every feature · audition tier'] },
+    { id:'pro', name:'Pro',
+      monthly:{price:'$19',note:'Billed monthly · cancel anytime'},
+      annual:{price:'$15',note:'Billed annually · $180/yr · save 21%'},
+      features:['8 tasks / day','8 Studio edits / month','3 video renders / month','10-min brief cooldown','Every feature included'] },
+    { id:'max', name:'Max', popular:true,
+      monthly:{price:'$59',note:'Billed monthly · cancel anytime'},
+      annual:{price:'$47',note:'Billed annually · $564/yr · save 20%'},
+      features:['20 tasks / day','25 Studio edits / month','15 video renders / month','5-min brief cooldown','Every feature included'] },
+    { id:'agency', name:'Agency',
+      monthly:{price:'$149',note:'Billed monthly · cancel anytime'},
+      annual:{price:'$119',note:'Billed annually · $1,428/yr · save 20%'},
+      features:['Up to 5 brand workspaces','150 tasks / day across workspaces','100 Studio edits / month','75 video renders / month','2-min cooldown · priority queue','Custom personas · white-label'] },
   ]
+  // Persist toggle choice across reloads so a user who consciously picked
+  // annual doesn't get bumped back to monthly on every visit.
+  var billingPeriod = 'monthly'
+  try { var saved = localStorage.getItem('vx-billing-period'); if (saved === 'annual' || saved === 'monthly') billingPeriod = saved } catch (_) {}
+  function planPrice (p) { var b = (billingPeriod === 'annual' && p.annual) ? p.annual : p.monthly; return b ? b.price : '$0' }
+  function planNote (p)  { var b = (billingPeriod === 'annual' && p.annual) ? p.annual : p.monthly; return b ? b.note  : '' }
 
   function planDisplayName (id) {
     var row = PLANS.find(function (p) { return p.id === id })
@@ -254,9 +271,59 @@
           if (r.ok) { var d = await r.json(); window.open(d.url, '_blank') }
           else { var errBody = await r.json().catch(function () { return {} }); alert(errBody.error && typeof errBody.error === 'string' && errBody.error.length < 140 ? errBody.error : 'We couldn\'t open billing management. Try again in a moment or contact support.') }
           manageBtn.textContent = 'Manage billing'
+          // Re-fetch subscription when the user returns to the tab — the
+          // Stripe webhook + DB write usually lands within a few seconds.
+          // Without this poll, the UI keeps showing the OLD plan/status
+          // until the page is reloaded. We attach a single one-shot focus
+          // listener so we don't keep refetching forever; flag prevents
+          // duplicate listeners when the user clicks Manage repeatedly.
+          if (!window.__vxBillingFocusWired) {
+            window.__vxBillingFocusWired = true
+            var attempts = 0
+            var refresh = function () {
+              attempts++
+              loadBilling()
+              // Webhook can take a moment; give it 3 attempts at 2s/4s/8s
+              if (attempts < 3) setTimeout(refresh, attempts === 1 ? 2000 : 4000)
+            }
+            window.addEventListener('focus', function once () {
+              window.removeEventListener('focus', once)
+              window.__vxBillingFocusWired = false
+              setTimeout(refresh, 500)
+            })
+          }
         }
       } else if (manageBtn) {
         manageBtn.style.display = 'none'
+      }
+
+      // Monthly/annual toggle — sits just above the cards grid. We rebuild
+      // its innerHTML on every loadBilling() call so the active-pill styling
+      // reflects the current billingPeriod (set by click → loadBilling).
+      // Click handler is attached once via dataset.vxWired.
+      var toggleEl = document.getElementById('vx-billing-period-toggle')
+      if (!toggleEl) {
+        toggleEl = document.createElement('div')
+        toggleEl.id = 'vx-billing-period-toggle'
+        toggleEl.style.cssText = 'display:inline-flex;gap:0;border:1px solid var(--b1);border-radius:999px;padding:3px;background:var(--s1);margin:18px 0 4px;'
+        cardsEl.parentNode.insertBefore(toggleEl, cardsEl)
+      }
+      toggleEl.innerHTML = ['monthly','annual'].map(function (m) {
+        var label = m === 'monthly' ? 'Monthly' : 'Annual <span style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-left:4px">save 20%</span>'
+        var on = (m === billingPeriod)
+        return '<button type="button" data-period="' + m + '" style="background:' + (on ? 'var(--t1)' : 'transparent') + ';color:' + (on ? 'var(--inv)' : 'var(--t2)') + ';border:0;font:500 12px/1 inherit;letter-spacing:.04em;padding:8px 16px;border-radius:999px;cursor:pointer;font-family:inherit;transition:all .15s">' + label + '</button>'
+      }).join('')
+      if (!toggleEl.dataset.vxWired) {
+        toggleEl.addEventListener('click', function (e) {
+          var t = e.target.closest('[data-period]')
+          if (!t) return
+          var next = t.getAttribute('data-period')
+          if (next === billingPeriod) return
+          billingPeriod = next
+          try { localStorage.setItem('vx-billing-period', billingPeriod) } catch (_) {}
+          loadBilling() // re-render cards + toggle pill state
+        })
+        toggleEl.dataset.vxWired = '1'
       }
 
       cardsEl.style.display = 'grid'
@@ -283,8 +350,8 @@
         return '<div style="background:var(--s1);border:1px solid ' + borderCol + ';border-radius:12px;padding:20px 20px 22px;position:relative;' + emphasis + '">'
           + (p.popular ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:3px 10px;border-radius:4px;background:var(--accent);color:var(--inv);white-space:nowrap">Most popular</div>' : '')
           + '<div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:4px">' + p.name + '</div>'
-          + '<div style="margin-bottom:8px"><span style="font-size:24px;font-weight:600;color:var(--t1)">' + p.price + '</span><span style="font-size:12px;color:var(--t3)"> / mo</span></div>'
-          + '<div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.4">' + p.billingNote + '</div>'
+          + '<div style="margin-bottom:8px"><span style="font-size:24px;font-weight:600;color:var(--t1)">' + planPrice(p) + '</span><span style="font-size:12px;color:var(--t3)"> / mo</span></div>'
+          + '<div style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.4">' + planNote(p) + '</div>'
           + p.features.map(function (f) {
             return '<div style="font-size:12px;color:var(--t2);padding:3px 0;display:flex;align-items:flex-start;gap:8px;line-height:1.45">'
               + '<span style="color:#34d27a;font-size:10px;flex-shrink:0;margin-top:2px">+</span><span>' + f + '</span></div>'
@@ -302,7 +369,7 @@
           var r = await fetch('/api/stripe/checkout', {
             method:'POST', credentials:'include',
             headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ plan: btn.dataset.vxCheckout, billing: 'monthly' }),
+            body: JSON.stringify({ plan: btn.dataset.vxCheckout, billing: billingPeriod }),
           })
           if (r.ok) {
             var d = await r.json()
