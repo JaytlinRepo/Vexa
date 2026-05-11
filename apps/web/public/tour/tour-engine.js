@@ -85,9 +85,22 @@
       || document.querySelector('#view-db-dashboard .hq3-pipe')
     if (hqPipeline) hqPipeline.setAttribute('data-tour-target', 'hq-pipeline')
 
-    // Notifications bell in the topbar — where approvals queue up. Hidden
-    // (display:none) until login, but shown once authed. Skip if still
-    // hidden so the tour doesn't ring around an invisible target.
+    // Maya's takes — first .hq3-maya-take element on HQ (there are ~5,
+    // one per metric tile). The body content is collapsed by default;
+    // opening it during the spotlight makes the explanation visible.
+    // We remember the prior open state so close() can restore it.
+    var mayaTake = document.querySelector('#view-db-dashboard .hq3-maya-take')
+    if (mayaTake) {
+      mayaTake.setAttribute('data-tour-target', 'maya-takes')
+      if (!mayaTake.dataset.vxTourOriginalOpen) {
+        mayaTake.dataset.vxTourOriginalOpen = mayaTake.open ? '1' : '0'
+        mayaTake.open = true
+      }
+    }
+
+    // Notifications bell in the topbar — kept tagged for any future step
+    // that references it. Hidden (display:none) until login. Skip if
+    // still hidden so the tour doesn't ring around an invisible target.
     var notifBtn = document.getElementById('notif-btn')
     if (notifBtn && notifBtn.offsetParent !== null) {
       notifBtn.setAttribute('data-tour-target', 'notifications-bell')
@@ -387,7 +400,11 @@
       tip.style.cssText = 'position:fixed;z-index:10002;width:'+tipW+'px;animation:vx-tip-in .5s cubic-bezier(.16,1,.3,1)'
       tip.style.left = tipX+'px'; tip.style.top = tipY+'px'
 
-      tip.innerHTML = '<div style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:24px 24px 18px;box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative;overflow:hidden">'
+      // Card colors come from the same CSS tokens the rest of the app
+      // uses (--bg, --b1, --t1, --t2, --t3). When the user toggles theme,
+      // the card re-paints automatically. The dimmer panels stay
+      // rgba(0,0,0,.8) in both themes — a dimmer is supposed to be dark.
+      tip.innerHTML = '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:12px;padding:24px 24px 18px;box-shadow:0 30px 80px rgba(0,0,0,.35);position:relative;overflow:hidden">'
         // Accent bar
         +'<div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:'+ACCENT+';box-shadow:0 0 12px '+ACCENT+'"></div>'
         // Glint
@@ -397,27 +414,43 @@
         +'<span style="width:20px;height:1px;background:'+ACCENT+';box-shadow:0 0 6px '+ACCENT+'"></span>'
         +esc(st.eyebrow)+'</div>'
         // Title
-        +'<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:'+(rect?'30':'36')+'px;line-height:1.08;font-weight:300;font-style:italic;margin-bottom:14px;letter-spacing:-.02em;color:#edede9">'
+        +'<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:'+(rect?'30':'36')+'px;line-height:1.08;font-weight:300;font-style:italic;margin-bottom:14px;letter-spacing:-.02em;color:var(--t1)">'
         +titleHtml+'</div>'
         // Body
-        +'<div style="font-size:13px;line-height:1.7;opacity:.6;margin-bottom:16px;max-width:320px;animation:vx-fade .4s .3s both">'+esc(st.body)+'</div>'
+        +'<div style="font-size:13px;line-height:1.7;color:var(--t2);margin-bottom:16px;max-width:320px;animation:vx-fade .4s .3s both">'+esc(st.body)+'</div>'
         // Progress bar + dots + skip
         +'<div style="animation:vx-fade .4s .4s both">'
-        +'<div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-bottom:10px;overflow:hidden">'
+        +'<div style="height:2px;background:var(--b1);border-radius:1px;margin-bottom:10px;overflow:hidden">'
         +'<div style="height:100%;background:'+ACCENT+';border-radius:1px;animation:vx-progress '+dur+'ms linear"></div></div>'
         +'<div style="display:flex;align-items:center;gap:10px">'
         +'<div style="display:flex;gap:3px">'
-        +currentSteps.map(function(_,i){return '<div style="width:'+(i===step?18:4)+'px;height:2px;background:'+(i<=step?ACCENT:'rgba(255,255,255,.15)')+';border-radius:1px;transition:all .4s"></div>'}).join('')
+        +currentSteps.map(function(_,i){return '<div style="width:'+(i===step?18:4)+'px;height:2px;background:'+(i<=step?ACCENT:'var(--b1)')+';border-radius:1px;transition:all .4s"></div>'}).join('')
         +'</div>'
-        +'<span style="font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em">'+(step+1)+'/'+currentSteps.length+'</span>'
-        +'<button id="vx-tour-skip" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.35);font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;padding:4px 0">Skip</button>'
+        // Counter — parse "N of M" out of the eyebrow so the small label
+        // matches the eyebrow's numbering (was showing index/total which
+        // counted welcome + wrap as steps, giving e.g. "7/10" while the
+        // eyebrow said "Step 6 of 8"). Welcome and wrap have no "N of M"
+        // pattern, so they show no counter.
+        +(function(){
+          var m = (st.eyebrow || '').match(/(\d+)\s*of\s*(\d+)/i)
+          return m ? '<span style="font-size:10px;color:var(--t3);letter-spacing:.08em">'+m[1]+'/'+m[2]+'</span>' : ''
+        })()
+        +'<div style="margin-left:auto;display:flex;align-items:center;gap:14px">'
+        +'<button id="vx-tour-skip" type="button" style="background:none;border:none;color:var(--t2);font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;padding:4px 0">Skip</button>'
+        +'<button id="vx-tour-never" type="button" style="background:none;border:none;color:var(--t3);font-size:10px;letter-spacing:.06em;cursor:pointer;font-family:inherit;padding:4px 0">Don\'t show again</button>'
+        +'</div>'
         +'</div></div></div>'
 
       document.body.appendChild(tip); els.push(tip)
 
-      // Wire skip
+      // Wire the two dismissal affordances. Skip closes the tour without
+      // setting the done-flag, so it will fire again on the next login —
+      // good for users who want to escape "for now." Don't-show-again
+      // closes AND persists the done-flag, permanently dismissing.
       var skipBtn = document.getElementById('vx-tour-skip')
-      if (skipBtn) skipBtn.addEventListener('click', close)
+      if (skipBtn) skipBtn.addEventListener('click', function () { close(false) })
+      var neverBtn = document.getElementById('vx-tour-never')
+      if (neverBtn) neverBtn.addEventListener('click', function () { close(true) })
 
       // Click dark panels to advance
       els.forEach(function(e) {
@@ -443,12 +476,21 @@
 
   function next() {
     clearTimeout(autoTimer)
-    if (step >= currentSteps.length-1) { close(); return }
+    // Reaching the final step naturally = user watched the whole thing
+    // = persistent dismiss. They saw it, they're done with it.
+    if (step >= currentSteps.length-1) { close(true); return }
     step++
     render()
   }
 
-  function close() {
+  // `permanent` controls whether the done-flag is set.
+  //   permanent=true  → set vx-tour-done / vx-mini-tour-<name>-done (default
+  //                      for natural completion and the "Don't show again"
+  //                      button). Won't fire again for non-test users.
+  //   permanent=false → just tear down. The tour will fire again on next
+  //                      page load. Used by the Skip button and Esc key.
+  function close(permanent) {
+    if (permanent === undefined) permanent = true
     clearTimeout(autoTimer)
     // Fade out
     els.forEach(function(e) { e.style.opacity = '0'; e.style.transition = 'opacity .3s' })
@@ -457,15 +499,30 @@
     // Clean up any demo content the tour injected (Studio sample clips).
     try { clearStudioDemo() } catch (e) {}
 
-    // Persist the right done-flag for the tour that just finished. The
-    // main tour writes `vx-tour-done`; mini tours write a per-surface
-    // key so they fire exactly once per surface per user.
-    if (currentTourId === 'main') {
-      localStorage.setItem('vx-tour-done', '1')
-      if (window.navigate) try { window.navigate('db-dashboard') } catch (e) {}
-    } else if (currentTourId.indexOf('mini:') === 0) {
-      var name = currentTourId.slice(5)
-      localStorage.setItem('vx-mini-tour-' + name + '-done', '1')
+    // Restore any <details> we opened during the tour (Maya's takes).
+    try {
+      document.querySelectorAll('[data-vx-tour-original-open]').forEach(function (el) {
+        el.open = el.dataset.vxTourOriginalOpen === '1'
+        delete el.dataset.vxTourOriginalOpen
+      })
+    } catch (e) {}
+
+    // Persist the right done-flag only when the dismissal is permanent.
+    // Main tour writes `vx-tour-done`; mini tours write a per-surface key
+    // so they fire exactly once per surface per user.
+    if (permanent) {
+      if (currentTourId === 'main') {
+        localStorage.setItem('vx-tour-done', '1')
+      } else if (currentTourId.indexOf('mini:') === 0) {
+        var name = currentTourId.slice(5)
+        localStorage.setItem('vx-mini-tour-' + name + '-done', '1')
+      }
+    }
+
+    // Main tour always navigates back to HQ on close so the user lands
+    // somewhere sensible regardless of where they dismissed from.
+    if (currentTourId === 'main' && window.navigate) {
+      try { window.navigate('db-dashboard') } catch (e) {}
     }
 
     // Reset to main-tour defaults so the next launch starts clean.
@@ -473,11 +530,13 @@
     currentTourId = 'main'
   }
 
-  // Keyboard
+  // Keyboard. Esc closes without setting the done-flag (less destructive
+  // than the Don't-show-again button); a user mashing Escape probably
+  // wants out of THIS run, not to nuke the tour forever.
   document.addEventListener('keydown', function(e) {
     if (!els.length) return
     if (e.key==='ArrowRight'||e.key===' '||e.key==='Enter') { e.preventDefault(); next() }
-    if (e.key==='Escape') close()
+    if (e.key==='Escape') close(false)
   })
 
   // Public API

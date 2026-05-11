@@ -66,12 +66,12 @@ window.VEXA_TOUR_STEPS = [
     cta: 'Next',
   },
   {
-    id: 'notifications',
-    target: 'notifications-bell',
+    id: 'hq-maya-takes',
+    target: 'maya-takes',
     page: 'dashboard',
     eyebrow: 'Step 6 of 8',
-    title: 'Where work\nshows up.',
-    body: 'When the team delivers a plan, hook, or video for review, the bell lights up here. One tap to approve, reject, or send back for revisions.',
+    title: 'Maya\'s takes,\non every tile.',
+    body: 'Every metric, heatmap, and chart on HQ comes with Maya\'s reading. Tap to expand — what the number means, what changed, what to do about it.',
     cta: 'Next',
   },
   {
