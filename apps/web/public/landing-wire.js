@@ -113,12 +113,62 @@
       revealEls.forEach(function(el){ io.observe(el); });
     }
   }
+
+  // Topnav scroll spy — highlight the matching .topnav-link as the user
+  // scrolls between hero / how / pricing on view-home. Without this the
+  // anchor links scroll to their target but never visually update which
+  // section the user is "on", and the .active state stays pinned to Home.
+  // Re-init on navigate('home') because the IntersectionObserver root
+  // changes when the view re-mounts.
+  var navSpyIO = null
+  function initNavSpy() {
+    if (navSpyIO) { try { navSpyIO.disconnect() } catch (_) {} navSpyIO = null }
+    var viewHome = document.getElementById('view-home')
+    if (!viewHome || !viewHome.classList.contains('active')) return
+    var sections = [
+      { id: 'top',     linkId: 'nav-home' },
+      { id: 'how',     linkId: 'nav-how' },
+      { id: 'pricing', linkId: 'nav-pricing' },
+    ]
+    var entries = sections.map(function (s) {
+      return { el: document.getElementById(s.id), link: document.getElementById(s.linkId), linkId: s.linkId }
+    }).filter(function (s) { return s.el && s.link })
+    if (!entries.length) return
+
+    function setActive(linkId) {
+      // Marketing nav only — leave dashboard nav links untouched.
+      var mktGroup = document.getElementById('nav-marketing')
+      if (mktGroup) mktGroup.querySelectorAll('.topnav-link').forEach(function (l) {
+        l.classList.toggle('active', l.id === linkId)
+      })
+    }
+
+    // Click → instant highlight (don't wait for the smooth-scroll to finish).
+    entries.forEach(function (s) {
+      s.link.addEventListener('click', function () { setActive(s.linkId) })
+    })
+
+    // Scroll spy. The middle band of the viewport (top 35% to bottom 50%
+    // ignored) is what we treat as "the section the user is reading."
+    navSpyIO = new IntersectionObserver(function (obs) {
+      // Find the entry currently in the active band; pick the one closest
+      // to the top of the band so quick swipes don't flicker.
+      var visible = obs.filter(function (e) { return e.isIntersecting })
+      if (!visible.length) return
+      visible.sort(function (a, b) { return a.target.offsetTop - b.target.offsetTop })
+      var top = visible[0]
+      var match = entries.find(function (s) { return s.el === top.target })
+      if (match) setActive(match.linkId)
+    }, { root: viewHome, rootMargin: '-35% 0px -50% 0px', threshold: 0 })
+    entries.forEach(function (s) { navSpyIO.observe(s.el) })
+  }
+
   // Run after a tick to ensure DOM is ready, and re-run on navigate to home
-  setTimeout(initReveals, 300);
+  setTimeout(function () { initReveals(); initNavSpy() }, 300);
   var _origNav = window.navigate;
   window.navigate = function(id) {
     var r = typeof _origNav === 'function' ? _origNav(id) : undefined;
-    if(id === 'home') setTimeout(initReveals, 200);
+    if(id === 'home') setTimeout(function () { initReveals(); initNavSpy() }, 200);
     return r;
   };
 

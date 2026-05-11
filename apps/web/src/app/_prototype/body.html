@@ -157,7 +157,7 @@
       <nav class="topnav" aria-label="Primary">
         <!-- Marketing nav (shown when not logged in) -->
         <div class="topnav-group" id="nav-marketing">
-          <a class="topnav-link active" id="nav-home" onclick="navigate('home')">Home</a>
+          <a class="topnav-link active" id="nav-home" href="#top" onclick="navigate('home');setTimeout(function(){var v=document.getElementById('view-home');if(v)v.scrollTo({top:0,behavior:'smooth'})},120);return false">Home</a>
           <a class="topnav-link" id="nav-how" href="#how" onclick="navigate('home');setTimeout(function(){var el=document.getElementById('how');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},120);return false">How it works</a>
           <a class="topnav-link" id="nav-pricing" href="#pricing" onclick="navigate('home');setTimeout(function(){var el=document.getElementById('pricing');if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},120);return false">Pricing</a>
           <a class="topnav-link" id="nav-contact" onclick="navigate('contact')">Contact</a>
@@ -174,7 +174,6 @@
       </nav>
 
       <div class="topbar-right">
-        <span class="topbar-section" id="topbar-section" aria-live="polite"></span>
         <button class="theme-btn" id="topbar-theme-btn" onclick="toggleTheme()" title="Toggle theme">&#9679;</button>
         <div class="notif-btn" id="notif-btn" style="display:none"><span>&#9679;</span><span class="notif-dot"></span></div>
         <button class="topbar-btn ghost" id="topbar-login" onclick="showLogin()">Log in</button>
@@ -313,23 +312,8 @@
   </div>
 </section>
 
-<!-- ═════════ MARQUEE ═════════ -->
-<div class="marquee">
-  <div class="track">
-    <span>rest isn’t a to-do list</span>
-    <span>the reset era</span>
-    <span>stop tracking everything</span>
-    <span>one boundary a week</span>
-    <span>Sunday is not a ritual</span>
-    <span>the post-productivity turn</span>
-    <span>rest isn’t a to-do list</span>
-    <span>the reset era</span>
-    <span>stop tracking everything</span>
-    <span>one boundary a week</span>
-    <span>Sunday is not a ritual</span>
-    <span>the post-productivity turn</span>
-  </div>
-</div>
+<!-- Marquee strip removed 2026-05-07 — the scrolling phrases were demo
+     copy from the original wellness/fitness creator persona. -->
 
 <!-- ═════════ THE TEAM ═════════ -->
 <section class="blk" id="team">
@@ -536,7 +520,7 @@
     </div>
     <div>
       <h5>Legal</h5>
-      <a href="#">Terms</a><a href="#">Privacy</a><a href="#">DPA</a><a href="#">Voice policy</a>
+      <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="#">DPA</a><a href="#">Voice policy</a>
     </div>
   </div>
   <div class="copy">© 2026 Sovexa, Inc.<br>All rights reserved.</div>

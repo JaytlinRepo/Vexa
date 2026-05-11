@@ -1,0 +1,160 @@
+/* Shared styling for /terms and /privacy. Mirrors the typography of
+   vexa-landing.css so the legal pages read as part of the marketing site
+   instead of a bolted-on doc. Specifically:
+     - body text: Inter, 15/1.65, var(--t1) primary
+     - h1/h2: Cormorant Garamond weight-300 (the hairline serif used on
+       the landing hero and section heads)
+     - eyebrows: JetBrains Mono uppercase
+     - link accent: var(--accent) gold, matches em accent on landing h1
+*/
+
+.vx-legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 100px 44px 120px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--t1);
+  background: var(--bg);
+  position: relative;
+  z-index: 1;
+}
+
+/* Subtle ambient gradient. Mirrors the .hero::before glow on the landing
+   without the heavy atmospheric blobs that don't suit a long reading
+   column. Sits behind content via z-index:-1, fixed so it doesn't scroll. */
+.vx-legal::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(60% 50% at 80% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    radial-gradient(50% 50% at -10% 110%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 70%);
+}
+
+.vx-legal-head {
+  margin-bottom: 56px;
+}
+
+.vx-legal-back {
+  display: inline-block;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 32px;
+  transition: opacity 0.18s;
+  opacity: 0.85;
+}
+.vx-legal-back:hover {
+  opacity: 1;
+}
+
+.vx-legal h1 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 300;
+  font-size: clamp(48px, 6.5vw, 80px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  color: var(--t1);
+  margin: 0 0 16px;
+}
+
+.vx-legal-meta {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin: 0;
+}
+
+.vx-legal section {
+  margin-top: 48px;
+  padding-top: 36px;
+  border-top: 1px solid var(--b1);
+}
+.vx-legal section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.vx-legal h2 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 300;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--t1);
+  margin: 0 0 22px;
+}
+.vx-legal h2 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.vx-legal p,
+.vx-legal li {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--t2);
+  margin: 0 0 16px;
+}
+.vx-legal p strong,
+.vx-legal li strong {
+  color: var(--t1);
+  font-weight: 600;
+}
+
+.vx-legal ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 18px;
+}
+.vx-legal ul li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 10px;
+}
+.vx-legal ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 8px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.vx-legal a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  transition: border-color 0.18s, color 0.18s;
+}
+.vx-legal a:hover {
+  border-bottom-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .vx-legal {
+    padding: 64px 22px 80px;
+  }
+  .vx-legal-head {
+    margin-bottom: 36px;
+  }
+  .vx-legal h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  .vx-legal section {
+    margin-top: 32px;
+    padding-top: 24px;
+  }
+}
