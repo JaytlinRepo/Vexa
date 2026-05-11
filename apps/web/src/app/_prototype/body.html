@@ -919,7 +919,7 @@
   </section>
 
   <!-- Hero -->
-  <section class="hq3-hero">
+  <section class="hq3-hero" data-vx-credit="Maya" data-vx-credit-tip="Maya: I project your trajectory from the last 30 days. The dotted line is what's coming if nothing changes.">
     <div>
       <h1>Good morning, Jaytlin.<br/>Your team <em>shipped</em><br/>4 posts overnight.</h1>
       <p class="sub">Maya's pulse landed at 08:12, Jordan's plan is live, and Riley has a shot list staged for tomorrow.</p>
@@ -957,8 +957,8 @@
 
       <!-- Goal anchor — wired by hq-v3-data-wire.js. Shows progress toward
            a user-set target, OR an empty "Set a goal" prompt. -->
-      <div class="hq3-goal" id="hq3-goal" hidden></div>
-      <form class="hq3-goal-form" id="hq3-goal-form" hidden>
+      <div class="hq3-goal" id="hq3-goal" data-vx-credit="Jordan" data-vx-credit-tip="Jordan: I draft your target from your growth trend. Hit it and we ladder up to the next one." hidden></div>
+      <form class="hq3-goal-form" id="hq3-goal-form" data-vx-credit="Jordan" data-vx-credit-tip="Jordan: Set a target and I'll plan the cadence to hit it." hidden>
         <label class="lbl">Set a goal</label>
         <div class="row">
           <input type="number" name="target" placeholder="Target followers (e.g. 25000)" min="1" step="1" required />
@@ -1032,17 +1032,16 @@
         <ul><li>—</li></ul>
       </div>
       <div class="hq3-side-stack">
-        <div class="hq3-anomalies" id="hq3-anomalies">
+        <div class="hq3-anomalies" id="hq3-anomalies" data-vx-credit="Maya" data-vx-credit-tip="Maya: I surface posts performing 2–5× above your usual. Repeat what works, drop what flatlines.">
           <div class="head">
             <span class="lbl">What's popping</span>
           </div>
           <div class="hq3-anomaly-list" id="hq3-anomaly-list"></div>
         </div>
         <!-- Content calendar tile — deep-links to the team tab calendar. -->
-        <div class="hq3-cal-tile" id="hq3-cal-tile">
+        <div class="hq3-cal-tile" id="hq3-cal-tile" data-vx-credit="Maya · Jordan" data-vx-credit-tip="Maya: I pulled your 90-day cadence. Jordan: I read the rhythm so you see when you're cooking and when you're cold.">
           <div class="head">
             <span class="lbl">This week's cadence</span>
-            <button type="button" class="hq3-cal-link" data-open-calendar>Open calendar →</button>
           </div>
           <div class="hq3-cal-body" id="hq3-cal-body">—</div>
         </div>
@@ -1730,7 +1729,7 @@
   </div>
 
   <!-- RIGHT: Posting Strategy (sidebar like dash-side) -->
-  <div class="dash-side">
+  <div class="dash-side" data-vx-credit="Maya · Jordan" data-vx-credit-tip="Maya: I track when your audience shows up. Jordan: I pick the windows where you tend to outperform.">
     <div class="section-head">
       <h3>When to <em>Post</em></h3>
     </div>

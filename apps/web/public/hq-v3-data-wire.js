@@ -986,13 +986,12 @@
           + '</div>'
         : ''
 
-      var sourceTag = goal.source === 'jordan'
-        ? '<span style="font-size:10px;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-left:6px">Jordan</span>'
-        : ''
+      // Legacy inline "Jordan" source tag removed 2026-05-11 — the
+      // [data-vx-credit] pill in the goal's top-right corner is now the
+      // unified credit signal and applies regardless of goal source.
 
       panel.innerHTML = '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px">'
         + '<span style="font-size:12px;font-weight:500;color:var(--t1)">' + label + ' → ' + targetFmt + '</span>'
-        + sourceTag
         + '</div>'
         + barHtml
         + '<div style="font-size:11px;color:var(--t3);margin-top:4px">' + escHtml(goal.rationale.replace(/\bin \d+ days?\b/gi, 'in ' + daysLeft + (daysLeft === 1 ? ' day' : ' days'))) + '</div>'

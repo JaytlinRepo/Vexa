@@ -200,7 +200,7 @@
       ? 'background:rgba(159,179,138,.12);color:var(--ok)'
       : 'background:rgba(212,165,116,.14);color:var(--accent)'
     return [
-      '<div class="studio-clip-card" ' + STUDIO_DEMO_SENTINEL + '="1" style="position:relative">',
+      '<div class="studio-clip-card" ' + STUDIO_DEMO_SENTINEL + '="1" data-vx-credit="Maya · Riley" data-vx-credit-pos="bl" data-vx-credit-tip="Maya: I told Riley which angles the data supports. Riley: I cut it to match your aesthetic before you see it." style="position:relative">',
         '<div style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(20,16,10,.6);color:rgba(255,255,255,.85);font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.14em;padding:2px 7px;border-radius:999px;text-transform:uppercase;font-weight:600;backdrop-filter:blur(4px)">Sample</div>',
         '<div class="studio-clip-inner">',
           '<div class="studio-clip-visual">',
@@ -240,7 +240,7 @@
     [['#1f2520', '#324336'], 'The week-after-the-week', '24s · Reel'],
     [['#221f2a', '#363242'], 'Quiet ambition, loud results', '36s · Reel'],
   ].map(function (c) {
-    return '<div ' + STUDIO_DEMO_SENTINEL + '="1" style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;overflow:hidden;position:relative">'
+    return '<div ' + STUDIO_DEMO_SENTINEL + '="1" data-vx-credit="Maya · Riley" data-vx-credit-pos="bl" data-vx-credit-tip="Maya: I told Riley which angles the data supports. Riley: I cut it to match your aesthetic." style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;overflow:hidden;position:relative">'
       + '<div style="position:absolute;top:10px;right:10px;z-index:2;background:rgba(0,0,0,.45);color:rgba(255,255,255,.8);font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.14em;padding:2px 6px;border-radius:3px;text-transform:uppercase;font-weight:600">Sample</div>'
       + '<div style="background:linear-gradient(135deg, ' + c[0][0] + ' 0%, ' + c[0][1] + ' 100%);aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:32px">▶</div>'
       + '<div style="padding:12px">'

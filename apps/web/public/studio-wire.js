@@ -809,7 +809,7 @@
       const scoreBg = (style.styleReplication || 0) >= 0.85 ? 'rgba(159,179,138,.1)' : 'rgba(212,165,116,.1)'
       const version = adj.version || 1
 
-      return `<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      return `<div data-vx-credit="Maya · Riley" data-vx-credit-tip="Maya: I told Riley which angles the data supports. Riley: I cut it to match your aesthetic before you see it." style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;overflow:hidden;margin-bottom:20px">
         <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;padding:20px">
           <!-- Visual -->
           <div>
