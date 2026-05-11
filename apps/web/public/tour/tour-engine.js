@@ -9,9 +9,12 @@
   var step = 0
   var els = []  // all tour elements we've added to body
   var autoTimer = null
-  var STEP_MS = 5000
-  var WELCOME_MS = 4000
-  var FINAL_MS = 6000
+  // Tour pacing — tightened 2026-05-11 from 5000/4000/6000 to feel
+  // cinematic-but-brisk. Each numbered step gets 3s, welcome and finale
+  // get a slightly longer beat so the title can land before transition.
+  var STEP_MS = 3000
+  var WELCOME_MS = 3000
+  var FINAL_MS = 4000
 
   // Inject styles once
   if (!document.querySelector('#vx-tour-style')) {
@@ -36,30 +39,44 @@
     els = []
   }
 
-  // Tag real dashboard elements
+  // Tag the DOM elements each tour step wants to spotlight. Run after
+  // navigate() because the target view needs to be `.active` (and visible)
+  // before getBoundingClientRect can return useful geometry. Targets match
+  // the IA we ship today (2026-05-11).
   function tagTargets() {
-    // Team cards
-    var grid = document.querySelector('.emp-cards')
-    if (grid) grid.setAttribute('data-tour-target','team-cards')
-    if (!grid) {
-      var secs = document.querySelectorAll('#view-db-dashboard section')
-      for (var i=0;i<secs.length;i++) {
-        if (secs[i].textContent.indexOf('Maya')!==-1 && secs[i].textContent.indexOf('Jordan')!==-1) {
-          secs[i].setAttribute('data-tour-target','team-cards'); break
-        }
-      }
-    }
-    // Inbox
-    var inbox = document.querySelector('#vx-inbox-host, #view-db-tasks .view-inner')
-    if (inbox) inbox.setAttribute('data-tour-target','inbox-section')
-    var tabs = document.querySelector('#vx-work-tabs')
-    if (tabs && !inbox) tabs.setAttribute('data-tour-target','inbox-section')
-    // Meeting
-    var meet = document.querySelector('.emp-card-action, [data-action="meeting"]')
-    if (meet) meet.setAttribute('data-tour-target','meeting-btn')
-    // Feed
-    var feed = document.querySelector('#view-db-feed .view-inner, #view-db-feed')
-    if (feed) feed.setAttribute('data-tour-target','feed-section')
+    // HQ — forecast chart (the hero section with the projection line).
+    var hqForecast = document.querySelector('#view-db-dashboard .hq3-hero')
+      || document.querySelector('#hq3-fc-chart')
+    if (hqForecast) hqForecast.setAttribute('data-tour-target', 'hq-forecast')
+
+    // HQ — Maya's playbook (left card in the pulse grid). Tight selector
+    // anchored to the v3 dashboard so we don't pick up any sibling .playbook
+    // in other surfaces (none today, but defensive).
+    var hqPlaybook = document.querySelector('#view-db-dashboard.hq-v3 .playbook')
+      || document.querySelector('#view-db-dashboard .playbook')
+    if (hqPlaybook) hqPlaybook.setAttribute('data-tour-target', 'hq-playbook')
+
+    // HQ — anomalies / "What's popping" card on the right side of the
+    // pulse grid. Surfaces posts performing 2-5× above baseline.
+    var hqAnomalies = document.querySelector('#hq3-anomalies')
+      || document.querySelector('#view-db-dashboard .hq3-side-stack')
+    if (hqAnomalies) hqAnomalies.setAttribute('data-tour-target', 'hq-anomalies')
+
+    // HQ — agent pipeline (Maya → Jordan → Riley node chain).
+    var hqPipeline = document.querySelector('#hq3-pipeline-sect')
+      || document.querySelector('#view-db-dashboard .hq3-pipe')
+    if (hqPipeline) hqPipeline.setAttribute('data-tour-target', 'hq-pipeline')
+
+    // Posts — the filter chip row (Platform · Format · Sort). Anchors the
+    // spotlight on the most distinctive piece of the Posts view.
+    var postsFilters = document.querySelector('#view-db-posts .filters')
+      || document.querySelector('#view-db-posts .posts-mast')
+    if (postsFilters) postsFilters.setAttribute('data-tour-target', 'posts-filters')
+
+    // Studio — the upload zone is the single primary action on this view.
+    var studioUpload = document.querySelector('#studio-upload-zone')
+      || document.querySelector('#view-db-studio .masthead')
+    if (studioUpload) studioUpload.setAttribute('data-tour-target', 'studio-upload')
   }
 
   function render() {
@@ -68,15 +85,51 @@
 
     var st = STEPS[step]
 
-    // Navigate
-    if (st.page==='work' && window.navigate) try{window.navigate('db-tasks')}catch(e){}
-    if (st.page==='feed' && window.navigate) try{window.navigate('db-feed')}catch(e){}
-    if (st.page==='dashboard' && window.navigate) try{window.navigate('db-dashboard')}catch(e){}
+    // Navigate to the page this step belongs to. Page IDs map to the
+    // current IA — db-dashboard (HQ), db-posts, db-studio. The work/feed
+    // entries are kept as harmless fallbacks for any older step shape.
+    // Only HQ / Posts / Studio are linked from the dashboard nav today.
+    // Audience / Outputs / Tasks / Feed views exist as orphan markup but
+    // aren't reachable from the UI — don't navigate users there.
+    var pageMap = {
+      dashboard: 'db-dashboard',
+      hq: 'db-dashboard',
+      posts: 'db-posts',
+      studio: 'db-studio',
+    }
+    var targetView = pageMap[st.page]
+    if (targetView && window.navigate) {
+      try { window.navigate(targetView) } catch (e) {}
+    }
 
     setTimeout(function() {
       tagTargets()
 
       var target = st.target ? document.querySelector('[data-tour-target="'+st.target+'"]') : null
+
+      // Bring the target into the viewport before measuring. Use `instant`
+      // (not `smooth`) so getBoundingClientRect inside drawStep reads the
+      // settled position — smooth scroll could still be animating after a
+      // fixed delay, causing the spotlight ring to land misaligned. The
+      // spotlight ring's vx-tip-in fade-in covers the visual jump.
+      var scrollDelay = 0
+      if (target) {
+        try {
+          var r0 = target.getBoundingClientRect()
+          var vh0 = window.innerHeight
+          var fullyOnScreen = r0.top >= 80 && r0.bottom <= vh0 - 40
+          if (!fullyOnScreen) {
+            target.scrollIntoView({ behavior: 'instant', block: 'center' })
+            scrollDelay = 80   // one frame to let layout flush
+          }
+        } catch (e) {}
+      }
+
+      setTimeout(function () { drawStep(target, st) }, scrollDelay)
+    }, 300)
+  }
+
+  function drawStep(target, st) {
       var rect = null
       if (target) {
         var r = target.getBoundingClientRect()
@@ -177,7 +230,6 @@
 
       // Auto-advance
       autoTimer = setTimeout(next, dur)
-    }, 300)
   }
 
   function addPanel(x, y, w, h) {
@@ -235,21 +287,63 @@
     } catch (e) { return false }
   }
 
-  // Auto-launch for new users (once per tab session — avoids replay on refresh F5
-  // before the tour is marked done in localStorage).
+  // Test accounts that always see the tour on login — mirrors the
+  // UNLIMITED_USERNAMES list in apps/api/src/lib/unlimitedAccounts.ts so
+  // testing accounts get the full demo every session regardless of whether
+  // they previously dismissed the tour.
+  var TEST_USERNAMES = ['jaytlin']
+
+  function getCurrentUsername() {
+    try {
+      var state = window.__vxDashState
+      return (state && state.me && state.me.user && state.me.user.username) || null
+    } catch (e) { return null }
+  }
+
+  // In-closure guard. Prevents the tour from firing twice when dashboard-v2
+  // dispatches `vx-dash-ready` multiple times in one page load (warm-cache
+  // pass + fresh fetch). Resets naturally when the page reloads, so a
+  // logout/login cycle in the same tab still gets a fresh tour for test
+  // users — unlike a sessionStorage flag, which would persist across that
+  // transition.
+  var hasLaunchedThisLoad = false
+
+  // Single source of truth for "should I fire the tour right now?" — called
+  // both immediately at script load and on every `vx-dash-ready` event
+  // (dashboard-v2.js dispatches it once /api/auth/me populates
+  // __vxDashState).
+  function maybeAutoLaunch() {
+    if (hasLaunchedThisLoad) return
+    if (localStorage.getItem('vx-authed') !== '1') return
+
+    var username = getCurrentUsername()
+    var isTestUser = username && TEST_USERNAMES.indexOf(username) !== -1
+
+    if (isTestUser) {
+      // Test accounts replay the tour on every page load (refresh, navigate,
+      // logout+login). No sessionStorage guard — we want a fresh fire every
+      // time the user lands on the app. Clear vx-tour-done so the tour
+      // would also fire the *next* page load even without this code path.
+      localStorage.removeItem('vx-tour-done')
+    } else {
+      // Real users: once per browser ever (localStorage), once per tab
+      // session (sessionStorage) on top of that.
+      if (localStorage.getItem('vx-tour-done') === '1') return
+      try { if (sessionStorage.getItem('vx-tour-auto-fired') === '1') return } catch (e) {}
+      try { sessionStorage.setItem('vx-tour-auto-fired', '1') } catch (e) {}
+    }
+
+    hasLaunchedThisLoad = true
+    setTimeout(function () { window.launchSovexaTour() }, 2000)
+  }
+
   function autoLaunch() {
     if (forceLaunchFromQuery()) return
-    if (localStorage.getItem('vx-tour-done')==='1') return
-    if (localStorage.getItem('vx-authed')!=='1') return
-    try {
-      if (sessionStorage.getItem('vx-tour-auto-fired') === '1') return
-    } catch (e) {}
-    setTimeout(function () {
-      try {
-        sessionStorage.setItem('vx-tour-auto-fired', '1')
-      } catch (e) {}
-      window.launchSovexaTour()
-    }, 2500)
+    // Try now in case __vxDashState was already hydrated (warm refresh).
+    maybeAutoLaunch()
+    // Also catch the cold-load case where state populates after this script
+    // ran. dashboard-v2.js dispatches vx-dash-ready once /api/auth/me lands.
+    window.addEventListener('vx-dash-ready', maybeAutoLaunch)
   }
   if (document.readyState!=='loading') autoLaunch()
   else document.addEventListener('DOMContentLoaded', autoLaunch)

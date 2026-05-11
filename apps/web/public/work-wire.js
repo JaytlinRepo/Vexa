@@ -537,9 +537,7 @@
       }
     }
 
-    // Hide standalone Outputs view (view-db-team was removed 2026-05-07)
-    var outputsView = document.getElementById('view-db-outputs')
-    if (outputsView) outputsView.classList.remove('active')
+    // view-db-outputs was deleted 2026-05-11 (orphan markup).
   }
 
   // ── Navigation wiring ──────────────────────────────────────────
@@ -547,14 +545,7 @@
   window.navigate = function (id) {
     // Always pass the original ID down the chain so all handlers see it
     var r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-outputs') {
-      // Outputs is part of the unified Work page — show tasks view, switch to inbox tab
-      currentTab = 'inbox'
-      // Show the tasks view if not already visible
-      var tasksView = document.getElementById('view-db-tasks')
-      if (tasksView) tasksView.style.display = ''
-      setTimeout(injectWork, 60)
-    } else if (id === 'db-tasks') {
+    if (id === 'db-tasks') {
       setTimeout(injectWork, 60)
     }
     return r

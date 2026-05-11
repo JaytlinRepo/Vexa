@@ -86,10 +86,10 @@
   }
 
   async function render() {
-    // Outputs library can live in two places: the standalone view and the
-    // unified Work page. Render into every host marked [data-outputs-host]
-    // (Work page) plus the original #view-db-outputs (standalone).
-    const hosts = Array.from(document.querySelectorAll('[data-outputs-host], #view-db-outputs'))
+    // Outputs library renders into every host marked [data-outputs-host]
+    // — the Work view embeds one. The standalone #view-db-outputs was
+    // deleted 2026-05-11 (orphan markup, no nav link).
+    const hosts = Array.from(document.querySelectorAll('[data-outputs-host]'))
     if (hosts.length === 0) return
 
     outputs = await fetchOutputs()
@@ -771,7 +771,7 @@
   const origNavigate = window.navigate
   window.navigate = function (id) {
     const r = typeof origNavigate === 'function' ? origNavigate(id) : undefined
-    if (id === 'db-outputs' || id === 'db-tasks') setTimeout(render, 80)
+    if (id === 'db-tasks') setTimeout(render, 80)
     return r
   }
 

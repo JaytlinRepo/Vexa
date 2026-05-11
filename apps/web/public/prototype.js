@@ -75,9 +75,8 @@ var companyName=''
 var sectionNames={
   home:'Home',team:'The Team',how:'How It Works',outputs:'See Outputs',contact:'Contact',
   knowledge:'Knowledge Feed',pricing:'Pricing',faq:'FAQ',
-  'db-dashboard':'HQ','db-pipeline':'Pipeline','db-posts':'Posts',
-  'db-studio':'Studio','db-audience':'Audience','db-team':'Team','db-tasks':'Work',
-  'db-outputs':'Outputs','db-knowledge':'Knowledge','db-settings':'Settings'
+  'db-dashboard':'HQ','db-posts':'Posts','db-studio':'Studio','db-tasks':'Work',
+  'db-settings':'Settings'
 }
 
 function navigate(id){
