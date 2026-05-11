@@ -80,6 +80,12 @@ router.post('/webhook', async (req, res, next) => {
     res.json({ received: true })
   } catch (err) {
     const message = (err as Error).message || 'Webhook error'
+    // CONTRACT: the exact string "[stripe] webhook error" is matched by the
+    // CloudWatch Logs metric filter `sovexa-stripe-webhook-errors` on the prod
+    // App Runner log group, which feeds the alarm of the same name on the
+    // `sovexa-alerts` SNS topic. Do not change the prefix without also updating
+    // the filter pattern in CloudWatch — otherwise webhook failures will stop
+    // alerting silently and customers will pay without their plan upgrading.
     console.error('[stripe] webhook error:', message)
     if (message.includes('Invalid webhook signature')) {
       res.status(400).json({ error: message })

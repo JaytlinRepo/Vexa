@@ -516,6 +516,48 @@ The user-visible "tasks/day" cap is **`Task.source = 'user'`** only. Proactive c
 
 > Internal notes: Plan enum is `free | pro | max | agency` — the Stripe product names match exactly. The legacy `starter` slug was retired. Live Stripe (account `acct_1TNxeAFo8PldjyKY`) has the matching products live, billing not yet open to public. App Runner env vars `STRIPE_PRO_*`, `STRIPE_MAX_*`, `STRIPE_AGENCY_*_PRICE_ID` carry the live price IDs.
 
+### Notification infrastructure (SNS topics — added 2026-05-07, financial impact)
+
+Two SNS topics provision operational alerting and inbound mail forwarding. Both are **fixed-cost infrastructure** (don't scale per paid user) and both run almost entirely on the AWS Free Tier today (1,000 publishes/mo + 1,000 email deliveries/mo + 100 SMS/mo free).
+
+| Topic ARN | Fed by | Subscribers | Purpose |
+|---|---|---|---|
+| `arn:aws:sns:us-east-1:322513863369:sovexa-alerts` | 13 CloudWatch alarms (full list below) | 1 email → `jaytaskew@gmail.com` | Ops alerting sink |
+| `arn:aws:sns:us-east-1:322513863369:sovexa-mail-inbound` | SES receipt rule `sovexa-inbound` (active) routing 6 inboxes: contact / hello / legal / privacy / support / team @ sovexa.ai | 1 email → `jaytaskew@gmail.com` | Inbound-mail forwarder |
+
+**No application code publishes to either** — they are fed by CloudWatch and SES directly. Sovexa codebase has zero `@aws-sdk/client-sns` usage; only `docs/DEPLOY-PROD.md` references the topics.
+
+CloudWatch alarms publishing to `sovexa-alerts` (built out incrementally 2026-05-07 → 2026-05-11, **13 alarms total**):
+
+| Alarm name | Metric | Threshold | Protects against |
+|---|---|---:|---|
+| `sovexa-api-5xx-errors` | AppRunner 5xxStatusResponses | 10 | API crashes / unhandled exceptions |
+| `sovexa-api-4xx-spike` | AppRunner 4xxStatusResponses | 50 | Abuse signal: bot signup flood, brute force |
+| `sovexa-api-high-latency` | AppRunner RequestLatency | 5,000 ms | App Runner saturation, DB slowness |
+| `sovexa-billing-50-usd` | AWS/Billing EstimatedCharges | $50 | First warning when credits exhaust |
+| `sovexa-billing-100-usd` | AWS/Billing EstimatedCharges | $100 | Second warning — escalation |
+| `sovexa-billing-200-usd` | AWS/Billing EstimatedCharges | $200 | Third warning — sustained burn |
+| `sovexa-billing-500-usd` | AWS/Billing EstimatedCharges | $500 | Hard escalation |
+| `sovexa-bedrock-monthly-cost` | AWS/Billing EstimatedCharges (Bedrock only) | $200/mo | Bedrock spike — biggest variable COGS line |
+| `sovexa-rds-prod-connections-high` | RDS DatabaseConnections | 70 | Connection pool exhaustion |
+| `sovexa-rds-prod-storage-low` | RDS FreeStorageSpace | 5 GB | RDS write failure imminent |
+| `sovexa-s3-outputs-size-high` | S3 BucketSizeBytes (sovexa-outputs) | 50 GB | Unbounded storage growth (no lifecycle yet) |
+| `sovexa-s3-outputs-dev-size-high` | S3 BucketSizeBytes (dev bucket) | 50 GB | Dev bucket runaway |
+| `sovexa-stripe-webhook-errors` | Sovexa/Stripe.StripeWebhookErrors (custom) | 1 | Silent subscription-flow breakage |
+
+> The `sovexa-stripe-webhook-errors` alarm is fed by a CloudWatch Logs metric filter (`sovexa-stripe-webhook-errors`) on the prod App Runner log group that matches the literal string `[stripe] webhook error`. That string lives in [apps/api/src/routes/stripe.ts:83](apps/api/src/routes/stripe.ts#L83) and is pinned in code with a CONTRACT comment — if anyone refactors it, the alarm silently stops firing. End-to-end SNS delivery validated 2026-05-11 via `set-alarm-state`.
+
+Projected cost (added to "AWS misc" line in COGS, all tiers absorb it amortized):
+
+| Scenario | SNS $/mo | CloudWatch alarms $/mo *(10 free, $0.10/alarm thereafter)* | Custom metrics $/mo *(10 free)* | Total |
+|---|---:|---:|---:|---:|
+| Today (13 alarms, 1 custom metric, ~190 publishes) | $0 | $0.30 (3 beyond free tier) | $0 | **$0.30/mo** |
+| 100 paying users | $0 | $0.30 | $0 | **$0.30/mo** |
+| 1,000 users — busier alarms, ~100 inbound/day | ~$0.84 | $0.30 | $0 | **~$1.14/mo** |
+| 10,000 users — heavy alarms (likely 15-20 by then) | ~$4.30 | ~$1.00 | $0 | **~$5.30/mo** |
+
+**SNS + CloudWatch monitoring will not exceed ~$5–6/mo** at meaningful scale. Net effect on tier margins: zero rounded. Each additional alarm beyond the first 10 costs $0.10/month — cheapest insurance in the stack and the only thing that catches credit-pool depletion + Bedrock spikes before they show up on the next bill. Treat as part of the "AWS misc/amortized" line in tier COGS.
+
 ### Deferred work — pricing/quota system (track here, ship deliberately)
 
 These were scoped during the 2026-05-06 daily-cap rollout but intentionally NOT shipped because each requires a setup decision, external service, or operational migration that shouldn't happen autonomously. Order is rough urgency.
