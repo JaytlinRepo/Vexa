@@ -585,6 +585,122 @@ These were scoped during the 2026-05-06 daily-cap rollout but intentionally NOT 
 
 ---
 
+## Working contracts — DO NOT BREAK without coordinated updates
+
+These are the fragile coupling points where current working features depend on
+specific strings, selectors, or keys that span multiple files. Each one is the
+shape of a regression we've actually shipped this session or one we caught
+mid-session. **Before renaming, deleting, or refactoring any of the
+identifiers below, check the listed dependents and update them in the same
+commit.** Anchor commit for "what works today" is `f966470` (tagged
+`tour-stable-2026-05-11`).
+
+### Tour (apps/web/public/tour/tour-engine.js + tour-steps.js)
+
+The tour spotlights real DOM elements via `data-tour-target` attributes that
+`tagTargets()` sets on these selectors. Rename the selector → spotlight rings
+around nothing → tour silently degrades to center-screen fallback.
+
+| Tour step | Selector | Where it lives | If renamed, also update |
+|---|---|---|---|
+| Connect | `#vx-integrations-cta` | injected by `integrations-wire.js:115` | `tour-engine.js` tagTargets |
+| HQ forecast | `#view-db-dashboard .hq3-hero` | `body.html` HQ section | `tour-engine.js` tagTargets |
+| HQ playbook | `#view-db-dashboard.hq-v3 .playbook` | `body.html` pulse grid | `tour-engine.js` tagTargets |
+| HQ anomalies | `#hq3-anomalies` | `body.html` side stack | `tour-engine.js` tagTargets |
+| HQ pipeline | `#hq3-pipeline-sect` | `body.html` pipeline section | `tour-engine.js` tagTargets |
+| Notifications | `#notif-btn` (topbar) | `body.html:178` | `tour-engine.js` tagTargets |
+| Posts | `#view-db-posts .filters` | `body.html` Posts view | `tour-engine.js` tagTargets |
+| Studio upload | `#studio-upload-zone` | `body.html` Studio | `tour-engine.js` tagTargets |
+| Studio edits | `#studio-pending-container` | `body.html` Studio dash | `tour-engine.js` tagTargets |
+| Studio schedule | `#view-db-studio .dash-side` | `body.html` Studio dash | `tour-engine.js` tagTargets |
+
+**Studio demo cards** (injected when the tour spotlights Studio targets) use
+these CSS classes from `vexa-shared.css:2117+`. Renaming the classes breaks
+the demo's visual fidelity to real studio-wire cards:
+`.studio-clip-card`, `.studio-clip-inner`, `.studio-clip-visual`,
+`.studio-clip-placeholder`, `.studio-clip-meta`, `.studio-clip-meta-row`,
+`.studio-clip-ver`, `.studio-clip-toning`, `.studio-clip-score`,
+`.studio-clip-actions`, `.studio-clip-footer`, `.vx-icon-btn`.
+
+**Tour state keys** (localStorage / sessionStorage):
+- `vx-authed='1'` — set by auth-ui after login. Tour bails if missing.
+- `vx-tour-done='1'` — set on main tour close. Test usernames bypass.
+- `vx-mini-tour-<name>-done='1'` — set on mini tour close (e.g. `…-studio-done`).
+- `vx-tour-auto-fired` — sessionStorage, prevents multi-fire from dash-ready.
+
+**Test-user contract**: `tour-engine.js` `TEST_USERNAMES = ['jaytlin']` mirrors
+`apps/api/src/lib/unlimitedAccounts.ts` `UNLIMITED_USERNAMES`. If you add a
+test user to one, add to both.
+
+**Event contract**: `tour-engine.js` listens for `vx-dash-ready` to know when
+`window.__vxDashState.me.user.username` is populated. Dispatched by
+`apps/web/public/dashboard-v2.js` at L57, L75, L2041. Don't drop the dispatch.
+
+### Stripe webhook alarm (Sovexa/Stripe/StripeWebhookErrors)
+
+The literal string `[stripe] webhook error` at
+[apps/api/src/routes/stripe.ts:83](apps/api/src/routes/stripe.ts#L83) is
+matched by the CloudWatch Logs metric filter `sovexa-stripe-webhook-errors`
+on the prod App Runner log group. If the log line text changes, the alarm
+silently stops firing — subscriptions break invisibly because Stripe retries
+for 3 days then gives up. There's an inline CONTRACT comment at the catch
+block; honor it.
+
+### Hidden routes (apps/web/public/prototype.js)
+
+`HIDDEN_ROUTES=['db-tasks']` reroutes hidden views to HQ if reached via URL
+hash. `view-db-tasks` is preserved in `body.html` and reachable via
+notification deep-links — don't delete it, don't add it to the nav. Other
+orphan views (audience / outputs / pipeline) were deleted 2026-05-11; if you
+re-add any of them, you must wire them into the nav AND add them to the
+tour OR HIDDEN_ROUTES.
+
+### Studio render contract (apps/web/public/studio-wire.js)
+
+- `outputs-wire.js` renders into `[data-outputs-host]` selectors on the Work
+  view (`#view-db-tasks`), NOT the standalone `#view-db-outputs` (deleted).
+  If anyone re-introduces a standalone outputs view, update outputs-wire.js
+  to render there too.
+- `studio-wire.js` reads `clip.clippedUrl` and treats URLs containing
+  `web.descript.com` as external editor links rather than playable videos.
+  Don't change this detection — it's the contract with the Descript
+  integration.
+- `#studio-pending-container` is a 3-col grid (2-col at <1320px, 1-col at
+  <720px) per `vexa-shared.css:2107`. Demo cards span all columns via
+  `grid-column:1 / -1`; real studio-wire cards fit 1/N width.
+
+### Auth + session contract
+
+- Session cookie is httpOnly — JS can't read `vx_session` directly. The
+  `vx-authed` localStorage flag is the JS-visible proxy. Both auth-ui and
+  intro-wire / waitlist depend on this flag pattern.
+- `/api/auth/me` must return `{ user: { username, plan, ... }, companies: [...] }`.
+  The frontend reads `__vxDashState.me.user.username` — schema change breaks
+  the tour test-user check and the profile-wire display.
+
+### CloudWatch alarms (13 total → `sovexa-alerts` SNS topic)
+
+Full list documented in the "Notification infrastructure" section above.
+Don't delete the SNS topic or detach the email subscriber without replacing
+the alerting chain — the 5xx / latency / billing / RDS / S3 / Bedrock /
+Stripe-webhook alarms all rely on it. End-to-end SNS delivery validated
+2026-05-11.
+
+### `BEDROCK_MODEL_ID` env var (deferred but documented)
+
+The code default `anthropic.claude-3-haiku-20240307-v1:0` in
+[bedrock.service.ts:13](apps/api/src/services/bedrock/bedrock.service.ts#L13)
+is a LEGACY model ID — direct ON_DEMAND invocations return
+`ValidationException: Operation not allowed`. The fix is to set
+`BEDROCK_MODEL_ID=us.anthropic.claude-3-haiku-20240307-v1:0` (the inference
+profile variant) as an App Runner env var on `sovexa-api-dev` and
+`sovexa-api-prod`. Deferred this session because the AWS account-level
+anomaly flag was blocking App Runner deploys; apply it once the flag clears.
+Until then, Maya's playbook, forecast narrative, briefs, and video style
+analysis all fail silently with `Operation not allowed`.
+
+---
+
 ## Build Order (Recommended)
 
 ### Phase 1 — Foundation ✅
