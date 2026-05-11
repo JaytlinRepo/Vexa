@@ -215,9 +215,30 @@
   // Public API
   window.launchSovexaTour = function() { step=0; render() }
 
+  // ?tour=1 — force-launch escape hatch for testing. Bypasses the done /
+  // auto-fired gates and clears them so the tour can be replayed cleanly.
+  // Works on any environment. Drop the query string after triggering so a
+  // browser refresh doesn't re-fire.
+  function forceLaunchFromQuery() {
+    try {
+      var params = new URLSearchParams(window.location.search)
+      if (params.get('tour') !== '1') return false
+      localStorage.removeItem('vx-tour-done')
+      try { sessionStorage.removeItem('vx-tour-auto-fired') } catch (e) {}
+      // Strip ?tour=1 from URL so a refresh doesn't loop.
+      params.delete('tour')
+      var qs = params.toString()
+      var newUrl = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash
+      try { window.history.replaceState({}, '', newUrl) } catch (e) {}
+      setTimeout(function () { window.launchSovexaTour() }, 800)
+      return true
+    } catch (e) { return false }
+  }
+
   // Auto-launch for new users (once per tab session — avoids replay on refresh F5
   // before the tour is marked done in localStorage).
   function autoLaunch() {
+    if (forceLaunchFromQuery()) return
     if (localStorage.getItem('vx-tour-done')==='1') return
     if (localStorage.getItem('vx-authed')!=='1') return
     try {

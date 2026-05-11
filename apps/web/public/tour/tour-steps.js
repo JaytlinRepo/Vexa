@@ -6,7 +6,7 @@ window.VEXA_TOUR_STEPS = [
     page: 'dashboard',
     eyebrow: 'Welcome to Sovexa',
     title: 'Your AI\ncontent team.',
-    body: 'Four specialists. Zero management overhead. They analyze, plan, write, and direct — you make the final call.',
+    body: 'Three specialists. Zero management overhead. They analyze, plan, and direct — you make the final call.',
     cta: 'Meet the team',
   },
   {
@@ -14,8 +14,8 @@ window.VEXA_TOUR_STEPS = [
     target: 'team-cards',
     page: 'dashboard',
     eyebrow: 'Step 1 of 5',
-    title: 'Four employees.\nOne mission.',
-    body: 'Maya spots trends. Jordan builds strategy. Alex writes the hooks. Riley directs the visuals. They work together — you approve.',
+    title: 'Three employees.\nOne mission.',
+    body: 'Maya spots trends and writes your daily playbook. Jordan builds the strategy and the weekly plan. Riley directs the visuals. They work together — you approve.',
     cta: 'Next',
   },
   {
