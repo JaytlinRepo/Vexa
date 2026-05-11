@@ -2,19 +2,28 @@
 // Panels are appended directly to body (no wrapper overlay that blocks content)
 
 ;(function () {
-  var STEPS = window.VEXA_TOUR_STEPS
-  if (!STEPS) return
+  var MAIN_STEPS = window.VEXA_TOUR_STEPS
+  if (!MAIN_STEPS) return
 
   var ACCENT = '#d4a574'
   var step = 0
   var els = []  // all tour elements we've added to body
   var autoTimer = null
+
+  // `currentSteps` swaps between the main tour and any mini tour. The
+  // render loop and step counter read from this so the same machinery
+  // runs both tiers. `currentTourId` is "main" or "mini:<name>" so close()
+  // can write the right done-flag (vx-tour-done vs vx-mini-tour-<name>-done).
+  var currentSteps = MAIN_STEPS
+  var currentTourId = 'main'
+
   // Tour pacing — tightened 2026-05-11 from 5000/4000/6000 to feel
-  // cinematic-but-brisk. Each numbered step gets 3s, welcome and finale
-  // get a slightly longer beat so the title can land before transition.
+  // cinematic-but-brisk. Mini tours run a touch faster (2500ms) because
+  // the user opted in by clicking the tab.
   var STEP_MS = 3000
   var WELCOME_MS = 3000
   var FINAL_MS = 4000
+  var MINI_STEP_MS = 2800
 
   // Inject styles once
   if (!document.querySelector('#vx-tour-style')) {
@@ -44,6 +53,15 @@
   // before getBoundingClientRect can return useful geometry. Targets match
   // the IA we ship today (2026-05-11).
   function tagTargets() {
+    // Connect platforms — the integrations CTA card on HQ. Injected
+    // async by integrations-wire.js after /api/platform/accounts resolves,
+    // so it may not be present on the very first render. Fall back to the
+    // HQ hero so the step still has something to anchor to.
+    var connectCta = document.querySelector('#vx-integrations-cta')
+      || document.querySelector('#view-db-dashboard .hq3-cockpit')
+      || document.querySelector('#view-db-dashboard .hq3-hero')
+    if (connectCta) connectCta.setAttribute('data-tour-target', 'connect-platforms')
+
     // HQ — forecast chart (the hero section with the projection line).
     var hqForecast = document.querySelector('#view-db-dashboard .hq3-hero')
       || document.querySelector('#hq3-fc-chart')
@@ -67,23 +85,163 @@
       || document.querySelector('#view-db-dashboard .hq3-pipe')
     if (hqPipeline) hqPipeline.setAttribute('data-tour-target', 'hq-pipeline')
 
+    // Notifications bell in the topbar — where approvals queue up. Hidden
+    // (display:none) until login, but shown once authed. Skip if still
+    // hidden so the tour doesn't ring around an invisible target.
+    var notifBtn = document.getElementById('notif-btn')
+    if (notifBtn && notifBtn.offsetParent !== null) {
+      notifBtn.setAttribute('data-tour-target', 'notifications-bell')
+    }
+
     // Posts — the filter chip row (Platform · Format · Sort). Anchors the
     // spotlight on the most distinctive piece of the Posts view.
     var postsFilters = document.querySelector('#view-db-posts .filters')
       || document.querySelector('#view-db-posts .posts-mast')
     if (postsFilters) postsFilters.setAttribute('data-tour-target', 'posts-filters')
 
-    // Studio — the upload zone is the single primary action on this view.
+    // Studio — three landmarks: upload, pending edits, scheduling panel.
     var studioUpload = document.querySelector('#studio-upload-zone')
       || document.querySelector('#view-db-studio .masthead')
     if (studioUpload) studioUpload.setAttribute('data-tour-target', 'studio-upload')
+
+    var studioEdits = document.querySelector('#studio-pending-container')
+      || document.querySelector('#view-db-studio .dash-main')
+    if (studioEdits) studioEdits.setAttribute('data-tour-target', 'studio-edits')
+
+    var studioSchedule = document.querySelector('#view-db-studio .dash-side')
+    if (studioSchedule) studioSchedule.setAttribute('data-tour-target', 'studio-schedule')
+
+    // Whenever the tour points at any studio target, ensure the page has
+    // demo content so the spotlight lands on something visible. First-time
+    // users have empty pending + ready sections; the engine injects sample
+    // clips here and clears them in close().
+    if (studioEdits || studioSchedule || studioUpload) {
+      try { injectStudioDemoIfEmpty() } catch (e) {}
+    }
+
+    // After demo injection, tag the first demo card so the buttons step
+    // has a single ringable target. The body copy walks through every
+    // button (Approve / Download / Re-cut / Reject / Discard) — spotlight
+    // the whole card so all of them sit inside the ring.
+    var firstCard = document.querySelector('#studio-pending-container [data-vx-tour-demo]')
+    if (firstCard) firstCard.setAttribute('data-tour-target', 'studio-card')
   }
+
+  // ─── Studio demo content ────────────────────────────────────────────
+  // On first visit, Studio's pending-approval and ready-to-post sections
+  // are empty (nothing has been uploaded yet). The tour spotlights these
+  // surfaces, so we inject realistic-looking sample clips while the tour
+  // is running and remove them in close(). Sample cards carry a "Sample"
+  // pill so the user understands they're illustrative, not real.
+
+  var STUDIO_DEMO_SENTINEL = 'data-vx-tour-demo'
+
+  function injectStudioDemoIfEmpty() {
+    var pending = document.getElementById('studio-pending-container')
+    if (pending && !pending.querySelector('[' + STUDIO_DEMO_SENTINEL + ']')) {
+      var inner = (pending.innerHTML || '').trim()
+      var isEmpty = inner === '' || /No clips pending|will appear here/i.test(inner)
+      if (isEmpty) pending.innerHTML = STUDIO_DEMO_PENDING_HTML
+    }
+
+    var ready = document.getElementById('studio-clips')
+    if (ready && !ready.querySelector('[' + STUDIO_DEMO_SENTINEL + ']')) {
+      var rinner = (ready.innerHTML || '').trim()
+      var rEmpty = rinner === '' || /Clips will appear here|will appear here once/i.test(rinner)
+      if (rEmpty) ready.innerHTML = STUDIO_DEMO_READY_HTML
+    }
+
+    // Update the count in the section header so it matches the demo content.
+    var countEl = document.querySelector('[data-studio-pending-count]')
+    if (countEl && !countEl.dataset.vxTourOrig) {
+      countEl.dataset.vxTourOrig = countEl.textContent || ''
+      countEl.textContent = '2 items · sample'
+    }
+  }
+
+  function clearStudioDemo() {
+    var pending = document.getElementById('studio-pending-container')
+    if (pending && pending.querySelector('[' + STUDIO_DEMO_SENTINEL + ']')) {
+      pending.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:40px;text-align:center;color:var(--t3);font-size:13px">No clips pending approval. Upload a video to get started.</div>'
+    }
+    var ready = document.getElementById('studio-clips')
+    if (ready && ready.querySelector('[' + STUDIO_DEMO_SENTINEL + ']')) {
+      ready.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:24px;text-align:center;color:var(--t3);font-size:12px">Clips will appear here once processed</div>'
+    }
+    var countEl = document.querySelector('[data-studio-pending-count]')
+    if (countEl && countEl.dataset.vxTourOrig !== undefined) {
+      countEl.textContent = countEl.dataset.vxTourOrig
+      delete countEl.dataset.vxTourOrig
+    }
+  }
+
+  // Demo HTML — matches the current .studio-clip-card design defined in
+  // vexa-shared.css:2117+ (compact column-tile, video on top, metadata +
+  // score below, icon-button action row, footer). Cards fit a single
+  // grid cell (3-col at full width, 2-col below 1320px, 1-col below 720px).
+  // Buttons are disabled — clicking would crash since they expect real
+  // clip IDs wired through studio-wire.js.
+  function buildPendingCard(opts) {
+    var versionBg = opts.scoreColor === 'ok' ? 'var(--ok)' : 'var(--accent)'
+    var scoreCss = opts.scoreColor === 'ok'
+      ? 'background:rgba(159,179,138,.12);color:var(--ok)'
+      : 'background:rgba(212,165,116,.14);color:var(--accent)'
+    return [
+      '<div class="studio-clip-card" ' + STUDIO_DEMO_SENTINEL + '="1" style="position:relative">',
+        '<div style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(20,16,10,.6);color:rgba(255,255,255,.85);font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.14em;padding:2px 7px;border-radius:999px;text-transform:uppercase;font-weight:600;backdrop-filter:blur(4px)">Sample</div>',
+        '<div class="studio-clip-inner">',
+          '<div class="studio-clip-visual">',
+            '<div class="studio-clip-placeholder" style="background:linear-gradient(135deg,' + opts.grad[0] + ' 0%,' + opts.grad[1] + ' 100%);color:rgba(255,255,255,.45);font-size:32px">▶</div>',
+          '</div>',
+          '<div class="studio-clip-meta">',
+            '<div class="studio-clip-meta-row">',
+              '<span>Riley\'s edit</span>',
+              '<span class="studio-clip-ver" style="background:' + versionBg + '">v' + opts.version + '</span>',
+            '</div>',
+            '<div class="studio-clip-toning">Temp: ' + opts.temp + ' · Sat: ' + opts.sat + ' · Warmth: ' + opts.warmth + '</div>',
+            '<div class="studio-clip-score" style="' + scoreCss + '">Style match: ' + opts.score + '</div>',
+          '</div>',
+          '<div class="studio-clip-actions">',
+            '<button class="btn-fill" style="flex:1;padding:8px;font-size:11px;opacity:.7" disabled>Approve</button>',
+            '<button class="vx-icon-btn" disabled title="Download" style="opacity:.7">↓</button>',
+            '<button class="vx-icon-btn" disabled title="Re-cut" style="opacity:.7">↻</button>',
+            '<button class="vx-icon-btn vx-icon-btn-danger" disabled title="Reject" style="opacity:.7">✕</button>',
+          '</div>',
+        '</div>',
+        '<div class="studio-clip-footer">',
+          '<button class="btn" style="padding:4px 10px;font-size:10px;color:var(--t3);opacity:.7" disabled>Discard</button>',
+        '</div>',
+      '</div>',
+    ].join('')
+  }
+
+  var STUDIO_DEMO_PENDING_HTML = [
+    buildPendingCard({ grad: ['#1f1f23', '#34343a'], version: 1, temp: 4800, sat: -3, warmth: '+2', score: '0.94', scoreColor: 'ok' }),
+    buildPendingCard({ grad: ['#2a2520', '#443a32'], version: 2, temp: 5200, sat: '+1', warmth: -1, score: '0.87', scoreColor: 'accent' }),
+    buildPendingCard({ grad: ['#1f2520', '#324336'], version: 1, temp: 4600, sat: '+0', warmth: '+1', score: '0.91', scoreColor: 'ok' }),
+  ].join('')
+
+  var STUDIO_DEMO_READY_HTML = [
+    [['#1f1f23', '#34343a'], 'Morning reset — the calm one', '28s · Reel'],
+    [['#2a2520', '#443a32'], 'Sunday boundary, not to-do', '32s · Reel'],
+    [['#1f2520', '#324336'], 'The week-after-the-week', '24s · Reel'],
+    [['#221f2a', '#363242'], 'Quiet ambition, loud results', '36s · Reel'],
+  ].map(function (c) {
+    return '<div ' + STUDIO_DEMO_SENTINEL + '="1" style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;overflow:hidden;position:relative">'
+      + '<div style="position:absolute;top:10px;right:10px;z-index:2;background:rgba(0,0,0,.45);color:rgba(255,255,255,.8);font-family:\'JetBrains Mono\',monospace;font-size:9px;letter-spacing:.14em;padding:2px 6px;border-radius:3px;text-transform:uppercase;font-weight:600">Sample</div>'
+      + '<div style="background:linear-gradient(135deg, ' + c[0][0] + ' 0%, ' + c[0][1] + ' 100%);aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.4);font-size:32px">▶</div>'
+      + '<div style="padding:12px">'
+        + '<div style="font-size:13px;font-weight:500;color:var(--t1);margin-bottom:4px">' + c[1] + '</div>'
+        + '<div style="font-size:11px;color:var(--t3)">' + c[2] + ' · Approved</div>'
+      + '</div>'
+    + '</div>'
+  }).join('')
 
   function render() {
     clearTimeout(autoTimer)
     cleanup()
 
-    var st = STEPS[step]
+    var st = currentSteps[step]
 
     // Navigate to the page this step belongs to. Page IDs map to the
     // current IA — db-dashboard (HQ), db-posts, db-studio. The work/feed
@@ -110,17 +268,30 @@
       // Bring the target into the viewport before measuring. Use `instant`
       // (not `smooth`) so getBoundingClientRect inside drawStep reads the
       // settled position — smooth scroll could still be animating after a
-      // fixed delay, causing the spotlight ring to land misaligned. The
-      // spotlight ring's vx-tip-in fade-in covers the visual jump.
+      // fixed delay, causing the spotlight ring to land misaligned.
+      //
+      // Block-mode choice matters. Center-aligning a wide target (e.g.
+      // the HQ pipeline section spanning full viewport width) leaves
+      // ~half the viewport above/below — neither side has enough room
+      // for the tooltip, so placement falls through to center-screen and
+      // overlaps the target. For wide targets we anchor to viewport
+      // start instead so the tooltip can land cleanly below.
       var scrollDelay = 0
       if (target) {
         try {
           var r0 = target.getBoundingClientRect()
           var vh0 = window.innerHeight
+          var vw0 = window.innerWidth
           var fullyOnScreen = r0.top >= 80 && r0.bottom <= vh0 - 40
           if (!fullyOnScreen) {
-            target.scrollIntoView({ behavior: 'instant', block: 'center' })
-            scrollDelay = 80   // one frame to let layout flush
+            var blockMode = r0.width > vw0 * 0.6 ? 'start' : 'center'
+            target.scrollIntoView({ behavior: 'instant', block: blockMode })
+            scrollDelay = 80
+          } else if (r0.width > vw0 * 0.6 && r0.top < 60) {
+            // Wide target already near top — leave a small top gap so
+            // the spotlight ring doesn't bump the topbar.
+            window.scrollBy(0, r0.top - 80)
+            scrollDelay = 80
           }
         } catch (e) {}
       }
@@ -158,24 +329,53 @@
         addPanel(0, 0, vw, vh)
       }
 
-      // Tooltip
+      // Tooltip placement — try Right → Below → Above → Left → center-fallback.
+      // Above was missing, so wide/bottom-anchored targets (e.g. the HQ
+      // pipeline section, which spans full viewport width and sits near
+      // the bottom) fell to Left and clamped to viewport-x=20, covering
+      // the target's leftmost content (Maya's pipeline node).
       var tipW = 380
+      var tipH = 320     // approximate; tooltip varies with copy
       var tipX, tipY
       if (!rect) {
         tipX = vw/2 - tipW/2
         tipY = vh/2 - 140
       } else {
-        var spR = vw - (rect.x+rect.w), spB = vh - (rect.y+rect.h)
-        if (spR > tipW+40) {
-          tipX = rect.x+rect.w+28; tipY = Math.max(20, Math.min(vh-320, rect.cy-120))
-        } else if (spB > 300) {
-          tipX = Math.max(20, Math.min(vw-tipW-20, rect.cx-tipW/2)); tipY = rect.y+rect.h+28
+        var spR = vw - (rect.x + rect.w)   // space right of target
+        var spB = vh - (rect.y + rect.h)   // space below target
+        var spA = rect.y                    // space above target
+        var spL = rect.x                    // space left of target
+        if (spR > tipW + 40) {
+          tipX = rect.x + rect.w + 28
+          tipY = Math.max(20, Math.min(vh - tipH, rect.cy - 120))
+        } else if (spB > tipH) {
+          tipX = Math.max(20, Math.min(vw - tipW - 20, rect.cx - tipW / 2))
+          tipY = rect.y + rect.h + 28
+        } else if (spA > tipH + 48) {
+          // Above — center horizontally over the target so it reads as
+          // "the thing this card is talking about is right below." Place
+          // the tooltip 28px above the target's top edge (matching the
+          // 28px gap used by the right/below placements). The previous
+          // version had a sign bug that landed the card 20px INSIDE the
+          // spotlight box, covering the leftmost content (Jordan's node
+          // on the HQ pipeline step).
+          tipX = Math.max(20, Math.min(vw - tipW - 20, rect.cx - tipW / 2))
+          tipY = rect.y - tipH - 28
+        } else if (spL > tipW + 40) {
+          tipX = rect.x - tipW - 28
+          tipY = Math.max(20, Math.min(vh - tipH, rect.cy - 120))
         } else {
-          tipX = Math.max(20, rect.x-tipW-28); tipY = Math.max(20, Math.min(vh-320, rect.cy-120))
+          // Last resort: center-screen over the dimmer.
+          tipX = vw / 2 - tipW / 2
+          tipY = vh / 2 - 140
         }
       }
 
-      var dur = step===0 ? WELCOME_MS : step===STEPS.length-1 ? FINAL_MS : STEP_MS
+      // Mini tours use a steady cadence; main tour gives the welcome and
+      // wrap-up a slightly longer beat than the middle steps.
+      var dur = currentTourId === 'main'
+        ? (step === 0 ? WELCOME_MS : step === currentSteps.length - 1 ? FINAL_MS : STEP_MS)
+        : MINI_STEP_MS
 
       // Animated title
       var titleHtml = st.title.split('').map(function(ch,i) {
@@ -207,9 +407,9 @@
         +'<div style="height:100%;background:'+ACCENT+';border-radius:1px;animation:vx-progress '+dur+'ms linear"></div></div>'
         +'<div style="display:flex;align-items:center;gap:10px">'
         +'<div style="display:flex;gap:3px">'
-        +STEPS.map(function(_,i){return '<div style="width:'+(i===step?18:4)+'px;height:2px;background:'+(i<=step?ACCENT:'rgba(255,255,255,.15)')+';border-radius:1px;transition:all .4s"></div>'}).join('')
+        +currentSteps.map(function(_,i){return '<div style="width:'+(i===step?18:4)+'px;height:2px;background:'+(i<=step?ACCENT:'rgba(255,255,255,.15)')+';border-radius:1px;transition:all .4s"></div>'}).join('')
         +'</div>'
-        +'<span style="font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em">'+(step+1)+'/'+STEPS.length+'</span>'
+        +'<span style="font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em">'+(step+1)+'/'+currentSteps.length+'</span>'
         +'<button id="vx-tour-skip" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.35);font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;padding:4px 0">Skip</button>'
         +'</div></div></div>'
 
@@ -243,7 +443,7 @@
 
   function next() {
     clearTimeout(autoTimer)
-    if (step >= STEPS.length-1) { close(); return }
+    if (step >= currentSteps.length-1) { close(); return }
     step++
     render()
   }
@@ -253,8 +453,24 @@
     // Fade out
     els.forEach(function(e) { e.style.opacity = '0'; e.style.transition = 'opacity .3s' })
     setTimeout(cleanup, 350)
-    localStorage.setItem('vx-tour-done','1')
-    if (window.navigate) try{window.navigate('db-dashboard')}catch(e){}
+
+    // Clean up any demo content the tour injected (Studio sample clips).
+    try { clearStudioDemo() } catch (e) {}
+
+    // Persist the right done-flag for the tour that just finished. The
+    // main tour writes `vx-tour-done`; mini tours write a per-surface
+    // key so they fire exactly once per surface per user.
+    if (currentTourId === 'main') {
+      localStorage.setItem('vx-tour-done', '1')
+      if (window.navigate) try { window.navigate('db-dashboard') } catch (e) {}
+    } else if (currentTourId.indexOf('mini:') === 0) {
+      var name = currentTourId.slice(5)
+      localStorage.setItem('vx-mini-tour-' + name + '-done', '1')
+    }
+
+    // Reset to main-tour defaults so the next launch starts clean.
+    currentSteps = MAIN_STEPS
+    currentTourId = 'main'
   }
 
   // Keyboard
@@ -265,7 +481,60 @@
   })
 
   // Public API
-  window.launchSovexaTour = function() { step=0; render() }
+  window.launchSovexaTour = function() {
+    currentSteps = MAIN_STEPS
+    currentTourId = 'main'
+    step = 0
+    render()
+  }
+
+  // Surface-specific mini tour. Caller passes the key from
+  // window.VEXA_MINI_TOURS (e.g. 'studio'). Bails if no such tour or
+  // the tour engine is already running another panel set.
+  window.launchSovexaMiniTour = function (name) {
+    var tours = window.VEXA_MINI_TOURS || {}
+    var steps = tours[name]
+    if (!steps || !steps.length) return
+    if (els.length > 0) return  // another tour is on screen — don't interrupt
+    currentSteps = steps
+    currentTourId = 'mini:' + name
+    step = 0
+    render()
+  }
+
+  // Maybe-fire a mini tour on navigation. Wired below into the global
+  // navigate() function so any tab click can trigger it. Gates:
+  //   - Main tour must be done (don't pile mini on top of fresh signup).
+  //   - This particular mini must not have fired before for this user.
+  //   - Test usernames bypass the done-flag (replay every visit) but
+  //     still respect the "main tour done" gate.
+  function maybeFireMiniTour(viewId) {
+    var miniMap = {
+      'db-studio': 'studio',
+      // 'db-posts': 'posts',         // future
+      // 'db-dashboard': 'hq',        // future
+    }
+    var name = miniMap[viewId]
+    if (!name) return
+    var tours = window.VEXA_MINI_TOURS || {}
+    if (!tours[name] || !tours[name].length) return
+    if (els.length > 0) return                                  // tour already running
+    if (localStorage.getItem('vx-tour-done') !== '1') return    // main not yet done
+    var username = getCurrentUsername()
+    var isTestUser = username && TEST_USERNAMES.indexOf(username) !== -1
+    if (!isTestUser && localStorage.getItem('vx-mini-tour-' + name + '-done') === '1') return
+    // Slight delay so the view's own data-load animations settle first.
+    setTimeout(function () { window.launchSovexaMiniTour(name) }, 600)
+  }
+
+  // Wrap window.navigate so we observe every page change. We chain
+  // through the original implementation untouched.
+  var _origNavForMini = window.navigate
+  window.navigate = function (id) {
+    var r = typeof _origNavForMini === 'function' ? _origNavForMini(id) : undefined
+    try { maybeFireMiniTour(id) } catch (e) {}
+    return r
+  }
 
   // ?tour=1 — force-launch escape hatch for testing. Bypasses the done /
   // auto-fired gates and clears them so the tour can be replayed cleanly.
