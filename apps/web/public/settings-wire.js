@@ -34,28 +34,8 @@
       if (nicheInputs[1]) nicheInputs[1].value = c?.subNiche ?? ''
     }
 
-    // Community sharing toggle (Profile section) — skip when UI is hidden
-    const csWrap = document.getElementById('settings-community-section')
-    const csCb = document.getElementById('settings-community-opt-in')
-    const csStatus = document.getElementById('settings-community-status')
-    if (csWrap && !csWrap.hidden && csCb) {
-      csCb.checked = !!c?.communityOptIn
-      if (csStatus) {
-        csStatus.textContent = c?.communityOptIn
-          ? `On · since ${c.communityOptInAt ? new Date(c.communityOptInAt).toLocaleDateString() : '—'}`
-          : 'Off — your content stays private to your team.'
-      }
-    }
-  }
-
-  async function patchCommunityOptIn(optIn) {
-    const res = await fetch('/api/company/me/community-opt-in', {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ optIn, agreementVersion: 'v1' }),
-    })
-    return res.ok
+    // Community sharing toggle removed from settings UI 2026-05-11.
+    // /api/company/me/community-opt-in endpoint preserved server-side.
   }
 
   async function patchCompany(payload) {
@@ -117,32 +97,7 @@
       nicheBtn.dataset.vxWired = '1'
     }
 
-    // Community sharing toggle — direct PATCH on change, with inline status
-    const csWrap = document.getElementById('settings-community-section')
-    const csCb = document.getElementById('settings-community-opt-in')
-    if (csWrap && !csWrap.hidden && csCb && !csCb.dataset.vxWired) {
-      csCb.dataset.vxWired = '1'
-      csCb.addEventListener('change', async () => {
-        const desired = csCb.checked
-        const status = document.getElementById('settings-community-status')
-        if (status) status.textContent = 'Saving…'
-        const ok = await patchCommunityOptIn(desired)
-        if (!ok) {
-          csCb.checked = !desired
-          if (status) status.textContent = 'Could not save — please try again.'
-          return
-        }
-        if (state.company) {
-          state.company.communityOptIn = desired
-          state.company.communityOptInAt = desired ? new Date().toISOString() : null
-        }
-        if (status) {
-          status.textContent = desired
-            ? 'On · your content can appear in the Knowledge feed'
-            : 'Off — your content stays private to your team.'
-        }
-      })
-    }
+    // Community sharing toggle wire removed 2026-05-11.
   }
 
   // ── Billing — cards + Stripe checkout (GET /api/stripe/subscription) ─────

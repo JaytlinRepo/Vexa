@@ -1861,15 +1861,9 @@
                 <button class="settings-save">Save changes</button>
                 <p style="margin-top:16px;font-size:12px;color:var(--t3);line-height:1.5">Need a refresher on the dashboard? <button type="button" class="vx-replay-tips" onclick="if(typeof window.vxReplayTutorial==='function')window.vxReplayTutorial()" style="background:none;border:none;color:var(--t2);cursor:pointer;text-decoration:underline;padding:0;font:inherit">Replay quick tips</button></p>
               </div>
-              <div class="settings-section" style="margin-top:32px;border-top:1px solid var(--hair,rgba(20,16,10,.08));padding-top:28px">
-                <h3>Community sharing</h3>
-                <p style="margin-bottom:16px">When on, your <strong>10 most popular videos</strong> can appear in the Knowledge feed of other CEOs in your niche, tagged with your @handle and a link back to your original post. You won't see your own content in your own feed.</p>
-                <label style="display:flex;align-items:center;gap:12px;cursor:pointer;font-size:13px;color:var(--t1)">
-                  <input type="checkbox" id="settings-community-opt-in" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer" />
-                  <span>Allow my top videos to appear in the Knowledge feed</span>
-                </label>
-                <div id="settings-community-status" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3)"></div>
-              </div>
+              <!-- Community sharing section removed 2026-05-11. Backend
+                   endpoint /api/company/me/community-opt-in and the
+                   communityOptIn / communityOptInAt fields are preserved. -->
             </div>
             <div class="settings-panel" id="settings-brand">
               <div class="settings-section">
