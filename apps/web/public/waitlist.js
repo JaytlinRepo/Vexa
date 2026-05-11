@@ -46,7 +46,7 @@
     + '<span class="line"><span>Your AI content team</span></span>'
     + '<span class="line"><span>is <em>almost ready.</em></span></span>'
     + '</h1>'
-    + '<p class="sub">Create your account to reserve your spot. Four AI employees that plan, write, edit, and ship your content.</p>'
+    + '<p class="sub">Create your account to reserve your spot. Three AI employees that plan, write, edit, and ship your content.</p>'
 
     // Signup form (replaces CTA buttons)
     + '<form id="vx-wl-form" style="display:flex;flex-direction:column;gap:10px;max-width:360px;margin-top:32px">'
@@ -91,8 +91,6 @@
     + '<div class="agent-connector"><div></div></div>'
     + agentRow('jordan', 'J', 'Jordan \u00B7 Content Strategist', ['drafting brief #213', 'mapping to <em>pillar 2</em>', 'angle: boundary \u00B7 not to-do'])
     + '<div class="agent-connector"><div></div></div>'
-    + agentRow('alex', 'A', 'Alex \u00B7 Copywriter', ['writing Reel caption', 'voice match <em>96%</em>', 'draft 2 of 2'])
-    + '<div class="agent-connector"><div></div></div>'
     + agentRow('riley', 'R', 'Riley \u00B7 Creative Director', ['editing reel \u00B7 jump cuts', 'style match <em>94%</em>', 'exporting 9:16 vertical'])
     + '</div>'
     + '<div class="out-ticker">'
@@ -106,22 +104,21 @@
 
     // ─── MARQUEE ────────────────────────────────────────────────
     + '<div class="marquee"><div class="track">'
-    + '<span>your content team</span><span>always on brand</span><span>four employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
-    + '<span>your content team</span><span>always on brand</span><span>four employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
+    + '<span>your content team</span><span>always on brand</span><span>three employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
+    + '<span>your content team</span><span>always on brand</span><span>three employees</span><span>zero prompts</span><span>plan write edit ship</span><span>you\'re the CEO</span>'
     + '</div></div>'
 
     // ─── TEAM ───────────────────────────────────────────────────
     + '<section class="blk" id="vx-wl-team" style="scroll-margin-top:80px">'
     + '<div class="sec-head reveal">'
     + '<span class="eyebrow">\u00A7 01 \u00B7 meet the team</span>'
-    + '<h2>Four agents. <em>One voice.</em> Yours.</h2>'
-    + '<p class="lede">Four specialists, each with their own lane, personality, and permissions they earn. You manage them like a team.</p>'
+    + '<h2>Three agents. <em>One voice.</em> Yours.</h2>'
+    + '<p class="lede">Three specialists, each with their own lane, personality, and permissions they earn. You manage them like a team.</p>'
     + '</div>'
     + '<div class="team-wrap">'
     + tCard('M', 'Maya', 'Trend & Insights Analyst', '"I read the internet so you don\'t <em>have to</em>."', ['66 sources', 'weekly pulse', 'competitor watch'], 'd1')
     + tCard('J', 'Jordan', 'Content Strategist', '"Signal is cheap. A <em>plan</em> is the job."', ['pillars', 'briefs', 'cadence'], 'd2')
-    + tCard('A', 'Alex', 'Copywriter & Script Writer', '"Less <em>ought-to</em>, more <em>felt</em>."', ['voice-locked', 'captions', 'shot lists'], 'd3')
-    + tCard('R', 'Riley', 'Creative Director', '"Right post. Right minute. Right <em>feed</em>."', ['IG \u00B7 TT \u00B7 YT', 'auto-edit', 'cross-post'], 'd4')
+    + tCard('R', 'Riley', 'Creative Director', '"Right post. Right minute. Right <em>feed</em>."', ['IG \u00B7 TT \u00B7 YT', 'auto-edit', 'cross-post'], 'd3')
     + '</div>'
     + '</section>'
 
@@ -146,7 +143,7 @@
     + '<td style="vertical-align:top;padding:0 0 40px 0">'
     + '<div style="font-family:Cormorant Garamond,Georgia,serif;font-size:24px;font-weight:400;font-style:italic;margin-bottom:10px;color:var(--t1)">Sovexa</div>'
     + '<p style="font-family:Inter,sans-serif;font-size:13px;color:var(--t3);line-height:1.6;margin:0 0 6px;font-style:italic">Your content. Run by a team.</p>'
-    + '<p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t3);line-height:1.6;margin:0">Four AI employees that plan, write, edit, and produce content for your brand.</p>'
+    + '<p style="font-family:Inter,sans-serif;font-size:12px;color:var(--t3);line-height:1.6;margin:0">Three AI employees that plan, write, edit, and produce content for your brand.</p>'
     + '</td>'
     + '<td style="vertical-align:top;text-align:right;padding:0 0 40px 0;white-space:nowrap">'
     + '<div style="font-family:JetBrains Mono,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Company</div>'

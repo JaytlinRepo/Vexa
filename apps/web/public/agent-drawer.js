@@ -417,7 +417,9 @@
     tabsContainer.id = 'vx-agent-tabs'
     tabsContainer.style.cssText = 'position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:8000;display:flex;flex-direction:column;gap:2px;padding:4px 0'
 
-    var roles = ['analyst', 'strategist', 'copywriter', 'creative_director']
+    // 'copywriter' (Alex) is intentionally absent — role was retired and
+     // AGENTS has no entry for it; iterating it would crash on a.init.
+    var roles = ['analyst', 'strategist', 'creative_director']
     roles.forEach(function (role) {
       var a = AGENTS[role]
       var tab = document.createElement('button')

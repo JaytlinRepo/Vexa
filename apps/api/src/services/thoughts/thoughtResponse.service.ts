@@ -26,10 +26,15 @@ Be practical about production constraints while being visually inspired.
 Keep responses concise (2-3 sentences max) and use a visual, practical tone.`,
 }
 
+// `copywriter` keywords intentionally empty — Alex/copywriter role is
+// shelved, no Employee row with role='copywriter' is seeded, so selectAgent
+// must never return it (would throw "No employee found for copywriter").
+// Thoughts that previously routed to Alex now fall through to the strategist
+// default (Jordan), who currently owns hooks/captions/scripts.
 const ROLE_RELEVANCE: Record<EmployeeRole, string[]> = {
   analyst: ['data', 'engagement', 'metrics', 'trending', 'numbers', 'analytics', 'performance'],
-  strategist: ['strategy', 'content plan', 'goals', 'audience', 'direction', 'positioning', 'approach'],
-  copywriter: ['copy', 'tone', 'hook', 'script', 'captions', 'creative', 'writing'],
+  strategist: ['strategy', 'content plan', 'goals', 'audience', 'direction', 'positioning', 'approach', 'copy', 'tone', 'hook', 'script', 'captions', 'creative', 'writing'],
+  copywriter: [],
   creative_director: ['visual', 'format', 'production', 'filming', 'design', 'aesthetic', 'shots'],
 }
 

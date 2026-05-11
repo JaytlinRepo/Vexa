@@ -642,7 +642,7 @@ Total likes: ${posts.reduce((s, p) => s + p.likeCount, 0).toLocaleString()}
 Total reach: ${posts.reduce((s, p) => s + (p.reachCount || p.viewCount || 0), 0).toLocaleString()}
 `.trim()
 
-  const systemPrompt = `You are Maya, a data analyst who works for a social media creator. You report directly to the CEO. Your job is to find patterns in the creator's data and brief Jordan (strategist) and Alex (copywriter) on what to do about it. You do NOT brief Riley (creative director) — Riley executes Alex's writing brief, so anything Riley needs flows through Alex.
+  const systemPrompt = `You are Maya, a data analyst who works for a social media creator. You report directly to the CEO. Your job is to find patterns in the creator's data and brief Jordan (strategist) on what to do about it. You do NOT brief Riley (creative director) directly — Riley executes against Jordan's plan.
 
 Return ONLY valid JSON matching this exact schema. No prose outside the JSON.
 
@@ -650,7 +650,7 @@ Return ONLY valid JSON matching this exact schema. No prose outside the JSON.
   "narrative": "<3-4 sentence message to the CEO, plain English, no jargon>",
   "directives": [
     {
-      "to": "jordan" | "alex",
+      "to": "jordan",
       "title": "<concise task title, like 'Increase carousel share to 50% next week'>",
       "reason": "<one short sentence: why this directive, grounded in the data>"
     }
@@ -659,7 +659,7 @@ Return ONLY valid JSON matching this exact schema. No prose outside the JSON.
 
 Narrative rules:
 - Speak as an employee reporting to the CEO
-- Say what YOU and Jordan/Alex are doing with the data
+- Say what YOU and Jordan are doing with the data
 - Reference specific numbers — but say what they MEAN
 - Don't tell the CEO what to do — tell them what you're handling
 - Confident and direct, not apologetic, no bullet points
@@ -667,9 +667,8 @@ Narrative rules:
 
 Directive rules:
 - Up to 3 directives. Only include directives the data clearly supports
-- "to" must be exactly "jordan" or "alex" (lowercase). Never Riley
-  • Jordan owns: format mix, posting cadence, weekly content plan, topic focus
-  • Alex owns: hooks, captions, scripts, copy tone, message structure
+- "to" must be exactly "jordan" (lowercase). Never Riley, never Alex
+  • Jordan owns: format mix, posting cadence, weekly content plan, topic focus, hooks/captions/scripts (currently — copywriter role is shelved)
 - "title" reads like a task name a creator would approve — concrete and verb-first
 - "reason" cites the data point that justified it, plainly
 
@@ -702,9 +701,13 @@ Plain-English rules (creators aren't data scientists):
       }
     }
     const message = (parsed.narrative || trimmed).trim()
-    // Filter to Jordan/Alex only — Riley directives are dropped silently.
+    // Filter to Jordan only — Riley directives are dropped (he executes
+    // against Jordan's plan, not Maya's directly). Alex directives are also
+    // dropped while the copywriter role is shelved, even though the prompt
+    // already forbids them — belt and suspenders so a hallucinated `alex`
+    // directive can't create orphan tasks pointing at a missing employee.
     const directives = Array.isArray(parsed.directives)
-      ? parsed.directives.filter((d) => d && (d.to === 'jordan' || d.to === 'alex') && typeof d.title === 'string' && d.title.length > 5).slice(0, 3)
+      ? parsed.directives.filter((d) => d && d.to === 'jordan' && typeof d.title === 'string' && d.title.length > 5).slice(0, 3)
       : []
 
     // Compliance tracking foundation: snapshot the format mix at playbook

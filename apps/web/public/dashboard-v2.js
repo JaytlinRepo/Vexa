@@ -2044,73 +2044,13 @@
       fetchAll().catch(() => {})
       return
     }
-    try { await fetchAll() } catch (e) { console.warn('[v2] fetchAll failed, rendering with partial data', e) }
-    injectMotionStyles()
-    const root = view.querySelector('.db-layout') || view
-    // The prototype's .db-layout is a grid (1fr 280px); our flex pane was
-    // being clipped into just the first column. Reset to a plain block so
-    // our inner flex layout can span the full view.
-    root.style.cssText = 'height:100%;display:block;overflow:hidden;grid-template-columns:none'
-    root.innerHTML = `
-      <div style="height:100%;display:flex;min-height:0;font-family:'DM Sans',sans-serif">
-        <main style="flex:1;min-width:0;overflow-y:auto;padding:36px 48px 72px">
-          ${sectionHeader()}
-          ${sectionCeoNextAction()}
-          ${sectionOverview()}
-          ${sectionTeamPulseBanner()}
-          ${sectionPerformanceFeedback()}
-          ${''}<!-- team accessible via side tabs -->
-          ${sectionPerformance()}
-          ${sectionTiktok()}
-          ${sectionActivity()}
-        </main>
-        ${''}<!-- knowledge feed moved to its own page -->
-      </div>
-    `
-    wireEvents(root)
-    // Remove the auth gate style now that v2 owns the DOM
-    document.getElementById('vx-auth-gate')?.remove()
-
-    // Switch topbar to app nav (in case enterDashboard wasn't called, e.g. page reload)
-    if (STATE.me?.user) {
-      var mktNav = document.getElementById('nav-marketing')
-      var appNav = document.getElementById('nav-app')
-      var loginBtn = document.getElementById('topbar-login')
-      var ctaBtn = document.getElementById('topbar-cta')
-      var notifBtn = document.getElementById('notif-btn')
-      if (mktNav) mktNav.style.display = 'none'
-      if (appNav) appNav.style.display = 'flex'
-      if (loginBtn) loginBtn.style.display = 'none'
-      if (ctaBtn) ctaBtn.style.display = 'none'
-      if (notifBtn) notifBtn.style.display = 'flex'
-      var nameEl = document.getElementById('nav-username')
-      var planEl = document.getElementById('nav-userplan')
-      var avatarEl = document.getElementById('nav-avatar')
-      var company = STATE.me.companies?.[0]
-      if (nameEl) nameEl.textContent = company?.name || 'My Company'
-      if (planEl) {
-        var _pv2Labels = { free: 'Free', pro: 'Pro', max: 'Max', agency: 'Agency' }
-        var _pv2 = STATE.me.user.plan || 'free'
-        planEl.textContent = (_pv2Labels[_pv2] || String(_pv2).replace(/^./, function (c) { return c.toUpperCase() })) + ' plan'
-      }
-      if (avatarEl) avatarEl.textContent = (company?.name || 'S')[0].toUpperCase()
-      try {
-        window.dispatchEvent(new CustomEvent('vx-app-topbar-synced'))
-      } catch (e2) {
-        /* noop */
-      }
-    }
-    // Animations — staggered reveal + counters + sparkline draw
-    requestAnimationFrame(function () {
-      animateOnReveal(root)
-      animateCounters(root)
-      animateSparklines(root)
-    })
-    // Kick off background syncs AFTER rendering — doesn't delay the UI
-    backgroundTiktokSync()
-    backgroundInstagramSync()
-    // Toasts disabled — delivered items shown in "Next for you" section
-    // setTimeout(showDeliverableToasts, 600)
+    // v3 is the only path now — anything past the early-return above is
+    // unreachable (`.hq-v3` is always present on view-db-dashboard). The
+    // old JS-generated layout body lived here: ~70 lines that rendered
+    // section helpers (sectionHeader/Overview/Performance/Tiktok/Activity),
+    // wired events, set up the topbar, and kicked background syncs.
+    // The helpers themselves (lines ~330–1820 above) are also dead and
+    // pending a follow-up purge — separate commit so this one stays surgical.
   }
 
   // ── Deliverable toasts — rotating single notification ──────────
